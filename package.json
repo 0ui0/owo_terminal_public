@@ -1,7 +1,7 @@
 {
   "name": "owo-terminal",
   "productName": "owo-terminal",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "type": "module",
   "main": "app.js",
   "description": "Super cute terminal",
@@ -53,7 +53,8 @@
       "target": {
         "target": "zip",
         "arch": [
-          "x64"
+          "x64",
+          "arm64"
         ]
       },
       "icon": "icon.ico"
