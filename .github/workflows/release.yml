@@ -10,9 +10,11 @@ permissions:
 
 jobs:
   release:
+    name: Build and Release
     runs-on: ${{ matrix.os }}
 
     strategy:
+      fail-fast: false
       matrix:
         os: [macos-latest, windows-latest]
 
@@ -24,6 +26,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node_version: '20'
+          cache: 'npm'
 
       - name: Install dependencies
         run: |
@@ -33,10 +36,11 @@ jobs:
       - name: Build and Release Electron app
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          if [ "$RUNNER_OS" == "macOS" ]; then
+          if [ "${{ runner.os }}" == "macOS" ]; then
             npx electron-builder --mac --publish always
-          elif [ "$RUNNER_OS" == "Windows" ]; then
+          elif [ "${{ runner.os }}" == "Windows" ]; then
             npx electron-builder --win --publish always
           fi
         shell: bash
