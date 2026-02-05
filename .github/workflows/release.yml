@@ -29,6 +29,8 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           npm install
           cd www && npm install

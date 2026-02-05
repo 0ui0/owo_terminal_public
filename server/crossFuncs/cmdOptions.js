@@ -66,9 +66,9 @@ export default {
       await options.pull() //这两个顺序不能对调
       await aiBasic.initList()
 
-      await comData.data.edit(data => {
+      /* await comData.data.edit(data => {
         data.currentModel = ""
-      })
+      }) */
 
       return {
         ok: true,

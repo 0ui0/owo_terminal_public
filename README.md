@@ -1,6 +1,10 @@
 # 宅喵终端 (owo_terminal) ฅ^•ﻌ•^ฅ
 
 ![预览图](preview.png)
+![语言切换](languageSwitch.png)
+
+> [!TIP]
+> 你可以在「设置」->「通用」->「基本」中，按照上图所示切换系统语言（支持简体中文和英文）。
 
 你好呀！欢迎来到**宅喵终端**的仓库。这是一个充满了傲娇灵魂、却又极度实用的本地 AIOS (AI Operating System) 实验性终端项目。
 
@@ -89,6 +93,11 @@
 # owo_terminal ฅ^•ﻌ•^ฅ (English Version)
 
 Hello! Welcome to the **owo_terminal** repository. This is a local AIOS (AI Operating System) experimental terminal project that is both tsundere in soul and extremely practical in function.
+
+![Language Switch](languageSwitch.png)
+
+> [!TIP]
+> You can switch the system language (supports Simplified Chinese and English) in **Settings** -> **General** -> **Basic**, as shown in the image above.
 
 ---
 

@@ -5,6 +5,8 @@ import SessionList from "./ChatSessionList.js"
 import data from "./chatData.js"
 import comData from "../../comData/comData.js"
 import ChatVideo from "./ChatVideo.js"
+import settingData from "../setting/settingData.js"
+
 export default () => {
 
   return {
@@ -51,28 +53,36 @@ export default () => {
             //background:"#4a443f"
           }
         }, [
-          m("", {
+          settingData.options?.get("global_actorSwitch") !== 1 ? m("", {
             style: {
               display: "flex",
               flexDirection: "column",
-              //justifyContent:"center",
+              justifyContent: "center",
               alignItems: "center",
-              borderRadius: "3rem",
-              //border:"0.1rem solid #755d5c",
-              //background:"#47464f",
+              borderRadius: "50%",
+              border: "0.1rem solid #755d5c",
+              background: "#47464f",
               overflow: "hidden",
-              height: "100%",
+              height: "25rem",
               width: "25rem"
             }
           }, [
             m("img", {
-              style: {
-                height: "100%",
-              },
-              //src:`./statics/pet/${comData.data.get()?.faceAction || "smile"}.png`,
+              style: { height: "100%" },
+              src: `./statics/pet/${comData.data.get()?.faceAction || "smile"}.png`,
+              onupdate: (vnode) => {
+                const current = comData.data.get()?.faceAction
+                if (current && current !== "smile") {
+                  if (vnode.state.timer) clearTimeout(vnode.state.timer)
+                  vnode.state.timer = setTimeout(() => {
+                    comData.data.edit(d => d.faceAction = "smile")
+                    m.redraw()
+                  }, 4000)
+                }
+              }
             }),
 
-          ]),
+          ]) : null,
           //m(SessionList)
         ]) : null,
         //right

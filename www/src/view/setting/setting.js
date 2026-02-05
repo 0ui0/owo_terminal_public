@@ -421,8 +421,8 @@ export default () => {
               paddingRight: "2.5rem"
             }
           }, [
-            m("option", { value: "cn", style: { background: "#333", color: "#eee" } }, "🇨🇳 简体中文"),
-            m("option", { value: "en", style: { background: "#333", color: "#eee" } }, "🇺🇸 English")
+            m("option", { value: "cn", style: { background: "#333", color: "#eee" } }, "简体中文"),
+            m("option", { value: "en", style: { background: "#333", color: "#eee" } }, "English")
           ])
         ])
       }
