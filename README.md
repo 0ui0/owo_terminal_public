@@ -6,6 +6,14 @@
 
 ---
 
+> [!IMPORTANT]
+> **发布仓库说明 (Release Repository)**
+> *   本仓库作为 **正式版本发布仓库**。我们非常欢迎你提出 **Issue**（问题、建议或 Bug 反馈）。
+> *   **不支持 Pull Requests (PR)**：这里不接受直接的代码提交或合并申请。所有更新均由内部私有仓库整理后同步发布至此。
+> *   **源码说明**：除 `server/tools/aiAsk/AiAsk.coffee` 以外，本仓库提供的是标准的 **JavaScript 源码**。虽然部分文件开头标注了由 CoffeeScript 编译，但为了便于 AI 开发和协作，项目已整体转向 JS，原 CoffeeScript 源文件已删除。唯一的例外是 `AiAsk.coffee`，它与作者的其他项目共享逻辑，故保留原文件。
+
+---
+
 ## 🏗️ 项目架构 (The Architecture)
 
 本项目采用了现代化的前端 + 稳健的后端 + 本地存储的架构，确保你的所有数据都留在本地。
@@ -81,6 +89,14 @@
 # owo_terminal ฅ^•ﻌ•^ฅ (English Version)
 
 Hello! Welcome to the **owo_terminal** repository. This is a local AIOS (AI Operating System) experimental terminal project that is both tsundere in soul and extremely practical in function.
+
+---
+
+> [!IMPORTANT]
+> **Notice: Release Repository**
+> *   This is the **Official Release Repository**. We warmly welcome **Issues** (questions, suggestions, or bug reports).
+> *   **No Pull Requests (PR)**: We do not accept direct code submissions or merge requests here. All updates are curated in a private internal repository and synchronized here.
+> *   **Source Code Status**: The repository provides standard **JavaScript source code**, with the sole exception of `server/tools/aiAsk/AiAsk.coffee`. Some files may include headers indicating they were compiled from CoffeeScript; however, the project has transitioned to JS to better support AI-driven development, and the original Coffee files (except `AiAsk`) have been removed. `AiAsk.coffee` remains because it is shared across multiple projects.
 
 ---
 
