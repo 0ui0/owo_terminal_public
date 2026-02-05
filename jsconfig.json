@@ -1,0 +1,6 @@
+{
+  "compilerOptions": {
+    "checkJs": false
+  },
+  "exclude": ["node_modules"]
+}

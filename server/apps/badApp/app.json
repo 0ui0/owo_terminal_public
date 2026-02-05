@@ -1,0 +1,6 @@
+{
+  "id": "badApp",
+  "name": "报错测试应用",
+  "backend": "backend.js",
+  "frontend": "frontend.js"
+}

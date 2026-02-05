@@ -1,0 +1,9 @@
+{
+  "id": "gomoku",
+  "name": "五子棋",
+  "description": "一个简单的五子棋游戏",
+  "version": "1.0.0",
+  "icon": "⚪",
+  "backend": "backend.js",
+  "frontend": "frontend.js"
+}

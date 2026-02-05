@@ -1,0 +1,103 @@
+{
+  "name": "owo-terminal",
+  "productName": "owo-terminal",
+  "version": "1.0.3",
+  "type": "module",
+  "main": "app.js",
+  "description": "Super cute terminal",
+  "build": {
+    "buildDependenciesFromSource": false,
+    "npmRebuild": false,
+    "files": [
+      "**/*",
+      "!**/*.coffee",
+      "!server/db.sqlite",
+      "!www/src",
+      "!www/data",
+      "!upload",
+      "!.git",
+      "!.gitignore",
+      "!.vscode",
+      "!**/*._*",
+      "!**/.DS_Store"
+    ],
+    "asar": false,
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "runAfterFinish": true,
+      "shortcutName": "宅喵终端"
+    },
+    "appId": "com.iw_i.owo_terminal",
+    "mac": {
+      "icon": "icon.icns",
+      "target": {
+        "target": "dmg",
+        "arch": [
+          "x64",
+          "arm64"
+        ]
+      }
+    },
+    "win": {
+      "target": {
+        "target": "zip",
+        "arch": [
+          "x64"
+        ]
+      },
+      "icon": "icon.ico"
+    },
+    "linux": {
+      "icon": "icon.png"
+    }
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "server": "cd server && node serve.js",
+    "client": "cd www && vite",
+    "watch": "coffee -bwc ./",
+    "viteBuild": "cd www && vite build --watch",
+    "electron": "npx electron .",
+    "dev": "concurrently \"npm run server\" \"npm run client\"",
+    "build": "npx electron-builder --mac --win --x64 --arm64"
+  },
+  "author": "Blue_sdo",
+  "license": "ISC",
+  "dependencies": {
+    "@babel/parser": "^7.28.6",
+    "@hapi/hapi": "^21.4.3",
+    "@hapi/inert": "^7.1.0",
+    "@homebridge/node-pty-prebuilt-multiarch": "^0.13.1",
+    "@icon-park/svg": "^1.4.2",
+    "@vscode/ripgrep": "^1.17.0",
+    "@xterm/addon-fit": "^0.10.0",
+    "@xterm/xterm": "^5.5.0",
+    "fs-extra": "^11.3.2",
+    "highlight.js": "^11.11.1",
+    "joi": "^18.0.1",
+    "joi-to-json": "^5.0.0",
+    "js-yaml": "^4.1.0",
+    "katex": "^0.16.22",
+    "lodash": "^4.17.21",
+    "marked": "^16.3.0",
+    "marked-admonition-extension": "^0.0.4",
+    "mithril": "^2.3.7",
+    "node-html-markdown": "^2.0.0",
+    "openai": "^6.16.0",
+    "pg": "^8.16.3",
+    "pg-hstore": "^2.3.4",
+    "sequelize": "^6.37.7",
+    "socket.io": "^4.8.1",
+    "sqlite3": "^5.1.7",
+    "strip-ansi": "^7.1.2",
+    "uuid": "^13.0.0"
+  },
+  "devDependencies": {
+    "@electron/rebuild": "^4.0.1",
+    "concurrently": "^9.2.1",
+    "electron": "^38.2.1",
+    "electron-builder": "^26.0.12",
+    "vite": "^7.1.9"
+  }
+}
