@@ -1,4 +1,5 @@
 import { v4 as uuidV4 } from "uuid"
+import { trs } from "../../../tools/i18n.js"
 import chats from "./chats.js"
 import comData from "../../../comData/comData.js"
 import aiBasic from "../../../tools/aiAsk/basic.js"
@@ -48,7 +49,7 @@ export default ({ socket, server, io, db, verifyCookie }) => {
         let ai_aiSwitch = await options.get("ai_aiSwitch")
         if (!ai_aiSwitch) {
           // 检查子智能体（即使全局开关关闭也可能允许子智能体？假设全局开关关闭所有）
-          io.emit("notice", "大模型总开关关闭")
+          io.emit("notice", trs("消息/大模型总开关关闭", { cn: "大模型总开关关闭", en: "AI Master Switch is OFF" }))
           return
         }
       }
@@ -75,7 +76,7 @@ export default ({ socket, server, io, db, verifyCookie }) => {
         let chat = {
           uuid: idTool.get(),
           content: inputText,
-          name: "用户",
+          name: trs("角色/用户"),
           group: "user",
           timestamp: Date.now(),
           chatListId: listId // 指派归属权
@@ -173,8 +174,8 @@ export default ({ socket, server, io, db, verifyCookie }) => {
           if (!targetModel) {
             let chat = {
               uuid: idTool.get(),
-              content: listId > 0 ? `找不到子智能体 ID: ${listId}` : `找不到模型${comData.data.get().currentModel}`,
-              name: "系统",
+              content: listId > 0 ? trs("错误/找不到子智能体", { cn: `找不到子智能体 ID: ${listId}`, en: `Agent ID not found: ${listId}` }) : trs("错误/找不到模型", { cn: `找不到模型: ${comData.data.get().currentModel}`, en: `Model not found: ${comData.data.get().currentModel}` }),
+              name: trs("角色/系统"),
               group: "user",
               timestamp: Date.now(),
               chatListId: listId
@@ -215,10 +216,17 @@ export default ({ socket, server, io, db, verifyCookie }) => {
                 const terminals = tSession.getSummary()
                 const apps = appManager.getSummary()
                 const { customCwd } = comData.data.get()
-                return `系统：${process.platform} ${process.arch};
-${customCwd ? "用户已指定工作目录：" + customCwd + ";" : ""}
+                const lang = options.json?.global_language?.value || 'cn'
+                const langMap = {
+                  cn: "中文",
+                  en: "english",
+                }
+                return `
+系统：${process.platform} ${process.arch}
+${customCwd ? "用户指定工作目录：" + customCwd + ";" : ""}
 ${terminals.length > 0 ? "终端：" + JSON.stringify(terminals) + ";" : ""}
-${apps.length > 0 ? "已启动app：" + JSON.stringify(apps) + ";" : ""}`
+${apps.length > 0 ? "已启动app：" + JSON.stringify(apps) + ";" : ""}
+!!!用户指定你只能使用${langMap[lang]}语言回复!!!`
               },
               async onSendAskBefore(aiAskInstance) {
                 const aiList = await options.get("ai_aiList");
@@ -228,10 +236,10 @@ ${apps.length > 0 ? "已启动app：" + JSON.stringify(apps) + ";" : ""}`
                 modelIndex = aiList.findIndex(m => m.name === currentModelName);
 
                 if (!aiList[modelIndex]) {
-                  throw new Error("找不到模型对应的数据库模型配置（读取preToken错误）");
+                  throw new Error(trs("错误/找不到模型配置", { cn: "找不到模型对应的数据库模型配置（读取preToken错误）", en: "Model config not found (preToken read error)" }));
                 }
                 if (aiList[modelIndex].preTokens <= 0) {
-                  throw new Error("已到达设置中preToken的预警值，preToken不足");
+                  throw new Error(trs("错误/余额不足", { cn: "已到达设置中preToken的预警值，preToken不足", en: "PreToken limit reached, insufficient tokens" }));
                 }
               },
               async onTokenChange(aiAskInstance, usage) {
@@ -271,8 +279,8 @@ ${apps.length > 0 ? "已启动app：" + JSON.stringify(apps) + ";" : ""}`
 
                   } catch (error) {
                     replyJSON = {
-                      user: "系统错误",
-                      mind: "解析错误",
+                      user: trs("crossFuncs/错误/系统错误"),
+                      mind: trs("错误/解析错误", { cn: "解析错误", en: "Parse Error" }),
                       content: `原始json${reply}`
                     };
                   }
@@ -309,7 +317,7 @@ ${apps.length > 0 ? "已启动app：" + JSON.stringify(apps) + ";" : ""}`
               async beforeRun() {
                 const list = comData.data.get().chatLists.find(l => l.id === listId);
                 if (list?.stop) {
-                  targetModel.addAsk("系统", "user", "用户手动中断回复")
+                  targetModel.addAsk(trs("角色/系统"), "user", trs("消息/用户手动中断", { cn: "用户手动中断回复", en: "User manually interrupted" }))
                   targetModel.stopRun()
                 }
                 await comData.data.edit((data) => {
@@ -353,8 +361,8 @@ ${apps.length > 0 ? "已启动app：" + JSON.stringify(apps) + ";" : ""}`
       })
       let chat = {
         uuid: idTool.get(),
-        content: "系统错误 " + error?.message,
-        name: "系统",
+        content: trs("crossFuncs/错误/系统错误") + error?.message,
+        name: trs("角色/系统"),
         group: "error",
         timestamp: Date.now(),
         chatListId: que?.chatListId || 0

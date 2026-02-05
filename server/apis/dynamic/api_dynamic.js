@@ -1,4 +1,6 @@
 import Dir from "../../tools/dir.js"
+import { trs } from "../../tools/i18n.js"
+
 export default async () => {
   return {
     path: "/api/dynamic",
@@ -11,7 +13,7 @@ export default async () => {
         console.log(err)
         return {
           ok: false,
-          msg: "服务器内部错误"
+          msg: trs("API/错误/服务器内部错误")
         }
       }
 

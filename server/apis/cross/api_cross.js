@@ -1,4 +1,5 @@
 import Dir from "../../tools/dir.js"
+import { trs } from "../../tools/i18n.js"
 export default async () => {
   return {
     path: "/api/cross",
@@ -31,14 +32,14 @@ export default async () => {
         }
         return {
           ok: false,
-          msg: "找不到函数"
+          msg: trs("API/错误/找不到函数")
         }
       }
       catch (err) {
         // console.log(err)
         return {
           ok: false,
-          msg: "函数执行错误"
+          msg: trs("API/错误/函数执行错误")
         }
       }
 

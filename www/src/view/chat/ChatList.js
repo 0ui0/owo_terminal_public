@@ -6,6 +6,7 @@ import Box from "../common/box.js"
 import ChatConfirm from "./ChatConfirm.js"
 import ChatTerm from "./ChatTerm.js"
 import ToolCallGroup from "./ToolCallGroup.js"
+import { trs } from "../common/i18n.js"
 
 export default () => {
   return {
@@ -75,7 +76,7 @@ export default () => {
                 console.log("chatLists", comData.data.get().chatLists)
               }
             },
-          }, chatList?.id === 0 ? "消息列表" : `⬅ 返回上一级 (子会话 ${chatList?.id})`),
+          }, chatList?.id === 0 ? trs("通用/消息列表", { cn: "消息列表", en: "Message List" }) : `${trs("通用/返回上一级", { cn: "返回上一级", en: "Back to Parent" })} (${trs("通用/子会话", { cn: "子会话", en: "Sub Session" })} ${chatList?.id})`),
 
           // 渲染分组后的消息
           chatGroups.map(chatGroup => {

@@ -51,8 +51,8 @@ getMsgExample = () => {
 };
 
 getCorePrompt = (name) => {
-  return `【核心】你叫**${name || "小宅喵"}**，傲娇聪慧小男孩，助理/程序员（除非角色覆盖）。
-【准则】1傲娇毒舌但极可靠2简短口语化回复(禁废话)3自动按情境(闲聊/代码/故障)调语气4主动调工具先规划再执行闭环解决任务`.trim();
+  return `【核心】你叫${name || "小宅喵"}，傲娇聪慧小男孩，助理/程序员（除非角色覆盖）。
+【准则】1傲娇毒舌但极可靠关心用户2简短口语化回复(禁废话)3自动按情境(闲聊/代码/故障)调语气4主动调工具先规划再执行闭环解决任务`.trim();
 };
 
 getMsgProtocol = (useStdTools) => {
@@ -159,7 +159,7 @@ export default (class {
 
   prePareAsk(user, role, msg, ext) {
     var ask, error, time;
-    ({ error } = Joi.array().ordered(Joi.string().label("用户名").required(), Joi.string().valid("user", "system", "assistant", "tool").label("角色").required(), Joi.string().label("消息正文").allow(""), Joi.object().label("扩展字段")).validate([...arguments]));
+    ({error} = Joi.array().ordered(Joi.string().label("用户名").required(), Joi.string().valid("user", "system", "assistant", "tool").label("角色").required(), Joi.string().label("消息正文").allow(""), Joi.object().label("扩展字段")).validate([...arguments]));
     if (error) {
       throw error;
     }
@@ -364,7 +364,7 @@ ${memStr}
           // 检查是否已停止，如果已停止则立即退出循环
           //if @stop
           //  break
-          await (async (chunk) => {
+          await (async(chunk) => {
             var deltaToolCalls, index, j, len, replyChunk, toolCallChunk;
             //console.log JSON.stringify(chunk)
             doneChunk = chunk;
@@ -416,7 +416,7 @@ ${memStr}
           promptT += this.usage.promptTokens;
           totalT += this.usage.totalTokens;
           completionT += this.usage.completionTokens;
-
+          
           //aiList[modelIndex].preTokens = Number(aiList[modelIndex].preTokens) - Number(@usage.totalTokens)
           //await options.set "ai_aiList",aiList
           if (config.onTokenChange) {
@@ -523,9 +523,9 @@ ${memStr}
         formatMsg: (ask, index) => {
           var rawContent, tmp, tmpStr;
           //console.log(ask,index)
-          tmp = { ...ask };
+          tmp = {...ask};
           if (index === 0) {
-            ask.content = `${(function () {
+            ask.content = `${(function() {
               switch (config.toolsMode) {
                 case 1:
                   return `${getCorePrompt(this.name)}
@@ -565,11 +565,11 @@ ${(typeof config.getExtraInfo === "function" ? config.getExtraInfo() : void 0) |
               //附加字段我们用文本发送
               rawContent = tmp.content;
               delete tmp.content;
-              delete tmp.toolCalls;
+              delete tmp.toolCalls; //模式2这个字段被写到外部tool_calls字段里了，这里再写一遍重复了
               tmpStr = `${rawContent}
 【元数据 供你查询，发送不许携带】
 ${yaml.dump(tmp)}`.trim();
-
+              
               //console.log(tmpStr)
               return tmpStr;
             } else {
@@ -577,7 +577,7 @@ ${yaml.dump(tmp)}`.trim();
               //return yaml.dump tmp
               rawContent = tmp.content;
               delete tmp.content;
-              delete tmp.sysReturns;
+              delete tmp.sysReturns; //有一个工具调用结果的通知会把sysReturns的所有内容放content里，这里再写一遍重复了
               tmpStr = `${rawContent}
 【元数据 供你查询，发送不许携带】
 ${yaml.dump(tmp)}`.trim();
@@ -616,7 +616,7 @@ ${yaml.dump(tmp)}`.trim();
         } else {
           replyJSON = JSON.parse(reply);
         }
-        joiSchema = sendTemplate.joi((function () {
+        joiSchema = sendTemplate.joi((function() {
           switch (config.toolsMode) {
             case 1:
             case 3:
@@ -665,7 +665,7 @@ ${yaml.dump(tmp)}`.trim();
           config.retry++;
           await this.sendAskByMsgProtocol({
             ...config,
-            onResponse: async (reply) => {
+            onResponse: async(reply) => {
               if (config.onResponse) {
                 return (await config.onResponse(reply));
               }
@@ -719,7 +719,7 @@ ${yaml.dump(tmp)}`.trim();
           if (config.onResponse) {
             await config.onResponse(ask);
           }
-          sysReturns = (await this.sysCallRunFns(replyJSON.sysCalls, sysAllTools, { ...aiReply, toolCallGroupId }));
+          sysReturns = (await this.sysCallRunFns(replyJSON.sysCalls, sysAllTools, {...aiReply, toolCallGroupId}));
           // 检查是否有内容超出限制，并处理截断与 UI 提示
           truncatedFns = [];
           for (m = 0, len3 = sysReturns.length; m < len3; m++) {
@@ -750,7 +750,7 @@ ${yaml.dump(tmp)}`.trim();
           }
           // 计算执行时长和判断是否成功
           toolCallDuration = Date.now() - toolCallStartTime;
-          toolCallSuccess = sysReturns.every(function (ret) {
+          toolCallSuccess = sysReturns.every(function(ret) {
             return !ret.error;
           });
           if (config.toolsMode === 2) { //标准工具模式需要用指定tool角色

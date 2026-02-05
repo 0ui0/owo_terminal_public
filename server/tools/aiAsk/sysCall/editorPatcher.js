@@ -2,6 +2,7 @@ import Joi from "joi"
 import { v4 as uuidV4 } from "uuid"
 import waitConfirm from "../../waitConfirm.js"
 import appManager from "../../../apps/appManager.js"
+import { trs } from "../../../tools/i18n.js"
 
 export default {
   name: "编辑文本",
@@ -38,8 +39,8 @@ export default {
     const confirmPromise = waitConfirm({
       id: confirmId,
       type: "tip",
-      title: "核对内容变更",
-      content: "请核对 AI 提议的修改并在编辑器中批准/拒绝",
+      title: trs("editorPatcher/核对内容变更标题", { cn: "核对内容变更", en: "Check Content Change" }),
+      content: trs("editorPatcher/核对内容变更正文", { cn: "请核对 AI 提议的修改并在编辑器中批准/拒绝", en: "Please check the AI proposed changes and approve/reject in the editor" }),
       listId: argObj.listId || 0
     })
 

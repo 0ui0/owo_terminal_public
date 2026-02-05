@@ -2,23 +2,27 @@ import Box from "../common/box.js"
 import data from "./settingData.js"
 import Notice from "../common/notice.js"
 import m from "mithril"
+import { trs } from "../common/i18n.js"
 
 export default () => {
   let activeGroup1 = ""
   let activeGroup2 = ""
 
-  // Field Label Mapping
-  const MODEL_FIELD_MAP = {
-    name: "配置别名",
-    model: "模型ID (Model Name)",
-    apiKey: "API Key",
-    url: "接口地址 (Base URL)",
-    prompt: "预设提示词 (System Prompt)",
-    price: "价格权重",
-    tokenRate: "消耗倍率",
-    preTokens: "Token 余额 (Remaining Quota)",
-    switch: "启用状态",
-    system: "系统内置"
+  // Field Label Mapping - uses trs for i18n
+  const getModelFieldLabel = (key) => {
+    const map = {
+      name: trs("设置界面/模型列表/配置别名"),
+      model: trs("设置界面/模型列表/模型ID"),
+      apiKey: trs("设置界面/模型列表/APIKey"),
+      url: trs("设置界面/模型列表/接口地址"),
+      prompt: trs("设置界面/模型列表/预设提示词"),
+      price: trs("设置界面/模型列表/价格权重"),
+      tokenRate: trs("设置界面/模型列表/消耗倍率"),
+      preTokens: trs("设置界面/模型列表/余额"),
+      switch: trs("设置界面/模型列表/启用状态"),
+      system: trs("设置界面/模型列表/系统内置")
+    }
+    return map[key] || key
   }
 
   // Helper to restructure flat data into nested groups
@@ -89,7 +93,7 @@ export default () => {
                 }
               }),
               // Name
-              m("div", { style: { fontWeight: "bold", fontSize: "1.1rem", color: "#eee", flex: 1 } }, model.name || "未命名模型"),
+              m("div", { style: { fontWeight: "bold", fontSize: "1.1rem", color: "#eee", flex: 1 } }, model.name || trs("设置界面/模型列表/未命名")),
               // Model ID helper
               m("div", { style: { fontSize: "0.9rem", color: "#888", marginRight: "1rem" } }, model.model),
               // Delete Button
@@ -106,7 +110,7 @@ export default () => {
                 onclick: (e) => {
                   e.stopPropagation()
                   Notice.launch({
-                    tip: "确认删除",
+                    tip: trs("通用/确认删除"),
                     msg: `确定要删除模型 "${model.name}" 吗？`,
                     confirm: async () => {
                       value.splice(index, 1)
@@ -115,7 +119,7 @@ export default () => {
                     },
                   })
                 }
-              }, "删除")
+              }, trs("通用/删除"))
             ]),
 
             // Expanded Details
@@ -128,7 +132,7 @@ export default () => {
                 gap: "1.2rem"
               }
             }, Object.keys(model).filter(k => k !== "_expanded" && k !== "_showKey" && k !== "system" && k !== "price" && k !== "tokenRate").map(key => {
-              const label = MODEL_FIELD_MAP[key] || key
+              const label = getModelFieldLabel(key)
               const val = model[key]
               const isBool = key === "switch" || key === "system" || typeof val === "boolean" || (key === "switch" && (val === 0 || val === 1))
               const isLongText = key === "prompt"
@@ -202,7 +206,7 @@ export default () => {
                 // Description for preTokens
                 (key === "preTokens") ? m("div", {
                   style: { fontSize: "0.85rem", color: "#8d8d8d", marginTop: "0.5rem", paddingLeft: "0.2rem" }
-                }, "允许使用的Token余额，系统会在对话时自动扣除。归零或为负数时模型将不可用。") : null
+                }, trs("设置/模型/余额说明", { cn: "允许使用的Token余额，系统会在对话时自动扣除。归零或为负数时模型将不可用。", en: "Allowed token balance. System deducts during chat. Model disabled when zero or negative." })) : null
               ])
             })) : null
           ])
@@ -227,7 +231,7 @@ export default () => {
             onmouseout: (e) => { e.target.style.background = "transparent"; e.target.style.borderColor = "rgba(255,255,255,0.1)" },
             onclick: () => {
               const template = value.length > 0 ? JSON.parse(JSON.stringify(value[0])) : {
-                name: "新模型", model: "gpt-3.5-turbo", apiKey: "", url: "https://api.openai.com/v1",
+                name: trs("设置/模型/新模型", { cn: "新模型", en: "New Model" }), model: "gpt-3.5-turbo", apiKey: "", url: "https://api.openai.com/v1",
                 price: 1, tokenRate: 1, system: 0, prompt: "", switch: 1, preTokens: 4000
               }
               template.name = "New Model " + (value.length + 1) // Ensure simple string
@@ -236,7 +240,7 @@ export default () => {
               value.push(template)
               if (onchange) onchange(value)
             }
-          }, "+ 添加新模型"),
+          }, trs("设置界面/模型列表/添加")),
 
           m("div", {
             style: {
@@ -255,10 +259,10 @@ export default () => {
             onclick: () => {
               let url = "http://localhost:11434"
               Notice.launch({
-                tip: "配置 Ollama 地址",
+                tip: trs("设置/Ollama/配置标题", { cn: "配置 Ollama 地址", en: "Configure Ollama URL" }),
                 content: {
                   view: () => m("div", { style: { padding: "1.5rem", minWidth: "300px" } }, [
-                    m("div", { style: { marginBottom: "1rem", color: "#ccc" } }, "请输入 Ollama API 服务地址："),
+                    m("div", { style: { marginBottom: "1rem", color: "#ccc" } }, trs("设置界面/Ollama/输入提示")),
                     m(Box, {
                       tagName: "input[type=text]",
                       value: url,
@@ -270,12 +274,12 @@ export default () => {
                         url = e.target.value
                       }
                     }),
-                    m("div", { style: { fontSize: "0.85rem", color: "#888", marginTop: "1rem" } }, "默认端口为 11434")
+                    m("div", { style: { fontSize: "0.85rem", color: "#888", marginTop: "1rem" } }, trs("设置界面/Ollama/端口提示"))
                   ])
                 },
                 confirm: async () => {
                   if (!url) return false
-                  Notice.launch({ msg: "正在尝试连接..." })
+                  Notice.launch({ msg: trs("系统/状态/正在尝试连接") })
                   try {
                     const res = await data.fnCall("getOllamaModels", [url])
                     if (res.ok && res.data) {
@@ -290,26 +294,25 @@ export default () => {
                         if (onchange) onchange(value)
                         Notice.launch({ msg: `成功导入 ${count} 个模型` })
                       } else {
-                        Notice.launch({ msg: "未发现新模型 (已全部存在)" })
+                        Notice.launch({ msg: trs("设置/Ollama/未发现新模型", { cn: "未发现新模型 (已全部存在)", en: "No new models found (all exist)" }) })
                       }
                     } else {
-                      Notice.launch({ msg: res.msg || "导入失败", type: "error" })
+                      Notice.launch({ msg: res.msg || trs("系统/消息/导入失败"), type: "error" })
                     }
                   } catch (err) {
                     console.error("Ollama Import Error:", err)
-                    let errMsg = "未知错误"
+                    let errMsg = trs("系统/错误/未知错误", { cn: "未知错误", en: "Unknown error" })
                     if (err && err.message) errMsg = err.message
                     else if (typeof err === "string") errMsg = err
                     else errMsg = JSON.stringify(err)
 
-                    Notice.launch({ msg: "发生错误: " + errMsg, type: "error" })
+                    Notice.launch({ msg: trs("系统/错误/提示") + errMsg, type: "error" })
                   }
                   return undefined
                 },
-                cancel: async () => true
               })
             }
-          }, "从 Ollama 导入")
+          }, trs("设置界面/Ollama/导入按钮")),
         ]),
 
         // Ollama Guide Link
@@ -337,7 +340,7 @@ export default () => {
                 }
               })
             }
-          }, "📖 如何使用 Ollama？")
+          }, trs("设置界面/Ollama/查看帮助"))
         ])
       ])
     }
@@ -382,15 +385,45 @@ export default () => {
       // Dispatch to Specialized Editors
       if (opt.key === "ai_aiList") {
         return m("div", { style: { marginBottom: "2rem" } }, [
-          m("label", { style: { display: "block", color: "#ddd", marginBottom: "1rem", fontWeight: "bold", fontSize: "1.1rem" } }, opt.name),
+          m("label", { style: { display: "block", color: "#ddd", marginBottom: "1rem", fontWeight: "bold", fontSize: "1.1rem" } }, trs("设置界面/字段/" + opt.name)),
           m(ModelListEditor, { value: opt.value, onchange: (v) => opt.value = v })
         ])
       }
 
       if (opt.key === "global_terminalShell") {
         return m("div", { style: { marginBottom: "2rem" } }, [
-          m("label", { style: { display: "block", color: "#ddd", marginBottom: "1rem", fontWeight: "bold", fontSize: "1.1rem" } }, opt.name),
+          m("label", { style: { display: "block", color: "#ddd", marginBottom: "1rem", fontWeight: "bold", fontSize: "1.1rem" } }, trs("设置界面/字段/" + opt.name)),
           m(ShellEditor, { value: opt.value, onchange: (v) => opt.value = v })
+        ])
+      }
+
+      // 语言选择下拉菜单
+      if (opt.key === "global_language") {
+        return m("div", { style: { marginBottom: "1.5rem" } }, [
+          m("label", { style: { display: "block", color: "#ddd", marginBottom: "0.8rem", fontSize: "1rem" } }, trs("设置界面/字段/" + (opt.name || "系统语言"))),
+          m("select", {
+            value: opt.value,
+            onchange: (e) => opt.value = e.target.value,
+            style: {
+              width: "100%",
+              background: "rgba(0,0,0,0.3)",
+              color: "#eee",
+              padding: "0.8rem 1rem",
+              borderRadius: "0.8rem",
+              border: "1px solid rgba(255,255,255,0.15)",
+              outline: "none",
+              fontSize: "1rem",
+              cursor: "pointer",
+              appearance: "none",
+              backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23999' d='M6 8L1 3h10z'/%3E%3C/svg%3E\")",
+              backgroundRepeat: "no-repeat",
+              backgroundPosition: "right 1rem center",
+              paddingRight: "2.5rem"
+            }
+          }, [
+            m("option", { value: "cn", style: { background: "#333", color: "#eee" } }, "🇨🇳 简体中文"),
+            m("option", { value: "en", style: { background: "#333", color: "#eee" } }, "🇺🇸 English")
+          ])
         ])
       }
 
@@ -420,7 +453,7 @@ export default () => {
             paddingLeft: "0.2rem"
           }
         }, [
-          m("span", opt.name || opt.key),
+          m("span", trs("设置界面/字段/" + (opt.name || opt.key))),
           isBool ? m("div", {
             style: {
               width: "3rem", height: "1.6rem", borderRadius: "2rem",
@@ -504,10 +537,11 @@ export default () => {
             let tmp = await data.fnCall("cmdOptions", [cleanData])
             Notice.launch({ msg: tmp.msg, timeout: 2000 })
             await data.options.pull()
+            m.redraw() // 强制刷新 UI 以应用语言变更
             return true
           } catch (err) {
             console.error(err)
-            Notice.launch({ msg: "保存失败: " + err.message, type: "error" })
+            Notice.launch({ msg: trs("系统/消息/保存失败", { cn: "保存失败: ", en: "Save failed: " }) + err.message, type: "error" })
             return false
           }
         }
@@ -555,7 +589,7 @@ export default () => {
               const newG2Keys = Object.keys(groups[activeGroup1])
               if (newG2Keys.length > 0) activeGroup2 = newG2Keys[0]
             }
-          }, k)
+          }, trs("设置界面/分组/" + k))
         })),
 
         // Main Content
@@ -580,7 +614,7 @@ export default () => {
                 boxShadow: isActive ? "0 4px 12px rgba(0,0,0,0.1)" : "none"
               },
               onclick: () => activeGroup2 = k
-            }, k)
+            }, trs("设置界面/分组/" + k))
           })) : null,
 
           // Settings List
@@ -600,7 +634,7 @@ export default () => {
                   fontSize: "1.2rem", fontWeight: "bold", color: "#eee", marginBottom: "1.5rem",
                   paddingBottom: "1rem", borderBottom: "1px solid rgba(255,255,255,0.05)"
                 }
-              }, group3Name),
+              }, trs("设置界面/分组/" + group3Name)),
               options.map(opt => m(SettingField, { option: opt }))
             ])
           }))

@@ -1,6 +1,7 @@
 import comData from "../../comData/comData.js"
 import aiBasic from "../../tools/aiAsk/basic.js"
 import subAgents from "../../tools/aiAsk/subAgents.js"
+import { trs } from "../../tools/i18n.js"
 
 export default async () => {
   return {
@@ -35,7 +36,7 @@ export default async () => {
         console.log(err)
         return {
           ok: false,
-          msg: "服务器内部错误"
+          msg: trs("API/错误/服务器内部错误")
         }
       }
 

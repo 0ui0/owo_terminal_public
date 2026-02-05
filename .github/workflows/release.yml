@@ -4,7 +4,6 @@ on:
   push:
     tags:
       - 'v*'
-  workflow_dispatch: # 允许手动点击按钮触发构建
 
 permissions:
   contents: write

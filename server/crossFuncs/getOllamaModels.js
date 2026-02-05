@@ -1,4 +1,6 @@
 
+import { trs } from "../tools/i18n.js"
+
 export default {
   name: "getOllamaModels",
   func: async (baseUrl = "http://localhost:11434") => {
@@ -33,7 +35,7 @@ export default {
       }
 
       if (models.length === 0) {
-        return { ok: false, msg: "未找到任何 Ollama 模型" }
+        return { ok: false, msg: trs("crossFuncs/Ollama/未找到模型") }
       }
 
       // Convert to app model format
@@ -61,7 +63,7 @@ export default {
       console.error(error)
       return {
         ok: false,
-        msg: "系统错误: " + error.message
+        msg: trs("crossFuncs/错误/系统错误") + error.message
       }
     }
   }

@@ -1,6 +1,7 @@
 // 桌面入口组件 - App 网格列表
 import Notice from "../common/notice.js"
 import settingData from "../setting/settingData.js"
+import { trs } from "../common/i18n.js"
 
 export default {
   oninit(vnode) {
@@ -22,12 +23,12 @@ export default {
         maxWidth: "500px"
       }
     }, [
-      m("div", { style: { fontSize: "18px", fontWeight: "bold", marginBottom: "20px", textAlign: "center" } }, "应用"),
+      m("div", { style: { fontSize: "18px", fontWeight: "bold", marginBottom: "20px", textAlign: "center" } }, trs("聊天界面/词汇/应用")),
 
       vnode.state.loading
-        ? m("div", { style: { textAlign: "center", padding: "20px" } }, "加载中...")
+        ? m("div", { style: { textAlign: "center", padding: "20px" } }, trs("系统/状态/加载中", { cn: "加载中...", en: "Loading..." }))
         : vnode.state.appDefs.length === 0
-          ? m("div", { style: { textAlign: "center", padding: "20px", color: "#888" } }, "暂无可用应用")
+          ? m("div", { style: { textAlign: "center", padding: "20px", color: "#888" } }, trs("应用/无应用", { cn: "暂无可用应用", en: "No apps available" }))
           : m("div", {
             style: {
               display: "grid",

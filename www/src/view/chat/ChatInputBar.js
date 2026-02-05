@@ -9,6 +9,7 @@ import comData from "../../comData/comData.js"
 import ioSocket from "../../comData/ioSocket.js"
 import Browser from "../browser/Browser.js"
 import DesktopMini from "../desktopMini/desktopMini.js"
+import { trs } from "../common/i18n.js"
 
 export default () => {
   const submitFn = async (e) => {
@@ -79,7 +80,7 @@ export default () => {
                 data.inputDom.focus()
               }
             }
-          }, "终端"),
+          }, trs("输入栏/按钮/终端", { cn: "终端", en: "Terminal" })),
 
           m(IconTag, {
             bgColor: comData.data.get()?.sendMode === "agent" ? "#7c5d01" : "#755d5c",
@@ -169,13 +170,13 @@ export default () => {
             ext: {
               onclick: () => {
                 Notice.launch({
-                  tip: "设置中心",
+                  tip: trs("输入栏/提示/设置中心", { cn: "设置中心", en: "Settings" }),
                   content: Setting,
                 })
               }
             }
 
-          }, "设置"),
+          }, trs("输入栏/按钮/设置", { cn: "设置", en: "Settings" })),
 
 
 
@@ -203,11 +204,11 @@ export default () => {
 
           }, [
             comData.data.get()?.toolsMode === 1
-              ? "当前：提示词模式" : null,
+              ? trs("输入栏/模式/提示词", { cn: "当前：提示词模式", en: "Mode: Prompt" }) : null,
             comData.data.get()?.toolsMode === 2
-              ? "当前：标准工具模式" : null,
+              ? trs("输入栏/模式/标准工具", { cn: "当前：标准工具模式", en: "Mode: Standard" }) : null,
             comData.data.get()?.toolsMode === 3
-              ? "当前：宅喵工具模式" : null
+              ? trs("输入栏/模式/宅喵工具", { cn: "当前：宅喵工具模式", en: "Mode: OwO Tools" }) : null
           ]),
 
           m(IconTag, {
@@ -228,19 +229,32 @@ export default () => {
                           wordBreak: "break-all",
                           whiteSpace: "wrap",
                         }
-                      }, m.trust(`
-                        由于不同平台之间的工具调用接口存在新旧版本不统一的问题，宅喵终端的函数调用使用自己的实现
-                        模式切换仅用于是否强制格式化json输出避免大量出现joi校验
+                      }, m.trust(trs("输入栏/帮助/模式说明", {
+                        cn: `
+                        <b>工具调用模式说明</b>
                         <br><br>
-                        若切换到提示词模式，所有说明都将使用提示词发送给ai（此为默认模式，同时开启format_json）
-                        这种模式下ai回复的json可能存在字段错误导致joi校验失败，需要反复重试
+                        <b>1. 提示词模式</b>：所有工具说明以提示词形式发送给 AI，AI 自行决定是否调用工具。
+                        适合简单对话场景，响应速度快，但 JSON 格式化可能不稳定。
                         <br><br>
-                        若切换到标准工具模式，将尝试使用符合兼容标准的工具调用功能，强制让ai调用【发送模板】函数
-                        以获取json格式化后的参数列表（只用于格式化json）
-                        但是由于使用了指定工具（tool_choice），将不能再调用其它工具
+                        <b>2. 标准工具模式</b>：使用 OpenAI 兼容的标准 Tool Calling 接口。
+                        AI 会正确解析工具定义并返回结构化的工具调用请求，JSON 格式稳定可靠。
                         <br><br>
-                        所以函数调用相关说明和工具说明依然使用提示词，且使用宅喵终端自有的字段实现而不是Openai的标准实现
-                        `.trim()))
+                        <b>3. 宅喵工具模式</b>：使用宅喵终端自研的工具调用协议。
+                        支持更灵活的工具链和嵌套调用，适合复杂多步骤任务。
+                        `,
+                        en: `
+                        <b>Tool Mode Guide</b>
+                        <br><br>
+                        <b>1. Prompt Mode</b>: Tool descriptions are sent as prompts. AI decides whether to call tools.
+                        Best for simple chats. Fast but JSON formatting may be unstable.
+                        <br><br>
+                        <b>2. Standard Tools</b>: Uses OpenAI-compatible Tool Calling API.
+                        AI parses tool definitions and returns structured calls. Reliable JSON output.
+                        <br><br>
+                        <b>3. OwO Tools</b>: Uses OwO Terminal's custom tool protocol.
+                        Supports flexible tool chains and nested calls for complex multi-step tasks.
+                        `
+                      }).trim()))
                     }
                   }
                 })
@@ -265,7 +279,7 @@ export default () => {
                 }
               },
             }, [
-              "回复:" + (comData.data.get().call.uuid + "").slice(0, 7)
+              trs("聊天界面/词汇/回复") + ":" + (comData.data.get().call.uuid + "").slice(0, 7)
             ]) : null,
 
 
@@ -301,7 +315,7 @@ export default () => {
                     }
                   }
                 }
-              }, "暂停") : null
+              }, trs("聊天界面/词汇/暂停")) : null
           })(),
 
           m(IconTag, {
@@ -330,7 +344,7 @@ export default () => {
                 })
               }
             }
-          }, "反馈"),
+          }, trs("聊天界面/词汇/反馈")),
 
 
           m(IconTag, {
@@ -346,7 +360,7 @@ export default () => {
                 })
               }
             }
-          }, "应用"),
+          }, trs("聊天界面/词汇/应用")),
 
           /* m(IconTag, {
             iconName: "Planet",
@@ -384,7 +398,7 @@ export default () => {
                 }
               }
             }
-          }, comData.data.get()?.customCwd ? (comData.data.get().customCwd.split("/").pop() || "/") : "工作目录"),
+          }, comData.data.get()?.customCwd ? (comData.data.get().customCwd.split("/").pop() || "/") : trs("聊天界面/词汇/工作目录")),
 
         ]),
         //引用
@@ -427,7 +441,7 @@ export default () => {
               dom.style.height = dom.scrollHeight + "px"
             },
             value: data.inputText,
-            placeholder: comData.data.get()?.targetChatListId ? `已锁定到队列 ${comData.data.get()?.targetChatListId} ...` : "输入消息...",
+            placeholder: comData.data.get()?.targetChatListId ? trs("输入栏/占位符/已锁定队列", { cn: `已锁定到队列 ${comData.data.get()?.targetChatListId} ...`, en: `Locked to queue ${comData.data.get()?.targetChatListId}...` }) : trs("输入栏/占位符/输入消息", { cn: "输入消息...", en: "Type a message..." }),
             autocomplete: "off",
             oninput: async (e) => {
               data.inputText = e.target.value
@@ -488,7 +502,7 @@ export default () => {
             }
           }),
           m("input[type=submit]", {
-            value: "发送",
+            value: trs("输入栏/按钮/发送", { cn: "发送", en: "Send" }),
             style: {
               padding: "1rem 2rem",
               background: "#a75e5e",

@@ -28,6 +28,10 @@ import initResponsive from "./init/init_responsive.js"
     //注意先后，ioSocket引入了comData，要先初始化
     await comData.init()
     ioSocket.init()
+
+    // 初始化 i18n 并从后端加载字典
+    const { init: i18nInit } = await import("./view/common/i18n.js")
+    await i18nInit()
     //同步共同数据到服务端
 
 

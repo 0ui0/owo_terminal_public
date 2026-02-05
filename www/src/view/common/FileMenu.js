@@ -2,6 +2,7 @@ import settingData from "../setting/settingData.js"
 import Box from "./box.js"
 import Notice from "./notice.js"
 import commonData from "./commonData.js"
+import { trs } from "./i18n.js"
 
 export default () => {
   let autoSaveEnabled = false
@@ -44,14 +45,14 @@ export default () => {
         console.log("Project action success:", action, res.path)
         if (res.path) commonData.currentProject = res.path
         m.redraw()
-        Notice.launch({ msg: action === "load" ? "载入成功 (Loaded)" : "操作成功" })
+        Notice.launch({ msg: action === "load" ? trs("系统/消息/载入成功") : trs("系统/消息/操作成功") })
       } else {
-        Notice.launch({ msg: "Error: " + (res.msg || "Unknown error") })
+        Notice.launch({ msg: trs("系统/错误/提示") + (res.msg || "Unknown error") })
       }
 
     } catch (e) {
       console.error(action, e)
-      Notice.launch({ msg: "Operation failed: " + e.message })
+      Notice.launch({ msg: trs("系统/错误/提示") + e.message })
     }
   }
 
@@ -71,7 +72,7 @@ export default () => {
       group: "fileMenu",
       width: 180,
       win: { x, y }, // 支持强制更新位置
-      tip: "菜单",
+      tip: trs("菜单栏/分类/文件"),
       content: {
         view: (v) => m(Box, {
           style: { display: "flex", flexDirection: "column", padding: "5px" }
@@ -80,19 +81,19 @@ export default () => {
             isBtn: true,
             style: { padding: "10px", textAlign: "left" },
             onclick: () => { v.attrs.delete(); handleAction("load") }
-          }, "打开 (Open)"),
+          }, trs("菜单栏/操作/打开")),
 
           m(Box, {
             isBtn: true,
             style: { padding: "10px", textAlign: "left" },
             onclick: () => { v.attrs.delete(); handleAction("save") }
-          }, "保存 (Save)"),
+          }, trs("菜单栏/操作/保存")),
 
           m(Box, {
             isBtn: true,
             style: { padding: "10px", textAlign: "left" },
             onclick: () => { v.attrs.delete(); handleAction("save", true) }
-          }, "另存为 (Save As...)"),
+          }, trs("菜单栏/操作/另存为")),
 
           m("div", { style: { height: "1px", background: "rgba(255,255,255,0.1)", margin: "5px 0" } }),
 
@@ -101,7 +102,7 @@ export default () => {
             style: { padding: "10px", textAlign: "left", display: "flex", justifyContent: "space-between" },
             onclick: () => { toggleAutoSave(); /* Don't close merely on toggle? or close? user preference. Explorer closes. Let's keep open for toggle? No, standard menu closes. */ }
           }, [
-            m("span", "自动保存"),
+            m("span", trs("菜单栏/操作/自动保存")),
             m("span", { style: { color: autoSaveEnabled ? "#4caf50" : "transparent" } }, "✔")
           ])
         ])
@@ -132,7 +133,7 @@ export default () => {
         },
         onclick: (_, e) => showFileMenu(e)
       }, [
-        m("span", "文件")
+        m("span", trs("菜单栏/分类/文件"))
       ])
     }
   }

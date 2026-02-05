@@ -1,4 +1,5 @@
 import { dialog } from "electron"
+import { trs } from "../tools/i18n.js"
 
 export default {
   name: "appSaveDialog",
@@ -9,11 +10,11 @@ export default {
       const { filePath, title, buttonLabel, filters } = options
 
       const result = await dialog.showSaveDialog({
-        title: title || "保存文件",
+        title: title || trs("对话框/标题/保存文件"),
         defaultPath: filePath || "",
-        buttonLabel: buttonLabel || "保存",
+        buttonLabel: buttonLabel || trs("对话框/按钮/保存"),
         filters: filters || [
-          { name: "全部文件", extensions: ["*"] }
+          { name: trs("对话框/过滤器/全部文件"), extensions: ["*"] }
         ]
       })
 

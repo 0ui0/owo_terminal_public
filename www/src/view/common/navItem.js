@@ -1,6 +1,7 @@
 import getColor from "./getColor"
 import commonData from "./commonData"
 import Notice from "./notice"
+import { trs } from "./i18n.js"
 
 export default {
   view: ({ attrs }) => {
@@ -150,7 +151,7 @@ export default {
                 margin: "0 0.2rem"
               }
             }, [
-              item.type === "program" ? (item.tip || "程序") : item.name
+              item.type === "program" ? trs("导航栏/项目/" + (item.tip || "程序")) : trs("导航栏/项目/" + item.name)
             ]) : null
         ])
       ])

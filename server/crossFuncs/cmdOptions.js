@@ -4,6 +4,7 @@ import db from "../db/db.js"
 import { Op } from "sequelize"
 import aiBasic from "../tools/aiAsk/basic.js"
 import comData from "../comData/comData.js"
+import { trs } from "../tools/i18n.js"
 
 export default {
   name: "cmdOptions",
@@ -12,8 +13,8 @@ export default {
       let { error } = Joi.array().ordered(
         Joi.array().items(Joi.object({
           optionId: Joi.number().required(),
-          key:Joi.string().required(),
-          value:Joi.any().required(),
+          key: Joi.string().required(),
+          value: Joi.any().required(),
         }).unknown(true))
       ).validate([newOptions ?? []])
       if (error) {
@@ -23,33 +24,33 @@ export default {
       if (!rows) {
         return {
           ok: false,
-          msg: "配置表数据异常"
+          msg: trs("crossFuncs/错误/配置表数据异常")
         }
       }
       if (!newOptions || (newOptions && newOptions.length == 0)) {
         return {
           ok: true,
-          msg: "获取成功",
+          msg: trs("crossFuncs/消息/获取成功"),
           data: rows
         }
       }
 
-      for(let i=0;i<newOptions.length;i++){
+      for (let i = 0; i < newOptions.length; i++) {
         const newOption = newOptions[i]
-        let { error:error2 } = defaultOptions[newOption.key].joi().validate(newOption.value)
+        let { error: error2 } = defaultOptions[newOption.key].joi().validate(newOption.value)
         if (error2) {
           return {
-            ok:false,
-            msg:error2.details[0].message,
+            ok: false,
+            msg: error2.details[0].message,
           }
         }
       }
 
       await db.db.transaction(async (t) => {
         let findOptions = await db.tb_options.findAll({
-          where:{
-            optionId:{
-              [Op.or]:newOptions.map(v=>v.optionId)
+          where: {
+            optionId: {
+              [Op.or]: newOptions.map(v => v.optionId)
             }
           },
           transaction: t
@@ -64,14 +65,14 @@ export default {
 
       await options.pull() //这两个顺序不能对调
       await aiBasic.initList()
-      
-      await comData.data.edit(data=>{
+
+      await comData.data.edit(data => {
         data.currentModel = ""
       })
 
       return {
         ok: true,
-        msg: "更新成功",
+        msg: trs("crossFuncs/消息/更新成功"),
       }
 
 
@@ -81,7 +82,7 @@ export default {
       console.log(error)
       return {
         ok: false,
-        msg: "服务器内部错误"
+        msg: trs("API/错误/服务器内部错误")
       }
     }
 

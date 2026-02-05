@@ -4,6 +4,7 @@ import pathLib from "path"
 import waitConfirm from "../../waitConfirm.js"
 import appManager from "../../../apps/appManager.js"
 import { v4 as uuidV4 } from "uuid"
+import { trs } from "../../i18n.js"
 
 export default {
   name: "修改文件内容",
@@ -21,13 +22,13 @@ export default {
 
       // 检查 target 是否存在
       if (!content.includes(target)) {
-        return `错误：在文件中未找到目标字符串 target。请先使用 fileOpener 确认文件内容。`
+        return `错误：未找到目标字符串${target}。请先使用 fileOpener 确认文件内容。`
       }
 
       // 检查唯一性
       const matchCount = content.split(target).length - 1
       if (matchCount > 1 && !allowMultiple) {
-        return `错误：目标字符串 target 在文件中出现了 ${matchCount} 次。请提供更长的上下文以确保唯一匹配，或将 allowMultiple 设为 true。`
+        return `错误：目标字符串${target}在文件中出现了 ${matchCount} 次。请提供更长的上下文以确保唯一匹配，或将 allowMultiple 设为 true。`
       }
 
       // 执行替换逻辑（在内存中）
@@ -59,7 +60,7 @@ export default {
         id: confirmId,
         type: "tip",
         title: `核对代码变更: ${pathLib.basename(path)}`,
-        content: "请在编辑器中核对代码并批准/拒绝修改",
+        content: trs("工具/提示/请在编辑器中核核对代码", { cn: "请在编辑器中核对代码并批准/拒绝修改", en: "Please review the code in the editor and approve/reject changes" }),
         listId: argObj.listId || 0
       })
 

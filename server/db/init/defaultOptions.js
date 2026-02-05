@@ -116,4 +116,17 @@ options["ai_aiList"] = {
   }
 };
 
+options["global_language"] = {
+  group1: "全局",
+  group2: "界面",
+  group3: "基本",
+  type: "string",
+  key: "global_language",
+  name: "系统语言",
+  value: "cn",
+  joi: function () {
+    return Joi.string().valid("cn", "en").strict();
+  }
+};
+
 export default options;

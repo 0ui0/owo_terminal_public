@@ -2,6 +2,7 @@ import getColor from "./getColor"
 import commonData from "./commonData"
 import NavItem from "./navItem"
 import Notice from "./notice"
+import { trs } from "./i18n.js"
 
 let barWidth = 0
 let contentWidth = 0
@@ -119,7 +120,7 @@ export default {
               cursor: "pointer",
               transition: "all 0.5s"
             },
-            title: "返回",
+            title: trs("通用/返回"),
             onmouseover: (e) => {
               e.target.style.transform = "scale(1.2)"
             },
@@ -184,7 +185,7 @@ export default {
 
                   // 创建程序项
                   const programItem = {
-                    name: "程序",
+                    name: trs("聊天界面/词汇/程序"),
                     type: "program",
                     tip: activeTab.tip,
                     url: "/program_",

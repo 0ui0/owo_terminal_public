@@ -11,6 +11,7 @@ import AutoForm from "../common/autoForm.js"
 import ChatTerm from "./ChatTerm.js"
 import settingData from "../setting/settingData.js"
 import ChatList from "./ChatList.js"
+import { trs } from "../common/i18n.js"
 
 let ChatItem = null
 export default ChatItem = () => {
@@ -252,7 +253,7 @@ export default ChatItem = () => {
                       }
                     }, [
                       m("", [
-                        "思考中...",
+                        trs("聊天/状态/思考中", { cn: "思考中...", en: "Thinking..." }),
                         chat.content?.length > 0 ?
                           m("a", {
                             style: {
@@ -261,7 +262,7 @@ export default ChatItem = () => {
                             onclick() {
                               showMind = !showMind
                             },
-                          }, `[${showMind ? "折叠" : "展开"}]`) : null,
+                          }, `[${showMind ? trs("通用/折叠") : trs("通用/展开")}]`) : null,
                       ]),
                       m("", {
                         style: {
@@ -288,7 +289,7 @@ export default ChatItem = () => {
                           onclick() {
                             showMore = !showMore
                           }
-                        }, showMore ? "收起" : "详情")
+                        }, showMore ? trs("通用/收起") : trs("通用/详情"))
                       ]
                       : m.trust(format((attrs.isChildren ? chat.content.slice(0, 21) + "..." : chat.content), "markdown", {})),
                   ]
@@ -376,7 +377,7 @@ export default ChatItem = () => {
                   m.trust(window.iconPark.getIcon(comData.data.get()?.targetChatListId === chat.ext?.targetSubListId ? "Lock" : "Unlock", {
                     fill: "#333"
                   })),
-                  comData.data.get()?.targetChatListId === chat.ext?.targetSubListId ? "解锁队列" : "锁定队列"
+                  comData.data.get()?.targetChatListId === chat.ext?.targetSubListId ? trs("聊天/队列/解锁", { cn: "解锁队列", en: "Unlock Queue" }) : trs("聊天/队列/锁定", { cn: "锁定队列", en: "Lock Queue" })
                 ]) : null,
 
               m(Tag, {
@@ -391,8 +392,8 @@ export default ChatItem = () => {
                 isBtn: true,
                 onclick: async () => {
                   Notice.launch({
-                    tip: "是否撤销",
-                    msg: "是否撤销本条消息?（若为提问消息本条消息将重新加入到输入框）",
+                    tip: trs("聊天/撤销/提示标题", { cn: "是否撤销", en: "Undo Check" }),
+                    msg: trs("聊天/撤销/提示内容", { cn: "是否撤销本条消息?（若为提问消息本条消息将重新加入到输入框）", en: "Undo this message? (User questions will return to the input box)" }),
                     async confirm() {
 
                       await settingData.fnCall("undoChat", [chat.uuid])
@@ -412,7 +413,7 @@ export default ChatItem = () => {
                 m.trust(window.iconPark.getIcon("Undo", {
                   fill: "#333"
                 })),
-                "撤销"
+                trs("聊天界面/词汇/撤销")
               ]),
               m(Tag, {
                 styleExt: {
@@ -427,8 +428,8 @@ export default ChatItem = () => {
                 isBtn: true,
                 onclick: async () => {
                   Notice.launch({
-                    tip: "是否撤到本条？",
-                    msg: "是否撤销到本条消息？（这将清空包括本条和本条以后的所有消息，若为提问消息本条消息将重新加入到输入框）",
+                    tip: trs("聊天/撤到此处/提示标题", { cn: "是否撤到本条？", en: "Undo to here?" }),
+                    msg: trs("聊天/撤到此处/提示内容", { cn: "是否撤销到本条消息？（这将清空包括本条和本条以后的所有消息，若为提问消息本条消息将重新加入到输入框）", en: "Undo all messages from this point? (This clears everything after, and returns user questions to input)" }),
                     async confirm() {
 
                       await settingData.fnCall("undoToChat", [chat.uuid])
@@ -447,7 +448,7 @@ export default ChatItem = () => {
                 m.trust(window.iconPark.getIcon("Return", {
                   fill: "#333"
                 })),
-                "撤到本条"
+                trs("聊天/撤到此处/按钮", { cn: "撤到本条", en: "Undo to here" })
               ]),
 
               m(Tag, {
@@ -463,14 +464,14 @@ export default ChatItem = () => {
                 isBtn: true,
                 onclick: async () => {
                   Notice.launch({
-                    tip: "是否清除本条之前所有消息？",
-                    msg: "是否清除本条之前所有消息（不包括本条消息）？",
+                    tip: trs("聊天/清除之前/提示标题", { cn: "是否清除本条之前所有消息？", en: "Clear all before this?" }),
+                    msg: trs("聊天/清除之前/提示内容", { cn: "是否清除本条之前所有消息（不包括本条消息）？", en: "Clear all messages before this one (not including this message)?" }),
                     async confirm() {
                       await settingData.fnCall("clearBeforeChat", [chat.uuid])
                     }
                   })
                 }
-              }, "清除本条之前"),
+              }, trs("聊天/清除之前/按钮", { cn: "清除本条之前", en: "Clear before" })),
 
 
               m(Tag, {
@@ -496,7 +497,7 @@ export default ChatItem = () => {
                 m.trust(window.iconPark.getIcon("Message", {
                   fill: "#333"
                 })),
-                "回复"
+                trs("聊天界面/词汇/回复")
               ]),
 
               m(Tag, {
@@ -521,7 +522,7 @@ export default ChatItem = () => {
                 m.trust(window.iconPark.getIcon("Quote", {
                   fill: "#333"
                 })),
-                "引用"
+                trs("聊天界面/词汇/引用")
               ]),
 
               attrs.isChildren ?
@@ -536,7 +537,7 @@ export default ChatItem = () => {
                     }
                   }
 
-                }, "转到") : null,
+                }, trs("聊天/跳转/按钮", { cn: "转到", en: "Go to" })) : null,
 
               chat.tid
                 ? m(IconTag, {
@@ -556,8 +557,8 @@ export default ChatItem = () => {
 
                 }, [
                   comData.data.get()?.currentTid === chat.tid ?
-                    "取消悬挂" :
-                    "悬挂"
+                    trs("聊天/悬挂/取消", { cn: "取消悬挂", en: "Unpin" }) :
+                    trs("聊天/悬挂/悬挂", { cn: "悬挂", en: "Pin" })
 
                 ])
                 : null,
@@ -568,7 +569,7 @@ export default ChatItem = () => {
                   ext: {
                     onclick: async () => {
                       Notice.launch({
-                        tip: "终端：" + chat.tid,
+                        tip: trs("聊天/终端/提示", { cn: "终端：", en: "Terminal: " }) + chat.tid,
                         sign: chat.tid,
                         content: {
                           view() {
@@ -582,7 +583,7 @@ export default ChatItem = () => {
                   }
 
                 }, [
-                  "窗口"
+                  trs("聊天/窗口/按钮", { cn: "窗口", en: "Window" })
                 ])
                 : null,
 
@@ -624,7 +625,7 @@ export default ChatItem = () => {
                   : m.trust(window.iconPark.getIcon("FullScreenOne", {
                     fill: "#333"
                   })),
-                fullScreen ? "收起" : "全屏"
+                fullScreen ? trs("通用/收起") : trs("通用/全屏")
               ]),
 
 

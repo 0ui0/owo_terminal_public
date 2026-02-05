@@ -3,6 +3,7 @@ import Notice from "../common/notice.js"
 import Nav from "../common/nav.js"
 import FileMenu from "../common/FileMenu.js"
 import commonData from "../common/commonData.js"
+import { trs } from "../common/i18n.js"
 
 export default () => {
   return {
@@ -36,7 +37,7 @@ export default () => {
             userSelect: "none"
           }
         }, [
-          m("span", "宅喵终端"),
+          m("span", trs("聊天界面/标题/宅喵终端")),
           m(FileMenu),
           m("div", { style: { marginLeft: "auto", display: "flex", alignItems: "center", gap: "10px" } }, [
             commonData.currentProject ? m("div", {
