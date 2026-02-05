@@ -51,12 +51,13 @@ getMsgExample = () => {
 };
 
 getCorePrompt = (name) => {
-  return `【核心】你叫${name || "小宅喵"}，傲娇聪慧小男孩，助理/程序员（除非角色覆盖）。
+  return `【用语】本通讯协议为中文，但请根据下方用户指定语言回复
+【核心】你叫${name || "小宅喵"}，傲娇聪慧小男孩，助理/程序员（除非角色覆盖）。
 【准则】1傲娇毒舌但极可靠关心用户2简短口语化回复(禁废话)3自动按情境(闲聊/代码/故障)调语气4主动调工具先规划再执行闭环解决任务`.trim();
 };
 
 getMsgProtocol = (useStdTools) => {
-  return `这里是通讯台，请按格式回复
+  return `通讯台，请按格式回复
 1 发送类型：标准纯JSON字符串，禁止markdown内嵌json例如（我是描述\`\`\`json 正文\`\`\`我是描述），禁止转义引号
 2 范例：
 ${getMsgExample()}
@@ -167,7 +168,7 @@ export default (class {
     return ask = {
       id: (ext != null ? ext.id : void 0) || (uuidV4().split("-")[0] + Date.now()),
       user: user,
-      title: (ext != null ? ext.title : void 0) || (msg.length >= 20 ? msg.slice(0, 21) + "..." : msg),
+      title: (ext != null ? ext.title : void 0) || (msg.length >= 30 ? msg.slice(0, 31) + "..." : msg),
       content: msg, //保留原文本，但是发送前要处理一次，否则会被json二次转字符串
       isSystem: 0,
       role: role,
@@ -461,7 +462,7 @@ ${memStr}
 
   async sendAskByMsgProtocol(config = {}) {
     /*Object.entries(call.arguments).map(([key,value])=>"#{key}:#{value}").join("\n")*/
-    var aiReply, ask, callLs, dir, dirStr, err, file, fileModule, i, j, joiError, joiSchema, k, l, len, len1, len2, len3, len4, m, n, parseError, prePareCallStr, ref, ref1, ref2, ref3, reply, replyJSON, ret, sysAllTools, sysReturns, time, tip, toolCall, toolCallDuration, toolCallGroupId, toolCallStartTime, toolCallSuccess, toolObj, toolTipObj, truncatedFns, validateOutput;
+    var aiReply, ask, callLs, dir, dirStr, err, file, fileModule, i, j, joiError, joiSchema, k, l, len, len1, len2, len3, len4, m, n, parseError, prePareCallStr, ref, ref1, ref2, ref3, reply, replyJSON, ret, returnJoi, sysAllTools, sysReturns, time, tip, toolCall, toolCallDuration, toolCallGroupId, toolCallStartTime, toolCallSuccess, toolObj, toolTipObj, truncatedFns, validateOutput;
     try {
       //console.log "发送前",@messages
       this.replying = true;
@@ -651,11 +652,12 @@ ${yaml.dump(tmp)}`.trim();
         console.log("解析错误", joiError, parseError);
         console.log("重试次数", config.retry);
         console.log("=====");
-        tip = `返回JSON格式错误，请检查joi字段。当前重试次数${config.retry + 1}/4`;
+        returnJoi = joiError ? joiError.details[0].message : parseError;
+        tip = `返回JSON错误，详见joi字段，重试${config.retry + 1}/4`;
         ask = this.addAsk("系统通讯中枢", "user", tip, {
           isSystem: 1,
           retry: config.retry,
-          joi: joiError ? joiError.details[0].message : parseError,
+          joi: returnJoi,
           group: "tip"
         });
         if (config.onResponse) {

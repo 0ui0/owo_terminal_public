@@ -283,8 +283,11 @@ export default ChatItem = () => {
                     chat.group === "tip"
                       ? [
                         showMore
-                          ? m.trust(format((attrs.isChildren ? chat.content.slice(0, 21) + "..." : chat.content), "markdown", {}))
+                          ? m.trust(format((attrs.isChildren ? chat.content.slice(0, 30) + "..." : chat.content), "markdown", {}))
                           : chat.ask.title,
+                        chat.ask.joi ? m("", [
+                          m("", ["[joi]" + chat.ask.joi]),
+                        ]) : null,
                         m(Tag, {
                           onclick() {
                             showMore = !showMore
@@ -332,10 +335,10 @@ export default ChatItem = () => {
               new Date(chat.timestamp).toISOString(),
               m("br"),
               chat?.ask?.totalTokens ?
-                `token消耗
-                输入:${chat?.ask?.promptTokens}
-                输出:${chat?.ask?.completionTokens}
-                合计:${chat?.ask?.totalTokens}
+                `${trs("chatItem/token消耗", { cn: "token消耗", en: "token consumption" })}
+                ${trs("chatItem/输入", { cn: "输入", en: "input" })}:${chat?.ask?.promptTokens}
+                ${trs("chatItem/输出", { cn: "输出", en: "output" })}:${chat?.ask?.completionTokens}
+                ${trs("chatItem/合计", { cn: "合计", en: "total" })}:${chat?.ask?.totalTokens}
                 `: null
             ])
           ]),

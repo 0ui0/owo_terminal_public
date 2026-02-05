@@ -218,15 +218,15 @@ export default ({ socket, server, io, db, verifyCookie }) => {
                 const { customCwd } = comData.data.get()
                 const lang = options.json?.global_language?.value || 'cn'
                 const langMap = {
-                  cn: "中文",
-                  en: "english",
+                  cn: "用户指定你用中文回复",
+                  en: "User specified you to reply in English",
                 }
                 return `
 系统：${process.platform} ${process.arch}
 ${customCwd ? "用户指定工作目录：" + customCwd + ";" : ""}
 ${terminals.length > 0 ? "终端：" + JSON.stringify(terminals) + ";" : ""}
 ${apps.length > 0 ? "已启动app：" + JSON.stringify(apps) + ";" : ""}
-!!!用户指定你只能使用${langMap[lang]}语言回复!!!`
+${langMap[lang]}`
               },
               async onSendAskBefore(aiAskInstance) {
                 const aiList = await options.get("ai_aiList");
