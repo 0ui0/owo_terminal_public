@@ -1,5 +1,7 @@
 # 宅喵终端 (owo_terminal) ฅ^•ﻌ•^ฅ
 
+![预览图](preview.png)
+
 你好呀！欢迎来到**宅喵终端**的仓库。这是一个充满了傲娇灵魂、却又极度实用的本地 AIOS (AI Operating System) 实验性终端项目。
 
 ---
@@ -73,3 +75,83 @@
 希望宅喵能成为你得心应手的得力助手！如果有任何问题，欢迎提出 Issue。 
 
 祝你玩得开心！ ฅ(=^･ω･^=)ฅ
+
+---
+
+# owo_terminal ฅ^•ﻌ•^ฅ (English Version)
+
+Hello! Welcome to the **owo_terminal** repository. This is a local AIOS (AI Operating System) experimental terminal project that is both tsundere in soul and extremely practical in function.
+
+---
+
+## 🏗️ Architecture
+
+This project uses a modern frontend + robust backend + local storage architecture to ensure all your data stays on your machine.
+
+*   **Core Engine**: Node.js
+*   **GUI**: Electron (providing a native desktop window experience)
+*   **Frontend**: Vite + Mithril (lightweight, high-performance rendering engine)
+*   **Persistence**: 
+    *   **Configuration**: Stored in local `db.sqlite` (global settings, model configs, etc.).
+    *   **Chat & State**: Conversation history, AI memory, and App states are saved in independent **Project Files (.json)**. You decide where to save them.
+*   **Protocols**: Supports standard OpenAI format APIs and direct Ollama integration.
+
+---
+
+## ⚙️ How to Build
+
+Want to run it locally? Just follow these simple steps:
+
+1.  **Environment**: Ensure you have Node.js installed.
+2.  **Dependencies**:
+    ```bash
+    npm install
+    ```
+3.  **Dev Mode**:
+    ```bash
+    npm run dev
+    ```
+    *(This starts both the backend service and Vite preview)*
+4.  **Build Desktop App**:
+    ```bash
+    npm run build
+    ```
+
+---
+
+## 🧩 Extensibility: Apps & Custom Functions
+
+owo_terminal is more than just a chat box; it's an evolving system.
+
+*   **App Mechanism**: You can create your own built-in Apps, integrated into the terminal interface.
+*   **Custom Functions (Tools/Fns)**:
+    *   **`userCall`**: Functions preset by the user. You can write JavaScript to extend the terminal's capabilities.
+    *   **`aiCall`**: Functions that the AI can call autonomously. Give your AI the power to read/write files, make network requests, or even control the system!
+    *   *Location*: Found in the `server/tools/aiAsk/` directory within respective folders.
+
+---
+
+## 🛡️ Privacy & Models (Local First)
+
+**(๑•̀ㅂ•́)و✧ IMPORTANT:**
+
+1.  **Purely Local**: This software is a "container" and "hub" running on your machine. We do not process your conversations through any intermediary servers.
+2.  **No Built-in Models**: For privacy and cost reasons, **this project does not provide any built-in AI model APIs (API Keys)**.
+3.  **How to use AI?**:
+    *   **Manual Config**: In the "Settings" menu, enter your own OpenAI-compatible API Key and Base URL.
+    *   **Local Ollama**: We are deeply integrated with Ollama. If Ollama is running on your machine, just click "Import from Ollama" in settings for a one-click connection—realizing a truly offline, local AI experience.
+
+---
+
+## 📜 License
+
+This project uses a custom **"Non-Commercial, Source-Available"** license. See [LICENSE.md](LICENSE.md) for details.
+
+> [ YOU CAN ] Learn for free, conduct personal research, play with friends, and modify the source code.
+> [ YOU CANNOT ] Use it for unauthorized commercial profit, strip core logic for unrelated projects, or hide copyright notices.
+
+---
+
+Hope owo_terminal becomes your favorite assistant! If you have any questions, feel free to open an Issue.
+
+Have fun! ฅ(=^･ω･^=)ฅ

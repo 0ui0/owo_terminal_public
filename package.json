@@ -16,6 +16,7 @@
       "!www/data",
       "!upload",
       "!aiWork/**/*",
+      "!.agent",
       "!.git",
       "!.gitignore",
       "!.vscode",
