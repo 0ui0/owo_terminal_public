@@ -15,9 +15,11 @@
       "!www/src",
       "!www/data",
       "!upload",
+      "!aiWork/**/*",
       "!.git",
       "!.gitignore",
       "!.vscode",
+      "!**/*.env",
       "!**/*._*",
       "!**/.DS_Store"
     ],
