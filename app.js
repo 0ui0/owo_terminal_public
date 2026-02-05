@@ -1,9 +1,36 @@
 import { app, BrowserWindow, Menu, dialog } from "electron"
+import pkgUpdater from "electron-updater"
+const { autoUpdater } = pkgUpdater
 import serve from "./server/serve.js"
 import pathLib from "path"
 import { fileURLToPath } from 'url';
 import path from "path";
 import projectManager from "./server/managers/projectManager.js"
+
+// --- Auto Updater Configuration ---
+autoUpdater.autoDownload = true
+autoUpdater.autoInstallOnAppQuit = true
+
+autoUpdater.on('update-available', () => {
+  console.log('Update available.')
+})
+
+autoUpdater.on('update-downloaded', (info) => {
+  dialog.showMessageBox({
+    type: 'info',
+    title: '更新已就绪',
+    message: `新版本 (${info.version}) 已下载完成。是否现在重启应用以完成更新？`,
+    buttons: ['现在重启', '稍后提醒']
+  }).then((result) => {
+    if (result.response === 0) {
+      autoUpdater.quitAndInstall()
+    }
+  })
+})
+
+autoUpdater.on('error', (err) => {
+  console.error('Update error:', err)
+})
 
 
 let serveDir = pathLib.dirname(fileURLToPath(import.meta.url))
@@ -123,6 +150,7 @@ app.whenReady().then(async () => {
   try {
     await serve()
     createWindow()
+    autoUpdater.checkForUpdatesAndNotify()
   } catch (err) {
     if (err.code === 'EADDRINUSE') {
       dialog.showErrorBox('启动失败', '端口 9501 被占用，请检查是否已打开另一个实例。')

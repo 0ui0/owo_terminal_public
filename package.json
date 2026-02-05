@@ -8,6 +8,13 @@
   "build": {
     "buildDependenciesFromSource": false,
     "npmRebuild": false,
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "0ui0",
+        "repo": "owo_terminal_public"
+      }
+    ],
     "files": [
       "**/*",
       "!**/*.coffee",
@@ -76,6 +83,7 @@
     "@vscode/ripgrep": "^1.17.0",
     "@xterm/addon-fit": "^0.10.0",
     "@xterm/xterm": "^5.5.0",
+    "electron-updater": "^6.7.3",
     "fs-extra": "^11.3.2",
     "highlight.js": "^11.11.1",
     "joi": "^18.0.1",
