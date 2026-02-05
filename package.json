@@ -1,7 +1,7 @@
 {
   "name": "owo-terminal",
   "productName": "owo-terminal",
-  "version": "1.0.6",
+  "version": "1.0.7",
   "type": "module",
   "main": "app.js",
   "description": "Super cute terminal",
@@ -41,13 +41,10 @@
     "appId": "com.iw_i.owo_terminal",
     "mac": {
       "icon": "icon.icns",
-      "target": {
-        "target": "dmg",
-        "arch": [
-          "x64",
-          "arm64"
-        ]
-      }
+      "target": [
+        "dmg",
+        "zip"
+      ]
     },
     "win": {
       "target": {
@@ -71,7 +68,8 @@
     "viteBuild": "cd www && vite build --watch",
     "electron": "npx electron .",
     "dev": "concurrently \"npm run server\" \"npm run client\"",
-    "build": "npx electron-builder --mac --win --x64 --arm64"
+    "build": "npx electron-builder --mac --win --x64 --arm64",
+    "buildMacArm": "npx electron-builder --mac --arm64"
   },
   "author": "Blue_sdo",
   "license": "ISC",

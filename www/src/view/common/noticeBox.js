@@ -368,6 +368,7 @@ export default function () {
           position: "fixed",
           zIndex: win.zIndex,
           display: win.minimized ? "none" : "flex",
+          "-webkit-app-region": "no-drag",
           flexDirection: "column",
           background: "#393432",
           borderRadius: win.isMaximized ? "0" : "3rem",
@@ -379,7 +380,7 @@ export default function () {
           transition: isResizing || isMoving ? "none" : "display 0.3s, opacity 0.3s",
 
           ...(win.isMaximized ? {
-            left: "0px", top: "0px", width: "100%", height: "100%"
+            left: "0px", top: "38px", width: "100%", height: "calc(100% - 38px)"
           } : {
             left: (win.x === 0 && win.y === 0 && isAuto) ? "50%" : (win.x + "px"),
             top: (win.x === 0 && win.y === 0 && isAuto) ? "50%" : (win.y + "px"),

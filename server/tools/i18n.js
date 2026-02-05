@@ -43,6 +43,7 @@ export const globalDict = {
   "菜单栏/操作/退出": { cn: "退出", en: "Quit" },
   "菜单栏/操作/刷新": { cn: "刷新", en: "Reload" },
   "菜单栏/操作/调试工具": { cn: "开发者工具", en: "Developer Tools" },
+  "菜单栏/操作/检查更新": { cn: "检查更新", en: "Check for Updates" },
 
   "菜单栏/编辑/撤销": { cn: "撤销", en: "Undo" },
   "菜单栏/编辑/重做": { cn: "重做", en: "Redo" },
@@ -136,6 +137,16 @@ export const globalDict = {
   "API/错误/找不到函数": { cn: "找不到函数", en: "Function not found" },
   "API/错误/函数执行错误": { cn: "函数执行错误", en: "Function execution error" },
   "API/消息/已发送停止信号": { cn: "已发送停止信号", en: "Stop signal sent" },
+
+  // 系统更新
+  "系统/更新/检查中": { cn: "正在检查更新...", en: "Checking for updates..." },
+  "系统/更新/发现新版本": { cn: "发现新版本", en: "New version found" },
+  "系统/更新/发现新版本提示": { cn: "发现新版本，正在自动下载...", en: "New version found, downloading automatically..." },
+  "系统/更新/下载中": { cn: "正在下载...", en: "Downloading..." },
+  "系统/更新/已是最新": { cn: "当前已是最新版本", en: "Already up to date" },
+  "系统/更新/开发环境": { cn: "开发环境跳过检查", en: "Skipped in Dev Mode" },
+  "系统/更新/开发环境标题": { cn: "开发环境", en: "Dev Environment" },
+  "系统/更新/开发环境提示": { cn: "当前处于开发环境，已跳过更新检查。请打包后测试更新功能。", en: "Skipped update check in dev mode. Please package the app to test." },
 
   // crossFuncs 对话框
   "对话框/标题/保存文件": { cn: "保存文件", en: "Save File" },

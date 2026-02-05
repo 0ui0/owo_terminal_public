@@ -22,6 +22,19 @@ export default {
       console.log("连接成功")
     })
 
+    this.socket.on("sys:updateStatus", (status) => {
+      // console.log("Update Status:", status)
+      commonData.updateStatus = status
+      m.redraw()
+
+      if (['up-to-date', 'error', 'downloaded'].includes(status.state)) {
+        setTimeout(() => {
+          commonData.updateStatus = { state: "idle", progress: 0, msg: "" }
+          m.redraw()
+        }, 5000)
+      }
+    })
+
     this.socket.on("comData", async (data, callback) => {
       try {
         if (data.version >= comData.data.get().version) {

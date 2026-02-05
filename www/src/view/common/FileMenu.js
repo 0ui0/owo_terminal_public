@@ -99,6 +99,15 @@ export default () => {
 
           m(Box, {
             isBtn: true,
+            style: { padding: "10px", textAlign: "left" },
+            onclick: () => {
+              v.attrs.delete()
+              import("../../comData/ioSocket.js").then(m => m.default.socket.emit("sys:checkUpdate"))
+            }
+          }, trs("菜单栏/操作/检查更新")),
+
+          m(Box, {
+            isBtn: true,
             style: { padding: "10px", textAlign: "left", display: "flex", justifyContent: "space-between" },
             onclick: () => { toggleAutoSave(); /* Don't close merely on toggle? or close? user preference. Explorer closes. Let's keep open for toggle? No, standard menu closes. */ }
           }, [

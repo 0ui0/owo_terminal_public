@@ -21,6 +21,13 @@ export default {
   // 是否启用winMode
   navWinMode: false,
 
+  // Update Status
+  updateStatus: {
+    state: "idle", // idle, checking, available, downloading, downloaded, error, up-to-date
+    progress: 0,
+    msg: ""
+  },
+
   // === App Registry (Added) ===
   appsData: {}, // appId -> [AppName]Data singleton
 
