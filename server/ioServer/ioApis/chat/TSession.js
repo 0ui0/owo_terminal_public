@@ -33,8 +33,14 @@ const TSession = class {
       console.log(`终端 ${tid} 已清理`)
     }
   }
-  getSummary() {
-    return Object.values(this.sessions).map(s => ({
+  // 获取终端概要
+  // maxCount: 限制最大数量（不传则返回所有），cwd 截断
+  getSummary(maxCount) {
+    let sessions = Object.values(this.sessions)
+    if (maxCount && maxCount > 0) {
+      sessions = sessions.slice(0, maxCount)
+    }
+    return sessions.map(s => ({
       tid: s.tid,
       listId: s.listId,
       cwd: s.cwd
@@ -175,6 +181,7 @@ const TSession = class {
         model.addAsk(msg.name, "user", ("摘要终端最新20条的最后1000字" + stripAnsi(msg.content.split(/\r?\n/).slice(-20).join("\n").slice(-1000))), {
           id: msg.uuid,
           tid: tid,
+          title: "终端输出摘要"
         })
       }
     };

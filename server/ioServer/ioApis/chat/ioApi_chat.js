@@ -213,20 +213,57 @@ export default ({ socket, server, io, db, verifyCookie }) => {
               toolsMode: comData.data.get().toolsMode,
               listId: listId,
               getExtraInfo: () => {
-                const terminals = tSession.getSummary()
-                const apps = appManager.getSummary()
+                const appList = appManager.getAppList(20)
+                const terminals = tSession.getSummary(5)
+                const appDetails = appManager.getAiSummary(5, 1000)
                 const { customCwd } = comData.data.get()
                 const lang = options.json?.global_language?.value || 'cn'
                 const langMap = {
                   cn: "用户指定你用中文回复",
                   en: "User specified you to reply in English",
                 }
-                return `
-系统：${process.platform} ${process.arch}
-${customCwd ? "用户指定工作目录：" + customCwd + ";" : ""}
-${terminals.length > 0 ? "终端：" + JSON.stringify(terminals) + ";" : ""}
-${apps.length > 0 ? "已启动app：" + JSON.stringify(apps) + ";" : ""}
-${langMap[lang]}`
+                
+                // 获取当前时间和地区
+                const now = new Date()
+                const timeStr = now.toLocaleString('zh-CN', {
+                  year: 'numeric',
+                  month: '2-digit',
+                  day: '2-digit',
+                  hour: '2-digit',
+                  minute: '2-digit',
+                  second: '2-digit',
+                  hour12: false
+                })
+                const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone
+                
+                // 组装易读的系统信息
+                const parts = []
+                parts.push(`系统：${process.platform} ${process.arch}`)
+                parts.push(`时间：${timeStr} (${timezone})`)
+                
+                if (customCwd) {
+                  parts.push(`工作目录：${customCwd}`)
+                }
+                
+                if (appList.length > 0) {
+                  const totalApps = appManager.getSummary().length
+                  const moreApps = totalApps > 20 ? `等共${totalApps}个` : ''
+                  parts.push(`Apps：[${appList.join(', ')}${moreApps}]`)
+                }
+                
+                if (terminals.length > 0) {
+                  const termStr = terminals.map(t => `${t.tid}:${t.cwd || '?'}`).join(', ')
+                  const moreTerms = Object.keys(tSession.sessions).length > 5 ? `等共${Object.keys(tSession.sessions).length}个` : ''
+                  parts.push(`终端：${termStr}${moreTerms}`)
+                }
+                
+                if (appDetails.length > 0) {
+                  parts.push('活跃Apps：\n' + appDetails.join('\n---\n'))
+                }
+                
+                parts.push(langMap[lang])
+                
+                return '\n' + parts.join('\n') + '\n'
               },
               async onSendAskBefore(aiAskInstance) {
                 const aiList = await options.get("ai_aiList");

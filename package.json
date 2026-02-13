@@ -12,9 +12,11 @@
       {
         "provider": "github",
         "owner": "0ui0",
-        "repo": "owo_terminal_public"
+        "repo": "owo_terminal_public",
+        "releaseType": "release"
       }
     ],
+    "releaseNotesFile": "release-notes.md",
     "files": [
       "**/*",
       "!**/*.coffee",

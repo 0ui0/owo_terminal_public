@@ -161,6 +161,7 @@ export default function () {
   const handleMinimize = (box, e, win) => {
     if (e && e.stopPropagation) e.stopPropagation()
     win.minimized = true
+    if (currentAttrs && currentAttrs.onWindowUpdate) currentAttrs.onWindowUpdate(win)
     m.redraw()
   }
 

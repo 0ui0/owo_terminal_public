@@ -19,7 +19,7 @@ export default {
       mood: Joi.number().min(0).max(10).required().description("1到10,你的心情值，值越大心情越好"),
       at: Joi.string().allow("").description("用户的用户名，可留空字串。表示是否需要@用户"),
       content: Joi.string().required().description("markdown字符串，思考后决定回复的内容，needReply为0将不会发出，不许空"),
-      note: Joi.string().required().description("当前发生事情的完整记忆，不许空"),
+      note: Joi.string().required().description("笔记，用作消息截断后保存的你的记忆，需详细记录关键信息，不许空"),
       faceAction: Joi.string().valid(...actorAction.getFaceActions()).required().description("表态，请从中选一个"),
       playFace: Joi.string().valid(...actorAction.getPlayFaces()).required().description("动作，据你心情从中选一个"),
       ...(!useStdTools && {

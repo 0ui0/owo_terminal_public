@@ -235,6 +235,115 @@ class AppManager {
     }))
   }
 
+  // 获取 App 简单列表（用于 AI 上下文）
+  // 返回格式: ["浏览器(browser_123)", "编辑器(editor_456)", ...]
+  getAppList(maxCount = 20) {
+    const apps = [...this.apps.values()]
+    const appDefMap = new Map([...this.appDefs.values()].map(d => [d.id, d]))
+    
+    return apps.slice(0, maxCount).map(app => {
+      const appDef = appDefMap.get(app.type)
+      const name = appDef?.name || app.type
+      return `${name}(${app.id})`
+    })
+  }
+
+  // 获取 AI 专用概要，返回易读字符串数组
+  // maxCount: 最多返回几个 App 的详情
+  // maxLength: 每个 App 详情最大长度（超过硬截断）
+  getAiSummary(maxCount = 5, maxLength = 1000) {
+    const allApps = [...this.apps.values()]
+    
+    // 1. 找出全场最高层级（zIndex 最大且未最小化）的窗口 zIndex
+    let maxZ = -1
+    allApps.forEach(app => {
+      const win = app.data?.window
+      if (win && !win.minimized && win.zIndex > maxZ) {
+        maxZ = win.zIndex
+      }
+    })
+
+    // 2. 按活跃度排序：聚焦 > 活跃Tab > 未最小化 > 其他
+    const priority = (app) => {
+      const win = app.data?.window || {}
+      const isFocused = win.zIndex === maxZ && !win.minimized && win.activeSign === app.id
+      const isActiveTab = win.activeSign === app.id
+      if (isFocused) return 4
+      if (isActiveTab) return 3
+      if (!win.minimized) return 2
+      return 1
+    }
+    
+    const sortedApps = allApps.sort((a, b) => priority(b) - priority(a)).slice(0, maxCount)
+
+    // 3. 格式化每个 App 为易读字符串
+    return sortedApps.map(app => {
+      const win = app.data?.window || {}
+      const data = app.data || {}
+      const appDef = this.appDefs.get(app.type)
+      
+      const isFocused = win.zIndex === maxZ && !win.minimized && win.activeSign === app.id
+      const isActiveTab = win.activeSign === app.id
+      
+      // 窗口状态描述
+      let windowState = '正常'
+      if (win.isMaximized) windowState = '最大化'
+      if (win.minimized) windowState = '最小化'
+      
+      // 活跃状态描述
+      const activityState = isFocused ? '聚焦中' : (isActiveTab ? '活跃' : '后台')
+      
+      // 处理 data 字段，排除大内容字段，对 content 做特殊处理
+      const dataFields = []
+      for (const key in data) {
+        if (key === 'window') continue // 排除窗口大对象
+        
+        // 特别处理编辑器的大内容字段
+        if (key === 'content' || key === 'originalContent' || key === 'proposedContent') {
+          const content = data[key] || ''
+          if (content.length > 0) {
+            const lines = content.split('\n').length
+            const preview = content.slice(0, 150).replace(/\n/g, '\\n')
+            const suffix = content.length > 150 ? '...(已截断)' : ''
+            dataFields.push(`${key}: [${content.length}字符/${lines}行] "${preview}${suffix}"`)
+          }
+          continue
+        }
+        
+        // 普通字段截断处理
+        let val = data[key]
+        if (typeof val === 'string') {
+          const maxValLen = key.toLowerCase().includes('path') ? 200 : 100
+          if (val.length > maxValLen) {
+            val = val.slice(0, maxValLen) + '...(截断)'
+          }
+        } else if (val && typeof val === 'object') {
+          try {
+            val = JSON.stringify(val).slice(0, 100)
+            if (val.length >= 100) val += '...(截断)'
+          } catch {
+            val = '[Object]'
+          }
+        }
+        dataFields.push(`${key}: ${val}`)
+      }
+      
+      // 组装成易读字符串
+      const appName = appDef?.name || app.type
+      let result = `[${appName} ${app.id}] ${activityState} | ${windowState}`
+      if (dataFields.length > 0) {
+        result += '\n  ' + dataFields.join('\n  ')
+      }
+      
+      // 硬截断
+      if (result.length > maxLength) {
+        result = result.slice(0, maxLength - 3) + '...'
+      }
+      
+      return result
+    })
+  }
+
   // 获取 App 类型列表（供 前端桌面显示）
   getappDefs() {
     return [...this.appDefs.values()].map(def => ({

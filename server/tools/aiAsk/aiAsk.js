@@ -530,7 +530,7 @@ ${memStr}
               switch (config.toolsMode) {
                 case 1:
                   return `${getCorePrompt(this.name)}
-【通讯规范】${getMsgProtocol()}
+【通讯规范】${getMsgProtocol()} 绝对禁止构建【元数据】字段
 【角色设定】${this.aiConfig.prompt}
 【系统函数】${yaml.dump(toolTipObj.sysCall)}
 【用户函数】${yaml.dump(toolTipObj.usrCall)}
@@ -539,7 +539,7 @@ ${memStr}
 ${(typeof config.getExtraInfo === "function" ? config.getExtraInfo() : void 0) || ""}`.trim();
                 case 2:
                   return `${getCorePrompt(this.name)}
-【通讯规范】按JSONSchema模板回复。即使调用tools，也必须填充必填字段。严禁返回空正文。
+【通讯规范】按JSONSchema模板回复。即使调用tools，也必须填充必填字段。严禁返回空正文。绝对禁止构建【元数据】字段。
 【角色设定】${this.aiConfig.prompt}
 【使用工具】你可以根据用户要求自主决定使用tools
 【信息】
@@ -548,6 +548,7 @@ ${(typeof config.getExtraInfo === "function" ? config.getExtraInfo() : void 0) |
                   return `${getCorePrompt(this.name)}
 【通讯规范】按JSONSchema模板回复。范例：
 ${getMsgExample()}
+绝对禁止构建【元数据】字段
 若需调用下方函数，填写sysCalls字段，格式：[{"id":"函数id","call_id":"唯一调用id","type":"function_call","name":"函数名","arguments":{参数}}]
 【角色设定】${this.aiConfig.prompt}
 【系统函数】${yaml.dump(toolTipObj.sysCall)}
@@ -568,7 +569,7 @@ ${(typeof config.getExtraInfo === "function" ? config.getExtraInfo() : void 0) |
               delete tmp.content;
               delete tmp.toolCalls; //模式2这个字段被写到外部tool_calls字段里了，这里再写一遍重复了
               tmpStr = `${rawContent}
-【元数据 供你查询，发送不许携带】
+【元数据 供阅读，禁止回复携带】
 ${yaml.dump(tmp)}`.trim();
               
               //console.log(tmpStr)
@@ -580,7 +581,7 @@ ${yaml.dump(tmp)}`.trim();
               delete tmp.content;
               delete tmp.sysReturns; //有一个工具调用结果的通知会把sysReturns的所有内容放content里，这里再写一遍重复了
               tmpStr = `${rawContent}
-【元数据 供你查询，发送不许携带】
+【元数据 供阅读，禁止回复携带】
 ${yaml.dump(tmp)}`.trim();
               return tmpStr;
             }
