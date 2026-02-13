@@ -16,7 +16,6 @@
         "releaseType": "release"
       }
     ],
-    "releaseNotesFile": "release-notes.md",
     "files": [
       "**/*",
       "!**/*.coffee",
