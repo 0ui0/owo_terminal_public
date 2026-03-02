@@ -42,7 +42,11 @@ export default {
         data.chatLists.push({
           id: newListId,
           linkid: currentListId,
-          data: []
+          data: [],
+          replying: false,
+          streamChunks: "",
+          confirmCmds: [],
+          stop: false
         });
       });
 
@@ -81,13 +85,28 @@ export default {
       }
 
       // 2. 使用选中模型的配置 (apiKey, baseURL, model)
+      // 2. 使用选中模型的配置 (apiKey, baseURL, model)
       const baseConfig = selectedModel.aiConfig;
+
+      // 解析创建者名称
+      let creatorName = "主控AI";
+      if (currentListId > 0) {
+        const creatorAgent = subAgents.get(currentListId);
+        if (creatorAgent) {
+          creatorName = creatorAgent.name;
+        } else {
+          creatorName = `智能体(List:${currentListId})`;
+        }
+      }
 
       // 强制注入“通讯闭环”指令
       const forcedInstruction = `
 【系统通讯协议】
-本环境支持多智能体通讯。你可以使用 callAgent发起或回复通讯。
-若收到其他智能体的呼叫或任务指令，请在任务执行完毕后，务必使用 callAgent 向发送方汇报结果（注：主控AI的列表ID固定为 0，不调用工具直接回复他们是看不到的。）。
+你叫【${name}】。
+你的最高上级是【主控AI】（通讯ID固定为 0）。
+你的创建者（直属来源）是【${creatorName}】（通讯ID：${currentListId}）。
+本环境支持多智能体通讯。你可以使用 callAgent 发起或回复通讯。
+重要规则：若收到其他智能体的呼叫或任务指令，请在任务执行完毕后，务必使用 callAgent 优先向【发送指令的来源方】汇报结果。
 `.trim();
 
       const finalPrompt = `${prompt}\n\n${forcedInstruction}`;
@@ -112,6 +131,11 @@ export default {
 
       // 注册
       subAgents.add(newListId, newAgent);
+
+      // 通知前端自动弹出子智能体窗口
+      if (ioServer.io) {
+        ioServer.io.emit("agentWindow:open", { listId: newListId, name });
+      }
 
       return `智能体 ${name} 已创建，listId 为 ${newListId}`;
 

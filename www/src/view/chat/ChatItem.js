@@ -11,6 +11,7 @@ import AutoForm from "../common/autoForm.js"
 import ChatTerm from "./ChatTerm.js"
 import settingData from "../setting/settingData.js"
 import ChatList from "./ChatList.js"
+import AgentWindow from "./AgentWindow.js"
 import { trs } from "../common/i18n.js"
 
 let ChatItem = null
@@ -381,6 +382,35 @@ export default ChatItem = () => {
                     fill: "#333"
                   })),
                   comData.data.get()?.targetChatListId === chat.ext?.targetSubListId ? trs("聊天/队列/解锁", { cn: "解锁队列", en: "Unlock Queue" }) : trs("聊天/队列/锁定", { cn: "锁定队列", en: "Lock Queue" })
+                ]) : null,
+
+              chat.group === "childChatList" ?
+                m(Tag, {
+                  styleExt: {
+                    background: "#5e6c79",
+                    color: "#111",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    marginLeft: "0",
+                    marginRight: "0.5rem",
+                  },
+                  isBtn: true,
+                  onclick: () => {
+                    const targetId = chat.ext?.targetSubListId;
+                    const name = chat.ext?.agentName || trs("智能体窗口/标题", { cn: `智能体 ${targetId}`, en: `Agent ${targetId}` });
+                    Notice.launch({
+                      sign: "agent_" + targetId,
+                      tip: "🤖 " + name,
+                      width: 600,
+                      height: 800,
+                      content: AgentWindow({ listId: targetId, agentName: name }),
+                    })
+                  },
+                }, [
+                  m.trust(window.iconPark.getIcon("Browser", {
+                    fill: "#333"
+                  })),
+                  trs("聊天/窗口/按钮", { cn: "窗口", en: "Window" })
                 ]) : null,
 
               m(Tag, {

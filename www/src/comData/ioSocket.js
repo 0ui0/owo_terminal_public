@@ -7,6 +7,7 @@ import m from "mithril"
 import Box from "../view/common/box.js"
 import settingData from "../view/setting/settingData.js"
 import format from "../view/common/format.js"
+import { trs } from "../view/common/i18n.js"
 
 export default {
   socket: null,
@@ -213,7 +214,8 @@ export default {
         // Mark as launched in backend
         settingData.fnCall("appGuiLaunched", [msg.appId]).catch(e => console.warn("Failed to mark app active", e))
 
-        Notice.launch({
+        // 定义窗口配置对象
+        const noticeObj = {
           sign: msg.appId,
           group: msg.type,
           tip: (msg.icon || "📦") + " " + msg.name,
@@ -223,6 +225,10 @@ export default {
               color: "#5e6c79",
               onclick: () => {
                 chatData.quoteAppId(msg.appId)
+                // 点击引用后，自动将弹窗最小化
+                if (noticeObj._winConfig && noticeObj._winConfig.id) {
+                  Notice.minimizeWindow(noticeObj._winConfig.id)
+                }
               }
             }
           ],
@@ -246,7 +252,9 @@ export default {
             appId: msg.appId,
             data: msg.data
           }
-        })
+        }
+
+        Notice.launch(noticeObj)
       } catch (e) {
         console.error("加载 App 前端失败:", e)
         Notice.launch({
@@ -305,6 +313,23 @@ export default {
         }
       } else {
         if (typeof callback === 'function') callback({ error: "App instance not found" })
+      }
+    })
+
+    // 子智能体窗口自动弹出
+    this.socket.on("agentWindow:open", async (msg) => {
+      try {
+        const AgentWindow = (await import("../view/chat/AgentWindow.js")).default
+        const { listId, name } = msg
+        Notice.launch({
+          sign: "agent_" + listId,
+          tip: "🤖 " + (name || trs("智能体窗口/标题", { cn: `智能体 ${listId}`, en: `Agent ${listId}` })),
+          content: AgentWindow({ listId, agentName: name }),
+          width: 600,
+          height: 800,
+        })
+      } catch (e) {
+        console.error("子智能体窗口弹出失败:", e)
       }
     })
 

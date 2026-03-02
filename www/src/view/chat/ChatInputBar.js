@@ -12,12 +12,13 @@ import DesktopMini from "../desktopMini/desktopMini.js"
 import { trs } from "../common/i18n.js"
 
 export default () => {
+  let _forcedListId = null // 若非 null，则锁定发送目标（用于子智能体独立窗口）
   const submitFn = async (e) => {
     e.preventDefault()
     data.preparing = true
 
-    // Retrieve routing context
-    const targetChatListId = comData.data.get()?.targetChatListId || 0;
+    // Retrieve routing context (forcedListId 优先于全局)
+    const targetChatListId = _forcedListId !== null ? _forcedListId : comData.data.get()?.targetChatListId
 
     await comData.data.edit((data_) => {
       data_.inputText = data.inputText
@@ -25,7 +26,7 @@ export default () => {
 
     // Send with routing info
     ioSocket.socket.emit("chat", {
-      chatListId: targetChatListId
+      targetChatListId: targetChatListId
     })
 
     await comData.data.edit((data) => { data.inputText = "" })
@@ -47,7 +48,9 @@ export default () => {
         throw err
       }
     },
-    view() {
+    view({ attrs }) {
+      // 更新强制 listId（来自子智能体窗口等外部调用方）
+      _forcedListId = attrs?.forcedListId !== undefined ? attrs.forcedListId : null
       return m("", {
         style: {
           display: "flex",

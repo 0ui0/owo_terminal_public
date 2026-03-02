@@ -128,6 +128,7 @@ export default {
         }
         data.currentTid ??= ""
         data.toolsMode ??= 3 //1提示词模式 2标准工具模式 3 miao模式
+        data.targetChatListId ??= 0 //默认用户锁定的聊天列表id
       })
 
       /* playListTimer ??= setInterval(async () => {

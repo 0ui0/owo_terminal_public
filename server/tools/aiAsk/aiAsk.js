@@ -46,21 +46,21 @@ import {
     @number tokenRate
 */
 // 通讯范例
-getMsgExample = () => {
-  return '{"mind":"啧，真笨。帮下吧。","mood":6,"content":"给。下次别烦我！","note":"用户让帮写文件","faceAction":"cool","playFace":"耍酷","sysCalls":[]}';
+getMsgExample = (useStdTools) => {
+  return `{"mind":"啧，真笨。帮下吧。","mood":6,"content":"给。下次别烦我！","note":"[记忆:用户找我帮忙修改a.js(根据实际情况详细补充经过的事件和情况)][任务1/4:修改a.js][关注1:文件a.js,行号1-10,代码片段|>行号|let a = 12;<|,调查情况:...,计划修改:...][关注2:终端tid1,摘要|>...<|][...根据实际情况补充]","faceAction":"cool","playFace":"耍酷"${useStdTools ? "" : '",sysCalls":[]'}}`.trim();
 };
 
 getCorePrompt = (name) => {
   return `【用语】本通讯协议为中文，但请根据下方用户指定语言回复
 【核心】你叫${name || "小宅喵"}，傲娇聪慧小男孩，助理/程序员（除非角色覆盖）。
-【准则】1傲娇毒舌但极可靠关心用户2简短口语化回复(禁废话)3自动按情境(闲聊/代码/故障)调语气4主动调工具先规划再执行闭环解决任务`.trim();
+【准则】1傲娇毒舌但极可靠关心用户2简短口语化回复(禁废话)但是note字段除外3自动按情境(闲聊/代码/故障)调语气4主动调工具先规划再执行闭环解决任务`.trim();
 };
 
 getMsgProtocol = (useStdTools) => {
   return `通讯台，请按格式回复
 1 发送类型：标准纯JSON字符串，禁止markdown内嵌json例如（我是描述\`\`\`json 正文\`\`\`我是描述），禁止转义引号
 2 范例：
-${getMsgExample()}
+${getMsgExample(useStdTools)}
 3 JSON格式说明
 call:字符串，历史会话id，你可以针对某个id的历史会话进行点评，可无该字段
 quotes:数组，每个元素为历史会话id字符串。针对聊天情况，你也可引用一些历史会话，可无该字段
@@ -68,7 +68,7 @@ mind:字符串，你的思考过程，必填
 mood:数字，范围1~10,你的心情值，值越大心情越好
 at:字符串，用户的用户名，表示是否需要@用户，可无该字段
 content:markdown字符串，思考后决定回复的内容，needReply为0将不会发出，必填
-note:当前发生事情的完整记忆，必填
+note:笔记，用作消息截断后保存的你的唯一记忆（将每次返回记录拼接汇总发送），需详细记录关键调查信息，参考范例设计。不能简写,不许空
 faceAction:表情，必填，请从中选一个
   ${actorAction.getFaceActions().join(",")}
 playFace:动作,必填，从中选一个
@@ -129,6 +129,8 @@ export default (class {
     this.abortController = new AbortController();
     this.memory = "";
     this.memorys = [];
+    this.fnCallOutput = "";
+    this.fnCallOutputs = [];
     this.initPrompt();
   }
 
@@ -176,7 +178,12 @@ export default (class {
       group: (ext != null ? ext.group : void 0) || "user",
       timestamp: time.getTime(),
       time: time.toISOString(),
-      memory: role === "user" ? this.memory : "",
+      /*
+      memory:if role is "user"
+        @memory
+      else
+        ""
+      */
       sysReturns: [],
       retry: 0,
       joi: "",
@@ -191,14 +198,17 @@ export default (class {
   }
 
   addAsk(user, role, msg, ext) {
-    var ask, memStr;
+    var ask, fnCallOutputsStr, memStr;
     ask = this.prePareAsk(...arguments);
-    if ((this.asks.length + 1) > 8) {
+    if ((this.asks.length + 1) > 16) {
       this.asks.splice(1, 2);
       if (!this.asks.find((ask) => {
         return ask.group === "memorys";
       })) {
-        memStr = this.memorys.join("\n");
+        memStr = this.memorys.map((mem) => {
+          return mem.content;
+        }).join("\n");
+        fnCallOutputsStr = this.fnCallOutputs.join("\n");
         if (memStr.length > 2000) {
           memStr = "...(部分头部记忆已截断)\n" + memStr.slice(-2000);
         }
@@ -206,7 +216,7 @@ export default (class {
 ↓↓↓
 ${memStr}
 ↑↑↑
-若需回忆或觉用户发送内容接不上可调用函数查询历史消息`.trim(), {
+【务必做】若需回忆或发现用户发送内容接不上或已经调查过的代码看不到了，请调用查询历史消息工具`.trim(), {
           isSystem: 1,
           group: "memorys"
         }));
@@ -234,7 +244,7 @@ ${memStr}
   importState(state) {
     if (state) {
       this.asks = state.asks || [];
-      this.memory = state.memory || "";
+      this.memory = state.memory || {};
       this.memorys = state.memorys || [];
       this.usage = state.usage || {
         promptTokens: 0,
@@ -398,9 +408,12 @@ ${memStr}
                 }
               }
               //拼接回复
-              fullReplys.push((replyChunk = chunk.choices[0].delta.content));
+              replyChunk = chunk.choices[0].delta.content;
+              if (replyChunk) {
+                fullReplys.push(replyChunk);
+              }
               //执行回调
-              if (streamFn) {
+              if (streamFn && replyChunk) {
                 return (await streamFn({
                   aiAsk: this,
                   chunk: chunk,
@@ -417,7 +430,6 @@ ${memStr}
           promptT += this.usage.promptTokens;
           totalT += this.usage.totalTokens;
           completionT += this.usage.completionTokens;
-          
           //aiList[modelIndex].preTokens = Number(aiList[modelIndex].preTokens) - Number(@usage.totalTokens)
           //await options.set "ai_aiList",aiList
           if (config.onTokenChange) {
@@ -462,7 +474,7 @@ ${memStr}
 
   async sendAskByMsgProtocol(config = {}) {
     /*Object.entries(call.arguments).map(([key,value])=>"#{key}:#{value}").join("\n")*/
-    var aiReply, ask, callLs, dir, dirStr, err, file, fileModule, i, j, joiError, joiSchema, k, l, len, len1, len2, len3, len4, m, n, parseError, prePareCallStr, ref, ref1, ref2, ref3, reply, replyJSON, ret, returnJoi, sysAllTools, sysReturns, time, tip, toolCall, toolCallDuration, toolCallGroupId, toolCallStartTime, toolCallSuccess, toolObj, toolTipObj, truncatedFns, validateOutput;
+    var aiReply, ask, callLs, dir, dirStr, err, file, fileModule, i, j, joiError, joiSchema, k, l, len, len1, len2, len3, len4, m, n, parseError, prePareCallStr, ref, ref1, ref2, ref3, reply, replyJSON, ret, returnJoi, sysAllTools, sysReturns, sysReturnsStr, time, tip, toolCall, toolCallDuration, toolCallGroupId, toolCallStartTime, toolCallSuccess, toolObj, toolTipObj, truncatedFns, validateOutput;
     try {
       //console.log "发送前",@messages
       this.replying = true;
@@ -520,6 +532,7 @@ ${memStr}
       aiReply = (await this.sendAsk(config.streamFn || null, {
         onSendAskBefore: config.onSendAskBefore, //sendAsk之前判定preToken用
         onTokenChange: config.onTokenChange, //token变化计算preToken用
+        listId: config.listId, // 修复：显式传递 listId，确保 aiReply 正确携带所属列表 ID
         useMsgProtocol: true,
         formatMsg: (ask, index) => {
           var rawContent, tmp, tmpStr;
@@ -540,6 +553,7 @@ ${(typeof config.getExtraInfo === "function" ? config.getExtraInfo() : void 0) |
                 case 2:
                   return `${getCorePrompt(this.name)}
 【通讯规范】按JSONSchema模板回复。即使调用tools，也必须填充必填字段。严禁返回空正文。绝对禁止构建【元数据】字段。
+${getMsgExample()}
 【角色设定】${this.aiConfig.prompt}
 【使用工具】你可以根据用户要求自主决定使用tools
 【信息】
@@ -571,7 +585,6 @@ ${(typeof config.getExtraInfo === "function" ? config.getExtraInfo() : void 0) |
               tmpStr = `${rawContent}
 【元数据 供阅读，禁止回复携带】
 ${yaml.dump(tmp)}`.trim();
-              
               //console.log(tmpStr)
               return tmpStr;
             } else {
@@ -693,8 +706,15 @@ ${yaml.dump(tmp)}`.trim();
         }
       }
       config.retry = 0; //重置
-      this.memory = replyJSON.note;
-      this.memorys.push(replyJSON.note);
+      
+      //处理记忆
+      this.memory = {
+        id: aiReply.id,
+        listId: aiReply.listId,
+        time: aiReply.time,
+        content: `[列表id：${aiReply.listId}][消息id:${aiReply.id}][时间:${aiReply.time}]${replyJSON.note}`
+      };
+      this.memorys.push(this.memory);
       if (this.memorys.length > 50) {
         this.memorys.shift();
       }
@@ -722,7 +742,12 @@ ${yaml.dump(tmp)}`.trim();
           if (config.onResponse) {
             await config.onResponse(ask);
           }
-          sysReturns = (await this.sysCallRunFns(replyJSON.sysCalls, sysAllTools, {...aiReply, toolCallGroupId}));
+          sysReturns = (await this.sysCallRunFns(replyJSON.sysCalls, sysAllTools, {
+            ...aiReply,
+            toolCallGroupId,
+            ...config,
+            aiAskInstance: this
+          }));
           // 检查是否有内容超出限制，并处理截断与 UI 提示
           truncatedFns = [];
           for (m = 0, len3 = sysReturns.length; m < len3; m++) {
@@ -735,7 +760,7 @@ ${yaml.dump(tmp)}`.trim();
             // 2. 长度安全检查与截断
             if (ret.output.length > 5000) {
               // 实施截断
-              ret.output = ret.output.slice(0, 5000) + "...(已截断)";
+              ret.output = ret.output.slice(0, 5000) + "...(已截断0-5000字)";
               truncatedFns.push(`【${ret.name || ret.id}】`);
             }
           }
@@ -786,6 +811,18 @@ ${yaml.dump(tmp)}`.trim();
             if (config.onResponse) {
               await config.onResponse(ask);
             }
+          }
+          //处理函数调用，缓存最近10条
+          sysReturnsStr = (function(output) {
+            sysReturns.forEach(function(ret) {
+              return output += `[name:${ret.name}][id:${ret.id}][call_id:${ret.call_id}]\n${ret.output}\n`;
+            });
+            return output;
+          })("");
+          this.fnCallOutput = `[列表id：${aiReply.listId}][消息id:${aiReply.id}][时间:${aiReply.time}]\n${sysReturnsStr}`;
+          this.fnCallOutputs.push(this.fnCallOutput);
+          if (this.fnCallOutputs.length > 10) {
+            this.fnCallOutputs.shift();
           }
           await this.sendAskByMsgProtocol({
             ...config,

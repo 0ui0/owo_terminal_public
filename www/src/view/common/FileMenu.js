@@ -3,6 +3,7 @@ import Box from "./box.js"
 import Notice from "./notice.js"
 import commonData from "./commonData.js"
 import { trs } from "./i18n.js"
+import aiContext from "../titleMenu/aiContext.js"
 
 export default () => {
   let autoSaveEnabled = false
@@ -96,6 +97,18 @@ export default () => {
           }, trs("菜单栏/操作/另存为")),
 
           m("div", { style: { height: "1px", background: "rgba(255,255,255,0.1)", margin: "5px 0" } }),
+
+          m(Box, {
+            isBtn: true,
+            style: { padding: "10px", textAlign: "left" },
+            onclick: () => {
+              v.attrs.delete()
+              Notice.launch({
+                tip: trs("菜单栏/操作/模型请求上下文(动态视图)", { cn: "模型请求上下文 (动态视图)", en: "Model Request Context (Dynamic)" }),
+                content: aiContext
+              })
+            }
+          }, trs("菜单栏/操作/查看模型上下文", { cn: "查看模型上下文", en: "View Model Context" })),
 
           m(Box, {
             isBtn: true,

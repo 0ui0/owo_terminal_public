@@ -56,6 +56,18 @@ export default {
         });
         // 强制清空镜像
         model.messages = [];
+
+        // 清理 memorys
+        if (model.memorys) {
+          model.memorys = model.memorys.filter(mem => {
+            let memTimestamp = mem.time ? new Date(mem.time).getTime() : 0;
+            if (mem.id === uuid) return false;
+            if (targetTimestamp > 0 && memTimestamp === targetTimestamp) return false;
+            return true;
+          });
+        }
+
+
       };
 
       if (targetListId === 0) {

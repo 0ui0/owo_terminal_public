@@ -76,6 +76,24 @@ export default {
         if (model.asks.length === 0 || (model.asks[0] && model.asks[0].role !== "system")) {
           model.initPrompt();
         }
+
+        // 补全 targetTimestamp，以防在 chatLists 中没找到但在 asks 中找到了
+        if (targetTimestamp === 0 && askIndex !== -1) {
+          targetTimestamp = model.asks[askIndex].timestamp || 0;
+        }
+
+        // 清理 memorys
+        if (model.memorys) {
+          model.memorys = model.memorys.filter(mem => {
+            let memTimestamp = mem.time ? new Date(mem.time).getTime() : 0;
+            if (targetTimestamp > 0 && memTimestamp >= targetTimestamp) return false;
+            // 兜底：如果 targetTimestamp 为 0 时，或者时间无法推断，直接匹配 id
+            if (mem.id === uuid) return false;
+            return true;
+          });
+        }
+
+
       };
 
       if (targetListId === 0) {
