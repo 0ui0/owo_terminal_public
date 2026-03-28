@@ -8,7 +8,7 @@ export default ()=>{
           flexDirection:"column",
           borderRadius:"3rem",
           background:"#755d5c55",
-          margin:"2rem 1rem",  
+          margin:"2rem 1rem",
           padding:"2rem",
         }
       },[
@@ -21,7 +21,7 @@ export default ()=>{
           }
         },"会话列表"),
         m(Session),
-      ]) 
+      ])
     }
   }
 }

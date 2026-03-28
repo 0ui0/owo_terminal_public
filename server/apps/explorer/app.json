@@ -4,6 +4,7 @@
   "description": "管理文件和目录，支持拖拽路径",
   "icon": "📂",
   "version": "1.0.0",
+  "autoLoadTools": true,
   "backend": "backend.js",
   "frontend": "frontend.js"
 }

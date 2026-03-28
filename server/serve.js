@@ -31,7 +31,7 @@ const init = async () => {
     // 创建服务器实例
     const server = Hapi.server({
       port: 9501,
-      host: 'localhost',//'0.0.0.0',//'localhost',
+      host: '0.0.0.0',//'0.0.0.0',//'localhost',
       routes: {
         cors: {
           origin: ['*'], // 允许所有来源的请求

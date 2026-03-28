@@ -3,6 +3,7 @@ import fsP from "fs/promises"
 import path from "path"
 import { pathToFileURL } from "url"
 import { app } from "electron"
+import idTool from "../tools/idTool.js"
 
 class AppManager {
   constructor() {
@@ -10,13 +11,17 @@ class AppManager {
     this.appDefs = new Map()    // type -> appDefinition
     this.appDefsErrors = new Map() // type/dir -> error (NEW: 记录加载错误的 App)
     this.io = null
+    this.tools = []               // 扁平工具数组，每个 tool 带 type 属性
+    this.loadedAppTools = new Set() // 已加载工具的 appType 集合
   }
 
   // 初始化，传入 io 实例
-  init(io) { // Changed signature to accept 'app'
+  async init(io) {
     this.io = io
     this.watchAppDefs()
-    return this.loadappDefs()
+    await this.loadappDefs()        // 1. 先加载 App 定义
+    await this.loadCoreTools()      // 2. 再加载核心内置工具
+    await this.loadAutoAppTools()   // 3. 最后加载标记为自动加载的 App 工具
   }
 
   // 监听 apps 目录变动
@@ -113,7 +118,7 @@ class AppManager {
       const appDef = this.appDefs.get(type)
       if (!appDef) return { ok: false, msg: `未知的 App 类型: ${type}` }
 
-      const appId = options.appId || `${type}_${Date.now()}`
+      const appId = options.appId || idTool.get("app")
 
       // 检查是否已存在同 appId 的实例
       if (this.apps.has(appId)) {
@@ -193,6 +198,14 @@ class AppManager {
 
     this.apps.delete(appId)
 
+    // 自动卸载工具：如果该类型 App 没有其他运行实例且非 autoLoadTools，则卸载
+    const appType = app.type
+    const hasOtherInstances = [...this.apps.values()].some(a => a.type === appType)
+    const appDef2 = this.appDefs.get(appType)
+    if (!hasOtherInstances && !appDef2?.autoLoadTools) {
+      this.unregisterAppTools(appType)
+    }
+
     if (this.io) {
       this.io.emit("app:close", { appId })
     }
@@ -240,7 +253,7 @@ class AppManager {
   getAppList(maxCount = 20) {
     const apps = [...this.apps.values()]
     const appDefMap = new Map([...this.appDefs.values()].map(d => [d.id, d]))
-    
+
     return apps.slice(0, maxCount).map(app => {
       const appDef = appDefMap.get(app.type)
       const name = appDef?.name || app.type
@@ -253,7 +266,7 @@ class AppManager {
   // maxLength: 每个 App 详情最大长度（超过硬截断）
   getAiSummary(maxCount = 5, maxLength = 1000) {
     const allApps = [...this.apps.values()]
-    
+
     // 1. 找出全场最高层级（zIndex 最大且未最小化）的窗口 zIndex
     let maxZ = -1
     allApps.forEach(app => {
@@ -273,7 +286,7 @@ class AppManager {
       if (!win.minimized) return 2
       return 1
     }
-    
+
     const sortedApps = allApps.sort((a, b) => priority(b) - priority(a)).slice(0, maxCount)
 
     // 3. 格式化每个 App 为易读字符串
@@ -281,23 +294,23 @@ class AppManager {
       const win = app.data?.window || {}
       const data = app.data || {}
       const appDef = this.appDefs.get(app.type)
-      
+
       const isFocused = win.zIndex === maxZ && !win.minimized && win.activeSign === app.id
       const isActiveTab = win.activeSign === app.id
-      
+
       // 窗口状态描述
       let windowState = '正常'
       if (win.isMaximized) windowState = '最大化'
       if (win.minimized) windowState = '最小化'
-      
+
       // 活跃状态描述
       const activityState = isFocused ? '聚焦中' : (isActiveTab ? '活跃' : '后台')
-      
+
       // 处理 data 字段，排除大内容字段，对 content 做特殊处理
       const dataFields = []
       for (const key in data) {
         if (key === 'window') continue // 排除窗口大对象
-        
+
         // 特别处理编辑器的大内容字段
         if (key === 'content' || key === 'originalContent' || key === 'proposedContent') {
           const content = data[key] || ''
@@ -309,7 +322,7 @@ class AppManager {
           }
           continue
         }
-        
+
         // 普通字段截断处理
         let val = data[key]
         if (typeof val === 'string') {
@@ -327,19 +340,19 @@ class AppManager {
         }
         dataFields.push(`${key}: ${val}`)
       }
-      
+
       // 组装成易读字符串
       const appName = appDef?.name || app.type
       let result = `[${appName} ${app.id}] ${activityState} | ${windowState}`
       if (dataFields.length > 0) {
         result += '\n  ' + dataFields.join('\n  ')
       }
-      
+
       // 硬截断
       if (result.length > maxLength) {
         result = result.slice(0, maxLength - 3) + '...'
       }
-      
+
       return result
     })
   }
@@ -358,6 +371,156 @@ class AppManager {
   onGuiLaunched(appId) {
     const app = this.apps.get(appId)
     if (app) app.guiLaunched = true
+  }
+
+  // ========== 工具注册表能力 ==========
+
+  /**
+   * 加载核心内置工具（sysCall/usrCall/aiCall 三个目录）
+   * 每个工具注入 tool.type 属性
+   */
+  async loadCoreTools() {
+    const toolDirs = [
+      { dir: "sysCall", type: "sysCall" },
+      { dir: "usrCall", type: "usrCall" },
+      { dir: "aiCall",  type: "aiCall" }
+    ]
+    const aiAskDir = path.resolve(import.meta.dirname, "../tools/aiAsk")
+
+    for (const { dir, type } of toolDirs) {
+      const dirPath = path.join(aiAskDir, dir)
+      try {
+        const files = await fsP.readdir(dirPath)
+        for (const file of files) {
+          if (!file.endsWith(".js")) continue
+          try {
+            const fileUrl = pathToFileURL(path.join(dirPath, file)).href
+            const mod = (await import(fileUrl)).default
+            if (!mod || !mod.name || !mod.id) continue
+            // 排除发送/接收模板
+            if (mod.name === "发送模板" || mod.name === "接收模板") continue
+            // 避免重复
+            if (this.tools.find(t => t.id === mod.id)) continue
+            mod.type = type
+            this.tools.push(mod)
+          } catch (e) {
+            console.error(`[AppManager] 加载核心工具 ${dir}/${file} 失败:`, e.message)
+          }
+        }
+      } catch (e) {
+        // 目录不存在则跳过
+        if (e.code !== "ENOENT") {
+          console.error(`[AppManager] 读取目录 ${dir} 失败:`, e.message)
+        }
+      }
+    }
+    console.log(`[AppManager] 已加载 ${this.tools.length} 个核心工具`)
+  }
+
+  /**
+   * 遍历 appDefs，对 autoLoadTools: true 的 App 自动加载 appCall 工具
+   */
+  async loadAutoAppTools() {
+    for (const [appType, appDef] of this.appDefs) {
+      if (appDef.autoLoadTools) {
+        await this.registerAppTools(appType)
+      }
+    }
+  }
+
+  /**
+   * 扫描指定 App 的 appCall/ 目录，返回工具模块列表
+   */
+  async scanAppTools(appType) {
+    const appDef = this.appDefs.get(appType)
+    if (!appDef) return []
+
+    // 找到 app 目录
+    const appsDir = path.resolve(import.meta.dirname, "../apps")
+    const appDirPath = path.join(appsDir, appType)
+    const appCallDir = path.join(appDirPath, "appCall")
+
+    try {
+      const stat = await fsP.stat(appCallDir)
+      if (!stat.isDirectory()) return []
+    } catch {
+      return [] // appCall 目录不存在
+    }
+
+    const tools = []
+    try {
+      const files = await fsP.readdir(appCallDir)
+      for (const file of files) {
+        if (!file.endsWith(".js")) continue
+        try {
+          const fileUrl = pathToFileURL(path.join(appCallDir, file)).href
+          const mod = (await import(`${fileUrl}?t=${Date.now()}`)).default
+          if (!mod || !mod.name || !mod.id) continue
+          mod.type = "appCall"
+          mod._appType = appType // 标记所属 App，用于卸载
+          tools.push(mod)
+        } catch (e) {
+          console.error(`[AppManager] 加载 App 工具 ${appType}/${file} 失败:`, e.message)
+        }
+      }
+    } catch (e) {
+      console.error(`[AppManager] 读取 appCall 目录失败 (${appType}):`, e.message)
+    }
+    return tools
+  }
+
+  /**
+   * 将 App 工具注册到 this.tools
+   * @param {string} appType - App 类型 ID
+   * @returns {boolean} 是否成功
+   */
+  async registerAppTools(appType) {
+    if (this.loadedAppTools.has(appType)) {
+      console.log(`[AppManager] App ${appType} 的工具已加载，跳过`)
+      return true
+    }
+
+    const appTools = await this.scanAppTools(appType)
+    if (appTools.length === 0) return false
+
+    // 追加到 tools 数组，避免 id 重复
+    for (const tool of appTools) {
+      if (!this.tools.find(t => t.id === tool.id)) {
+        this.tools.push(tool)
+      }
+    }
+
+    this.loadedAppTools.add(appType)
+    console.log(`[AppManager] 已注册 ${appType} 的 ${appTools.length} 个工具`)
+    return true
+  }
+
+  /**
+   * 从 this.tools 中移除指定 App 的工具
+   * @param {string} appType - App 类型 ID
+   */
+  unregisterAppTools(appType) {
+    if (!this.loadedAppTools.has(appType)) return
+    this.tools = this.tools.filter(t => t._appType !== appType)
+    this.loadedAppTools.delete(appType)
+    console.log(`[AppManager] 已卸载 ${appType} 的工具`)
+  }
+
+  /**
+   * 获取当前所有可用工具（扁平数组）
+   * @returns {Array} 工具数组
+   */
+  getTools() {
+    return this.tools
+  }
+
+  /**
+   * 检查指定 App 的工具是否已加载
+   * @param {string} appType
+   * @returns {boolean}
+   */
+  isAppToolsLoaded(appType) {
+    return this.loadedAppTools.has(appType)
   }
 }
 

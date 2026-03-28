@@ -56,6 +56,9 @@ export default {
       case "executeJS":
       case "click":
       case "type":
+      case "pressKey":
+      case "screenshot":
+      case "scroll":
         // 核心优化：使用 DispatchTracker + fnCall 回传模式，彻底解决 Socket 回调丢失/挂起问题
         return new Promise(async (resolve) => {
           let sockets = []

@@ -28,8 +28,8 @@ export default () => {
             }
             src = Url.data.value
           },
-        
-            
+
+
         }, [
           m(Url, {
             style: {

@@ -1,7 +1,8 @@
 import explorerData from "./explorerData.js"
 
 // Explorer 前端组件 (Closure Component)
-export default ({ appId, m, Notice, ioSocket, comData, commonData, settingData, Box, iconPark }) => {
+export default ({ appId, m, Notice, ioSocket, comData, commonData, settingData, Box, iconPark, getColor }) => {
+  console.log("Explorer app launched with getColor:", typeof getColor);
   // === 私有状态 (Private State) ===
   let currentPath = ""
   let inputPath = ""
@@ -71,11 +72,11 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, settingData, 
             m(Box, { isBtn: true, onclick: () => { v.attrs.delete(); decisions[file] = 'rename'; resolveConflictsUI(conflicts, index + 1, decisions, performPaste) } }, "重命名"),
             m(Box, { isBtn: true, onclick: () => { v.attrs.delete(); decisions[file] = 'override'; resolveConflictsUI(conflicts, index + 1, decisions, performPaste) } }, "覆盖"),
             m(Box, { isBtn: true, onclick: () => { v.attrs.delete(); decisions[file] = 'skip'; resolveConflictsUI(conflicts, index + 1, decisions, performPaste) } }, "跳过"),
-            m("div", { style: { width: "100%", height: "1px", background: "rgba(255,255,255,0.1)", margin: "5px 0" } }),
+            m("div", { style: { width: "100%", height: "1px", background: getColor('gray_1').back, margin: "5px 0", opacity: 0.1 } }),
             m(Box, { isBtn: true, onclick: () => { v.attrs.delete(); conflicts.slice(index).forEach(f => decisions[f] = 'rename'); performPaste(decisions) } }, "全部重命名"),
             m(Box, { isBtn: true, onclick: () => { v.attrs.delete(); conflicts.slice(index).forEach(f => decisions[f] = 'override'); performPaste(decisions) } }, "全部覆盖"),
             m(Box, { isBtn: true, onclick: () => { v.attrs.delete(); conflicts.slice(index).forEach(f => decisions[f] = 'skip'); performPaste(decisions) } }, "全部跳过"),
-            m(Box, { isBtn: true, color: "red", onclick: () => v.attrs.delete() }, "取消"),
+            m(Box, { isBtn: true, color: "pink_1", onclick: () => v.attrs.delete() }, "取消"),
           ])
         ])
       }
@@ -178,9 +179,11 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, settingData, 
         sign, width: 300,
         content: {
           view: (v) => m(Box, { style: { display: "flex", flexDirection: "column" } }, [
-            m("div", { style: { padding: "0.5rem", color: "#eee", fontWeight: "bold" } }, title),
+            m("div", { style: { padding: "0.5rem", color: getColor('gray_4').front, fontWeight: "bold" } }, title),
             m(Box, {
               tagName: "input", ext: { type: "text" }, value: value,
+              color: "brown_4",
+              style: { borderRadius: "10rem" },
               oninput: (_, e) => value = e.target.value,
               onkeydown: (e) => {
                 if (e.key === "Enter") { resolve(value); v.attrs.delete() }
@@ -190,7 +193,7 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, settingData, 
               oncreate: (vn) => setTimeout(() => { vn.dom.focus(); vn.dom.select() }, 50)
             }),
             m("div", { style: { display: "flex", justifyContent: "flex-end", marginTop: "10px" } }, [
-              m(Box, { isBtn: true, color: "red", onclick: () => { resolve(null); v.attrs.delete() } }, "取消"),
+              m(Box, { isBtn: true, color: "pink_1", onclick: () => { resolve(null); v.attrs.delete() } }, "取消"),
               m(Box, { isBtn: true, onclick: () => { resolve(value); v.attrs.delete() } }, "确定")
             ])
           ])
@@ -207,9 +210,9 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, settingData, 
         sign, width: 300,
         content: {
           view: (v) => m(Box, { style: { display: "flex", flexDirection: "column" } }, [
-            m("div", { style: { padding: "0.5rem", color: "#eee", fontWeight: "bold" } }, msg),
+            m("div", { style: { padding: "0.5rem", color: getColor('gray_4').front, fontWeight: "bold" } }, msg),
             m("div", { style: { display: "flex", justifyContent: "flex-end", marginTop: "10px" } }, [
-              m(Box, { isBtn: true, color: "red", onclick: () => { resolve(false); v.attrs.delete() } }, "取消"),
+              m(Box, { isBtn: true, color: "pink_1", onclick: () => { resolve(false); v.attrs.delete() } }, "取消"),
               m(Box, { isBtn: true, onclick: () => { resolve(true); v.attrs.delete() } }, "确定")
             ])
           ])
@@ -261,7 +264,7 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, settingData, 
               isSingle ? m(Box, { isBtn: true, style: { padding: "8px", textAlign: "left" }, onclick: async () => { v.attrs.delete(); const newName = await askName("重命名", firstItem.name); if (newName && newName !== firstItem.name) await settingData.fnCall("appDispatch", [appId, "rename", { oldName: firstItem.name, newName }]) } }, "重命名") : null,
               m(Box, { isBtn: true, style: { padding: "8px", textAlign: "left" }, onclick: () => { v.attrs.delete(); const sep = currentPath.includes("\\") ? "\\" : "/"; const fs = Array.from(selected).map(n => currentPath + (currentPath.endsWith(sep) ? "" : sep) + n); clipboard = { files: fs, mode: 'copy' }; Notice.launch({ msg: `已复制 ${fs.length} 个项目` }) } }, "复制"),
               m(Box, { isBtn: true, style: { padding: "8px", textAlign: "left" }, onclick: () => { v.attrs.delete(); const sep = currentPath.includes("\\") ? "\\" : "/"; const fs = Array.from(selected).map(n => currentPath + (currentPath.endsWith(sep) ? "" : sep) + n); clipboard = { files: fs, mode: 'cut' }; Notice.launch({ msg: `已剪切 ${fs.length} 个项目` }) } }, "剪切"),
-              m(Box, { isBtn: true, color: "red", style: { padding: "8px", textAlign: "left" }, onclick: async () => { v.attrs.delete(); const fs = Array.from(selected); if (await askConfirm(`确定删除这 ${fs.length} 个项目吗？`)) await settingData.fnCall("appDispatch", [appId, "delete", { files: fs }]) } }, "删除")
+              m(Box, { isBtn: true, color: "pink_1", style: { padding: "8px", textAlign: "left" }, onclick: async () => { v.attrs.delete(); const fs = Array.from(selected); if (await askConfirm(`确定删除这 ${fs.length} 个项目吗？`)) await settingData.fnCall("appDispatch", [appId, "delete", { files: fs }]) } }, "删除")
             ])
           }
         })
@@ -274,7 +277,7 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, settingData, 
         e.dataTransfer.effectAllowed = "copy"
         const div = document.createElement("div")
         div.textContent = `${getIcon(item)} ${item.name}`
-        div.style.background = "#333"; div.style.padding = "5px"; div.style.borderRadius = "4px"; div.style.position = "absolute"; div.style.top = "-9999px"
+        div.style.background = getColor('gray_4').back; div.style.color = getColor('gray_4').front; div.style.padding = "5px"; div.style.borderRadius = "4px"; div.style.position = "absolute"; div.style.top = "-9999px"
         document.body.appendChild(div)
         e.dataTransfer.setDragImage(div, 0, 0)
         setTimeout(() => document.body.removeChild(div), 0)
@@ -285,7 +288,7 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, settingData, 
         style: {
           display: "flex", flexDirection: "column",
           width: "100%", height: "100%",
-          background: "transparent", color: "#eee", fontFamily: "system-ui",
+          background: getColor('gray_4').back, color: getColor('gray_4').front, fontFamily: "system-ui",
           outline: "none"
         },
         onkeydown: (e) => {
@@ -299,24 +302,27 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, settingData, 
         oncreate: (vn) => { dom = vn.dom },
       }, [
         m("div", {
-          style: { display: "flex", padding: "8px", gap: "10px", background: "transparent", alignItems: "center" }
+          style: { display: "flex", padding: "8px", gap: "10px", background: getColor('gray_12').back, alignItems: "center" }
         }, [
           m("div", {
-            style: { cursor: "pointer", padding: "4px", borderRadius: "4px", display: "flex", alignItems: "center", justifyContent: "center", width: "2rem", height: "2rem" },
+            style: { cursor: "pointer", padding: "4px", borderRadius: "10rem", display: "flex", alignItems: "center", justifyContent: "center", width: "2rem", height: "2rem" },
             class: "hover-bg",
             onclick: () => goHistory(-1)
-          }, m.trust(iconPark.getIcon("Left", { size: "1.2rem", fill: "#ccc" }))),
-          m("input", {
+          }, m.trust(iconPark.getIcon("Left", { size: "1.2rem", fill: getColor('gray_12').front }))),
+          m(Box, {
+            tagName: "input",
             value: inputPath,
-            style: { flex: 1, background: "#3c3c3c", border: "1px solid #555", color: "#ccc", padding: "4px", borderRadius: "4px" },
-            oninput: (e) => inputPath = e.target.value,
-            onkeydown: (e) => { if (e.key === 'Enter') navigate(inputPath); e.stopPropagation() }
+            color: "brown_4",
+            padding: "0.5rem 1rem",
+            style: { flex: 1, borderRadius: "10rem", border: `1px solid ${getColor('gray_2').back}` },
+            oninput: (dom, e) => inputPath = e.target.value,
+            onkeydown: (dom, e) => { if (e.key === 'Enter') navigate(inputPath); e.stopPropagation() }
           }),
           m("div", {
-            style: { cursor: "pointer", padding: "4px", borderRadius: "4px", display: "flex", alignItems: "center", justifyContent: "center", width: "2rem", height: "2rem" },
+            style: { cursor: "pointer", padding: "4px", borderRadius: "10rem", display: "flex", alignItems: "center", justifyContent: "center", width: "2rem", height: "2rem" },
             class: "hover-bg",
             onclick: () => loadDir()
-          }, m.trust(iconPark.getIcon("Refresh", { size: "1.2rem", fill: "#ccc" })))
+          }, m.trust(iconPark.getIcon("Refresh", { size: "1.2rem", fill: getColor('gray_12').front })))
         ]),
 
         // File Grid
@@ -398,7 +404,7 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, settingData, 
               top: Math.min(selectStart.y, selectEnd.y) + "px",
               width: Math.abs(selectEnd.x - selectStart.x) + "px",
               height: Math.abs(selectEnd.y - selectStart.y) + "px",
-              background: "rgba(0, 120, 215, 0.3)", border: "1px solid rgba(0, 120, 215, 0.8)", pointerEvents: "none", zIndex: 9999
+              background: getColor('main').back + '44', border: `1px solid ${getColor('main').back}`, pointerEvents: "none", zIndex: 9999
             }
           }) : null,
           files.map((item, index) => {
@@ -413,8 +419,8 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, settingData, 
               oncontextmenu: (e) => { e.stopPropagation(); showContext(e, item) },
               style: {
                 display: "flex", flexDirection: "column", alignItems: "center", padding: "10px",
-                background: isSelected ? "rgba(255,255,255,0.1)" : "transparent",
-                borderRadius: "5px", border: isSelected ? "1px solid #007fd4" : "1px solid transparent",
+                background: isSelected ? getColor('main').back + '44' : "transparent",
+                borderRadius: "5px", border: isSelected ? `1px solid ${getColor('main').back}` : "1px solid transparent",
                 cursor: "pointer"
               }
             }, [

@@ -1,4 +1,5 @@
 import { v4 as uuidV4 } from "uuid"
+import idTool from "../../../tools/idTool.js"
 import { trs } from "../../../tools/i18n.js"
 import chats from "./chats.js"
 import comData from "../../../comData/comData.js"
@@ -9,17 +10,6 @@ import options from "../../../config/options.js"
 import subAgents from "../../../tools/aiAsk/subAgents.js"
 import appManager from "../../../apps/appManager.js"
 import ioServer from "../../ioServer.js"
-
-//注意模型数据并不是完全同步的，最好在切换模型的时候复制一次当前模型的上下文，只有当前模型上下文是完整的
-
-
-const idTool = {
-  id: 0,
-  get() {
-    this.id++
-    return "id_" + this.id
-  }
-}
 
 
 
@@ -91,12 +81,13 @@ const socketOnChat = async (que, callback) => {
     //广播输入的消息，但是排除锁定回复终端的情况
     if (!call || (call && !call.tid)) {
       let chat = {
-        uuid: idTool.get(),
+        uuid: idTool.get("chat"),
         content: inputText,
         name: trs("角色/用户"),
         group: "user",
         timestamp: Date.now(),
-        chatListId: listId // 指派归属权
+        chatListId: listId, // 指派归属权
+        attachments: que.attachments || []
       }
       io.emit("chat", chat) // 广播到前端（由前端根据 listId 过滤）
 
@@ -107,7 +98,7 @@ const socketOnChat = async (que, callback) => {
         // 子智能体路由
         const subAgent = subAgents.get(listId);
         if (subAgent) {
-          let ext = { id: chat.uuid, listId: listId };
+          let ext = { id: chat.uuid, listId: listId, attachments: que.attachments || [] };
           if (call) ext.call = call.uuid;
           if (quotes.length > 0) ext.quotes = quotes.map(q => q.uuid);
 
@@ -124,7 +115,8 @@ const socketOnChat = async (que, callback) => {
         aiBasic.list.forEach((model) => {
           let ext = {
             id: chat.uuid,
-            listId: 0
+            listId: 0,
+            attachments: que.attachments || []
           }
           if (call) {
             ext.call = call.uuid
@@ -192,7 +184,7 @@ const socketOnChat = async (que, callback) => {
 
         if (!targetModel) {
           let chat = {
-            uuid: idTool.get(),
+            uuid: idTool.get("sys"),
             content: listId > 0 ? trs("错误/找不到子智能体", { cn: `找不到子智能体 ID: ${listId}`, en: `Agent ID not found: ${listId}` }) : trs("错误/找不到模型", { cn: `找不到模型: ${comData.data.get().currentModel}`, en: `Model not found: ${comData.data.get().currentModel}` }),
             name: trs("角色/系统"),
             group: "user",
@@ -231,6 +223,8 @@ const socketOnChat = async (que, callback) => {
           await targetModel.sendAskByMsgProtocol({
             toolsMode: comData.data.get().toolsMode,
             listId: listId,
+            enableThinking: comData.data.get().enableThinking,
+            tools: appManager.getTools(),
             getExtraInfo: () => {
               const appList = appManager.getAppList(20)
               const terminals = tSession.getSummary(5)
@@ -322,22 +316,25 @@ const socketOnChat = async (que, callback) => {
                   mind = contentJSON.mind
                   content = contentJSON.content
 
-                  if (contentJSON.faceAction) {
-                    await comData.data.edit((data) => {
-                      data.faceAction = contentJSON.faceAction
-                    })
-                  }
-                  if (contentJSON.playFace) {
+                  if (contentJSON.playFace && contentJSON.playFaces !== "无表情") {
                     await comData.data.edit((data) => {
                       data.playFaces.current = contentJSON.playFace
                     })
                   }
 
+                  if (contentJSON.faceAction && contentJSON.faceAction !== "none") {
+                    await comData.data.edit((data) => {
+                      data.faceAction = contentJSON.faceAction
+
+                    })
+                  }
+
+
                 } catch (error) {
                   replyJSON = {
                     user: trs("crossFuncs/错误/系统错误"),
                     mind: trs("错误/解析错误", { cn: "解析错误", en: "Parse Error" }),
-                    content: `原始json${reply}`
+                    content: `原始json${reply.content}`
                   };
                 }
               } else {
@@ -349,6 +346,7 @@ const socketOnChat = async (que, callback) => {
               let chat = {
                 uuid: reply.id,
                 content: msg,
+                reasoning: reply.reasoning, // 保存推理思维链
                 name: reply.user,
                 group: reply.group,
                 timestamp: Date.now(),
@@ -386,15 +384,20 @@ const socketOnChat = async (que, callback) => {
             async endRun() {
               await comData.data.edit((data) => {
                 const list = data.chatLists.find(l => l.id === listId);
-                if (list) list.replying = targetModel.replying;
+                if (list) {
+                  list.replying = targetModel.replying;
+                  list.streamChunks = "";
+                  list.streamReasoningChunks = ""; // 运行结束，清理流缓冲
+                }
               })
             },
-            async streamFn({ chunk, replyChunk }) {
+            async streamFn({ chunk, replyChunk, reasoningChunk }) {
               await comData.data.edit((data) => {
                 const list = data.chatLists.find(l => l.id === listId);
 
                 if (list) {
-                  list.streamChunks += replyChunk;
+                  if (replyChunk) list.streamChunks += replyChunk;
+                  if (reasoningChunk) list.streamReasoningChunks += reasoningChunk;
                 }
               })
             },
@@ -416,7 +419,7 @@ const socketOnChat = async (que, callback) => {
       if (list) list.replying = false;
     })
     let chat = {
-      uuid: idTool.get(),
+      uuid: idTool.get("sys"),
       content: trs("crossFuncs/错误/系统错误") + error?.message,
       name: trs("角色/系统"),
       group: "error",

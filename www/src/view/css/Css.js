@@ -1,56 +1,63 @@
 import comData from "../../comData/comData"
 import xTermCss from '@xterm/xterm/css/xterm.css?raw'
+import getColor from "../common/getColor.js"
 
-export default function(){
+export default function () {
   return {
-    view({attrs}){
-      return m("style",`
+    view({ attrs }) {
+      return m("style", `
         html{
           font-size:10px;
-          background:#393431;
+          background: ${getColor('gray_1').back};
         }
         html,body,#app{
           padding:0;margin:0;
           width:100%;
           height:100%;
+          position:relative;
+          overflow:hidden;
         }
-        body{
+        #app{
+          overflow:auto;
+        }
+        *{
+          font-family:system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
           font-size:1.5rem;
         }
         a:hover{
-          color:#ffdb66;
+          color: ${getColor('yellow_1').back};
           text-decoration: none;
         }
         textarea{
-          border:0.1rem solid #eee;
+          border:0.1rem solid ${getColor('gray_8').front};
           border-radius:3rem;
-          background:#fafafa;
+          background: ${getColor('gray_8').back};
         }
         textarea:focus{
-          outline:0.1rem solid #ffdb66;
+          outline:0.1rem solid ${getColor('yellow_1').back};
         }
         select{
-          border:0.1rem solid #eee;
+          border: 0.1rem solid ${getColor('gray_8').front};
           border-radius:3rem;
         }
         input[type=submit]{
-          background:#eee;
+          background: ${getColor('gray_8').front};
           outline:none;
-          border:0.1rem solid #eee;
+          border: 0.1rem solid ${getColor('gray_8').front};
           cursor:pointer;
           color:#666;
           border-radius:3rem;
           font-size:1.55rem;
         }
         input[type=text]{
-          border:0.1rem solid #eee;
+          border: 0.1rem solid ${getColor('gray_8').front};
           border-radius:3rem;
-          background:#fafafa;
+          background: ${getColor('gray_8').back};
         }
         button{
-          background:#eee;
+          background: ${getColor('gray_8').front};
           outline:none;
-          border:0.1rem solid #eee;
+          border: 0.1rem solid ${getColor('gray_8').front};
           cursor:pointer;
           color:#666;
           border-radius:3rem;
@@ -66,16 +73,14 @@ export default function(){
         }
 
         *::-webkit-scrollbar-track {
-          background: #47413c;
+          background: ${getColor('gray_3').back};
         }
-
         *::-webkit-scrollbar-thumb {
-          background: #755d5c;
+          background: ${getColor('main').back};
           border-radius: 0.4rem;
         }
-
         *::-webkit-scrollbar-thumb:hover {
-          background: #a75e5e;
+          background: ${getColor('pink_1').back};
         }
 
 
@@ -84,16 +89,14 @@ export default function(){
         }
 
         .xterm .xterm-viewport::-webkit-scrollbar-track {
-          background: #393432;
+          background: ${getColor('gray_1').back};
         }
-
         .xterm .xterm-viewport::-webkit-scrollbar-thumb {
-          background: #a75e5e;
+          background: ${getColor('pink_1').back};
           border-radius: 0.4rem;
         }
-
         .xterm .xterm-viewport::-webkit-scrollbar-thumb:hover {
-          background: #a75e5e;
+          background: ${getColor('pink_1').back};
         }
 
         .chatList::-webkit-scrollbar {
@@ -101,16 +104,14 @@ export default function(){
         }
 
         .chatList::-webkit-scrollbar-track {
-          background: #47413c;
+          background: ${getColor('gray_3').back};
         }
-
         .chatList::-webkit-scrollbar-thumb {
-          background: #755d5c;
+          background: ${getColor('main').back};
           border-radius: 0.4rem;
         }
-
         .chatList::-webkit-scrollbar-thumb:hover {
-          background: #a75e5e;
+          background: ${getColor('pink_1').back};
         }
 
 
@@ -121,7 +122,7 @@ export default function(){
           word-wrap:break-word;
         }
         .article {
-          color:${comData.data.get().darkMode ? "#999":"#666"};
+          color: ${getColor('gray_4').front};
         }
         .article *{
           line-height:1.8;
@@ -130,7 +131,7 @@ export default function(){
           
         }
         .article a{
-          color:${comData.data.get().darkMode ? "#0095ff" : "#0095ff"};
+          color: ${getColor('blue_1').back};
         }
         .article img{
           border-radius: 1rem;
@@ -149,7 +150,7 @@ export default function(){
           flex-direction:column;
           justy-content:center;
           align-items:center;
-          border:${comData.data.get().darkMode ? "0.2rem solid #000" : "none"};
+          border:${comData.data.get().darkMode ? `0.2rem solid ${getColor('gray_9').back}` : "none"};
         }
 
         .article h1{
@@ -159,10 +160,9 @@ export default function(){
         .article h1:before{
           content:"";
           display:inline;
-          background:#bb4344;
-          background:rgb(240, 98, 88);
+          background: ${getColor('pink_1').back};
           margin-right:1rem;
-          border:0.4rem solid rgb(240, 98, 88);
+          border:0.4rem solid ${getColor('pink_1').back};
           border-radius: 2rem;
           border-top:0;
           border-bottom:0; 
@@ -176,10 +176,10 @@ export default function(){
         .article h2:before{
           content:"";
           display:inline;
-          background:#ffc116;
+          background: ${getColor('yellow_1').back};
           margin-right:1rem;
 
-          border:0.4rem solid #ffc116;
+          border:0.4rem solid ${getColor('yellow_1').back};
           border-radius: 2rem;
           border-top:0;
           border-bottom:0;
@@ -194,10 +194,10 @@ export default function(){
         .article h3:before{
           content:"";
           display:inline;
-          background:#1a83e6;
+          background: ${getColor('blue_1').back};
           margin-right:1rem;
 
-          border:0.4rem solid #1a83e6;
+          border:0.4rem solid ${getColor('blue_1').back};
           border-radius: 2rem;
           border-top:0;
           border-bottom:0;
@@ -209,7 +209,7 @@ export default function(){
         }
 
         .artilce h1, .article h2, .article h3, .article h4, .article h5, .article h6{
-          color:${comData.data.get().darkMode ? "#ccc" : "#333"};
+          color: ${getColor('gray_7').front};
         }
 
         .article p{
@@ -226,8 +226,8 @@ export default function(){
 
         .article p code{
           display:inline-block;
-          background:rgb(53, 59, 70);
-          color:#eee;
+          background: ${getColor('gray_3').back};
+          color: ${getColor('gray_8').front};
           border-radius:0.3rem;
           margin:0.2rem;
           font-size:1.3rem;
@@ -238,8 +238,8 @@ export default function(){
           display:block;
           padding-left:1.8rem;
           padding-right: 1.8rem;
-          background:rgb(53, 59, 70);
-          color:#eee;
+          background: ${getColor('gray_3').back};
+          color: ${getColor('gray_8').front};
           border-radius:0.3rem;
           margin:0.2rem;
           font-size:1.3rem;
@@ -255,8 +255,8 @@ export default function(){
           margin:1rem 0;
           padding:0.2rem;
           padding-right:1rem;
-          border-left:0.4rem solid #34A7FF;
-          background:${comData.data.get().darkMode ? "rgba(40,40,40,1)" : "rgba(241,249,255,1)"};
+          border-left:0.4rem solid ${getColor('blue_1').back};
+          background:${comData.data.get().darkMode ? getColor('gray_2').back : getColor('gray_8').back};
           border-radius: 0.5rem 2rem 2rem 0.5rem;
           //font-style:italic
         }

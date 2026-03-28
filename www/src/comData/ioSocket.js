@@ -8,6 +8,7 @@ import Box from "../view/common/box.js"
 import settingData from "../view/setting/settingData.js"
 import format from "../view/common/format.js"
 import { trs } from "../view/common/i18n.js"
+import getColor from "../view/common/getColor.js"
 
 export default {
   socket: null,
@@ -143,6 +144,12 @@ export default {
       })
     })
 
+    this.socket.on("project:state", async (msg) => {
+      if (msg.path) commonData.currentProject = msg.path
+      if (msg.autoSave !== undefined) commonData.autoSaveEnabled = msg.autoSave
+      m.redraw()
+    })
+
 
     this.socket.on("openTerminal", async (msg) => {
       await comData.data.edit(data => {
@@ -189,7 +196,7 @@ export default {
         let component = module.default
         if (typeof component === "function") {
           // 参数注入模式
-          component = component({ appId: msg.appId, m, Notice, ioSocket: this, comData, commonData, chatData, settingData, format, Box, iconPark: window.iconPark })
+          component = component({ appId: msg.appId, m, Notice, ioSocket: this, comData, commonData, chatData, settingData, format, Box, iconPark: window.iconPark, getColor })
         }
         // Window Management: Resolve Geometry
         const saved = msg.data && msg.data.window

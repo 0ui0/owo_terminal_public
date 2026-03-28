@@ -1,7 +1,7 @@
-
 import chats from "../../../ioServer/ioApis/chat/chats.js"
 import comData from "../../../comData/comData.js"
-import { idTool, socketOnChat } from "../../../ioServer/ioApis/chat/ioApi_chat.js"
+import { socketOnChat } from "../../../ioServer/ioApis/chat/ioApi_chat.js"
+import idTool from "../../idTool.js"
 import subAgents from "../subAgents.js"
 import aiBasic from "../basic.js"
 import options from "../../../config/options.js"
@@ -61,25 +61,25 @@ export default {
         }
       }
 
-      // 3. 构造并发送消息
+      // 3. 添加到目标上下文并构造消息
+      const ask = targetAgent.addAsk(finalSenderName, "user", content, {
+        id: idTool.get("chat"), // 呼叫属于行为消息，使用与 ioApi_chat 一致的 chat_ 前缀
+        listId: targetListId
+      });
+
       let chat = {
-        uuid: idTool.get(),
+        uuid: ask.id,
         content: content,
         name: finalSenderName,
         group: "user", // 以用户视角发送，触发 AI 回复
         timestamp: Date.now(),
-        chatListId: targetListId
+        chatListId: targetListId,
+        ask: ask
       };
 
-      // 广播 & 存库
+      // 4. 广播 & 存库
       if (ioServer.io) ioServer.io.emit("chat", chat);
       await chats.add(chat, targetListId);
-
-      // 4. 添加到目标上下文
-      targetAgent.addAsk(chat.name, "user", chat.content, {
-        id: chat.uuid,
-        listId: targetListId
-      });
 
       // 5. 触发执行循环 (复制 ioApi_chat.js 核心逻辑)
       (async () => {
@@ -98,7 +98,7 @@ export default {
           await targetAgent.sendAskByMsgProtocol({
             toolsMode: comData.data.get().toolsMode,
             listId: targetListId,
-
+            enableThinking: comData.data.get().enableThinking,
             async onSendAskBefore(aiAskInstance) {
               const aiList = await options.get("ai_aiList");
               // 计费模型：无论主从，都使用从用户当前的模型里扣费
@@ -160,6 +160,7 @@ export default {
               let responseChat = {
                 uuid: reply.id,
                 content: msg,
+                reasoning: reply.reasoning, // 保存推理思维链
                 name: reply.user,
                 group: reply.group,
                 timestamp: Date.now(),
@@ -189,15 +190,20 @@ export default {
             async endRun() {
               await comData.data.edit((data) => {
                 const l = data.chatLists.find(x => x.id === targetListId);
-                if (l) l.replying = targetAgent.replying;
+                if (l) {
+                  l.replying = targetAgent.replying;
+                  l.streamChunks = "";
+                  l.streamReasoningChunks = ""; // 运行结束，清理流缓冲
+                }
               });
             },
 
-            async streamFn({ chunk, replyChunk }) {
+            async streamFn({ chunk, replyChunk, reasoningChunk }) {
               await comData.data.edit((data) => {
                 const l = data.chatLists.find(x => x.id === targetListId);
                 if (l) {
-                  l.streamChunks += replyChunk;
+                  if (replyChunk) l.streamChunks += replyChunk;
+                  if (reasoningChunk) l.streamReasoningChunks += reasoningChunk;
                 }
               });
             }
@@ -241,7 +247,7 @@ export default {
         } catch (err) {
           console.error("CallAgent Execution Error:", err);
           let errorChat = {
-            uuid: idTool.get(),
+            uuid: idTool.get("sys"),
             content: "执行错误: " + err.message,
             name: "系统",
             group: "error",

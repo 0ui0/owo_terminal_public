@@ -15,22 +15,25 @@ export default defineConfig({
     }, */
   },
   build: {
-    /*sourcemap:true,*/
+    minify: true,
+    sourcemap: true,
     rollupOptions: {
       input: {
         main: pathLib.resolve('./index.html')
       },
-
       output: {
         entryFileNames: `assets/[name].js`,
         chunkFileNames: `assets/[name].js`,
         assetFileNames: `assets/[name].[ext]`,
-        //preserveModules: true,
       },
-      //preserveEntrySignatures:true
-
     }
   },
+  /*   esbuild: {
+      keepNames: true,
+      minifyIdentifiers: false,
+      minifySyntax: false,
+      minifyWhitespace: false,
+    }, */
   plugins: [
     //splitVendorChunkPlugin()
   ]

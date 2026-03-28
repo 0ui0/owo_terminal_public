@@ -1,7 +1,7 @@
 import comData from "../../../comData/comData.js"
 import AiAsk from "../AiAsk.js" // Compiled JS 
 import subAgents from "../subAgents.js"
-import { idTool } from "../../../ioServer/ioApis/chat/ioApi_chat.js"
+import idTool from "../../idTool.js"
 import chats from "../../../ioServer/ioApis/chat/chats.js"
 import ioServer from "../../../ioServer/ioServer.js"
 import Joi from "joi"
@@ -52,7 +52,7 @@ export default {
 
       // 将容器消息插入父列表
       let containerMsg = {
-        uuid: idTool.get(),
+        uuid: idTool.get("agent"),
         content: `创建子AI: ${name}`,
         name: "系统", // System -> 系统
         group: "childChatList", // 前端使用它来渲染唯一的 UI
@@ -116,7 +116,8 @@ export default {
         baseURL: baseConfig.baseURL,
         model: baseConfig.model,
         name: name,
-        prompt: finalPrompt
+        prompt: finalPrompt,
+        mediaDir: "./attachment"
       });
 
       // 3. 初始化实例
@@ -126,7 +127,8 @@ export default {
         baseURL: baseConfig.baseURL,
         model: baseConfig.model,
         prompt: finalPrompt,
-        name: name
+        name: name,
+        mediaDir: "./attachment"
       });
 
       // 注册

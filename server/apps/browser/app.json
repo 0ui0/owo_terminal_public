@@ -4,6 +4,7 @@
   "icon": "🌐",
   "version": "1.0.0",
   "description": "内置浏览器，支持 AI 协同操作",
+  "autoLoadTools": true,
   "backend": "./backend.js",
   "frontend": "./frontend.js",
   "window": {

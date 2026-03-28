@@ -1,7 +1,7 @@
 import aiBasic from "../../../tools/aiAsk/basic.js"
 import pathLib from "path"
 import stripAnsi from 'strip-ansi'
-import { idTool } from "./ioApi_chat.js"
+import idTool from "../../../tools/idTool.js"
 import chats from "./chats.js"
 import { spawn } from "@homebridge/node-pty-prebuilt-multiarch"
 //node-pty
@@ -85,7 +85,7 @@ const TSession = class {
 
   async add(io, ext) {
     const global_terminalShell = await options.get("global_terminalShell")
-    const tid = idTool.get()
+    const tid = idTool.get("terminal")
     let shellChoice = ""
     if (process.platform === "win32") {
       shellChoice = global_terminalShell.win
@@ -119,6 +119,7 @@ const TSession = class {
       cwd: ext?.cwd ?? pathLib.resolve(process.cwd(), "..", "aiWork"), // 保存 cwd 方便查询
       listId: ext?.listId || 0, // Bind session to list
       toolCallGroupId: ext?.toolCallGroupId || null, // 工具调用组ID
+      deferredFns: ext?.deferredFns || null, // 延迟执行函数队列
     }
 
     const shell = session.shell
@@ -136,9 +137,9 @@ const TSession = class {
     return session
   }
 
-  async cmdSend(io, tid, output, session) {
+  async cmdSend(io, tid, output, session, ext = {}) {
     let msg = {
-      uuid: idTool.get(),
+      uuid: idTool.get("t"),
       tid: tid,
       content: output,
       name: "终端",
@@ -178,11 +179,18 @@ const TSession = class {
         ask.content = ask.content.split(/\r?\n/).slice(-20).join("\n").slice(-1000)
       }
       else {
-        model.addAsk(msg.name, "user", ("摘要终端最新20条的最后1000字" + stripAnsi(msg.content.split(/\r?\n/).slice(-20).join("\n").slice(-1000))), {
-          id: msg.uuid,
-          tid: tid,
-          title: "终端输出摘要"
-        })
+        const runAddAsk = () => {
+          model.addAsk(msg.name, "user", ("摘要终端最新20条的最后1000字<terminal>" + stripAnsi(msg.content.split(/\r?\n/).slice(-20).join("\n").slice(-1000)) + "</terminal>"), {
+            id: msg.uuid,
+            tid: tid,
+            title: "终端输出摘要"
+          })
+        }
+        if (session.deferredFns) {
+          session.deferredFns.push(async () => runAddAsk())
+        } else {
+          runAddAsk()
+        }
       }
     };
 

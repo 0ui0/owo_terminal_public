@@ -49,6 +49,19 @@ options["global_actorSwitch"] = {
   }
 };
 
+options["global_themeColor"] = {
+  group1: "全局",
+  group2: "界面",
+  group3: "主题",
+  type: "number",
+  key: "global_themeColor",
+  name: "主题颜色",
+  value: 0,
+  joi: function () {
+    return Joi.number().valid(0, 1, 2).strict();
+  }
+};
+
 options["ai_aiSwitch"] = {
   group1: "全局",
   group2: "人工智能",

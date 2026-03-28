@@ -1,0 +1,9 @@
+{
+  "id": "gomoku2",
+  "name": "五子棋2",
+  "description": "增强版五子棋：悔棋、AI对战、历史记录、精致UI",
+  "version": "2.0.0",
+  "icon": "⭐",
+  "backend": "backend.js",
+  "frontend": "frontend.js"
+}

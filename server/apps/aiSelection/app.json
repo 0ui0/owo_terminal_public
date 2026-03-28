@@ -1,5 +1,7 @@
 {
   "id": "aiSelection",
   "name": "AI 助手选择",
-  "icon": "💬"
+  "icon": "💬",
+  "description": "AI 对话选择工具",
+  "autoLoadTools": true
 }

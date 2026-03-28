@@ -4,31 +4,27 @@ import Notice from "./notice.js"
 import commonData from "./commonData.js"
 import { trs } from "./i18n.js"
 import aiContext from "../titleMenu/aiContext.js"
+import getColor from "./getColor.js"
 
 export default () => {
-  let autoSaveEnabled = false
-  let autoSaveInterval = 5 // minutes
-
-  // Init: Fetch current path
-  settingData.fnCall("projectGetPath").then(res => {
-    if (res.ok && res.path) {
-      commonData.currentProject = res.path
-      m.redraw()
-    }
-  })
-
   // Toggle Auto Save
-  const toggleAutoSave = async () => {
-    autoSaveEnabled = !autoSaveEnabled
+  const toggleAutoSave = async (forceState) => {
+    if (forceState !== undefined) {
+      commonData.autoSaveEnabled = forceState
+    } else {
+      commonData.autoSaveEnabled = !commonData.autoSaveEnabled
+    }
+
     try {
       await settingData.fnCall("projectAutoSave", [{
-        enabled: autoSaveEnabled,
-        interval: autoSaveInterval * 60 * 1000
+        enabled: commonData.autoSaveEnabled,
+        interval: commonData.autoSaveInterval * 60 * 1000
       }])
-      console.log("AutoSave set to:", autoSaveEnabled)
+      console.log("AutoSave set to:", commonData.autoSaveEnabled)
+      m.redraw()
     } catch (e) {
       console.error("AutoSave toggle failed:", e)
-      autoSaveEnabled = !autoSaveEnabled // revert
+      commonData.autoSaveEnabled = !commonData.autoSaveEnabled // revert
     }
   }
 
@@ -44,11 +40,11 @@ export default () => {
 
       if (res.ok) {
         console.log("Project action success:", action, res.path)
-        if (res.path) commonData.currentProject = res.path
         m.redraw()
-        Notice.launch({ msg: action === "load" ? trs("系统/消息/载入成功") : trs("系统/消息/操作成功") })
       } else {
-        Notice.launch({ msg: trs("系统/错误/提示") + (res.msg || "Unknown error") })
+        if (res.msg !== "User canceled") {
+          Notice.launch({ msg: trs("系统/错误/提示") + (res.msg || "Unknown error") })
+        }
       }
 
     } catch (e) {
@@ -125,7 +121,7 @@ export default () => {
             onclick: () => { toggleAutoSave(); /* Don't close merely on toggle? or close? user preference. Explorer closes. Let's keep open for toggle? No, standard menu closes. */ }
           }, [
             m("span", trs("菜单栏/操作/自动保存")),
-            m("span", { style: { color: autoSaveEnabled ? "#4caf50" : "transparent" } }, "✔")
+            m("span", { style: { color: commonData.autoSaveEnabled ? "#4caf50" : "transparent" } }, "✔")
           ])
         ])
       }
@@ -147,8 +143,8 @@ export default () => {
           display: "flex",
           alignItems: "center",
           cursor: "pointer",
-          color: "#ddd",
-          border: "1px solid rgba(255,255,255,0.1)",
+          color: getColor("main").front,
+          border: "1px solid rgba(0,0,0,0.1)",
           background: "rgba(255,255,255,0.05)",
           "-webkit-app-region": "no-drag",
           marginLeft: "10px"

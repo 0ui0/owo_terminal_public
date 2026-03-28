@@ -1,4 +1,5 @@
 import { app, BrowserWindow, Menu, dialog } from "electron"
+import fs from "fs-extra"
 import { exec } from "child_process"
 import crypto from "crypto"
 import { createReadStream, existsSync } from "fs"
@@ -7,10 +8,12 @@ const { autoUpdater } = pkgUpdater
 import serve from "./server/serve.js"
 import pathLib from "path"
 import { fileURLToPath } from 'url';
-import path from "path";
 import projectManager from "./server/managers/projectManager.js"
 import ioServer from "./server/ioServer/ioServer.js"
 import { trs } from "./server/tools/i18n.js"
+import comData from "./server/comData/comData.js"
+import projectSave from "./server/crossFuncs/projectSave.js"
+import projectLoad from "./server/crossFuncs/projectLoad.js"
 
 // --- Auto Updater Configuration ---
 autoUpdater.autoDownload = false // 2026-02-06 Changed to false for manual confirmation
@@ -20,6 +23,25 @@ autoUpdater.autoInstallOnAppQuit = true
 
 let serveDir = pathLib.dirname(fileURLToPath(import.meta.url))
 process.chdir(pathLib.join(serveDir, "/server/"))
+
+// Helper: Clean attachments directory
+const cleanAttachments = () => {
+  try {
+    const attachmentDir = pathLib.resolve("./attachment")
+    if (fs.existsSync(attachmentDir)) {
+      fs.emptyDirSync(attachmentDir)
+      console.log("[App] Cleaned attachments directory")
+    }
+  } catch (e) {
+    console.warn("[App] Failed to clean attachments:", e)
+  }
+}
+
+// Startup Clean
+cleanAttachments()
+
+// Register Shutdown Clean
+app.on('will-quit', cleanAttachments)
 
 const createWindow = () => {
   const win = new BrowserWindow({
@@ -353,6 +375,28 @@ const createWindow = () => {
       label: process.platform === 'darwin' ? app.name : trs("菜单栏/分类/文件"), // Use trs for menu
       submenu: [
         {
+          label: trs("菜单栏/操作/打开"),
+          accelerator: 'CmdOrCtrl+O',
+          click: async () => {
+            await projectLoad.func({})
+          }
+        },
+        {
+          label: trs("菜单栏/操作/保存"),
+          accelerator: 'CmdOrCtrl+S',
+          click: async () => {
+            await projectSave.func({ saveAs: false })
+          }
+        },
+        {
+          label: trs("菜单栏/操作/另存为"),
+          accelerator: 'CmdOrCtrl+Shift+S',
+          click: async () => {
+            await projectSave.func({ saveAs: true })
+          }
+        },
+        { type: 'separator' },
+        {
           label: trs("菜单栏/操作/检查更新", { cn: "检查更新", en: "Check for Updates" }),
           click: async () => {
             broadcastStatus({ state: "checking", msg: trs("系统/更新/检查中", { cn: "正在检查更新...", en: "Checking for updates..." }) })
@@ -429,6 +473,15 @@ const createWindow = () => {
 app.whenReady().then(async () => {
   try {
     await serve()
+
+    // 脏检查：利用 DynamicData 原生的观察者机制，当 comData 数据变动时标记项目为脏
+    if (comData.data) {
+      comData.data.addObserver('markProjectDirty', () => projectManager.markDirty())
+    }
+
+    // 启动自动保存定时器 (内部会根据 currentProjectPath 是否存在来决定是否执行写入)
+    projectManager.startAutoSave()
+
     createWindow()
     autoUpdater.checkForUpdatesAndNotify()
 

@@ -2,6 +2,7 @@ import Css from "../css/Css.js"
 import Notice from "../common/notice.js"
 import Nav from "../common/nav.js"
 import TitleBar from "../common/TitleBar.js"
+import getColor from "../common/getColor.js"
 
 export default () => {
   return {
@@ -12,8 +13,8 @@ export default () => {
           height: "100%",
           display: "flex",
           flexDirection: "column",
-          background: "#393432", // Match Notice body background
-          color: "#eee",
+          background: getColor('gray_1').back,
+          color: getColor('gray_1').front,
         }
       }, [
         m(Css),

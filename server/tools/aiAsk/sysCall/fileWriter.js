@@ -65,7 +65,7 @@ export default {
     // 无论批准还是拒绝，只要是通过本工具启动的窗口，都应关闭
     await appManager.close(appId)
 
-    if (!userConfirm) return `用户拒绝了对 ${pathLib.basename(resolvedPath)} 的写入。`
+    if (!userConfirm.ok) return `用户拒绝了对 ${pathLib.basename(resolvedPath)} 的写入。原因：${userConfirm.comment || "未提供"}`
 
     // 5. Final Write (The tool handles the IO)
     try {

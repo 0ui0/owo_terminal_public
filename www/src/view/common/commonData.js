@@ -40,5 +40,9 @@ export default {
   },
 
   // Project State
-  currentProject: null
+  currentProject: null,
+  autoSaveEnabled: false,
+  autoSaveInterval: 5,
+
+  themeColor: 0,
 }

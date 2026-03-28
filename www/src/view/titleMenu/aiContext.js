@@ -148,7 +148,6 @@ export default () => {
 
       return m("div", {
         style: {
-          width: "800px", height: "600px", maxWidth: "90vw", maxHeight: "85vh",
           overflowX: "hidden", overflowY: "auto", padding: "45px 15px 15px 30px", // 改成强制隐藏横向滚动条，只允许纵向
           background: "#282c34", color: "#abb2bf", fontFamily: "Consolas, 'Courier New', monospace",
           fontSize: "14px", boxSizing: "border-box", position: "relative",

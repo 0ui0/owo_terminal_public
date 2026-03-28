@@ -13,6 +13,119 @@ import settingData from "../setting/settingData.js"
 import ChatList from "./ChatList.js"
 import AgentWindow from "./AgentWindow.js"
 import { trs } from "../common/i18n.js"
+import getColor from "../common/getColor.js"
+
+const ReasoningBlock = () => {
+  let show = false;
+  return {
+    view({ attrs }) {
+      const { reasoning, isPreparing } = attrs;
+      if (!reasoning) return null;
+
+      let ref = null
+
+
+      return m("", {
+        style: {
+          marginTop: "0.5rem",
+          marginBottom: "0.8rem",
+          background: getColor('gray_9').back + '26',
+          borderRadius: "0.4rem",
+          fontSize: "0.8rem",
+          borderLeft: `2px solid ${getColor('gray_8').front + '1a'}`,
+          color: getColor('gray_4').front,
+
+          maxWidth: "50rem",
+          overflowX: "hidden",
+          position: "relative",
+
+        },
+
+      }, [
+        m("", {
+          style: {
+            cursor: "pointer",
+            margin: "0.6rem",
+          },
+          onclick: () => show = !show
+        }, [
+          m("span", trs("聊天/回复/深度思考", { cn: "深度思考", en: "Deep Thinking" })),
+
+          m("span", {
+            style: {
+              position: "absolute",
+              right: "0.5rem",
+              top: "0.2rem",
+              cursor: "pointer",
+              zIndex: 5,
+
+            },
+            onclick: (e) => {
+              e.stopPropagation();
+              show = !show
+            }
+          }, [
+            m.trust(window.iconPark.getIcon(show ? "Up" : "Down", {
+              fill: getColor('gray_4').front,
+              size: "1rem"
+            }))
+          ]),
+
+
+          m("", {
+            style: {
+              float: "right",
+              whiteSpace: show ? "wrap" : "nowrap",
+              fontSize: "1rem",
+              margin: "0.5rem",
+              maxHeight: "10rem",
+              overflowY: "auto",
+
+            },
+            onupdate(vnode) {
+              if (isPreparing && vnode.dom && show) {
+                vnode.dom.scrollTop = vnode.dom.scrollHeight;
+              }
+            }
+          }, [
+            show
+              ? m(".article", m.trust(format(reasoning, "markdown", {})))
+              : m(".article", reasoning)
+
+          ]),
+          m("", { style: { float: "clear" } }),
+
+
+          show
+            ? m("span", {
+              style: {
+                position: "absolute",
+                right: "0.5rem",
+                bottom: "0.2rem",
+                cursor: "pointer",
+                zIndex: 5,
+              },
+              onclick: (e) => {
+                e.stopPropagation();
+                show = !show
+              }
+            }, [
+              m.trust(window.iconPark.getIcon(show ? "Down" : "Up", {
+                fill: getColor('gray_4').front,
+                size: "1rem"
+              }))
+            ])
+            : null
+
+
+
+
+
+        ]),
+      ]);
+    }
+  };
+};
 
 let ChatItem = null
 export default ChatItem = () => {
@@ -40,12 +153,12 @@ export default ChatItem = () => {
                }
                term.resize(terms.size.cols, terms.size.rows)
              }
-             
+
            }
            else {
              if (chat.tid === comData.data.get()?.currentTid) {
                if(terms.size.cols !== 70|| terms.size.rows !== 10){
-   
+
                  terms.size = {
                    cols:70,
                    rows:10
@@ -63,7 +176,7 @@ export default ChatItem = () => {
                }
              }
            }
- 
+
          })
        }
   */
@@ -100,10 +213,10 @@ export default ChatItem = () => {
             margin: "1rem",
             padding: "1rem",
             boxSizing: "border-box", // Fix typo
-            boxShadow: "0.1rem 0.1rem 1rem #333",
+            boxShadow: "0.1rem 0.1rem 1rem rgba(0,0,0,0.3)",
             alignSelf: chat.group === "user" ? "flex-end" : "unset",
-            background: "#332f2cee",
-            color: "#eeeeee55",
+            background: getColor('brown_1').back + 'ee',
+            color: getColor('gray_8').front + '55',
 
             zIndex: 1,
             //maxHeight: "30rem",
@@ -115,7 +228,7 @@ export default ChatItem = () => {
               maxHeight: "unset",
               width: "unset",
               height: "30rem",
-              border: "0.2rem solid #755d5c",
+              border: `0.2rem solid ${getColor('main').back}`,
               border: "unset",
               boxShadow: "unset",
 
@@ -126,24 +239,24 @@ export default ChatItem = () => {
             } : {}),
 
             ...(chat.group === "user" ? {
-              borderRight: "0.4rem solid #7a5d00",
+              borderRight: `0.4rem solid ${getColor('yellow_2').back}`,
               borderRadius: "2rem 0.5rem 0.5rem 2rem",
             } : {
-              borderLeft: "0.4rem solid #a75e5e",
+              borderLeft: `0.4rem solid ${getColor('pink_1').back}`,
               borderRadius: "0.5rem 2rem 2rem 0.5rem",
-              background: "#3a3535ee"
+              background: getColor('brown_5').back + "ee",
             }),
 
 
             ...(chat.group === "preparing" ? {
-              background: "#34343d",
-              borderLeft: "0.4rem solid #374e79"
+              background: getColor('blue_3').back,
+              borderLeft: `0.4rem solid ${getColor('blue_2').back}`
             } : {}),
 
 
             ...(chat.group === "tip" ? {
-              background: "#343d38ff",
-              borderLeft: "0.4rem solid #50815bff"
+              background: getColor('工具组成功背景'),
+              borderLeft: `0.4rem solid ${getColor('工具组成功边框')}`
             } : {}),
 
 
@@ -161,9 +274,8 @@ export default ChatItem = () => {
               ? m("span", {
                 style: {
                   fontWeight: "bold",
-                  color: "#333",
                   marginBottom: "1rem",
-                  color: "#755d5c"
+                  color: getColor('main').back
                 }
               }, chat.name) : null,
             //call的内容
@@ -203,6 +315,8 @@ export default ChatItem = () => {
                   }
                 }, quote.slice(0, 7))
               }) : null,
+            // 深度思考 (Reasoning) - 仅在非准备状态（非实时流）下显示在此处
+            chat.group !== 'preparing' ? m(ReasoningBlock, { reasoning: chat.reasoning, isPreparing: false }) : null,
 
           ]),
 
@@ -253,6 +367,7 @@ export default ChatItem = () => {
                         maxWidth: "50rem",
                       }
                     }, [
+                      m(ReasoningBlock, { reasoning: chat.reasoning, isPreparing: true }),
                       m("", [
                         trs("聊天/状态/思考中", { cn: "思考中...", en: "Thinking..." }),
                         chat.content?.length > 0 ?
@@ -269,7 +384,7 @@ export default ChatItem = () => {
                         style: {
                           float: "right",
                           whiteSpace: showMind ? "wrap" : "nowrap",
-                          fontSize: "0.5rem",
+                          fontSize: "0.8rem",
                         }
                       }, [
                         chat.content,
@@ -324,7 +439,9 @@ export default ChatItem = () => {
             m("", { style: { fontSize: "0.8rem" } }, [
               m("a", {
                 style: {
-                  cursor: "pointer"
+                  cursor: "pointer",
+                  fontSize: "0.8rem",
+                  color: getColor('pink_2').back,
                 },
                 onclick: (e) => {
                   e.preventDefault()
@@ -338,6 +455,7 @@ export default ChatItem = () => {
               chat?.ask?.totalTokens ?
                 `${trs("chatItem/token消耗", { cn: "token消耗", en: "token consumption" })}
                 ${trs("chatItem/输入", { cn: "输入", en: "input" })}:${chat?.ask?.promptTokens}
+                ${trs("chatItem/缓存", { cn: "缓存", en: "cached" })}:${chat?.ask?.cachedTokens || 0}
                 ${trs("chatItem/输出", { cn: "输出", en: "output" })}:${chat?.ask?.completionTokens}
                 ${trs("chatItem/合计", { cn: "合计", en: "total" })}:${chat?.ask?.totalTokens}
                 `: null
@@ -359,8 +477,8 @@ export default ChatItem = () => {
               chat.group === "childChatList" ?
                 m(Tag, {
                   styleExt: {
-                    background: comData.data.get()?.targetChatListId === chat.ext?.targetSubListId ? "#a75e5e" : "#6c607a",
-                    color: "#111",
+                    background: comData.data.get()?.targetChatListId === chat.ext?.targetSubListId ? getColor('pink_1').back : getColor('purple_2').back,
+                    color: getColor('gray_9').front,
                     display: "inline-flex",
                     alignItems: "center",
                     marginLeft: "0",
@@ -379,7 +497,7 @@ export default ChatItem = () => {
                   },
                 }, [
                   m.trust(window.iconPark.getIcon(comData.data.get()?.targetChatListId === chat.ext?.targetSubListId ? "Lock" : "Unlock", {
-                    fill: "#333"
+                    fill: getColor('gray_6').front
                   })),
                   comData.data.get()?.targetChatListId === chat.ext?.targetSubListId ? trs("聊天/队列/解锁", { cn: "解锁队列", en: "Unlock Queue" }) : trs("聊天/队列/锁定", { cn: "锁定队列", en: "Lock Queue" })
                 ]) : null,
@@ -387,8 +505,8 @@ export default ChatItem = () => {
               chat.group === "childChatList" ?
                 m(Tag, {
                   styleExt: {
-                    background: "#5e6c79",
-                    color: "#111",
+                    background: getColor('blue_1').back,
+                    color: getColor('gray_9').front,
                     display: "inline-flex",
                     alignItems: "center",
                     marginLeft: "0",
@@ -408,15 +526,15 @@ export default ChatItem = () => {
                   },
                 }, [
                   m.trust(window.iconPark.getIcon("Browser", {
-                    fill: "#333"
+                    fill: getColor('gray_6').front
                   })),
                   trs("聊天/窗口/按钮", { cn: "窗口", en: "Window" })
                 ]) : null,
 
               m(Tag, {
                 styleExt: {
-                  background: "#6c607a",//#7c5d01
-                  color: "#111",
+                  background: getColor('purple_2').back,
+                  color: getColor('purple_2').front,
                   display: "inline-flex",
                   alignItems: "center",
                   marginLeft: "0",
@@ -444,14 +562,14 @@ export default ChatItem = () => {
                 },
               }, [
                 m.trust(window.iconPark.getIcon("Undo", {
-                  fill: "#333"
+                  fill: getColor('purple_2').front
                 })),
                 trs("聊天界面/词汇/撤销")
               ]),
               m(Tag, {
                 styleExt: {
-                  background: "#6c607a",//#7c5d01
-                  color: "#111",
+                  background: getColor('purple_2').back,
+                  color: getColor('purple_2').front,
                   display: "inline-flex",
                   alignItems: "center",
                   marginLeft: "0",
@@ -469,6 +587,8 @@ export default ChatItem = () => {
 
                       if (chat.group === "user") {
                         data.inputText += chat.content
+                        const listId = chat.chatListId || 0
+                        data.attachmentsMap[listId] = chat.attachments || []
                         await comData.data.edit((_data) => {
                           _data.inputText = data.inputText
                         })
@@ -479,15 +599,15 @@ export default ChatItem = () => {
                 },
               }, [
                 m.trust(window.iconPark.getIcon("Return", {
-                  fill: "#333"
+                  fill: getColor('purple_2').front
                 })),
                 trs("聊天/撤到此处/按钮", { cn: "撤到本条", en: "Undo to here" })
               ]),
 
               m(Tag, {
                 styleExt: {
-                  background: "#6c607a",//#7c5d01
-                  color: "#111",
+                  background: getColor('purple_2').back,
+                  color: getColor('purple_2').front,
                   display: "inline-flex",
                   alignItems: "center",
                   marginLeft: "0",
@@ -509,8 +629,8 @@ export default ChatItem = () => {
 
               m(Tag, {
                 styleExt: {
-                  background: "#7c5d01",//#6c607a
-                  color: "#111",
+                  background: getColor('yellow_1').back,
+                  color: getColor('yellow_1').front,
                   display: "inline-flex",
                   alignItems: "center",
                   marginLeft: "0",
@@ -528,15 +648,15 @@ export default ChatItem = () => {
                 },
               }, [
                 m.trust(window.iconPark.getIcon("Message", {
-                  fill: "#333"
+                  fill: getColor('yellow_1').front
                 })),
                 trs("聊天界面/词汇/回复")
               ]),
 
               m(Tag, {
                 styleExt: {
-                  background: "#7c5d01",//#6c607a
-                  color: "#111",
+                  background: getColor('yellow_1').back,
+                  color: getColor('yellow_1').front,
                   display: "inline-flex",
                   alignItems: "center",
                   marginLeft: "0",
@@ -553,7 +673,7 @@ export default ChatItem = () => {
                 },
               }, [
                 m.trust(window.iconPark.getIcon("Quote", {
-                  fill: "#333"
+                  fill: getColor('yellow_1').front
                 })),
                 trs("聊天界面/词汇/引用")
               ]),
@@ -622,8 +742,8 @@ export default ChatItem = () => {
 
               m(Tag, {
                 styleExt: {
-                  background: "#755d5c",
-                  color: "#111",
+                  background: getColor('main').back,
+                  color: getColor('main').front,
                   display: "inline-flex",
                   alignItems: "center",
                   marginLeft: "0",
@@ -653,10 +773,10 @@ export default ChatItem = () => {
               }, [
                 fullScreen ?
                   m.trust(window.iconPark.getIcon("OffScreenOne", {
-                    fill: "#333"
+                    fill: getColor('gray_6').front
                   }))
                   : m.trust(window.iconPark.getIcon("FullScreenOne", {
-                    fill: "#333"
+                    fill: getColor('gray_6').front
                   })),
                 fullScreen ? trs("通用/收起") : trs("通用/全屏")
               ]),
@@ -667,6 +787,8 @@ export default ChatItem = () => {
 
 
         ])
+
+
       ])
     }
   }

@@ -4,6 +4,7 @@ import {
   Left,
   Right,
   Down,
+  Up,
   CloseSmall,
   Close,
   Minus,
@@ -32,6 +33,9 @@ import {
   Refresh,
   PreviewOpen,
   PreviewClose,
+  Paperclip,
+  MagicWand,
+  Brain,
 } from '@icon-park/svg';
 
 let iconPark = {
@@ -39,6 +43,7 @@ let iconPark = {
   Left,
   Right,
   Down,
+  Up,
   CloseSmall,
   Close,
   Minus,
@@ -68,6 +73,9 @@ let iconPark = {
   Refresh,
   PreviewOpen,
   PreviewClose,
+  Paperclip,
+  MagicWand,
+  Brain
 };
 
 export default {

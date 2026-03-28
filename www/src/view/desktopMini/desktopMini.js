@@ -37,6 +37,7 @@ export default {
             }
           }, vnode.state.appDefs.map(app =>
             m("div", {
+              key: app.id,
               style: {
                 display: "flex",
                 flexDirection: "column",

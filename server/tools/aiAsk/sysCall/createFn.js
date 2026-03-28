@@ -52,8 +52,8 @@ export default {
         listId: currentListId
       })
 
-      if (!userConfirm) {
-        return `用户主动拒绝，请先中断`
+      if (!userConfirm.ok) {
+        return `用户主动拒绝。备注：${userConfirm.comment || "无"}`
       }
 
 

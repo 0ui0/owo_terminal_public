@@ -10,6 +10,7 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, settingData, 
   let originalContent = ""
   let proposedContent = ""
   let confirmId = null
+  let localComment = ""
 
   let activeMenu = null
   let wordWrap = false
@@ -98,8 +99,17 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, settingData, 
       content = newContent
       isDiff = false
       if (confirmId) {
-        await comData.data.edit(data => { data.chatLists.forEach(list => { const cmd = list.confirmCmds.find(c => c.id === confirmId); if (cmd) cmd.confirm = "yes" }) })
+        await comData.data.edit(data => {
+          data.chatLists.forEach(list => {
+            const cmd = list.confirmCmds.find(c => c.id === confirmId);
+            if (cmd) {
+              cmd.comment = localComment
+              cmd.confirm = "yes"
+            }
+          })
+        })
         confirmId = null
+        localComment = ""
       }
       updateEditor()
       Notice.launch({ msg: "修改已应用" })
@@ -110,8 +120,17 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, settingData, 
 
   const handleReject = async () => {
     if (confirmId) {
-      await comData.data.edit(data => { data.chatLists.forEach(list => { const cmd = list.confirmCmds.find(c => c.id === confirmId); if (cmd) cmd.confirm = "no" }) })
+      await comData.data.edit(data => {
+        data.chatLists.forEach(list => {
+          const cmd = list.confirmCmds.find(c => c.id === confirmId);
+          if (cmd) {
+            cmd.comment = localComment
+            cmd.confirm = "no"
+          }
+        })
+      })
       confirmId = null
+      localComment = ""
     }
     isDiff = false
     updateEditor()
@@ -224,8 +243,24 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, settingData, 
           m("div", { style: { position: "relative" } }, [m("div", { style: { padding: "5px 10px", cursor: "pointer", background: activeMenu === "edit" ? "#444" : "transparent" }, onclick: (e) => { e.stopPropagation(); toggleMenu("edit") } }, "编辑"), activeMenu === "edit" ? m(MenuDropdown, { items: [{ label: "撤销", action: actions.undo, shortcut: "Ctrl+Z" }, { label: "重做", action: actions.redo, shortcut: "Ctrl+Y" }, "sep", { label: "查找", action: actions.find, shortcut: "Ctrl+F" }, { label: "替换", action: actions.replace, shortcut: "Ctrl+H" }] }) : null]),
           m("div", { style: { position: "relative" } }, [m("div", { style: { padding: "5px 10px", cursor: "pointer", background: activeMenu === "view" ? "#444" : "transparent" }, onclick: (e) => { e.stopPropagation(); toggleMenu("view") } }, "视图"), activeMenu === "view" ? m(MenuDropdown, { items: [{ label: "自动换行", action: actions.toggleWordWrap, shortcut: wordWrap ? "开启" : "关闭" }] }) : null]),
           m("div", { style: { flex: 1, textAlign: "center", opacity: 0.6, fontSize: "12px", letterSpacing: "1px" } }, filePath ? filePath.split("/").pop() : "新文件"),
-          m("div", { style: { display: "flex", gap: "10px" } }, [
+          m("div", { style: { display: "flex", gap: "10px", alignItems: "center" } }, [
             isDiff ? [
+              m("input", {
+                type: "text",
+                placeholder: "输入备注（可选）...",
+                value: localComment,
+                oninput: (e) => localComment = e.target.value,
+                style: {
+                  height: "24px",
+                  padding: "0 8px",
+                  background: "rgba(0,0,0,0.2)",
+                  border: "1px solid #444",
+                  borderRadius: "3px",
+                  color: "#ccc",
+                  fontSize: "12px",
+                  width: "200px"
+                }
+              }),
               m("button", { style: { padding: "4px 15px", background: "#2ea44f", color: "white", border: "none", borderRadius: "3px", cursor: "pointer", fontWeight: "bold" }, onclick: (e) => { e.stopPropagation(); handleAccept() } }, "批准修改"),
               m("button", { style: { padding: "4px 15px", background: "#444", color: "#ccc", border: "none", borderRadius: "3px", cursor: "pointer" }, onclick: (e) => { e.stopPropagation(); handleReject() } }, "拒绝")
             ] : m(Box, { isBtn: true, style: { padding: "4px 15px", background: "#007acc", color: "white", borderRadius: "3px", fontWeight: "bold" }, onclick: (dom, e) => { e.stopPropagation(); handleSave() } }, "保存")

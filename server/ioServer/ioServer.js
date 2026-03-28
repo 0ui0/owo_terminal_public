@@ -87,7 +87,7 @@ export default {
 
       await comData.data.edit((data, self) => {
         data.currentModel ??= ""
-        data.sendMode ??= "terminal"
+        data.sendMode ??= "agent"
         data.call ??= null
         data.inputText ??= ""
         data.chatLists ??= [
@@ -99,12 +99,13 @@ export default {
             streamChunks: "",
             confirmCmds: [
               /* {
-                id:"efef",
-                cmd:{
-                  type:"terminal",
-                  content:"ls",
-                },
-                confirm:"pending", //yes no
+                id: "uuid",
+                type: "tip",
+                title: "标题",
+                content: "内容",
+                confirm: "pending", // yes, no
+                comment: "", // 用户备注回传
+                listId: 0
               } */
             ],
             stop: false,
@@ -113,6 +114,7 @@ export default {
         data.chatLists.forEach(list => {
           list.replying ??= false;
           list.streamChunks ??= "";
+          list.streamReasoningChunks ??= "";
           list.confirmCmds ??= [];
           list.stop ??= false;
         });
@@ -129,6 +131,7 @@ export default {
         data.currentTid ??= ""
         data.toolsMode ??= 3 //1提示词模式 2标准工具模式 3 miao模式
         data.targetChatListId ??= 0 //默认用户锁定的聊天列表id
+        data.enableThinking ??= false //深度思考
       })
 
       /* playListTimer ??= setInterval(async () => {

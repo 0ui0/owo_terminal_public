@@ -80,16 +80,16 @@ marked.use(admonition);
 
 renderMD = new marked.Renderer();
 
-renderMD.link = function (href, title, text) {
-  return `<a ${href ? `href='${href}'` : ""} ${title ? `href='${title}'` : ""} target='_blank'>${text || ""}</a>`;
+renderMD.link = function ({ href, title, text }) {
+  return `<a ${href ? `href='${href}'` : ""} ${title ? `title='${title}'` : ""} target='_blank'>${text || ""}</a>`;
 };
 
-renderMD.image = function (src, title, alt) {
+renderMD.image = function ({ href, title, text }) {
   return `<span class='imgBox'>
   <img
-  ${src ? `src='${transUrl(src)}'` : ""}
+  ${href ? `src='${typeof transUrl === "function" ? transUrl(href) : href}'` : ""}
   ${title ? `title='${title}'` : ""}
-  ${alt ? `alt='${alt}'` : ""}
+  ${text ? `alt='${text}'` : ""}
   onerror="this.src = './statics/imgError.svg'"
   />
 </span>`;
@@ -143,6 +143,32 @@ export default format = function (content, type, opt) {
     });
     content = content.replace(/\[flash=(\d+),(\d+)\](.+)\[\/flash\]/g, (item, w, h, x) => {
       return `<embed src="${transUrl(x)}" width="${w}" height="${h}" type="application/x-shockwave-flash"></embed>`;
+    });
+
+    // --- 附件渲染渲染 (Attachment Rendering) ---
+    content = content.replace(/\[attachid:([^\]]+)\]/g, (item, id) => {
+      const url = id.includes('.') ? `/attachment/${id}` : `/attachment/${id}.png`;
+      const isImage = /\.(jpg|jpeg|png|gif|webp)$/i.test(url);
+
+      if (isImage) {
+        return `<div class="owo-attachment" style="display:block; margin: 1rem 0; width: fit-content;">
+              <img src="${url}" 
+                  style="max-width: 15rem; max-height: 15rem; object-fit: contain; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); cursor: zoom-in; transition: all 0.3s ease;"
+                  onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 6px 20px rgba(0,0,0,0.2)'"
+                  onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='0 4px 15px rgba(0,0,0,0.1)'"
+                  onclick="window.open('${url}', '_blank')"
+                  onerror="this.style.display='none'"
+              />
+          </div>`;
+      } else {
+        // 非图片文件渲染为下载/查看链接
+        return `<div class="owo-attachment" style="display:block; margin: 1rem 0;">
+            <a href="${url}" target="_blank" 
+              style="display: inline-flex; align-items: center; padding: 0.5rem 1rem; background: #5e4a5e; color: #fff; border-radius: 4px; text-decoration: none; border: 1rem solid #725a5a; border-width: 0 0 0 0.4rem;">
+              📁 附件: ${id}
+            </a>
+        </div>`;
+      }
     });
     try {
       code = marked(content.replace(/\$\$[^\$\$]+\$\$/g, function (i) {

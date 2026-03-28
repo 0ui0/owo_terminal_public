@@ -69,7 +69,7 @@ export default {
           "-webkit-user-select": "none",
           display: "flex",
           alignItems: "center",
-          backgroundColor: "#413f4388",
+          backgroundColor: getColor('gray_12').back + '80',
           backgroundImage: "url(./statics/nav_bg.svg)",
           backgroundRepeat: "no-repeat",
           backgroundSize: "100% auto",
@@ -82,7 +82,7 @@ export default {
           "-webkit-backdrop-filter": "blur(5px)",
           transition: "all ease 1s",
           boxShadow: "0 0 0.5rem rgba(100,100,100,0.3)",
-          border: "0.1rem solid rgb(117, 93, 92)",
+          border: `0.1rem solid ${getColor('main').back}`,
           position: "relative",
           ...(commonData.navWinMode ? {
             background: "unset",
@@ -146,6 +146,7 @@ export default {
         }, [
           urlList.map((item, index) =>
             m(NavItem, {
+              key: item.url || item.name,
               item: item,
               index: index,
               urlList: urlList,
@@ -209,6 +210,7 @@ export default {
                   };
 
                   return m(NavItem, {
+                    key: config.id,
                     item: programItem,
                     index: index,
                     urlList: urlList,

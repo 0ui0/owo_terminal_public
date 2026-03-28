@@ -9,6 +9,7 @@ import Browser from "./view/browser/Browser.js"
 import iconPark_ from "./view/common/iconPark.js"
 import Nav from "./view/common/nav.js"
 import Notice from "./view/common/notice.js"
+import commonData from "./view/common/commonData.js"
 
 
 
@@ -16,6 +17,7 @@ import comData from "./comData/comData.js"
 import ioSocket from "./comData/ioSocket.js"
 import initRoute from "./init/init_routeBack.js"
 import initResponsive from "./init/init_responsive.js"
+import settingData from "./view/setting/settingData.js"
 
 
 
@@ -33,6 +35,11 @@ import initResponsive from "./init/init_responsive.js"
     const { init: i18nInit } = await import("./view/common/i18n.js")
     await i18nInit()
     //同步共同数据到服务端
+
+    await settingData.options?.pull()
+    commonData.themeColor = await settingData.options.get("global_themeColor")
+
+
 
 
 
@@ -64,6 +71,8 @@ import initResponsive from "./init/init_responsive.js"
       },
 
     })
+
+
 
   }
   catch (err) {

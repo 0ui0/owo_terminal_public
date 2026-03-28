@@ -2,6 +2,8 @@
 import Joi from "joi"
 import projectManager from "../managers/projectManager.js"
 import { dialog } from "electron"
+import ioServer from "../ioServer/ioServer.js"
+import { trs } from "../tools/i18n.js"
 
 export default {
   name: "projectLoad",
@@ -27,6 +29,13 @@ export default {
 
     try {
       await projectManager.load(filePath)
+      
+      if (ioServer.io) {
+        projectManager.startAutoSave() // 首次加载后自动开启定时器
+        ioServer.io.emit("project:state", { path: filePath, autoSave: true })
+        ioServer.io.emit("notice", trs("系统/消息/载入成功"))
+      }
+
       return { ok: true, path: filePath }
     } catch (e) {
       return { ok: false, msg: e.message }

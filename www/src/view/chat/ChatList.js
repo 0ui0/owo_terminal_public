@@ -7,6 +7,7 @@ import ChatConfirm from "./ChatConfirm.js"
 import ChatTerm from "./ChatTerm.js"
 import ToolCallGroup from "./ToolCallGroup.js"
 import { trs } from "../common/i18n.js"
+import getColor from "../common/getColor.js"
 
 export default () => {
   return {
@@ -31,13 +32,14 @@ export default () => {
         }
       })
 
+
       return m("", {
         style: {
           flex: 1,
           marginBottom: "1rem",
           borderRadius: "3rem",
-          background: "#47464e99",
-          border: "0.1rem solid #755d5c",
+          background: getColor('gray_4').back + '99',
+          border: `0.1rem solid ${getColor('main').back}`,
           height: "100%",
           width: "100%",
           display: "grid",
@@ -60,7 +62,8 @@ export default () => {
               position: "sticky",
               top: "0",
               zIndex: 10,
-              background: "#4f4f5a", // Opaque background to cover scrolling content
+              background: getColor('main').back,
+              color: getColor('main').front,// Opaque background to cover scrolling content
               marginTop: "0",
             },
             async onclick() {
@@ -76,28 +79,38 @@ export default () => {
                 console.log("chatLists", comData.data.get().chatLists)
               }
             },
-          }, chatList?.id === 0 ? trs("通用/消息列表", { cn: "消息列表", en: "Message List" }) : `${trs("通用/返回上一级", { cn: "返回上一级", en: "Back to Parent" })} (${trs("通用/子会话", { cn: "子会话", en: "Sub Session" })} ${chatList?.id})`),
+          }, [
+            chatList?.id === 0
+              ? trs("通用/消息列表", { cn: "消息列表", en: "Message List" })
+              : `${trs("通用/返回上一级", { cn: "返回上一级", en: "Back to Parent" })}(${trs("通用/子会话", { cn: "子会话", en: "Sub Session" })} ${chatList?.id})`
+
+          ]),
 
           // 渲染分组后的消息
-          chatGroups.map(chatGroup => {
-            if (chatGroup.toolCallGroupId) {
-              // 工具调用组 - 折叠显示
-              return m(ToolCallGroup, { key: chatGroup.toolCallGroupId, chats: chatGroup.chats })
-            } else {
-              // 普通消息
-              const chat = chatGroup.chats[0]
-              return m(ChatItem, {
-                key: chat.uuid,
-                chat,
-              })
-            }
-          }),
+          m("", [
+            ...chatGroups.map(chatGroup => {
+              if (chatGroup.toolCallGroupId) {
+                // 工具调用组 - 折叠显示
+                return m(ToolCallGroup, { key: chatGroup.toolCallGroupId, chats: chatGroup.chats })
+              } else {
+                // 普通消息
+                const chat = chatGroup.chats[0]
+                return m(ChatItem, {
+                  key: chat.uuid,
+                  chat,
+                })
+              }
+            }),
+          ]),
+
+
 
           chatList?.replying ?
             m(ChatItem, {
               chat: {
                 group: "preparing",
                 content: chatList?.streamChunks,
+                reasoning: chatList?.streamReasoningChunks, // 直接传递推理流内容
                 timestamp: Date.now(),
               }
             }) : null,

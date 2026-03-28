@@ -3,6 +3,7 @@ import FileMenu from "./FileMenu.js"
 import commonData from "./commonData.js"
 import { trs } from "./i18n.js"
 import UpdateIndicator from "./UpdateIndicator.js"
+import getColor from "./getColor.js"
 
 export default () => {
   return {
@@ -10,14 +11,14 @@ export default () => {
       return m("div", {
         style: {
           height: "38px",
-          background: "#755d5c",
+          background: getColor('main').back,
           display: "flex",
           alignItems: "center",
           paddingLeft: /Electron/.test(navigator.userAgent) ? "80px" : "10px", // Space for macOS traffic lights
           paddingRight: "10px",
           fontSize: "14px",
           fontWeight: "bold",
-          color: "#333",
+          color: getColor('gray_6').front,
           "-webkit-app-region": "drag",
           borderBottom: "1px solid rgba(0,0,0,0.1)",
           flexShrink: 0,

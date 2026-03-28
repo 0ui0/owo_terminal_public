@@ -1,4 +1,5 @@
 import ChatItem from "./ChatItem.js"
+import getColor from "../common/getColor.js"
 
 export default () => {
   let expanded = false
@@ -17,13 +18,13 @@ export default () => {
           margin: '1rem',
           padding: '0.5rem 1rem',
           borderRadius: '0.5rem',
-          background: hasError ? 'rgba(255, 100, 100, 0.15)' : '#343d38',
-          borderLeft: hasError ? '0.4rem solid #ff6b6b' : '0.4rem solid #50815b',
+          background: hasError ? getColor("工具组失败背景") : getColor("工具组成功背景"),
+          borderLeft: hasError ? `0.4rem solid ${getColor("工具组失败边框")}` : `0.4rem solid ${getColor("工具组成功边框")}`,
         }
       }, [
         // 标题栏
         m('', {
-          style: { cursor: 'pointer', display: 'flex', alignItems: 'center', color: '#aaa' },
+          style: { cursor: 'pointer', display: 'flex', alignItems: 'center', color: getColor("工具组文字颜色") },
           onclick: () => { expanded = !expanded }
         }, [
           m('span', expanded ? '▼ ' : '▶ '),

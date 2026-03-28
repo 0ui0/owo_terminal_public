@@ -44,6 +44,9 @@ export default class DynamicData {
       if (ext.afterEditFn) {
         await ext.afterEditFn(returns, this.data, this)
       }
+      if (this.ext.afterEditFn) {
+        await this.ext.afterEditFn(returns, this.data, this)
+      }
     } catch (err) {
       throw err
     }

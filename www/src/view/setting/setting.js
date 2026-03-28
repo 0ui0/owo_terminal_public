@@ -3,6 +3,8 @@ import data from "./settingData.js"
 import Notice from "../common/notice.js"
 import m from "mithril"
 import { trs } from "../common/i18n.js"
+import commonData from "../common/commonData.js"
+import getColor from "../common/getColor.js"
 
 export default () => {
   let activeGroup1 = ""
@@ -63,9 +65,9 @@ export default () => {
           const isExpanded = model._expanded || false
           return m("div", {
             style: {
-              background: "rgba(255,255,255,0.05)",
+              background: getColor('gray_3').back,
               borderRadius: "1rem",
-              border: "1px solid rgba(255,255,255,0.05)",
+              border: `1px solid ${getColor('gray_1').front}0f`,
               overflow: "hidden",
               transition: "background 0.3s"
             }
@@ -77,7 +79,7 @@ export default () => {
                 display: "flex",
                 alignItems: "center",
                 cursor: "pointer",
-                background: isExpanded ? "rgba(255,255,255,0.05)" : "transparent"
+                background: isExpanded ? `${getColor('gray_1').front}0a` : "transparent"
               },
               onclick: () => model._expanded = !model._expanded
             }, [
@@ -87,13 +89,13 @@ export default () => {
                   width: "0.8rem",
                   height: "0.8rem",
                   borderRadius: "50%",
-                  background: (model.switch === 1 || model.switch === true) ? "#755d5c" : "#555",
+                  background: (model.switch === 1 || model.switch === true) ? getColor('main').back : getColor('gray_4').back,
                   marginRight: "1rem",
                   boxShadow: (model.switch === 1 || model.switch === true) ? "0 0 0.5rem #755d5c" : "none"
                 }
               }),
               // Name
-              m("div", { style: { fontWeight: "bold", fontSize: "1.1rem", color: "#eee", flex: 1 } }, model.name || trs("设置界面/模型列表/未命名")),
+              m("div", { style: { fontWeight: "bold", fontSize: "1.1rem", color: getColor('gray_1').front, flex: 1 } }, model.name || trs("设置界面/模型列表/未命名")),
               // Model ID helper
               m("div", { style: { fontSize: "0.9rem", color: "#888", marginRight: "1rem" } }, model.model),
               // Delete Button
@@ -141,11 +143,11 @@ export default () => {
               return m("div", {
                 style: { display: "flex", flexDirection: "column" }
               }, [
-                m("label", { style: { fontSize: "0.9rem", color: "#aaa", marginBottom: "0.5rem", marginLeft: "0.2rem" } }, label),
+                m("label", { style: { fontSize: "0.9rem", color: getColor('gray_1').front, opacity: 0.7, marginBottom: "0.5rem", marginLeft: "0.2rem" } }, label),
                 isBool ? m("div", {
                   style: {
                     width: "3rem", height: "1.6rem", borderRadius: "2rem",
-                    background: (val === 1 || val === true) ? "#755d5c" : "#555",
+                    background: (val === 1 || val === true) ? getColor('main').back : getColor('gray_4').back,
                     position: "relative", cursor: "pointer", transition: "0.3s",
                     border: "1px solid rgba(255,255,255,0.1)"
                   },
@@ -164,8 +166,8 @@ export default () => {
                     value: val,
                     rows: 5,
                     style: {
-                      background: "rgba(0,0,0,0.2)", border: "1px solid rgba(255,255,255,0.1)",
-                      color: "#eee", padding: "1rem", borderRadius: "0.8rem", outline: "none", resize: "vertical",
+                      background: getColor('gray_3').back, border: `1px solid ${getColor('gray_1').front}22`,
+                      color: getColor('gray_1').front, padding: "1rem", borderRadius: "0.8rem", outline: "none", resize: "vertical",
                       fontSize: "1rem", lineHeight: "1.5", transition: "background 0.3s"
                     },
                     onfocus: (e) => e.target.style.background = "rgba(0,0,0,0.3)",
@@ -178,8 +180,8 @@ export default () => {
                       type: isPassword ? (model._showKey ? "text" : "password") : ((typeof val === "number") ? "number" : "text"),
                       value: val,
                       style: {
-                        background: "rgba(0,0,0,0.2)", border: "1px solid rgba(255,255,255,0.1)",
-                        color: "#eee", padding: "0.8rem 1rem", borderRadius: "0.8rem", outline: "none",
+                        background: getColor('gray_3').back, border: `1px solid ${getColor('gray_1').front}22`,
+                        color: getColor('gray_1').front, padding: "0.8rem 1rem", borderRadius: "0.8rem", outline: "none",
                         width: "100%", boxSizing: "border-box", fontSize: "1rem",
                         paddingRight: isPassword ? "3rem" : "1rem", transition: "background 0.3s"
                       },
@@ -363,8 +365,8 @@ export default () => {
             value: value[osKey],
             style: {
               flex: 1,
-              background: "rgba(0,0,0,0.2)", border: "1px solid rgba(255,255,255,0.1)",
-              color: "#eee", padding: "0.8rem 1rem", borderRadius: "0.8rem", outline: "none",
+              background: getColor('gray_3').back, border: `1px solid ${getColor('gray_1').front}22`,
+              color: getColor('gray_1').front, padding: "0.8rem 1rem", borderRadius: "0.8rem", outline: "none",
               fontSize: "1rem"
             },
             oninput: (e) => {
@@ -385,32 +387,70 @@ export default () => {
       // Dispatch to Specialized Editors
       if (opt.key === "ai_aiList") {
         return m("div", { style: { marginBottom: "2rem" } }, [
-          m("label", { style: { display: "block", color: "#ddd", marginBottom: "1rem", fontWeight: "bold", fontSize: "1.1rem" } }, trs("设置界面/字段/" + opt.name)),
+          m("label", { style: { display: "block", color: getColor('gray_1').front, marginBottom: "1rem", fontWeight: "bold", fontSize: "1.1rem" } }, trs("设置界面/字段/" + opt.name)),
           m(ModelListEditor, { value: opt.value, onchange: (v) => opt.value = v })
         ])
       }
 
       if (opt.key === "global_terminalShell") {
         return m("div", { style: { marginBottom: "2rem" } }, [
-          m("label", { style: { display: "block", color: "#ddd", marginBottom: "1rem", fontWeight: "bold", fontSize: "1.1rem" } }, trs("设置界面/字段/" + opt.name)),
+          m("label", { style: { display: "block", color: getColor('gray_1').front, marginBottom: "1rem", fontWeight: "bold", fontSize: "1.1rem" } }, trs("设置界面/字段/" + opt.name)),
           m(ShellEditor, { value: opt.value, onchange: (v) => opt.value = v })
+        ])
+      }
+
+      // 主题选择
+      if (opt.key === "global_themeColor") {
+        const themes = [
+          { value: 0, label: trs("设置/主题/默认", { cn: "经典深色", en: "Classic Dark" }) },
+          { value: 1, label: trs("设置/主题/花园", { cn: "阳光花园", en: "Sunshine Garden" }) },
+          { value: 2, label: trs("设置/主题/海风", { cn: "蔚蓝海风", en: "Ocean Breeze" }) }
+        ]
+        return m("div", { style: { marginBottom: "1.5rem" } }, [
+          m("label", { style: { display: "block", color: getColor('gray_1').front, marginBottom: "0.8rem", fontSize: "1rem" } }, trs("设置界面/字段/" + (opt.name || "显示主题"))),
+          m("div", {
+            style: {
+              display: "flex",
+              gap: "1rem",
+              flexWrap: "wrap"
+            }
+          }, themes.map(t => {
+            const isActive = Number(opt.value) === t.value
+            return m("div", {
+              style: {
+                padding: "0.8rem 1.5rem",
+                borderRadius: "2rem",
+                background: isActive ? getColor('main').back : getColor('gray_3').back,
+                color: isActive ? getColor('main').front : getColor('gray_1').front,
+                cursor: "pointer",
+                border: isActive ? `1px solid ${getColor('main').back}` : `1px solid ${getColor('gray_1').front}1a`,
+                fontSize: "0.9rem",
+                transition: "all 0.3s"
+              },
+              onclick: () => {
+                opt.value = t.value
+                commonData.themeColor = t.value
+                m.redraw()
+              }
+            }, t.label)
+          }))
         ])
       }
 
       // 语言选择下拉菜单
       if (opt.key === "global_language") {
         return m("div", { style: { marginBottom: "1.5rem" } }, [
-          m("label", { style: { display: "block", color: "#ddd", marginBottom: "0.8rem", fontSize: "1rem" } }, trs("设置界面/字段/" + (opt.name || "系统语言"))),
+          m("label", { style: { display: "block", color: getColor('gray_1').front, marginBottom: "0.8rem", fontSize: "1rem" } }, trs("设置界面/字段/" + (opt.name || "系统语言"))),
           m("select", {
             value: opt.value,
             onchange: (e) => opt.value = e.target.value,
             style: {
               width: "100%",
-              background: "rgba(0,0,0,0.3)",
-              color: "#eee",
+              background: getColor('gray_3').back,
+              color: getColor('gray_1').front,
               padding: "0.8rem 1rem",
               borderRadius: "0.8rem",
-              border: "1px solid rgba(255,255,255,0.15)",
+              border: `1px solid ${getColor('gray_1').front}22`,
               outline: "none",
               fontSize: "1rem",
               cursor: "pointer",
@@ -448,7 +488,7 @@ export default () => {
       }, [
         m("label", {
           style: {
-            fontSize: "1rem", color: "#ccc", marginBottom: "0.8rem",
+            fontSize: "1rem", color: getColor('gray_1').front, marginBottom: "0.8rem",
             display: "flex", justifyContent: "space-between", alignItems: "center",
             paddingLeft: "0.2rem"
           }
@@ -457,7 +497,7 @@ export default () => {
           isBool ? m("div", {
             style: {
               width: "3rem", height: "1.6rem", borderRadius: "2rem",
-              background: (opt.value === 1 || opt.value === true) ? "#755d5c" : "#555",
+              background: (opt.value === 1 || opt.value === true) ? getColor('main').back : getColor('gray_4').back,
               position: "relative", cursor: "pointer", transition: "0.3s",
               border: "1px solid rgba(255,255,255,0.1)"
             },
@@ -467,7 +507,7 @@ export default () => {
             }
           }, m("div", {
             style: {
-              width: "1.2rem", height: "1.2rem", borderRadius: "50%", background: "#fff",
+              width: "1.2rem", height: "1.2rem", borderRadius: "50%", background: getColor('gray_8').back,
               position: "absolute", top: "0.15rem", left: (opt.value === 1 || opt.value === true) ? "1.6rem" : "0.2rem", transition: "0.3s",
               boxShadow: "0 2px 4px rgba(0,0,0,0.2)"
             }
@@ -479,9 +519,9 @@ export default () => {
             type: isPassword ? (opt._showKey ? "text" : "password") : (isNumber ? "number" : "text"),
             value: opt.value,
             style: {
-              padding: "0.8rem 1rem", background: "rgba(0, 0, 0, 0.2)",
-              border: "1px solid rgba(255, 255, 255, 0.1)", borderRadius: "0.8rem",
-              color: "#eee", fontSize: "1rem", outline: "none", width: "100%", boxSizing: "border-box",
+              padding: "0.8rem 1rem", background: getColor('gray_3').back,
+              border: `1px solid ${getColor('gray_1').front}22`, borderRadius: "0.8rem",
+              color: getColor('gray_1').front, fontSize: "1rem", outline: "none", width: "100%", boxSizing: "border-box",
               paddingRight: isPassword ? "3rem" : "1rem", transition: "background 0.3s"
             },
             onfocus: (e) => e.target.style.background = "rgba(0,0,0,0.3)",
@@ -515,6 +555,7 @@ export default () => {
       try {
         await data.initSocket()
         await data.options.pull()
+        commonData.themeColor = Number(data.options.get("global_themeColor")) || 0
 
         // Defaults
         const groups = getStructure()
@@ -537,7 +578,8 @@ export default () => {
             let tmp = await data.fnCall("cmdOptions", [cleanData])
             Notice.launch({ msg: tmp.msg, timeout: 2000 })
             await data.options.pull()
-            m.redraw() // 强制刷新 UI 以应用语言变更
+            commonData.themeColor = Number(data.options.get("global_themeColor")) || 0
+            m.redraw() // 强制刷新 UI 以应用语言和主题变更
             return true
           } catch (err) {
             console.error(err)
@@ -562,16 +604,16 @@ export default () => {
 
       return m("div", {
         style: {
-          display: "flex", width: "100%", height: "100%", color: "#eee",
-          overflow: "hidden", background: "#393839", // Softer dark background
+          display: "flex", width: "100%", height: "100%", color: getColor('gray_1').front,
+          overflow: "hidden", background: getColor('gray_1').back,
           borderRadius: "0 0 2rem 2rem" // Match Notice bottom radius
         }
       }, [
         // Sidebar
         m("div", {
           style: {
-            width: "160px", background: "rgba(0,0,0,0.2)",
-            display: "flex", flexDirection: "column", borderRight: "1px solid rgba(255,255,255,0.05)",
+            width: "160px", background: getColor('gray_3').back,
+            display: "flex", flexDirection: "column", borderRight: `1px solid ${getColor('gray_6').front}11`,
             padding: "1rem 0", gap: "0.5rem", flexShrink: 0
           }
         }, g1Keys.map(k => {
@@ -579,9 +621,10 @@ export default () => {
           return m("div", {
             style: {
               padding: "1rem 1.5rem", cursor: "pointer",
-              background: isActive ? "rgba(255,255,255,0.08)" : "transparent",
-              borderLeft: isActive ? "0.3rem solid #755d5c" : "0.3rem solid transparent",
-              color: isActive ? "#fff" : "#aaa", fontWeight: isActive ? "bold" : "normal",
+              background: isActive ? `${getColor('main').back}1a` : "transparent",
+              borderLeft: isActive ? `0.3rem solid ${getColor('main').back}` : "0.3rem solid transparent",
+              color: isActive ? getColor('main').back : getColor('gray_4').front,
+              fontWeight: isActive ? "bold" : "normal",
               transition: "all 0.3s", fontSize: "1.05rem"
             },
             onclick: () => {
@@ -608,8 +651,8 @@ export default () => {
             return m("div", {
               style: {
                 padding: "0.6rem 1.2rem", cursor: "pointer", borderRadius: "2rem",
-                background: isActive ? "rgba(117, 93, 92, 0.8)" : "rgba(255,255,255,0.05)",
-                color: isActive ? "#fff" : "#aaa",
+                background: isActive ? getColor('main').back : getColor('gray_3').back,
+                color: isActive ? getColor('main').front : getColor('gray_4').front,
                 fontSize: "0.95rem", transition: "all 0.3s",
                 boxShadow: isActive ? "0 4px 12px rgba(0,0,0,0.1)" : "none"
               },
@@ -624,15 +667,15 @@ export default () => {
             const options = currentG2[group3Name]
             return m("div", {
               style: {
-                background: "rgba(255,255,255,0.03)", borderRadius: "1.5rem", padding: "2rem",
-                border: "1px solid rgba(255,255,255,0.05)",
-                boxShadow: "0 8px 32px rgba(0,0,0,0.1)"
+                background: getColor('gray_3').back, borderRadius: "1.5rem", padding: "2rem",
+                border: `1px solid ${getColor('gray_1').front}1a`,
+                boxShadow: "0 8px 32px rgba(0,0,0,0.05)"
               }
             }, [
               m("div", {
                 style: {
-                  fontSize: "1.2rem", fontWeight: "bold", color: "#eee", marginBottom: "1.5rem",
-                  paddingBottom: "1rem", borderBottom: "1px solid rgba(255,255,255,0.05)"
+                  fontSize: "1.2rem", fontWeight: "bold", color: getColor('gray_1').front, marginBottom: "1.5rem",
+                  paddingBottom: "1rem", borderBottom: `1px solid ${getColor('gray_1').front}11`
                 }
               }, trs("设置界面/分组/" + group3Name)),
               options.map(opt => m(SettingField, { option: opt }))

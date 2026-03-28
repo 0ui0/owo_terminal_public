@@ -11,7 +11,7 @@ export default {
       return "错误：" + error.details[0].message
     }
 
-    let { appId } = value
+    let { appId, args } = value
 
     await appActive.func(appId, args)
     return `已发送唤醒指令 (实例 ID: ${appId})`

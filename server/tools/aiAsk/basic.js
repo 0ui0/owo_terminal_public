@@ -11,7 +11,8 @@ export default {
       apiKey: "ollama",
       baseURL: "http://192.168.2.88:11434/v1/",
       //model:"qwen2:0.5b"
-      model: "qwen2.5:7b"
+      model: "qwen2.5:7b",
+      mediaDir: "./attachment"
     });
     //model:"qwen3:1.7b"
     await this.miao.init();
@@ -28,7 +29,8 @@ export default {
             baseURL: model.url,
             model: model.model,
             prompt: model.prompt,
-            name: model.name
+            name: model.name,
+            mediaDir: "./attachment"
           })
         }
         this.list[index].init({
@@ -36,7 +38,8 @@ export default {
           baseURL: model.url,
           model: model.model,
           prompt: model.prompt,
-          name: model.name
+          name: model.name,
+          mediaDir: "./attachment"
         })
       })
     } catch (error) {

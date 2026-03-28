@@ -26,7 +26,7 @@ export default () => {
         style: {
           width: "100%",
           height: "100%",
-          padding: "4rem",
+          padding: Mob ? "1rem" : "4rem",
           paddingBottom: "11rem",
           boxSizing: "border-box",
           display: "flex",

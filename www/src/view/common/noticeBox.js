@@ -337,7 +337,7 @@ export default function () {
       if (!activeTab && tabs.length > 0) {
         activeTab = tabs[0]
         // 回写（但在 view 里不建议直接修改 state，除非是 correction）
-        // win.activeSign = activeTab.sign 
+        // win.activeSign = activeTab.sign
       }
       if (!activeTab) return null
 
@@ -371,13 +371,13 @@ export default function () {
           display: win.minimized ? "none" : "flex",
           "-webkit-app-region": "no-drag",
           flexDirection: "column",
-          background: "#393432",
+          background: getColor('gray_1').back,
           borderRadius: win.isMaximized ? "0" : "3rem",
           boxShadow: "0 0 2rem rgba(0,0,0,0.3)",
           backdropFilter: "blur(10px)",
           "-webkit-backdrop-filter": "blur(10px)",
           overflow: "hidden",
-          border: win.isMaximized ? "none" : "0.1rem solid #755d5c",
+          border: win.isMaximized ? "none" : `0.1rem solid ${getColor('main').back}`,
           transition: isResizing || isMoving ? "none" : "display 0.3s, opacity 0.3s",
 
           ...(win.isMaximized ? {
@@ -396,32 +396,31 @@ export default function () {
         // ---------------- Header ----------------
         m("", {
           style: {
-            width: "100%",
             touchAction: "none",
-            background: "#755d5c",
+            background: getColor('main').back,
             display: "flex",
             alignItems: "center",
-            padding: "0.5rem",
             flexShrink: 0,
-            userSelect: "none"
+            userSelect: "none",
+            padding: "0.4rem 1rem"
           },
           onpointerdown: (e) => handleTitleDown(e, win, attrs.onActivate),
           ondblclick: (e) => toggleMaximize(e, win)
         }, [
-          m("", { style: { width: "0.5rem" } }),
 
           // 标题
           m(Box, {
             style: {
               background: "transparent",
               fontWeight: "bold",
-              color: "#333",
+              color: getColor('gray_6').front,
               margin: "0",
               userSelect: "none",
               maxWidth: "50%",
               overflow: "hidden",
               textOverflow: "ellipsis",
-              whiteSpace: "nowrap"
+              whiteSpace: "nowrap",
+              padding: "unset",
             }
           }, activeTab.tip || "提示"),
 
@@ -432,9 +431,9 @@ export default function () {
             class: "win-btn",
             isBtn: true,
             style: {
-              background: btn.color || "#5e6c79",
-              color: "#eee",
-              border: "0.1rem solid #393432",
+              background: btn.color || getColor('blue_1').back,
+              color: getColor('gray_8').front,
+              border: `0.1rem solid ${getColor('gray_1').back}`,
               borderRadius: "50%",
               display: "inline-flex",
               justifyContent: "center",
@@ -458,9 +457,9 @@ export default function () {
             class: "win-btn",
             isBtn: true,
             style: {
-              background: "#a75e5e",
-              color: "#463838",
-              border: "0.1rem solid #393432",
+              background: getColor('pink_1').back,
+              color: getColor('pink_1').front,
+              border: `0.1rem solid ${getColor('gray_1').back}`,
               borderRadius: "50%",
               display: "inline-flex",
               justifyContent: "center",
@@ -472,7 +471,7 @@ export default function () {
             // 确认按钮
             onclick: function (e) { handleConfirm(this, e, win, activeTab, attrs.onCloseTab) }
           }, [
-            activeTab.confirmWords ? activeTab.confirmWords : m.trust(iconPark.getIcon("Check", { fill: "#463838", size: "12px" }))
+            activeTab.confirmWords ? activeTab.confirmWords : m.trust(iconPark.getIcon("Check", { fill: getColor('pink_1').front, size: "12px" }))
           ]) : null,
 
           // Close / Cancel
@@ -480,9 +479,9 @@ export default function () {
             class: "win-btn",
             isBtn: true,
             style: {
-              background: "#636363",
-              color: "#333",
-              border: "0.1rem solid #393432",
+              background: getColor('gray_2').back,
+              color: getColor('gray_6').front,
+              border: `0.1rem solid ${getColor('gray_1').back}`,
               borderRadius: "50%",
               display: "inline-flex",
               justifyContent: "center",
@@ -494,7 +493,7 @@ export default function () {
             // 关闭/取消按钮
             onclick: function (e) { handleCancel(this, e, win, activeTab, attrs.onCloseTab) }
           }, [
-            activeTab.cancelWords ? activeTab.cancelWords : m.trust(iconPark.getIcon("Close", { fill: "#333", size: "12px" }))
+            activeTab.cancelWords ? activeTab.cancelWords : m.trust(iconPark.getIcon("Close", { fill: getColor('gray_6').front, size: "12px" }))
           ]) : null,
 
           // Minimize
@@ -502,9 +501,9 @@ export default function () {
             class: "win-btn",
             isBtn: true,
             style: {
-              background: "#6c6379",
-              color: "#333",
-              border: "0.1rem solid #393432",
+              background: getColor('purple_1').back,
+              color: getColor('gray_6').front,
+              border: `0.1rem solid ${getColor('gray_1').back}`,
               borderRadius: "50%",
               display: "inline-flex",
               justifyContent: "center",
@@ -514,7 +513,7 @@ export default function () {
             },
             onclick: function (e) { handleMinimize(this, e, win) }
           }, [
-            m.trust(iconPark.getIcon("Minus", { fill: "#333", size: "12px" }))
+            m.trust(iconPark.getIcon("Minus", { fill: getColor('gray_6').front, size: "12px" }))
           ]) : null
 
         ]),
@@ -522,7 +521,7 @@ export default function () {
         tabs.length > 1 ? m("", {
           style: {
             height: "3.5rem",
-            background: "#332f2c",
+            background: getColor('brown_1').back,
             display: "flex",
             flexWrap: "nowrap",
             alignItems: "center",
@@ -531,7 +530,7 @@ export default function () {
             overflowX: "auto",
             scrollbarWidth: "thin", // 改为极细滚动条，或者完全依赖滚轮
             flexShrink: 0,
-            borderBottom: "0.1rem solid #555",
+            borderBottom: `0.1rem solid ${getColor('gray_10').back}`,
             scrollBehavior: "smooth"
           },
           // 监听滚轮，将垂直滚动转换为水平滚动
@@ -570,9 +569,9 @@ export default function () {
               display: "flex", alignItems: "center",
               padding: "0 12px", gap: "6px",
               height: "100%", cursor: "pointer",
-              fontSize: "12px", color: isActive ? "#eee" : "#999",
-              background: isActive ? "#2d2d2d" : "transparent",
-              borderRight: "1px solid #333",
+              fontSize: "12px", color: isActive ? getColor('gray_8').front : getColor('gray_7').front,
+              background: isActive ? getColor('gray_3').back : "transparent",
+              borderRight: `1px solid ${getColor('gray_6').back}`,
               userSelect: "none", touchAction: "none",
 
               flex: "0 1 180px",   // 允许压缩，最大 180px
@@ -622,10 +621,10 @@ export default function () {
             flex: 1,
             position: "relative",
             overflow: "auto",
-            background: "#5e5653",
+            background: getColor('brown_2').back,
             margin: "0.5rem",
             borderRadius: "2rem",
-            display: "flex", flexDirection: "column"
+            display: "flex", flexDirection: "column",
           }
         }, stablePhysicalTabs.map(tab => { // 绝对物理稳定渲染，保证 webview 不重连
           const isActive = tab.sign === win.activeSign

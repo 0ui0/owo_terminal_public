@@ -1,0 +1,12 @@
+{
+  "id": "aiRpg",
+  "name": "aiRpg",
+  "version": "1.0.0",
+  "icon": "🍄",
+  "frontend": "frontend.js",
+  "backend": "backend.js",
+  "layout": {
+    "width": 900,
+    "height": 700
+  }
+}

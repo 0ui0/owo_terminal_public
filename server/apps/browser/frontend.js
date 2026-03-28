@@ -98,21 +98,158 @@ export default ({ appId, m, Notice, ioSocket, settingData, comData, commonData, 
           done({ ok: true, data: result })
 
         } else if (msg.action === "click") {
-          await webview.executeJavaScript(`document.querySelector("${msg.args.selector}")?.click()`)
-          done({ ok: true })
+          const selector = JSON.stringify(msg.args.selector)
+          const result = await webview.executeJavaScript(`
+            (() => {
+              try {
+                const el = document.querySelector(${selector});
+                if (!el) return { ok: false, error: "未找到元素: " + ${selector} };
+                el.click();
+                return { ok: true };
+              } catch (e) {
+                return { ok: false, error: "选择器无效: " + e.message };
+              }
+            })()
+          `)
+          done(result)
 
         } else if (msg.action === "type") {
-          const text = (msg.args.text || "").replace(/"/g, '\\"')
-          await webview.executeJavaScript(`
+          const selector = JSON.stringify(msg.args.selector)
+          const text = JSON.stringify(msg.args.text || "")
+          const pressEnter = !!msg.args.pressEnter
+          const result = await webview.executeJavaScript(`
               (() => {
-                const el = document.querySelector("${msg.args.selector}");
-                if (el) {
-                  el.value = "${text}";
+                try {
+                  const el = document.querySelector(${selector});
+                  if (!el) return { ok: false, error: "未找到元素: " + ${selector} };
+                  const val = ${text};
+                  if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') {
+                    el.value = val;
+                  } else {
+                    el.innerText = val;
+                  }
                   el.dispatchEvent(new Event("input", { bubbles: true }));
                   el.dispatchEvent(new Event("change", { bubbles: true }));
+                  
+                  if (${pressEnter}) {
+                    const enterEvent = new KeyboardEvent("keydown", { key: "Enter", code: "Enter", keyCode: 13, which: 13, bubbles: true });
+                    el.dispatchEvent(enterEvent);
+                    const upEvent = new KeyboardEvent("keyup", { key: "Enter", code: "Enter", keyCode: 13, which: 13, bubbles: true });
+                    el.dispatchEvent(upEvent);
+                  }
+                  return { ok: true };
+                } catch (e) {
+                  return { ok: false, error: "选择器无效: " + e.message };
                 }
               })()
            `)
+          done(result)
+        } else if (msg.action === "pressKey") {
+          const selector = JSON.stringify(msg.args.selector)
+          const key = JSON.stringify(msg.args.key || "Enter")
+          const result = await webview.executeJavaScript(`
+              (() => {
+                try {
+                  const el = document.querySelector(${selector});
+                  if (!el) return { ok: false, error: "未找到元素: " + ${selector} };
+                  const k = ${key};
+                  const downEvent = new KeyboardEvent("keydown", { key: k, bubbles: true });
+                  el.dispatchEvent(downEvent);
+                  const upEvent = new KeyboardEvent("keyup", { key: k, bubbles: true });
+                  el.dispatchEvent(upEvent);
+                  return { ok: true };
+                } catch (e) {
+                  return { ok: false, error: "选择器无效: " + e.message };
+                }
+              })()
+          `)
+          done(result)
+
+        } else if (msg.action === "screenshot") {
+          console.log("[Screenshot] triggered");
+          if (isLoading) {
+            console.log("[Screenshot] waiting for page load... (up to 10s)");
+            await new Promise((resolve) => {
+              const timer = setTimeout(resolve, 10000)
+              loadResolvers.push((res) => { clearTimeout(timer); resolve(res) })
+            })
+          }
+          if (loadError) return done({ ok: false, error: `页面加载失败: ${loadError}` })
+
+          // 1. 捕获页面快照
+          try {
+            console.log("[Screenshot] start capturePage()");
+            let image = null;
+            // 处理 Electron WebView API 版本差异
+            // 如果 API 要求传 callback...
+            if (webview.capturePage.length && webview.capturePage.length > 0) {
+              image = await new Promise(res => webview.capturePage(res));
+            } else {
+              let resImg = webview.capturePage();
+              if (resImg && typeof resImg.then === 'function') {
+                image = await resImg;
+              } else {
+                image = resImg;
+              }
+            }
+
+            if (!image) throw new Error("获取的 NativeImage 为空 (渲染进程返回 null)，请检查目标网站。");
+
+            console.log("[Screenshot] capturePage done. toDataURL()");
+
+            // 避开 toPNG 带来的 Node Buffer 崩溃，改用 toDataURL 返回纯字符串
+            let dataUrl = typeof image.toDataURL === 'function' ? image.toDataURL() : image.toDataURL;
+            if (typeof dataUrl === 'function') {
+              console.log("WARN: toDataURL was accessed incorrectly");
+              dataUrl = dataUrl();
+            }
+            console.log("[Screenshot] dataUrl size:", dataUrl.length);
+
+            // 直接让浏览器 fetch 这个 base64 url 对象并转为 Blob
+            const base64Res = await fetch(dataUrl);
+            const blob = await base64Res.blob();
+            console.log("[Screenshot] parsed Blob size:", blob.size);
+
+            const formData = new FormData();
+            formData.append('file', blob, `screenshot_${Date.now()}.png`);
+
+            // 3. 上传到服务器 (固定后端 9501 端口，忽略可能存在的 Vite 转发乱窜)
+            const serverHost = window.location.hostname || "127.0.0.1";
+            const uploadUrl = `http://${serverHost}:9501/api/attachments/set`;
+            console.log("[Screenshot] fetch:", uploadUrl);
+
+            const uploadRes = await fetch(uploadUrl, {
+              method: 'POST',
+              body: formData
+            });
+
+            console.log("[Screenshot] fetch returned:", uploadRes.status);
+            if (!uploadRes.ok) {
+              throw new Error(`上传失败: ${uploadRes.statusText || uploadRes.status}`);
+            }
+
+            const resData = await uploadRes.json();
+            console.log("[Screenshot] upload success obj:", resData);
+            // 4. 返回附件元数据
+            done({ ok: true, data: resData });
+          } catch (err) {
+            console.error("[Screenshot] Error caught:", err);
+            done({ ok: false, error: "截图处理失败: " + (err.message || String(err)) });
+          }
+
+        } else if (msg.action === "scroll") {
+          const x = msg.args.x ?? 0
+          const y = msg.args.y ?? 0
+          const distanceX = msg.args.distanceX
+          const distanceY = msg.args.distanceY
+          
+          if (typeof distanceX === 'number' || typeof distanceY === 'number') {
+            // 相对滚动
+            await webview.executeJavaScript(`window.scrollBy(${distanceX ?? 0}, ${distanceY ?? 0})`)
+          } else {
+            // 绝对滚动
+            await webview.executeJavaScript(`window.scrollTo(${x}, ${y})`)
+          }
           done({ ok: true })
 
         } else {
@@ -187,7 +324,9 @@ export default ({ appId, m, Notice, ioSocket, settingData, comData, commonData, 
               padding: "6px 15px", background: "#4a9eff", border: "none",
               borderRadius: "100px", color: "#fff", cursor: "pointer", fontSize: "13px"
             }
-          }, isLoading ? "加载中..." : "前往")
+          }, isLoading ? "加载中..." : "前往"),
+
+
         ]),
 
         // Webview Container

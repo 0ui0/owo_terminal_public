@@ -1,6 +1,7 @@
 # 宅喵终端 (owo_terminal) ฅ^•ﻌ•^ฅ
 
 ![预览图](preview.png)
+![蓝色预览图](blue_preview.png)
 ![语言切换](languageSwitch.png)
 
 > [!TIP]
@@ -15,6 +16,29 @@
 > *   本仓库作为 **正式版本发布仓库**。我们非常欢迎你提出 **Issue**（问题、建议或 Bug 反馈）。
 > *   **不支持 Pull Requests (PR)**：这里不接受直接的代码提交或合并申请。所有更新均由内部私有仓库整理后同步发布至此。
 > *   **源码说明**：除 `server/tools/aiAsk/AiAsk.coffee` 以外，本仓库提供的是标准的 **JavaScript 源码**。虽然部分文件开头标注了由 CoffeeScript 编译，但为了便于 AI 开发和协作，项目已整体转向 JS，原 CoffeeScript 源文件已删除。唯一的例外是 `AiAsk.coffee`，它与作者的其他项目共享逻辑，故保留原文件。
+
+
+---
+
+## 🚀 最新动态 (Latest Updates)
+
+- **模型支持与深度思考 (AI & Logic)**:
+  - ✨ **深度适配**: 支持 DeepSeek 等模型的 `reasoning_content`（深度思考/思维链）实时回传与展示。
+  - 🛠️ **兼容性增强**: 优化消息协议，自动合并连续的 `user` 或 `system` 消息，解决部分模型在多轮对话中的故障问题。
+  - 📜 **协议统一**: 所有发送模式均已集成最新的通讯规范，确保对话稳定。
+
+- **视觉与交互升级 (UI & UX)**:
+  - 🎨 **主题全家桶**: 新增蓝色预览版、黄色版主题，并对“浅色模式”下的资源管理器进行了视觉优化。
+  - 🖱️ **交互精简**: 模式切换由按钮改为更节省空间的**下拉菜单**设计。
+  - 💄 **细节打磨**: 修复了标题栏图标边距、工具组配色，整体视觉更加精致。
+
+- **功能与架构重构 (Feature & Arch)**:
+  - 🧩 **工具模块化**: 将 App 工具分散到各自的 App 目录中，项目结构更加清晰，方便开发者扩展。
+  - ⏳ **节奏优化**: 引入工具调用期间的消息延迟发送机制，让对话节奏更自然。
+  - 💬 **协作增强**: `waitConfirm` 确认环节新增留言功能，提升人机协作的透明度。
+
+- **Bug 修复 (Bug Fixes)**:
+  - 修复了 RPG 模式下物品放置功能的 Bug，以及若干已知交互细节。
 
 ---
 
@@ -95,6 +119,7 @@
 Hello! Welcome to the **owo_terminal** repository. This is a local AIOS (AI Operating System) experimental terminal project that is both tsundere in soul and extremely practical in function.
 
 ![Language Switch](languageSwitch.png)
+![Blue Preview](blue_preview.png)
 
 > [!TIP]
 > You can switch the system language (supports Simplified Chinese and English) in **Settings** -> **General** -> **Basic**, as shown in the image above.
@@ -106,6 +131,29 @@ Hello! Welcome to the **owo_terminal** repository. This is a local AIOS (AI Oper
 > *   This is the **Official Release Repository**. We warmly welcome **Issues** (questions, suggestions, or bug reports).
 > *   **No Pull Requests (PR)**: We do not accept direct code submissions or merge requests here. All updates are curated in a private internal repository and synchronized here.
 > *   **Source Code Status**: The repository provides standard **JavaScript source code**, with the sole exception of `server/tools/aiAsk/AiAsk.coffee`. Some files may include headers indicating they were compiled from CoffeeScript; however, the project has transitioned to JS to better support AI-driven development, and the original Coffee files (except `AiAsk`) have been removed. `AiAsk.coffee` remains because it is shared across multiple projects.
+
+
+---
+
+## 🚀 Latest Updates
+
+- **Models & Deep Thinking (AI & Logic)**:
+  - ✨ **Deep Thinking Support**: Native support for DeepSeek's `reasoning_content` (Chain of Thought) streaming and display.
+  - 🛠️ **Compatibility Fixes**: Optimized message protocols to automatically merge consecutive `user` or `system` messages, solving issues with various LLM endpoints.
+  - 📜 **Unified Protocols**: All communication modes now strictly follow updated messaging standards for improved stability.
+
+- **Visual & UI Enhancements (UI & UX)**:
+  - 🎨 **Theme Expansion**: Added new Blue and Yellow themes; optimized "Light Mode" visuals for the Resource Explorer.
+  - 🖱️ **Streamlined Interaction**: Switched mode selection to a compact **Dropdown Menu** design.
+  - 💄 **Polish**: Refined title bar layouts, icon margins, and tool group color palettes.
+
+- **Architecture & Features (Feature & Arch)**:
+  - 🧩 **Modular Tools**: Refactored App tools into separate directories for better maintainability and extensibility.
+  - ⏳ **Optimized Flow**: Introduced delayed message sending during tool calls for a more natural interaction rhythm.
+  - 💬 **Enhanced Collaboration**: Added a messaging feature to the `waitConfirm` dialog for better human-AI transparency.
+
+- **Bug Fixes**:
+  - Fixed RPG placement mechanics and other interactive UI glitches.
 
 ---
 

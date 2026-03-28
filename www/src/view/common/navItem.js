@@ -22,14 +22,15 @@ export default {
         transition: "width 1s ease"
       },
 
-      onbeforeremove: (v) => {
+      /* onbeforeremove: (v) => {
         v.dom.classList.add("bounceOut")
         return new Promise((res, rej) => {
           setTimeout(() => {
             res()
           }, 700)
         })
-      },
+
+      }, */
 
       onmouseover: (e) => {
         if (item.type === "program") {
@@ -147,7 +148,7 @@ export default {
                 transition: "all 0.8s",
                 fontSize: "1rem",
                 lineHeight: "2rem",
-                color: "#ccc",
+                color: "#eee",
                 margin: "0 0.2rem"
               }
             }, [
