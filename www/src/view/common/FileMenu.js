@@ -115,6 +115,37 @@ export default () => {
             }
           }, trs("菜单栏/操作/检查更新")),
 
+          m("div", { style: { height: "1px", background: "rgba(255,255,255,0.1)", margin: "5px 0" } }),
+
+          m(Box, {
+            isBtn: true,
+            style: { padding: "10px", textAlign: "left" },
+            onclick: async () => {
+              v.attrs.delete()
+
+              // 1. 打开文件选择对话框
+              const resDialog = await settingData.fnCall("appOpenDialog", [{
+                title: trs("菜单栏/操作/导入角色包", { cn: "选择角色包 ZIP 文件", en: "Select Pet Package ZIP" }),
+                filters: [{ name: "Zip Profile", extensions: ["zip"] }]
+              }])
+
+              if (!resDialog.ok || !resDialog.filePath) return
+
+              // 2. 调用导入逻辑
+              const resImport = await settingData.fnCall("petPkgImport", [{ path: resDialog.filePath }])
+
+              if (resImport.ok) {
+                // 3. 自动切换到新导入的角色包
+                if (resImport.name) {
+                  await settingData.fnCall("petPkgSetDefault", [{ name: resImport.name }])
+                }
+                Notice.launch({ msg: resImport.msg })
+              } else {
+                Notice.launch({ msg: resImport.msg })
+              }
+            }
+          }, trs("菜单栏/操作/导入角色包", { cn: "导入角色包", en: "Import Pet Package" })),
+
           m(Box, {
             isBtn: true,
             style: { padding: "10px", textAlign: "left", display: "flex", justifyContent: "space-between" },

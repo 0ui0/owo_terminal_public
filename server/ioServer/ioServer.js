@@ -121,7 +121,8 @@ export default {
 
         data.quotes ??= []
         data.darkMode ??= true
-        data.faceAction ??= "smile"
+        data.defaultFaceAction ??= "smile"
+        data.faceAction ??= data.defaultFaceAction
         data.playFaces ??= {
           current: "",
           list: ["待机状态", "腾空", "上下漂浮", "降落", "待机状态", "待机状态", "待机状态", "左右行走"],
@@ -132,6 +133,7 @@ export default {
         data.toolsMode ??= 3 //1提示词模式 2标准工具模式 3 miao模式
         data.targetChatListId ??= 0 //默认用户锁定的聊天列表id
         data.enableThinking ??= false //深度思考
+        data.defaultPet ??= "default"
       })
 
       /* playListTimer ??= setInterval(async () => {

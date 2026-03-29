@@ -6,6 +6,7 @@ export default () => {
   return {
     view({ attrs }) {
       const playFaces = comData.data.get()?.playFaces
+      console.log(playFaces)
 
       return m("", {
         style: {
@@ -40,11 +41,17 @@ export default () => {
           ? playFaces?.current
             ? m("video", {
               onupdate({ dom }) {
-                dom.play()
+                dom.play().catch(e => console.warn("[play current]", e))
               },
               oncreate({ dom }) {
-                dom.play()
+                dom.play().catch(e => console.warn("[play current]", e))
                 dom.onended = async () => {
+                  await comData.data.edit((data) => {
+                    data.playFaces.current = ""
+                  })
+                }
+                dom.onerror = async () => {
+                  console.warn("[current video error, resetting]")
                   await comData.data.edit((data) => {
                     data.playFaces.current = ""
                   })
@@ -63,25 +70,31 @@ export default () => {
               muted: true,
               playsinline: true,
               "webkit-playsinline": true,
-              src: `./statics/pet2/${playFaces.current}.webm`,
+              src: `./statics/petPkgs/${comData.data.get()?.defaultPet || "default"}/pet2/${playFaces.current}.webm`,
             })
             : comData.data.get()?.playFaces?.list.map((face, index) => {
               return m("video", {
-                key: face,
+                key: `lst-${comData.data.get()?.defaultPet}-${face}-${index}`,
                 onupdate({ dom }) {
                   if (index === comData.data.get().playFaces.index) {
-                    dom.play()
+                    dom.play().catch(e => console.warn("[play list]", e))
                   }
                 },
                 oncreate({ dom }) {
 
                   if (index === comData.data.get().playFaces.index) {
-                    dom.play()
+                    dom.play().catch(e => console.warn("[play list oncreate]", e))
                   }
                   dom.onended = async () => {
                     await comData.data.edit((data) => {
                       let index = data.playFaces.index
                       data.playFaces.index = (index + 1) % data.playFaces.list.length
+                    })
+                  }
+                  dom.onerror = async () => {
+                    console.warn(`[video error] skipping: ${face}`)
+                    await comData.data.edit((data) => {
+                      data.playFaces.index = (data.playFaces.index + 1) % data.playFaces.list.length
                     })
                   }
                 },
@@ -100,7 +113,8 @@ export default () => {
                 muted: true,
                 playsinline: true,
                 "webkit-playsinline": true,
-                src: `./statics/pet2/${face}.webm`,
+                src: `./statics/petPkgs/${comData.data.get()?.defaultPet || "default"}/pet2/${face}.webm`,
+
               })
 
             })

@@ -5,10 +5,233 @@ import m from "mithril"
 import { trs } from "../common/i18n.js"
 import commonData from "../common/commonData.js"
 import getColor from "../common/getColor.js"
+import comData from "../../comData/comData.js"
 
 export default () => {
   let activeGroup1 = ""
   let activeGroup2 = ""
+
+  let petPkgList = []
+
+  const PetPkgSelector = {
+    async oninit() {
+      try {
+        const res = await data.fnCall("petPkgList", [])
+        if (res.ok) {
+          petPkgList = res.data
+          m.redraw()
+        }
+      } catch (e) {
+        console.error("Failed to load pet packages:", e)
+      }
+    },
+    async handleDelete(name) {
+      if (name === "default") return
+      Notice.launch({
+        tip: trs("通用/确认删除"),
+        msg: `确定要物理删除角色包 "${name}" 吗？此操作不可恢复。`,
+        confirm: async () => {
+          const res = await data.fnCall("petPkgDelete", [{ name }])
+          if (res.ok) {
+            const resLit = await data.fnCall("petPkgList", [])
+            if (resLit.ok) petPkgList = resLit.data
+            Notice.launch({ msg: res.msg, color: "#4caf50" })
+            m.redraw()
+          } else {
+            Notice.launch({ msg: res.msg, color: "#f44336" })
+          }
+        }
+      })
+    },
+    view: () => {
+      const currentPet = comData.data.get()?.defaultPet || "default"
+
+      return m("div", {
+        style: { marginBottom: "1.5rem", display: "flex", flexDirection: "column" }
+      }, [
+        m("label", {
+          style: {
+            fontSize: "1rem", color: getColor('gray_1').front, marginBottom: "0.8rem",
+            display: "flex", justifyContent: "space-between", alignItems: "center",
+            paddingLeft: "0.2rem"
+          }
+        }, trs("设置界面/字段/默认角色包", { cn: "默认角色包", en: "Default Pet Package" })),
+
+        m("div", { style: { display: "flex", gap: "10px", alignItems: "center" } }, [
+          m("select", {
+            value: currentPet,
+            onchange: async (e) => {
+              const val = e.target.value
+              const res = await data.fnCall("petPkgSetDefault", [{ name: val }])
+              if (res.ok) {
+                Notice.launch({ msg: trs("设置/消息/角色已切换", { cn: "角色已切换", en: "Character switched" }), timeout: 2000 })
+                m.redraw()
+              }
+            },
+            style: {
+              flex: 1,
+              background: getColor('gray_3').back,
+              color: getColor('gray_1').front,
+              padding: "0.8rem 1rem",
+              borderRadius: "0.8rem",
+              border: `1px solid ${getColor('gray_1').front}22`,
+              outline: "none",
+              fontSize: "1rem",
+              cursor: "pointer",
+              appearance: "none",
+              paddingRight: "2.5rem"
+            }
+          }, [
+            petPkgList.map(pkg => m("option", { value: pkg, style: { background: "#333", color: "#eee" } }, pkg))
+          ]),
+
+          currentPet !== "default" ? m("div", {
+            style: {
+              padding: "0.6rem",
+              background: "rgba(255,107,107,0.1)",
+              borderRadius: "0.6rem",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              border: "1px solid rgba(255,107,107,0.2)"
+            },
+            onclick: () => PetPkgSelector.handleDelete(currentPet)
+          }, [
+            m.trust(window.iconPark.getIcon("Close", { fill: "#ff6b6b", size: "1.2rem" }))
+          ]) : null
+        ]),
+
+        m("div", {
+          style: { fontSize: "0.85rem", color: "#8d8d8d", marginTop: "0.5rem", paddingLeft: "0.2rem" }
+        }, trs("设置/角色/切换说明", { cn: "切换后 AI 角色形象及可用动作将立即更新。", en: "Switching will update the AI avatar and actions immediately." }))
+      ])
+    }
+  }
+
+  let availableActions = []
+  const IdleActionConfigurator = {
+    _currentPet: "",
+    async refreshActions() {
+      try {
+        const res = await data.fnCall("petPkgGetAvailableActions", [])
+        if (res.ok) {
+          availableActions = res.data
+          m.redraw()
+        }
+      } catch (e) {
+        console.error("Failed to load actions:", e)
+      }
+    },
+    async oninit() {
+      this._currentPet = comData.data.get()?.defaultPet
+      await this.refreshActions()
+    },
+    onupdate() {
+      const pet = comData.data.get()?.defaultPet
+      if (pet !== this._currentPet) {
+        this._currentPet = pet
+        this.refreshActions()
+      }
+    },
+    view: () => {
+      const currentList = comData.data.get()?.playFaces?.list || ["待机状态"]
+
+      const updateList = async (newList) => {
+        if (newList.length === 0) {
+          Notice.launch({ msg: "列表不能为空，至少需包含一个动作。" })
+          return
+        }
+        await comData.data.edit(d => {
+          d.playFaces.list = [...newList]
+          // 只要列表变动，立即从头开始播放，防止跳跃播放
+          d.playFaces.index = 0
+        })
+        m.redraw()
+      }
+
+      return m("div", {
+        style: { marginBottom: "1.5rem", display: "flex", flexDirection: "column" }
+      }, [
+        m("label", {
+          style: { fontSize: "1rem", color: getColor('gray_1').front, marginBottom: "0.8rem", paddingLeft: "0.2rem" }
+        }, trs("设置界面/字段/闲暇动作配置", { cn: "闲暇轮播动作配置", en: "Idle Action Rotation" })),
+
+        // Existing List Items
+        m("div", {
+          style: {
+            background: getColor('gray_3').back, borderRadius: "0.8rem",
+            border: `1px solid ${getColor('gray_1').front}11`,
+            overflow: "hidden", marginBottom: "0.8rem"
+          }
+        }, currentList.map((item, idx) => {
+          return m("div", {
+            key: `act-${idx}-${item}`,
+            style: {
+              padding: "0.8rem 1rem", borderBottom: `1px solid ${getColor('gray_1').front}11`,
+              display: "flex", alignItems: "center", justifyContent: "space-between",
+              background: idx === (comData.data.get()?.playFaces?.index) ? "rgba(255,255,255,0.03)" : "transparent"
+            }
+          }, [
+            m("div", { style: { flex: 1, color: getColor('gray_1').front } }, [
+              m("span", { style: { opacity: 0.5, marginRight: "0.8rem", fontSize: "0.8rem" } }, idx + 1),
+              m("span", item)
+            ]),
+            m("div", { style: { display: "flex", gap: "8px" } }, [
+              // Move Up
+              idx > 0 ? m("div", {
+                cursor: "pointer", onclick: () => {
+                  const newList = [...currentList]
+                  const temp = newList[idx - 1]
+                  newList[idx - 1] = newList[idx]
+                  newList[idx] = temp
+                  updateList(newList)
+                }
+              }, [m.trust(window.iconPark.getIcon("UpOne", { size: "1.2rem", fill: getColor('gray_1').front }))]) : null,
+              // Move Down
+              idx < currentList.length - 1 ? m("div", {
+                cursor: "pointer", onclick: () => {
+                  const newList = [...currentList]
+                  const temp = newList[idx + 1]
+                  newList[idx + 1] = newList[idx]
+                  newList[idx] = temp
+                  updateList(newList)
+                }
+              }, [m.trust(window.iconPark.getIcon("DownOne", { size: "1.2rem", fill: getColor('gray_1').front }))]) : null,
+              // Delete
+              m("div", {
+                cursor: "pointer", onclick: () => {
+                  const newList = currentList.filter((_, i) => i !== idx)
+                  updateList(newList)
+                }
+              }, [m.trust(window.iconPark.getIcon("CloseSmall", { size: "1.2rem", fill: "#ff6b6b" }))])
+            ])
+          ])
+        })),
+
+        // Add Button Dropdown
+        m("div", { style: { display: "flex", gap: "10px" } }, [
+          m("select", {
+            style: {
+              flex: 1, padding: "0.8rem 1rem", borderRadius: "0.8rem",
+              background: getColor('gray_3').back, color: getColor('gray_1').front,
+              border: `1px solid ${getColor('gray_1').front}22`, cursor: "pointer"
+            },
+            onchange: (e) => {
+              const val = e.target.value
+              if (val) {
+                updateList([...currentList, val])
+                e.target.value = "" // Reset
+              }
+            }
+          }, [
+            m("option", { value: "" }, trs("设置/选项/添加新动作", { cn: "--- 选择并添加动作 ---", en: "--- Select to Add Action ---" })),
+            availableActions.map(act => m("option", { value: act }, act))
+          ])
+        ])
+      ])
+    }
+  }
 
   // Field Label Mapping - uses trs for i18n
   const getModelFieldLabel = (key) => {
@@ -678,7 +901,9 @@ export default () => {
                   paddingBottom: "1rem", borderBottom: `1px solid ${getColor('gray_1').front}11`
                 }
               }, trs("设置界面/分组/" + group3Name)),
-              options.map(opt => m(SettingField, { option: opt }))
+              options.map(opt => m(SettingField, { option: opt })),
+              (activeGroup1 === "全局" && activeGroup2 === "界面" && group3Name === "互动角色") ? m(PetPkgSelector) : null,
+              (activeGroup1 === "全局" && activeGroup2 === "界面" && group3Name === "互动角色") ? m(IdleActionConfigurator) : null
             ])
           }))
         ])

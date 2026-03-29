@@ -9,8 +9,24 @@ permissions:
   contents: write
 
 jobs:
-  release:
-    name: Build and Release
+  create-release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out git repository
+        uses: actions/checkout@v4
+
+      - name: Ensure release notes exist
+        run: touch release-notes.md
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          body_path: release-notes.md
+
+  build-and-upload:
+    name: Build and Upload Artifacts
+    needs: create-release
     runs-on: ${{ matrix.os }}
 
     strategy:

@@ -56,15 +56,15 @@ const init = async () => {
       }
     })
 
-    /* server.route({
-      method:"get",
-      path:"/statics/{param*}",
-      handler:{
-        directory:{
-          path:`${pathLib.join("../www/public/statics")}`,
+    server.route({
+      method: "get",
+      path: "/statics/{param*}",
+      handler: {
+        directory: {
+          path: `${pathLib.join("../www/public/statics")}`,
         }
       }
-    }) */
+    })
 
 
     //加载路由

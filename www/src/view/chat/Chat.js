@@ -69,7 +69,7 @@ export default () => {
           }, [
             m("img", {
               style: { height: "100%" },
-              src: `./statics/pet/${comData.data.get()?.faceAction || "smile"}.png`,
+              src: `./statics/petPkgs/${comData.data.get()?.defaultPet || "default"}/pet/${comData.data.get()?.faceAction || "smile"}.png`,
               onupdate: (vnode) => {
                 const current = comData.data.get()?.faceAction
                 if (current && current !== "smile") {

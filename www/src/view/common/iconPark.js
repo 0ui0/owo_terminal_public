@@ -36,6 +36,8 @@ import {
   Paperclip,
   MagicWand,
   Brain,
+  UpOne,
+  DownOne,
 } from '@icon-park/svg';
 
 let iconPark = {
@@ -75,7 +77,9 @@ let iconPark = {
   PreviewClose,
   Paperclip,
   MagicWand,
-  Brain
+  Brain,
+  UpOne,
+  DownOne
 };
 
 export default {
