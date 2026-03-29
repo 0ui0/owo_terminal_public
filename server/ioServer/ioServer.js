@@ -121,8 +121,7 @@ export default {
 
         data.quotes ??= []
         data.darkMode ??= true
-        data.defaultFaceAction ??= "smile"
-        data.faceAction ??= data.defaultFaceAction
+        data.faceAction ??= "smile"
         data.playFaces ??= {
           current: "",
           list: ["待机状态", "腾空", "上下漂浮", "降落", "待机状态", "待机状态", "待机状态", "左右行走"],

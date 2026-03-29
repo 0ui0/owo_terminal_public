@@ -23,7 +23,32 @@ export default {
       }
     }
 
-    const res = await appManager.dispatch(appId, "screenshot")
+    const targetApp = appManager.get(appId)
+    if (!targetApp) {
+      return "错误：未找到目标应用实例，或应用尚未运行。"
+    }
+    if (targetApp.type !== "browser") {
+      return `错误：目标不是浏览器应用 (当前类型为 ${targetApp.type})。`
+    }
+
+    // 记录截图前的窗口最小化状态
+    const wasMinimized = targetApp.data?.window?.minimized === true;
+
+    // 强制唤醒目标浏览器实例，将其置于前台，避免由于桌面系统处于挂起/隐藏状态时截出黑屏或无法抓取
+    await appManager.launch("browser", { appId })
+
+    // 等待 600ms，确保前端 DOM 更新、窗口完成层次调整以及 Chromium 的渲染流水线解冻并吐出新帧
+    await new Promise(r => setTimeout(r, 600))
+
+    let res = null;
+    try {
+      res = await appManager.dispatch(appId, "screenshot")
+    } finally {
+      // 截图动作执行完毕或失败后，如果之前是最小化状态，则还原最小化
+      if (wasMinimized && appManager.io) {
+        appManager.io.emit("app:minimize", { appId })
+      }
+    }
 
     if (res && res.ok) {
       const attachId = res.data.id;
@@ -61,6 +86,6 @@ export default {
   },
 
   getDoc() {
-    return `截取当前浏览器的屏幕快照，并自动保存为聊天附件。AI 可以利用此工具“看”到用户当前浏览的网页内容。`
+    return `截取当前浏览器的屏幕快照，并自动保存为聊天附件。AI 可以利用此工具“看”到用户当前浏览的网页内容。调用过程中浏览器会被唤到前台`
   }
 }

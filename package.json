@@ -1,7 +1,7 @@
 {
   "name": "owo-terminal",
   "productName": "owo-terminal",
-  "version": "1.0.13",
+  "version": "1.0.15",
   "type": "module",
   "main": "app.js",
   "description": "Super cute terminal",

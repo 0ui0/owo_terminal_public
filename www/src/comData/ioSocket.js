@@ -308,6 +308,35 @@ export default {
       }
     })
 
+    // === App 最小化指令 (Back-to-Front) ===
+    // 此监听器处理由后端主动发起的最小化请求（例如：浏览器截图工具在抓取完成后要求恢复隐藏）。
+    // 
+    // 【系统设计原则：状态闭环同步】
+    // 1. 常规模式 (Front-to-Back): 用户点击前端窗口上的最小化按钮 -> 触发并执行 Notice.minimizeWindow() 
+    //    -> 修改前端内存 state -> 触发 handleWindowUpdate 钩子 -> 
+    //    通过 settingData.fnCall("appUpdateWindow") 将最新坐标/最小化状态同步回执给后端存储。
+    //
+    // 2. 指令模式 (Back-to-Front): 后端通过 Socket 发出 "app:minimize" -> 前端在此接收指令 -> 
+    //    调用 Notice.minimizeWindow() -> 进而驱动执行上述【常规模式】的所有逻辑（视觉隐藏 + 再次状态回执）。
+    // 
+    // 这种设计确保了无论是谁发起的动作，最终的“窗口最小化状态”在物理表现和前后端数据镜像中都能保持严格一致。
+    this.socket.on("app:minimize", async (msg) => {
+      const { appId } = msg
+      const dataArr = Notice.data.dataArr
+      if (dataArr) {
+        const tab = dataArr.find(t =>
+          (t.sign === appId) ||
+          (t.contentAttrs && t.contentAttrs.appId === appId) ||
+          (typeof t.sign === 'string' && t.sign.startsWith(appId + "_"))
+        )
+        if (tab && tab._winConfig) {
+          // 借用 Notice 模块已有的成熟逻辑，它会自动触发 handleWindowUpdate 从而完成对后端的确认回执
+          Notice.minimizeWindow(tab._winConfig.id)
+          m.redraw()
+        }
+      }
+    })
+
     this.socket.on("app:dispatch", async (msg, callback) => {
       // Use commonData registry
       const data = commonData.appsData[msg.appId]

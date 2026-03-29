@@ -38,7 +38,7 @@ export default {
         }
 
         try {
-          const htmlToMarkdown = (await import("../../htmlToMarkdown.js")).default
+          const htmlToMarkdown = (await import("../../../tools/htmlToMarkdown.js")).default
           content = htmlToMarkdown(content)
         } catch (e) {
           content = content.replace(/<[^>]+>/g, "\n").replace(/\n+/g, "\n")
@@ -70,7 +70,7 @@ export default {
       if (searchQuery) {
         let matchIndices = []
         let searchRegExp
-        
+
         if (isRegex) {
           try {
             let pattern = searchQuery
@@ -110,7 +110,7 @@ export default {
 
         const limit = Math.min(matchIndices.length, maxMatches)
         let currentLength = outputLines.join("\n").length
-        
+
         for (let i = 0; i < limit; i++) {
           const matchIdx = matchIndices[i]
           const displayStart = Math.max(0, matchIdx - contextLines)
@@ -122,57 +122,66 @@ export default {
             const prefix = j === matchIdx ? ">>" : "  "
             matchBlock.push(`${j + 1}: ${prefix} ${lines[j]}`)
           }
-          
+
           let blockText = matchBlock.join("\n")
-          
+
           if (currentLength + blockText.length > 5000) {
             outputLines.push(`\n> [!NOTE] 结果因字数限制已被自动截断。请缩小搜索区间或使用更精确的关键字。`)
             break
           }
-          
+
           outputLines.push(blockText)
           currentLength += blockText.length
         }
         return outputLines.join("\n")
       }
-      
+
+      let headerOffset = 0
       if (startIdx === 0) {
         outputLines.push(`> [!INFO] 页面总共 ${totalLines} 行，${totalChars} 字符，大小约为 ${kbSize}。若页面过大阅读困难，请传入 searchQuery 参数进行关键字检索。`)
+        headerOffset = 1
       }
 
       let currentLength = outputLines.join("\n").length
+      if (headerOffset > 0) currentLength += 1 // 补偿换行符
       let nextStartLine = -1
+      let actualAddedLines = 0
 
       // 遍历选定范围的行
       for (let i = startIdx; i < endIdx; i++) {
         const line = lines[i]
         const lineLen = line.length + 1 // +1 for newline
 
-        // 如果单行就超过限制，强制截断并停止
-        if (currentLength === 0 && lineLen > 5000) {
-          outputLines.push(line.slice(0, 5000))
-          currentLength = 5000
-          nextStartLine = i + 1 // 仍然指引到当前行（因为只读了一部分），或者下一行？
-          // 简单起见，长行截断后指引到下一行，虽然会丢失该行剩余部分，但符合“5000字截断”
-          // 更好的体验是：长行截断暂时不完美支持，优先保证多行分页
+        // 如果我们即将添加本批次的第一行（即没有任何正文内容时），并且这行超长导致一上来就超出 5000 限制，则强制截断并翻页
+        if (actualAddedLines === 0 && (currentLength + lineLen) > 5000) {
+          const availableSpace = Math.max(100, 5000 - currentLength)
+          let truncated = line.slice(0, availableSpace)
+          if (line.length > availableSpace) {
+            truncated += "\n> [!WARNING] 本行过长，内容已被截断以适应输出要求，且该行的剩余部分被跳过。"
+          }
+          outputLines.push(truncated)
+          actualAddedLines++
           nextStartLine = i + 2
           break
         }
 
-        // 如果累加超过 5000，则停止当前页
+        // 如果累加超过 5000 长，则停止当前页
         if (currentLength + lineLen > 5000) {
           nextStartLine = i + 1 // 下一次从第 i+1 行开始 (1-based index)
           break
         }
 
         outputLines.push(line)
+        actualAddedLines++
         currentLength += lineLen
       }
 
       let resultText = outputLines.join("\n")
 
       // 3. 添加分页提示
-      let footer = `\n\n--- (读取行 ${startIdx + 1}-${startIdx + outputLines.length} / 内容共 ${totalLines} 行 / 总计 ${totalChars} 字符 / 大小 ${kbSize})`
+      // 如果实际添加了 0 行（比如完全为空的返回或越界），用 startIdx+1 兜底
+      const displayEndLine = Math.max(startIdx + 1, startIdx + actualAddedLines)
+      let footer = `\n\n--- (读取行 ${startIdx + 1}-${displayEndLine} / 内容共 ${totalLines} 行 / 总计 ${totalChars} 字符 / 大小 ${kbSize})`
 
       if (nextStartLine !== -1 && nextStartLine <= totalLines) {
         const remaining = totalLines - (nextStartLine - 1)
@@ -200,6 +209,6 @@ export default {
   },
 
   getDoc() {
-    return `获取当前浏览器页面的内容，支持常规翻页与关键字/正则搜索。利用 searchQuery (可显式配置 isRegex) 搜索并获取目标内容对应的确切行号区间。如果提供 searchQuery，则原长篇正文将被折叠，仅返回局部匹配项(含上下3行)。`.trim()
+    return `获取当前浏览器页面的内容。`.trim()
   }
 }

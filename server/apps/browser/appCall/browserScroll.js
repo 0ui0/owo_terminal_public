@@ -23,11 +23,32 @@ export default {
       }
     }
 
-    // 发送滚动指令给浏览器 App
-    // 这里的参数逻辑需要与浏览器端定义的接口匹配，通常支持 absolute(x,y) 或 relative(dx,dy)
-    const res = await appManager.dispatch(appId, "scroll", {
-      x, y, distanceX, distanceY
-    })
+    const targetApp = appManager.get(appId)
+    if (!targetApp) {
+      return "错误：未找到目标应用实例，或应用尚未运行。"
+    }
+
+    // 记录操作前的窗口最小化状态
+    const wasMinimized = targetApp.data?.window?.minimized === true
+
+    // 强制唤醒，确保渲染引擎活跃
+    await appManager.launch("browser", { appId })
+
+    // 短暂等待，确保重绘活跃 (200ms)
+    await new Promise(r => setTimeout(r, 200))
+
+    let res = null
+    try {
+      // 发送滚动指令给浏览器 App
+      res = await appManager.dispatch(appId, "scroll", {
+        x, y, distanceX, distanceY
+      })
+    } finally {
+      // 操作完成后还原最小化状态
+      if (wasMinimized && appManager.io) {
+        appManager.io.emit("app:minimize", { appId })
+      }
+    }
 
     if (res && res.ok) {
       return `已执行滚动操作。`;
@@ -47,6 +68,6 @@ export default {
   },
 
   getDoc() {
-    return `控制浏览器页面滚动。可以指定绝对坐标 (x, y) 或相对距离 (distanceX, distanceY)。`
+    return `控制浏览器页面滚动。可以指定绝对坐标 (x, y) 或相对距离 (distanceX, distanceY)。调用过程中浏览器会被唤到前台`
   }
 }
