@@ -1,4 +1,4 @@
-import data from "./chatData.js"
+import chatData from "./chatData.js"
 import Tag from "../common/tag.js"
 import Box from "../common/box.js"
 import IconTag from "../common/iconTag.js"
@@ -16,28 +16,50 @@ import getColor from "../common/getColor.js"
 
 export default () => {
   let _forcedListId = null // 若非 null，则锁定发送目标（用于子智能体独立窗口）
+
+
   const submitFn = async (e) => {
     e.preventDefault()
-    data.preparing = true
+
+    // 时光机预警：如果指定了目录但未开启备份
+    if (comData.data.get()?.customCwd && !chatData.tmStatus.isReady) {
+      const goOn = await new Promise(resolve => {
+        Notice.launch({
+          tip: "安全警告",
+          msg: "当前项目未开启时光机备份。如果 AI 修改文件出错，将无法通过时光机一键撤回。确定要继续发送吗喵？",
+          confirm() {
+            resolve(true)
+            return undefined //关闭窗口
+          },
+          cancel() {
+            resolve(false)
+            return undefined //关闭窗口
+          }
+        })
+      });
+      if (!goOn) return;
+    }
+
+    chatData.preparing = true
 
     // Retrieve routing context (forcedListId 优先于全局)
     const targetChatListId = _forcedListId !== null ? _forcedListId : comData.data.get()?.targetChatListId
 
     await comData.data.edit((data_) => {
-      data_.inputText = data.inputText
+      data_.inputText = chatData.inputText
     })
 
     // Send with routing info
     ioSocket.socket.emit("chat", {
       targetChatListId: targetChatListId,
-      attachments: data.attachmentsMap[targetChatListId] || [] // 加入附件元数据
+      attachments: chatData.attachmentsMap[targetChatListId] || [] // 加入附件元数据
     })
 
     await comData.data.edit((data_) => {
       data_.inputText = ""
     })
-    data.inputText = ""
-    data.attachmentsMap[targetChatListId] = [] // 发送后清空预览
+    chatData.inputText = ""
+    chatData.attachmentsMap[targetChatListId] = [] // 发送后清空预览
   }
 
   // 上传附件逻辑
@@ -46,7 +68,7 @@ export default () => {
     if (!files || files.length === 0) return;
 
     const targetChatListId = _forcedListId !== null ? _forcedListId : (comData.data.get()?.targetChatListId || 0);
-    if (!data.attachmentsMap[targetChatListId]) data.attachmentsMap[targetChatListId] = [];
+    if (!chatData.attachmentsMap[targetChatListId]) chatData.attachmentsMap[targetChatListId] = [];
 
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
@@ -63,8 +85,8 @@ export default () => {
         status: 'uploading'
       };
 
-      data.attachmentsMap[targetChatListId].push(attachObj);
-      const index = data.attachmentsMap[targetChatListId].length - 1;
+      chatData.attachmentsMap[targetChatListId].push(attachObj);
+      const index = chatData.attachmentsMap[targetChatListId].length - 1;
 
       try {
         const xhr = new XMLHttpRequest();
@@ -85,7 +107,6 @@ export default () => {
               reject(new Error('Upload failed with status ' + xhr.status));
             }
           };
-
           xhr.onerror = () => reject(new Error('Network error'));
 
           xhr.open('POST', `${window.location.protocol}//${window.location.hostname}:9501/api/attachments/set`);
@@ -100,7 +121,7 @@ export default () => {
           attachObj.url = res.url;
           attachObj.status = 'done';
           attachObj.progress = 100;
-          data.quoteAttachId(res.id);
+          chatData.quoteAttachId(res.id);
           m.redraw();
         }
       } catch (err) {
@@ -119,12 +140,15 @@ export default () => {
   let documentClickFn = null
   let documentClickFnTools = null
 
+  let showThinkStrengthList = false
+  let showThinkStrengthClickFn = null
 
 
   return {
     async oninit() {
       try {
         await settingData.options.pull()
+        chatData.updateTmStatus() // 初始获取时光机状态
       }
       catch (err) {
         throw err
@@ -134,7 +158,10 @@ export default () => {
       // 更新强制 listId（来自子智能体窗口等外部调用方）
       _forcedListId = attrs?.forcedListId !== undefined ? attrs.forcedListId : null
       const targetChatListId = _forcedListId !== null ? _forcedListId : (comData.data.get()?.targetChatListId || 0)
-      const attachments = data.attachmentsMap[targetChatListId] || []
+      const attachments = chatData.attachmentsMap[targetChatListId] || []
+
+      let showThinkStrength = comData.data.get()?.thinkControl && comData.data.get()?.enableThinking
+
 
       return m("", {
         style: {
@@ -147,7 +174,8 @@ export default () => {
             display: "flex",
             marginBottom: "0.5rem",
             flexWrap: "wrap",
-            gap: "0.5rem 0"
+            gap: "0.5rem 0",
+            alignItems: "center"
           }
         }, [
 
@@ -163,11 +191,11 @@ export default () => {
             },
             ext: {
               onclick: async () => {
-                /* if(!data.inputText.match(/^> /g) && !data.currentTalk){
-                  data.inputText = "> "+data.inputText
+                /* if(!chatData.inputText.match(/^> /g) && !chatData.currentTalk){
+                  chatData.inputText = "> "+chatData.inputText
                 } */
                 await comData.data.edit((data) => data.sendMode = "terminal")
-                data.inputDom.focus()
+                chatData.inputDom.focus()
               }
             }
           }, trs("输入栏/按钮/终端", { cn: "终端", en: "Terminal" })),
@@ -225,6 +253,8 @@ export default () => {
                 display: "flex",
                 flexDirection: "column",
                 zIndex: 10,
+                maxHeight: "10rem",
+                overflowY: "auto"
               }
             }, [
               settingData.options.get("ai_aiList")?.filter(m => m.switch).map((model) => {
@@ -246,7 +276,7 @@ export default () => {
                       }
 
                       showAiList = false
-                      data.inputDom.focus()
+                      chatData.inputDom.focus()
 
                     },
                   },
@@ -282,18 +312,154 @@ export default () => {
 
           }, trs("输入栏/按钮/设置", { cn: "设置", en: "Settings" })),
 
+          // 单独美化复选框为小圆点，增加 flex 确保对齐
+          m("div", {
+            title: trs("输入栏/提示/思考控制", { cn: "思考控制: 只有勾选后，深度思考字段才会传给模型", en: "Think Control: Only when checked, enableThinking field will be sent to AI" }),
+            style: {
+              display: "inline-block",
+              verticalAlign: "middle", // 垂直对齐核心
+              width: "1.2rem",
+              height: "1.2rem",
+              borderRadius: "50%",
+              background: comData.data.get()?.thinkControl ? getColor('yellow_1').back : getColor('gray_4').back,
+              marginRight: "0.5rem",
+              cursor: "pointer",
+              transition: "all 0.3s ease",
+              boxShadow: comData.data.get()?.thinkControl ? `0 0 0.5rem ${getColor('yellow_1').back}` : "none",
+              border: `0.1rem solid ${getColor('gray_4').front}55`,
+            },
+            onclick: async (e) => {
+              await comData.data.edit((data) => {
+                data.thinkControl = !comData.data.get()?.thinkControl
+              })
+              m.redraw()
+            }
+          }),
           m(IconTag, {
             iconName: "Brain",
-            bgColor: comData.data.get()?.enableThinking ? getColor('yellow_1').back : getColor('gray_2').back,
-            fgColor: comData.data.get()?.enableThinking ? getColor('gray_8').front : getColor('gray_2').front,
+            bgColor: comData.data.get()?.thinkControl
+              ? (comData.data.get()?.enableThinking ? getColor('yellow_1').back : getColor('gray_2').back)
+              : getColor('gray_2').back,
+            fgColor: comData.data.get()?.thinkControl
+              ? (comData.data.get()?.enableThinking ? getColor('yellow_1').front : getColor('gray_2').front)
+              : getColor('gray_2').front,
+            styleExt: {
+              opacity: comData.data.get()?.thinkControl ? 1 : 0.5,
+              cursor: comData.data.get()?.thinkControl ? "pointer" : "not-allowed",
+
+              ...(showThinkStrength ? {
+                borderRadius: "10rem 0 0 10rem",
+                marginRight: "0",
+              } : null)
+            },
             ext: {
               onclick: async () => {
+                if (!comData.data.get()?.thinkControl) return
                 await comData.data.edit((data) => {
                   data.enableThinking = !data.enableThinking
                 })
               }
             }
-          }, trs("输入栏/按钮/深度思考", { cn: "深度思考", en: "Thinking" })),
+          }, trs("输入栏/按钮/思考", { cn: "思考", en: "Thinking" })),
+
+          showThinkStrength
+            ? m(IconTag, {
+              iconName: "SignalStrength",
+              bgColor: getColor('gray_2').back,
+              fgColor: getColor('gray_2').front,
+              styleExt: {
+                marginLeft: "0",
+                borderRadius: "0 10rem 10rem 0",
+                position: "relative",
+              },
+              ext: {
+                onclick: (e) => {
+                  e.stopPropagation()
+                  showThinkStrengthList = !showThinkStrengthList
+                  if (showThinkStrengthList) {
+                    showThinkStrengthClickFn = function () {
+                      showThinkStrengthList = false
+                      m.redraw()
+                      document.removeEventListener("click", showThinkStrengthClickFn)
+                    }
+                    document.addEventListener("click", showThinkStrengthClickFn, {
+                      passive: false,
+                    })
+                  }
+
+                },
+              }
+
+            }, [
+
+              m("span", {
+                style: {
+                  marginLeft: "0.2rem",
+                  marginRight: "0.2rem",
+                  fontSize: "1.2rem",
+                  verticalAlign: "middle"
+                }
+
+              }, [
+
+                trs("输入栏/配置/强度", {
+                  cn: "强度",
+                  en: "Strength"
+                }) + ({ low: 1, medium: 2, high: 3 }[comData.data.get()?.thinkStrength] || 2),
+              ]),
+
+              m.trust(window.iconPark.getIcon("Down")),
+
+
+
+              showThinkStrengthList
+                ? m("", {
+                  style: {
+                    position: "absolute",
+                    top: "1.5rem",
+                    right: "-0.5rem",
+                    background: getColor('gray_4').back,
+                    color: getColor('gray_4').front,
+                    padding: "0.2rem 1rem",
+                    borderRadius: "0.5rem",
+                    display: "flex",
+                    flexDirection: "column",
+                    zIndex: 10,
+                  }
+                }, [
+                  [{ level: "low", num: 1 }, { level: "medium", num: 2 }, { level: "high", num: 3 }].map((v) => {
+                    const isActive = (comData.data.get()?.thinkStrength || "medium") === v.level
+                    return m(Tag, {
+                      isBtn: true,
+                      ext: {
+                        onclick: async (e) => {
+                          e.stopPropagation()
+                          await comData.data.edit((data) => {
+                            data.thinkStrength = v.level
+                          })
+                          chatData.inputDom.focus()
+                          showThinkStrengthList = false
+                        },
+                      },
+                      styleExt: {
+                        minWidth: "10rem",
+                        padding: 0,
+                        margin: 0,
+                        background: "transparent",
+                        color: isActive ? getColor('main').back : getColor('gray_4').front,
+                        borderBottom: `0.2rem solid ${getColor('main').back}`,
+                        borderRadius: "0",
+                        textAlign: "left"
+                      }
+                    }, trs("输入栏/配置/强度", {
+                      cn: "强度",
+                      en: "Strength"
+                    }) + v.num)
+                  }),
+                ])
+                : null
+            ]) : null,
+
 
 
 
@@ -336,6 +502,8 @@ export default () => {
                 ? trs("输入栏/模式/标准工具", { cn: "标准工具模式", en: "Standard" }) : null,
               comData.data.get()?.toolsMode === 3
                 ? trs("输入栏/模式/宅喵工具", { cn: "宅喵工具模式", en: "OwO Tools" }) : null,
+              comData.data.get()?.toolsMode === 4
+                ? trs("输入栏/模式/原生外壳", { cn: "原生外壳模式", en: "Native Wrapper" }) : null,
             ]),
             m.trust(window.iconPark.getIcon("Down")),
 
@@ -356,7 +524,8 @@ export default () => {
               [
                 { id: 1, label: trs("输入栏/模式/提示词/名称", { cn: "提示词模式", en: "Prompt" }) },
                 { id: 2, label: trs("输入栏/模式/标准工具/名称", { cn: "标准工具模式", en: "Standard" }) },
-                { id: 3, label: trs("输入栏/模式/宅喵工具/名称", { cn: "宅喵工具模式", en: "OwO Tools" }) }
+                { id: 3, label: trs("输入栏/模式/宅喵工具/名称", { cn: "宅喵工具模式", en: "OwO Tools" }) },
+                { id: 4, label: trs("输入栏/模式/原生外壳/名称", { cn: "原生外壳模式", en: "Native Wrapper" }) }
               ].map((mode) => {
                 const isActive = comData.data.get()?.toolsMode === mode.id
                 return m(Tag, {
@@ -368,7 +537,6 @@ export default () => {
                         data.toolsMode = mode.id
                       })
                       showToolsList = false
-                      data.inputDom.focus()
                     },
                   },
                   styleExt: {
@@ -526,20 +694,91 @@ export default () => {
             fgColor: comData.data.get()?.customCwd ? getColor('gray_8').front : getColor('gray_2').front,
             ext: {
               onclick: async () => {
-                try {
-                  let res = await settingData.fnCall("appOpenDialog", [{
-                    title: "选择目标工作目录",
-                    properties: ["openDirectory"]
-                  }])
-                  if (res.ok && res.filePath) {
-                    await settingData.fnCall("setCustomCwd", [res.filePath])
+                if (comData.data.get()?.customCwd) {
+                  Notice.launch({
+                    tip: "取消工作目录",
+                    msg: "确定要取消当前的工作目录映射吗？取消后 AI 将无法直接操作您的本地文件喵。",
+                    async confirm() {
+                      await settingData.fnCall("setCustomCwd", [null]);
+                      chatData.updateTmStatus();
+                      return undefined
+                    }
+                  });
+                } else {
+                  try {
+                    let res = await settingData.fnCall("appOpenDialog", [{
+                      title: "选择目标工作目录",
+                      properties: ["openDirectory"]
+                    }])
+                    if (res.ok && res.filePath) {
+                      // 1. 检查 Git 和备份状态（传入选中的路径）
+                      const status = await settingData.fnCall("tmGetProjectStatus", [res.filePath]);
+                      const gitOk = (typeof status.gitOk === 'object') ? status.gitOk.ok : status.gitOk;
+                      if (!gitOk) {
+                        Notice.launch({
+                          tip: "Git 环境异常",
+                          type: "error",
+                          msg: (typeof status.gitOk === 'object' ? status.gitOk.msg : status.msg) || "未检测到 Git 客户端，请先安装 Git 喵！"
+                        });
+                        return;
+                      }
+
+                      if (status.isReady) {
+                        // 已有备份目录，直接设定
+                        await settingData.fnCall("setCustomCwd", [res.filePath]);
+                        Notice.launch({ msg: "已检测到备份目录，工作目录已就绪喵！🕒" });
+                        chatData.updateTmStatus();
+                      } else {
+                        // 2. 询问并强制初始化
+                        Notice.launch({
+                          tip: "初始化时光机",
+                          msg: "您选定了工作目录，是否立即为该目录初始化时光机（.owoTimeMachine）？为了数据安全，AI 强烈建议您开启备份喵！",
+                          async confirm() {
+                            await settingData.fnCall("setCustomCwd", [res.filePath]);
+                            const initRes = await settingData.fnCall("tmInit", [res.filePath]);
+                            Notice.launch({ msg: initRes.msg });
+                            chatData.updateTmStatus();
+                            return undefined
+                          },
+                          cancel() {
+                            Notice.launch({ msg: "安全中止：未开启备份前禁止选定工作目录喵。" });
+                            return undefined
+                          }
+                        });
+                      }
+                    }
+                  } catch (err) {
+                    console.error(err)
                   }
-                } catch (err) {
-                  console.error(err)
                 }
               }
             }
-          }, comData.data.get()?.customCwd ? (comData.data.get().customCwd.split("/").pop() || "/") : trs("聊天界面/词汇/工作目录")),
+          }, comData.data.get()?.customCwd ? (comData.data.get().customCwd.split(/[/\\]/).pop() || "/") : trs("聊天界面/词汇/工作目录")),
+
+          // --- 备份状态指示器 ---
+          comData.data.get()?.customCwd ? m(IconTag, {
+            iconName: chatData.tmStatus.isReady ? "History" : "FileLock",
+            bgColor: chatData.tmStatus.isReady ? getColor('green_1').back : getColor('red_1').back,
+            fgColor: chatData.tmStatus.isReady ? getColor('green_1').front : getColor('red_1').front,
+            ext: {
+              onclick: async () => {
+                if (!chatData.tmStatus.isReady) {
+                  Notice.launch({
+                    tip: "立即初始化备份",
+                    msg: "该目录尚未初始化时光机备份，是否立即创建喵？",
+                    async confirm() {
+                      const initRes = await settingData.fnCall("tmInit", [comData.data.get().customCwd]);
+                      Notice.launch({ msg: initRes.msg });
+                      chatData.updateTmStatus();
+                      return undefined
+                    }
+                  });
+                } else {
+                  Notice.launch({ msg: "时光机运行中：实时守护您的每一行代码喵！" });
+                }
+              }
+            }
+          }, "") : null,
 
           // 附件上传按钮
           m(IconTag, {
@@ -596,7 +835,7 @@ export default () => {
                 // 暂时不 overflow hidden，防止叉叉被遮挡
                 // overflow: "hidden"
               },
-              onclick: () => data.quoteAttachId(attach.id)
+              onclick: () => chatData.quoteAttachId(attach.id)
             }, [
               /\.(jpg|jpeg|png|gif|webp)$/i.test(attach.url)
                 ? m("img", {
@@ -614,7 +853,7 @@ export default () => {
                     display: "flex",
                     alignItems: "center",
                     gap: "0.5rem",
-                    color: "#eee",
+                    color: getColor('gray_8').front,
                     maxWidth: "15rem" // 限制下过长的文件名
                   }
                 }, [
@@ -708,11 +947,11 @@ export default () => {
 
                   // 从文本框中移除对应的引用标签
                   const quoteTxt = ` [attachid:${attach.id}] `;
-                  if (data.inputText.includes(quoteTxt)) {
-                    data.inputText = data.inputText.replace(quoteTxt, "");
+                  if (chatData.inputText.includes(quoteTxt)) {
+                    chatData.inputText = chatData.inputText.replace(quoteTxt, "");
                   } else {
                     // 兼容可能没有空格的情况
-                    data.inputText = data.inputText.replace(`[attachid:${attach.id}]`, "");
+                    chatData.inputText = chatData.inputText.replace(`[attachid:${attach.id}]`, "");
                   }
 
                   attachments.splice(idx, 1);

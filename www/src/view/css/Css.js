@@ -256,13 +256,13 @@ export default function () {
           padding:0.2rem;
           padding-right:1rem;
           border-left:0.4rem solid ${getColor('blue_1').back};
-          background:${comData.data.get().darkMode ? getColor('gray_2').back : getColor('gray_8').back};
+          background:${getColor('brown_1').back};
           border-radius: 0.5rem 2rem 2rem 0.5rem;
           //font-style:italic
         }
         .article blockquote p{
           margin-left:0.5em;
-          color:${comData.data.get().darkMode ? "#ddd" : "#888"};
+          color:${getColor('brown_1').front};
         }
 
         .article table{
@@ -470,6 +470,9 @@ export default function () {
         }
         *{
           letter-spacing:0.15rem;
+        }
+        .xterm, .xterm *{
+          letter-spacing: normal !important;
         }
 
         ${xTermCss}

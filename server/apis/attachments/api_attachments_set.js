@@ -28,12 +28,12 @@ export default async () => {
       const file = data.file;
       const originalFilename = file.hapi.filename;
       const originalExt = pathLib.extname(originalFilename);
-      const isImage = /\.(jpg|jpeg|png|webp)$/i.test(originalExt);
+      const isImage = /\.(jpg|jpeg|png|webp|gif|bmp)$/i.test(originalExt);
 
-      // 统一保留原格式 (若是 WebP 则转为 JPG 兜底，PNG 与 JPG 保持原样)
-      let ext = originalExt.toLowerCase();
-      if (!/\.(jpg|jpeg|png)$/i.test(ext)) {
-        ext = ".jpg"; // 将 webp 等兜底转为 jpg
+      // 强制转发为 jpg 节省空间
+      let ext = originalExt.toLowerCase() || ".bin";
+      if (isImage) {
+        ext = ".jpg";
       }
       const filename = `${idTool.get("file")}${ext}`;
       const savePath = pathLib.join(uploadDir, filename);
@@ -69,6 +69,7 @@ export default async () => {
             url: `/attachment/${filename}`,
             filename: filename,
             id: filename,
+            type: 'image',
             info: `optimized${ext}`
           };
         } catch (err) {
@@ -84,7 +85,8 @@ export default async () => {
           resolve({
             url: `/attachment/${filename}`,
             filename: filename,
-            id: filename
+            id: filename,
+            type: 'file'
           });
         });
         file.on('error', (err) => {

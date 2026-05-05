@@ -31,8 +31,10 @@ class AppManager {
 
     // 使用 fs.watch (非 promise 版本更适合长期监听)
     fs.watch(appsDir, { recursive: true }, (eventType, filename) => {
-      if (filename && (filename.endsWith("app.json") || filename.endsWith("backend.js") || filename.endsWith("frontend.js"))) {
-        const appDirName = filename.split(path.sep)[0]
+      if (filename && (filename.endsWith(".json") || filename.endsWith(".js") || filename.endsWith(".coffee"))) {
+        const parts = filename.split(path.sep)
+        const appDirName = parts[0]
+        if (!appDirName) return
         console.log(`[AppManager] Detected change in ${filename}, refreshing ${appDirName}...`)
         this.loadappDefs(appDirName).then(() => {
           if (this.io) this.io.emit("appDefs:updated", this.getappDefs())
@@ -215,21 +217,23 @@ class AppManager {
 
   // 调用 App 操作（转发到后端执行）
   async dispatch(appId, action, args = {}) {
-    const app = this.apps.get(appId)
+    let app = this.apps.get(appId)
+
     if (!app) return { error: `App ${appId} 不存在` }
 
     const appDef = this.appDefs.get(app.type)
 
-    //统一后端处理，前端由于backend.dispatch的io处理
+    // 统一后端处理
     if (appDef?.backend?.dispatch) {
       try {
         const result = await appDef.backend.dispatch({ app, action, args, appManager: this, io: this.io })
         return result
       } catch (e) {
-        console.error(`[AppManager] Backend dispatch error for ${appId}:`, e)
+        console.error(`[AppManager] Backend dispatch error for ${app.id}:`, e)
         return { error: e.message }
       }
     }
+    return { error: `App ${app.id} 未实现 dispatch 接口` }
   }
 
   // 获取单个 App

@@ -52,6 +52,9 @@ const createWindow = () => {
     titleBarStyle: 'hiddenInset',
     webPreferences: {
       webviewTag: true,
+      nodeIntegration: false,
+      contextIsolation: true,
+      preload: pathLib.join(serveDir, "server/preload.js")
     }
   })
 

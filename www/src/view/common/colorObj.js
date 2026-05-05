@@ -2,7 +2,7 @@ export default {
   main: { back: "#755d5c", front: "#333333" },
 
   pink_1: { back: "#a75e5e", front: "#463838" },
-  pink_2: { back: "#5e4a5e", front: "#eee" },
+  pink_2: { back: "#8e6c8e", front: "#eee" },
 
   gray_1: { back: "#393432", front: "#eee" },
   gray_2: { back: "#636363", front: "#333333" },
@@ -18,7 +18,7 @@ export default {
 
   gray_12: { back: "#393432", front: "#eee" },//导航栏背景
 
-  brown_1: { back: "#332f2c", front: "#eee" },
+  brown_1: { back: "#332f2c", front: "#999" },
   brown_2: { back: "#5e5653", front: "#eee" },
   brown_3: { back: "#47413c", front: "#eee" },
   brown_4: { back: "#393431", front: "#eee" },
@@ -35,7 +35,7 @@ export default {
   blue_2: { back: "#374e79", front: "#eee" },
   blue_3: { back: "#34343d", front: "#849aba" }, //思考中背景
 
-  green_1: { back: "#50815b", front: "#eee" },
+  green_1: { back: "#50815b", front: "#113700" },
 
   terminal_back: "#2d2d2d",
   terminal_front: "#eee",
@@ -44,7 +44,7 @@ export default {
   工具组失败背景: "#5c2f2f",
   工具组成功边框: "#50815b",
   工具组失败边框: "#ff6b6b",
-  工具组文字颜色: "#eee",
+  工具组文字颜色: "#999",
 
   确认框背景: "#2b292aee",
   确认框文字: "#eeeeee55",

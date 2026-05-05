@@ -93,9 +93,9 @@ export default {
       }
       if (items.length >= MAX_ITEMS) response.note = `输出限制为 ${MAX_ITEMS} 项。`
 
-      let resultStr = "列目录：" + JSON.stringify(response, null, 2)
-      if (resultStr.length > 5000) {
-        resultStr = resultStr.slice(0, 5000) + "\n...(已截断)"
+      let resultStr = "列目录：" + JSON.stringify(response)
+      if (resultStr.length > 10000) {
+        resultStr = resultStr.slice(0, 10000) + "\n...(超过10000字已截断)"
       }
       return resultStr
 

@@ -86,6 +86,7 @@ export default {
 
 
       await comData.data.edit((data, self) => {
+
         data.currentModel ??= ""
         data.sendMode ??= "agent"
         data.call ??= null
@@ -97,6 +98,8 @@ export default {
             data: [],
             replying: false,
             streamChunks: "",
+            streamDisplayContent: "",
+            streamReasoningChunks: "",
             confirmCmds: [
               /* {
                 id: "uuid",
@@ -109,14 +112,21 @@ export default {
               } */
             ],
             stop: false,
+            tasks: [],
+            notes: [],
+            graph: { nodes: {}, links: [] },
 
           }]
         data.chatLists.forEach(list => {
           list.replying ??= false;
           list.streamChunks ??= "";
+          list.streamDisplayContent ??= "";
           list.streamReasoningChunks ??= "";
           list.confirmCmds ??= [];
           list.stop ??= false;
+          list.tasks ??= [];
+          list.notes ??= [];
+          list.graph ??= { nodes: {}, links: [] };
         });
 
         data.quotes ??= []
@@ -132,7 +142,11 @@ export default {
         data.toolsMode ??= 3 //1提示词模式 2标准工具模式 3 miao模式
         data.targetChatListId ??= 0 //默认用户锁定的聊天列表id
         data.enableThinking ??= false //深度思考
+        data.thinkControl ??= false //思考控制
+        data.thinkStrength ??= "medium"
         data.defaultPet ??= "default"
+        data.customCwd ??= ""
+        data.snapshots ??= []
       })
 
       /* playListTimer ??= setInterval(async () => {

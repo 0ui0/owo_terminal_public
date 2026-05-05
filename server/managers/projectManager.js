@@ -114,7 +114,7 @@ class ProjectManager {
       // 但 comData.data 是 DynamicData 实例，我们需要保留实例，更新内部 data
       // 假设 DynamicData 有 set 方法，或者我们逐个字段恢复
       await comData.data.edit(d => {
-        for (const key in d) delete d[key];
+        for (const key in d) if (key !== "version") delete d[key];
         Object.assign(d, data.comData);
       })
 
@@ -170,6 +170,77 @@ class ProjectManager {
       clearInterval(this.autoSaveInterval)
       this.autoSaveInterval = null
     }
+  }
+
+  // === Reset ===
+  async reset() {
+    // 1. 清空路径和计时器
+    this.currentProjectPath = null
+    this.stopAutoSave()
+
+    // 2. 构造初始数据模板 (Capture from ioServer defaults)
+    const initialData = {
+      currentModel: "",
+      sendMode: "agent",
+      call: null,
+      inputText: "",
+      chatLists: [{
+        id: 0,
+        linkid: 0,
+        data: [],
+        replying: false,
+        streamChunks: "",
+        streamDisplayContent: "",
+        streamReasoningChunks: "",
+        confirmCmds: [],
+        stop: false,
+        tasks: [],
+        notes: []
+      }],
+      quotes: [],
+      darkMode: true,
+      faceAction: "smile",
+      playFaces: {
+        current: "",
+        list: ["待机状态", "腾空", "上下漂浮", "降落", "待机状态", "待机状态", "待机状态", "左右行走"],
+        index: 0,
+      },
+      currentTid: "",
+      toolsMode: 3,
+      targetChatListId: 0,
+      enableThinking: false,
+      thinkControl: false,
+      defaultPet: "default",
+      customCwd: "",
+      snapshots: []
+    }
+
+    // 3. 执行物理重置 (改用 edit 以触发 dataSync 观察者，通知前端清空聊天列表)
+    if (comData.data) {
+      await comData.data.edit(d => {
+        for (const key in d) if (key !== "version") delete d[key];
+        Object.assign(d, initialData);
+      })
+    }
+
+    // 4. 重置 AI 运行环境
+    aiBasic.list.forEach(model => {
+      model.clearAsks()
+      model.clearMemorys()
+      model.clearFnCallCache()
+      model.clearUsage()
+    })
+
+    // 5. 关闭所有活动 App
+    const apps = appManager.getSummary()
+    for (const app of apps) {
+      await appManager.close(app.id).catch(e => console.error(e))
+    }
+
+    // 6. 归位脏位
+    this.isDirty = false
+    console.log("[ProjectManager] Project Reset Complete")
+    return { ok: true }
   }
 }
 

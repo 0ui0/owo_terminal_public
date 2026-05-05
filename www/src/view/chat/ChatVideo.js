@@ -6,7 +6,7 @@ export default () => {
   return {
     view({ attrs }) {
       const playFaces = comData.data.get()?.playFaces
-      console.log(playFaces)
+      //console.log(playFaces)
 
       return m("", {
         style: {

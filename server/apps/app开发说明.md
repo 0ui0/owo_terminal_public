@@ -27,12 +27,22 @@
 
 ### 2.1 动态加载与热重载
 -   **后端热重载**: `appManager.js` 监听 `server/apps` 目录变动。检测到 `backend.js` 更新时，使用时间戳 query (`?t=Date.now()`) 重新 `import` 模块，绕过 Node.js 缓存。
--   **前端热重载**: `appManager` 推送的 `frontendUrl` 同样带有时间戳，确保浏览器加载最新的 `frontend.js`。即使在不重启服务器的情况下，修改前端代码也能即时生效（需重新打开 App）。
+-   **前端热重载**: `appManager` 推送的 `frontendUrl` 同样带有时间戳，确保浏览器加载最新的 `frontend.js`。
+-   **子模块缓存穿透**: 浏览器会缓存 ESM 的 `import` 请求。为了确保 `frontend.js` 内部 `import` 的子组件也能同步更新，系统后端通过 `/api/apps/:type/frontend.js` 路由对代码进行了动态重写，会自动为内部引用的子模块路径补全时间戳 (`?t=...`)。开发者无需手动处理子模块的缓存问题。
 
 ### 2.2 依赖注入 (Dependency Injection)
 -   **痛点解决**: 避免因后端 API 路由 (`/api/apps/...`) 导致的相对路径引用失效 (`import` 403 错误)。
 -   **规范**: Frontend 组件**严禁** import 跨出 app 目录的文件。
--   **实现**: 所有公共模块 (`m`, `Notice`, `ioSocket`, `commonData`, `settingData`, `Box`, `iconPark`) 均由 `ioSocket.js` 在实例化组件时通过参数注入。
+-   **实现**: 所有公共模块 (`m`, `Notice`, `ioSocket`, `commonData`, `settingData`, `Box`, `iconPark`, `getColor`, `trs`) 均由 `ioSocket.js` 在实例化组件时通过参数注入。
+
+### 2.3 国际化与翻译 (I18n)
+- **翻译函数**: 系统注入 `trs(key, inlineDict)` 函数。
+- **推荐用法 (内联翻译)**: 为了保证 App 的自包含性，建议使用内联翻译模式，直接在代码中定义中英文。
+  ```javascript
+  trs("时光机/侧边栏/历史版本", { cn: "历史版本", en: "History" })
+  ```
+- **工作原理**: `trs` 会优先查找 `inlineDict` 中对应当前语言 (`global_language`) 的值。如果未找到，则尝试匹配系统全局字典。
+- **规范**: 严禁在 UI 中使用硬编码中文，必须全部通过 `trs` 包装。
 
 ---
 
@@ -157,7 +167,7 @@ export default {
       app.data.count++
       // 推送消息 (将会被 myAppData.onDispatch 接收)
       io.emit("app:dispatch", { appId: app.id, action: "update", args: { count: app.data.count } })
-      return { ok: true }
+      return { ok: true , msg: "消息" ,data:"xxx"}
     }
   }
 }
@@ -206,5 +216,85 @@ oninit(vnode) {
     if (vnode.attrs.data && vnode.attrs.data.count) {
         count = vnode.attrs.data.count
     }
+}
+```
+
+---
+
+## 6. 前端代码风格与模块化指南
+
+为了保持代码的高度可读性、一致性以及与系统架构的完美契合，所有 App 前端开发必须遵循以下准则：
+
+交代：
+> 1不使用任何cssClass，使用行内style，不写任何css类名。 2所有的对象都要换行 3mithril的第一个参数如果是div，应该简写成空字符串。3如果一个前端事件处理函数没有被复用，应该直接写在事件里面，而不应该外置
+> 减少临时变量和中间变量的使用。直接使用嵌入式写法。例如，let a = 12 ; let b = 5; let c = a+b;console.log(c)这还是错误的写的，你应该直接console.log(a+b)
+> 前端组件注意：1 每个模块必须是合法的mitrhil函数组件，不能仿照入口点frontend.js的写法。参数传递使用mithril的组件传参方式传递 所有尺寸单位统一使用rem 1rem 约等于 10px
+> 所有的异步处理必须用try catch包裹并输出错误，不能省略任何错误的输出
+
+### 6.1 极致垂直化格式 (Vertical Formatting)
+- **对象属性换行**：对象（尤其是 `style` 和配置对象）的每一个属性必须独占一行。
+- **函数参数换行**：`m()` 函数的参数（tag, attrs, children）必须独占一行。
+- **示例**：
+  ```javascript
+  m("",
+    {
+      style: {
+        display: "flex",
+        flexDirection: "column",
+        padding: "20px"
+      }
+    },
+    [ ... ]
+  )
+  ```
+
+### 6.2 零 CSS 类名原则 (Zero CSS Class)
+- **严禁使用** `class` 或 `cssClass`。
+- **必须使用** 行内样式 (`style`)。这确保了组件的样式完全自包含，不依赖外部 CSS 文件。
+- **颜色调用**：统一使用注入的 `getColor(name).back/front` 来获取主题颜色。
+其中同一个颜色下，back为背景色,front为背景色对应的文字色/前景色。
+- **字体和字号** 不要指定任何字体，通常不需要指定字号，特殊内容可以少量指定字号
+
+### 6.3 嵌入式写法 (Inline Expressions)
+- **减少中间变量**：避免定义只使用一次的临时变量。
+- **逻辑直接嵌入**：将逻辑判断、字符串拼接、数组映射直接写在 `m()` 的参数中。
+- **示例**：
+  - ❌ `let isDir = name.endsWith('/'); m("", isDir ? "📁" : "📄")`
+  - ✅ `m("", name.endsWith('/') ? "📁" : "📄")`
+
+### 6.4 语义化简写
+- **Mithril 简写**：当第一个参数是 `div` 时，必须简写为空字符串 `m("", ...)`。
+
+### 6.5 模块化与依赖注入
+- **目录规范**：大型 App 建议将组件拆分到 `frontendModules/` 目录。
+- **依赖传递**：子模块**严禁**直接 `import` 宿主系统的公共组件（如 `Box`, `Notice`）。前端是动态导入的，无法import主系统模块。
+- **参数注入**：所有主系统的工具（`Box`, `Notice`, `m`, `getColor` 等主系统模块）必须通过父模块的参数逐层传递。
+- **引用规范**：在 `frontend.js` 中 `import` 内部模块时，必须带上 `.js` 后缀。
+
+### 6.6 事件处理内联化
+- **非复用函数内联**：如果事件处理函数（如 `onclick`）不需要在多个地方复用，应直接写在属性对象中，不要提取到外部。
+
+
+异步调用返回统一
+
+```javascript:
+try{
+  let tmp = await fn()
+  return {
+    ok:true,
+    msg:"操作xxx成功", //必须带msg对象
+    data:tmp.xxx
+  }
+}
+catch(err){
+  throw err //如果是工具函数在内部抛出错误
+  console.log(err) //如果是最外层函数，输出错误，不再向外抛出
+
+  return {
+    ok:false
+    msg:"服务器内部错误（或具体错误信息）" //必须带msg对象
+    //错误不需要data字段
+    
+  }
 }
 ```

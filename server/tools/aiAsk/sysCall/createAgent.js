@@ -28,7 +28,18 @@ export default {
       await comData.data.edit((data) => {
         // 计算新 ID
         if (!data.chatLists) {
-          data.chatLists = [{ id: 0, linkid: 0, data: data.chatList || [] }];
+          data.chatLists = [{
+            id: 0,
+            linkid: 0,
+            data: data.chatList || [],
+            replying: false,
+            streamChunks: "",
+            streamDisplayContent: "",
+            streamReasoningChunks: "",
+            confirmCmds: [],
+            stop: false,
+            tasks: []
+          }];
         }
 
         // 获取最大 ID
@@ -45,8 +56,11 @@ export default {
           data: [],
           replying: false,
           streamChunks: "",
+          streamDisplayContent: "",
+          streamReasoningChunks: "",
           confirmCmds: [],
-          stop: false
+          stop: false,
+          tasks: []
         });
       });
 

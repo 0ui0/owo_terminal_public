@@ -1,7 +1,27 @@
+import comData from "../../comData/comData.js"
+import settingData from "../setting/settingData.js"
+
 export default {
   inputDom: null,
   inputText: "",
   needSync: false, // 外部修改 inputText 后置 true，通知编辑器重渲染
+  tmStatus: { gitOk: false, isReady: false },
+  async updateTmStatus() {
+    try {
+      const cwd = comData.data.get()?.customCwd;
+      if (!cwd) {
+        this.tmStatus = { gitOk: false, isReady: false };
+        return m.redraw();
+      }
+      const res = await settingData.fnCall("tmGetProjectStatus", [cwd]);
+      this.tmStatus = res || { ok: false, gitOk: false, isReady: false };
+      m.redraw();
+    } catch (e) {
+      console.error("[chatData] updateTmStatus failed:", e);
+      this.tmStatus = { ok: false, gitOk: false, isReady: false, msg: e.message };
+      m.redraw();
+    }
+  },
   list: [
     {
       uuid: Date.now(),
@@ -33,6 +53,10 @@ export default {
   },
   quoteAttachId(attachId) {
     const quoteTxt = ` [attachid:${attachId}] `
+    this._insertAtCursor(quoteTxt)
+  },
+  quoteCode(path, lineRange) {
+    const quoteTxt = ` [codeQuote:${path}${lineRange ? ':' + lineRange : ''}] `
     this._insertAtCursor(quoteTxt)
   },
   // 在光标处插入文本，然后同步数据并触发重渲染

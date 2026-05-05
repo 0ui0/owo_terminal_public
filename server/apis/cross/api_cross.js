@@ -36,7 +36,11 @@ export default async () => {
         }
       }
       catch (err) {
-        // console.log(err)
+        console.log("crossFunc调用执行错误", {
+          name: que.name,
+          params: que.params,
+          error: err
+        })
         return {
           ok: false,
           msg: trs("API/错误/函数执行错误")

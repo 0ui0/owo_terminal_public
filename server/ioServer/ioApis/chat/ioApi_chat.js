@@ -1,6 +1,8 @@
+import { parse as parseBestEffort } from "best-effort-json-parser"
 import { v4 as uuidV4 } from "uuid"
 import idTool from "../../../tools/idTool.js"
 import { trs } from "../../../tools/i18n.js"
+import yaml from "js-yaml"
 import chats from "./chats.js"
 import comData from "../../../comData/comData.js"
 import aiBasic from "../../../tools/aiAsk/basic.js"
@@ -10,7 +12,8 @@ import options from "../../../config/options.js"
 import subAgents from "../../../tools/aiAsk/subAgents.js"
 import appManager from "../../../apps/appManager.js"
 import ioServer from "../../ioServer.js"
-
+import timeMachineEngine from "../../../apps/owoTimeMachine/timeMachineEngine.js"
+import pathLib from "path"
 
 
 
@@ -30,6 +33,7 @@ const socketOnChat = async (que, callback) => {
       targetChatListId
     } = comData.data.get()
 
+
     if (que.inputText) {
       inputText = que.inputText
     }
@@ -48,6 +52,8 @@ const socketOnChat = async (que, callback) => {
     if (que.targetChatListId !== void 0) {
       targetChatListId = que.targetChatListId
     }
+
+    console.log("输入文本", inputText)
 
     // 确定目标队列 ID (优先级: 参数 > 全局 > 默认 0)
     const listId = targetChatListId
@@ -90,6 +96,38 @@ const socketOnChat = async (que, callback) => {
         attachments: que.attachments || []
       }
       io.emit("chat", chat) // 广播到前端（由前端根据 listId 过滤）
+
+      // --- 时光机：自动创建还原点 ---
+      try {
+        const projectRoot = comData.data.get()?.customCwd;
+        const repoPath = pathLib.resolve(projectRoot, ".owoTimeMachine")
+
+        if (projectRoot && repoPath) {
+          console.log("[TimeMachine] 尝试自动快照:", { projectRoot, repoPath });
+          const checkGitRes = await timeMachineEngine.checkGit()
+          const isBackupRepoRes = await timeMachineEngine.isBackupRepo({ repoPath })
+
+          if (checkGitRes.ok && isBackupRepoRes.ok) {
+            const res = await timeMachineEngine.snapshot({ repoPath, message: `Auto-snapshot for message: ${inputText.substring(0, 30)}...`, msgId: chat.uuid });
+            if (res.ok) {
+              console.log("[TimeMachine] 自动快照成功:", projectRoot, "MsgId:", chat.uuid);
+              // 同备到全局 comData
+              const history = await timeMachineEngine.getHistory({ repoPath });
+              if (history.ok) {
+                await comData.data.edit((data) => {
+                  data.snapshots = history.data;
+                });
+              }
+            } else {
+              console.error("[TimeMachine] 自动快照失败:", res.msg);
+            }
+          }
+        } else {
+          console.warn("[TimeMachine] 自动快照跳过: 项目未就绪或路径无效", { projectRoot, repoPath });
+        }
+      } catch (e) {
+        console.error("时光机自动快照失败:", e);
+      }
 
       let ask = null
 
@@ -220,11 +258,116 @@ const socketOnChat = async (que, callback) => {
             if (list) list.streamChunks = "";
           })
 
+          const aiList = await options.get("ai_aiList")
+          const currentModelName = comData.data.get().currentModel
+          const currentConfig = aiList.find(m => m.name === currentModelName)
+
+          // 如果 AI 已经在思考中（递归循环内），则只记录消息不重复启动新的递归任务
+          // AI 在当前任务的下一轮迭代会自动抓取到刚才 addAsk 进去的新消息
+          if (targetModel.replying) return;
+
           await targetModel.sendAskByMsgProtocol({
             toolsMode: comData.data.get().toolsMode,
             listId: listId,
             enableThinking: comData.data.get().enableThinking,
-            tools: appManager.getTools(),
+            thinkControl: comData.data.get().thinkControl,
+            thinkStrength: comData.data.get().thinkStrength,
+            tools: comData.data.get().toolsMode === 3
+              ? appManager.getTools()
+              : appManager.getTools().filter((tool) => {
+                return !tool.hidden
+              }),
+
+            onMemoryChange: async (aiAskInstance, notes) => {
+              await comData.data.edit((data) => {
+                const list = data.chatLists.find(l => l.id === listId);
+                if (list) {
+                  list.notes = notes; // 复用 memorys 历史作为可视化笔记
+                }
+              })
+            },
+            onTaskChange: async (aiAskInstance, tasks) => {
+              await comData.data.edit((data) => {
+                const chatList = data.chatLists.find(l => l.id === listId)
+                if (!chatList) return
+
+                const currentTasks = chatList.tasks || []
+                const errors = []
+
+                if (!tasks || tasks.length === 0) {
+                  errors.push(`[规则校验失败] 每次对话必须提供任务清单，严禁返回空数组。`)
+                } else {
+                  // 计算当前最大 ID
+                  let maxId = 0
+                  currentTasks.forEach(t => { if (t.taskid > maxId) maxId = t.taskid })
+
+                  tasks.forEach(taskInput => {
+                    if (taskInput.subtasks === undefined || taskInput.subtasks.length === 0) {
+                      errors.push(`[数据错误] 任务「${taskInput.name}」必须包含至少一个子任务。`)
+                      return
+                    }
+                    if (taskInput.mode === 'update') {
+                      if (taskInput.taskid === undefined) {
+                        errors.push(`[参数缺失] 更新模式(update)必须提供 taskid。任务名:「${taskInput.name}」`)
+                        return
+                      }
+                      // 更新逻辑
+                      const existingTask = currentTasks.find(t => t.taskid === taskInput.taskid)
+                      if (existingTask) {
+                        if (taskInput.name !== undefined) existingTask.name = taskInput.name
+                        if (taskInput.status !== undefined) existingTask.status = taskInput.status
+                        if (taskInput.process !== undefined) existingTask.process = taskInput.process
+                        if (taskInput.subtasks) {
+                          existingTask.subtasks = taskInput.subtasks.map((st, index) => ({
+                            subtaskid: index + 1,
+                            name: st.name,
+                            status: st.status || "规划中",
+                            process: st.process ?? 0
+                          }))
+                        }
+                      } else {
+                        errors.push(`[ID 错误] 未找到 taskid:${taskInput.taskid}，无法更新任务「${taskInput.name}」。请检查任务清单中的有效 ID。`)
+                      }
+                    } else if (taskInput.mode === 'add') {
+                      // 新增逻辑
+                      maxId++
+                      const newTask = {
+                        taskid: maxId,
+                        name: taskInput.name || "未命名任务",
+                        status: taskInput.status || "规划中",
+                        process: taskInput.process ?? 0,
+                        subtasks: (taskInput.subtasks || []).map((st, index) => ({
+                          subtaskid: index + 1,
+                          name: st.name,
+                          status: st.status || "规划中",
+                          process: st.process ?? 0
+                        }))
+                      }
+                      currentTasks.push(newTask)
+                    }
+                  })
+                }
+                chatList.tasks = currentTasks
+
+                // 如果有错误，立即插入系统提示并抛出异常触发重试喵
+                if (errors.length > 0) {
+                  const errorMsg = errors.join("\n")
+                  let chat = {
+                    uuid: idTool.get("sys"),
+                    content: "⚠️ 任务同步失败：\n" + errorMsg,
+                    name: trs("角色/系统"),
+                    group: "error",
+                    timestamp: Date.now(),
+                    chatListId: listId
+                  }
+                  io.emit("chat", chat)
+                  chats.add(chat, listId)
+
+                  // 抛出错误以告知 AiAsk 触发重试喵
+                  throw new Error(errorMsg)
+                }
+              })
+            },
             getExtraInfo: () => {
               const appList = appManager.getAppList(20)
               const terminals = tSession.getSummary(5)
@@ -254,6 +397,10 @@ const socketOnChat = async (que, callback) => {
               parts.push(`系统：${process.platform} ${process.arch}`)
               parts.push(`时间：${timeStr} (${timezone})`)
 
+              if (currentConfig) {
+                parts.push(`当前token余额：${currentConfig.preTokens}`)
+              }
+
               if (customCwd) {
                 parts.push(`工作目录：${customCwd}`)
               }
@@ -274,7 +421,42 @@ const socketOnChat = async (que, callback) => {
                 parts.push('活跃Apps：\n' + appDetails.join('\n---\n'))
               }
 
+              // 1. 插入网点图骨架 (网点图先行)
+              const graph = comData.data.get().chatLists.find(l => l.id === listId)?.graph || { nodes: {}, links: [] }
+              let graphStr = '【推理网点图】\n'
+              if (graph.nodes && Object.keys(graph.nodes).length > 0) {
+                for (const id in graph.nodes) {
+                  graphStr += `- [节点] ID:${id}, 标签:${graph.nodes[id].label || '无'}\n`
+                }
+                if (graph.links && graph.links.length > 0) {
+                  graph.links.forEach(l => {
+                    graphStr += `- [连线] ${l.source} --> ${l.target}\n`
+                  })
+                }
+              } else {
+                graphStr += '空\n'
+              }
+              parts.push(graphStr.trim())
+
+              // 2. 插入任务清单
+              const tasks = comData.data.get().chatLists.find(l => l.id === listId)?.tasks || []
+              let taskStr = '【任务清单】\n'
+              if (tasks.length > 0) {
+                tasks.forEach(t => {
+                  taskStr += `- [${t.status}] (taskid:${t.taskid}) ${t.name} (进度：${t.process}%)\n`
+                  if (t.subtasks && t.subtasks.length > 0) {
+                    t.subtasks.forEach(st => {
+                      taskStr += `  └─ [${st.status}] (subtaskid:${st.subtaskid}) ${st.name} (进度：${st.process}%)\n`
+                    })
+                  }
+                })
+              } else {
+                taskStr += '空\n'
+              }
+
+
               parts.push(langMap[lang])
+              parts.push(taskStr.trim())
 
               return '\n' + parts.join('\n') + '\n'
             },
@@ -303,6 +485,22 @@ const socketOnChat = async (que, callback) => {
                 aiList[modelIndex].preTokens = Number(aiList[modelIndex].preTokens) - Number(usage.totalT);
                 await options.set("ai_aiList", aiList);
               }
+            },
+            async onRollMemory(status) {
+              await comData.data.edit((data) => {
+                const list = data.chatLists.find(l => l.id === listId);
+                if (list) {
+                  if (status === "start") {
+                    list.replying = true;
+                    list.streamChunks = trs("消息/正在整理记忆", { cn: "正在整理记忆...", en: "Optimizing memory..." });
+                    list.streamReasoningChunks = ""; // 清除回复阶段残留的思考链
+                    list.streamDisplayContent = "";
+                  } else {
+                    list.replying = false;
+                    list.streamChunks = "";
+                  }
+                }
+              })
             },
             async onResponse(reply) {
 
@@ -341,7 +539,7 @@ const socketOnChat = async (que, callback) => {
                 mind = null;
                 content = reply.content;
               }
-              let msg = `${mind ? `(${mind})\n` : ""}${content}`
+              let msg = `${mind ? `> (${mind})\n\n` : ""}${content}`
 
               let chat = {
                 uuid: reply.id,
@@ -376,7 +574,12 @@ const socketOnChat = async (que, callback) => {
               }
               await comData.data.edit((data) => {
                 const list = data.chatLists.find(l => l.id === listId);
-                if (list) list.replying = targetModel.replying;
+                if (list) {
+                  list.replying = targetModel.replying;
+                  list.streamChunks = "";
+                  list.streamDisplayContent = "";
+                  list.streamReasoningChunks = "";
+                }
               })
 
 
@@ -387,6 +590,7 @@ const socketOnChat = async (que, callback) => {
                 if (list) {
                   list.replying = targetModel.replying;
                   list.streamChunks = "";
+                  list.streamDisplayContent = "";
                   list.streamReasoningChunks = ""; // 运行结束，清理流缓冲
                 }
               })
@@ -396,7 +600,27 @@ const socketOnChat = async (que, callback) => {
                 const list = data.chatLists.find(l => l.id === listId);
 
                 if (list) {
-                  if (replyChunk) list.streamChunks += replyChunk;
+                  if (replyChunk) {
+                    list.streamChunks += replyChunk; // 依然保持原生的 streamChunks 协议完整
+
+                    // --- 顶配提取器：使用成熟库从 list.streamChunks 中抠出当前最完整的正文 ---
+                    try {
+                      const partial = parseBestEffort(list.streamChunks);
+                      if (partial) {
+                        // 同步正式文本渲染逻辑：(mind)content
+                        const mindPart = partial.mind ? `> (${partial.mind})\n\n` : "";
+                        const contentPart = partial.content || "";
+                        let notePart = "";
+                        if (partial.note) {
+                          const noteContent = (typeof partial.note === 'object' && partial.note !== null) ? yaml.dump(partial.note) : partial.note;
+                          notePart = "\n\n---\n**【思考笔记】**\n" + noteContent;
+                        }
+                        list.streamDisplayContent = mindPart + contentPart + notePart;
+                      }
+                    } catch (e) {
+                      console.log("流json处理失败", e)
+                    }
+                  }
                   if (reasoningChunk) list.streamReasoningChunks += reasoningChunk;
                 }
               })
@@ -443,7 +667,6 @@ const socketOnChat = async (que, callback) => {
 
 export default ({ socket, server, io, db, verifyCookie }) => {
   socket.on("chat", socketOnChat)
-
 }
 
 export { tSession, TSession, idTool, socketOnChat }

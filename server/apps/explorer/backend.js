@@ -1,11 +1,12 @@
-import fs from "fs/promises"
+import fs from "fs-extra"
 import path from "path"
 import { shell } from "electron"
+import timeMachineEngine from "../owoTimeMachine/timeMachineEngine.js"
 
 
 export default {
   async init(app, appManager) {
-    app.data.currentPath = process.cwd()
+    app.data.currentPath = app.data.currentPath || process.cwd()
     app.data.history = [app.data.currentPath] // 历史记录栈
     app.data.historyIndex = 0
     app.data.clipboard = null // { type: 'copy'|'cut', files: [] }
@@ -17,6 +18,9 @@ export default {
 
     try {
       switch (action) {
+        case "tmTriggerRestore":
+          io.emit("tm:trigger-restore", args)
+          return { ok: true }
 
         // ====== 导航与列表 ======
 
@@ -54,7 +58,7 @@ export default {
           io.emit("app:dispatch", {
             appId: app.id,
             action: "updatePath",
-            args: { path: targetPath, files: (await this.listDir(targetPath)).data }
+            args: { path: targetPath, data: (await this.listDir(targetPath)).data }
           })
 
           return { ok: true, path: targetPath }
@@ -111,12 +115,15 @@ export default {
             console.log(`[Explorer] Trashing: ${target}`)
             await shell.trashItem(target)
           }
-          // 刷新
+          // 广播全局刷新
+          io.emit("explorer:fs-change", { paths: [currentPath] })
+          // 刷新当前实例
           return this.dispatch({ app, action: "navigate", args: { path: currentPath, isHistoryOp: true }, appManager, io })
 
         case "mkdir":
           if (args.name) {
             await fs.mkdir(path.resolve(currentPath, args.name), { recursive: true })
+            io.emit("explorer:fs-change", { paths: [currentPath] })
             return this.dispatch({ app, action: "navigate", args: { path: currentPath, isHistoryOp: true }, appManager, io })
           }
           return { error: "缺少文件夹名称" }
@@ -126,16 +133,21 @@ export default {
             const target = path.resolve(currentPath, args.name)
             try {
               await fs.writeFile(target, "", { flag: 'wx' }) // fail if exists
+              io.emit("explorer:fs-change", { paths: [currentPath] })
+              return this.dispatch({ app, action: "navigate", args: { path: currentPath, isHistoryOp: true }, appManager, io })
             } catch (e) {
-              return { error: "文件已存在或无法创建" }
+              return { error: "文件已存在或无法创建: " + e.message }
             }
-            return this.dispatch({ app, action: "navigate", args: { path: currentPath, isHistoryOp: true }, appManager, io })
           }
           return { error: "缺少文件名" }
 
         case "rename":
           if (args.oldName && args.newName) {
-            await fs.rename(path.resolve(currentPath, args.oldName), path.resolve(currentPath, args.newName))
+            const oldPath = path.resolve(currentPath, args.oldName)
+            const dir = path.dirname(oldPath)
+            const newPath = path.resolve(dir, args.newName) // 确保重命名后还在原目录下
+            await fs.rename(oldPath, newPath)
+            io.emit("explorer:fs-change", { paths: [currentPath] })
             return this.dispatch({ app, action: "navigate", args: { path: currentPath, isHistoryOp: true }, appManager, io })
           }
           return { error: "参数不完整" }
@@ -203,7 +215,7 @@ export default {
           // Execute phase
           console.log(`[Explorer] Executing ${operations.length} operations`, operations)
           for (const op of operations) {
-            const { src, dest, action, basename } = op
+            const { src, dest, action } = op
             let finalDest = dest
 
             if (action === 'rename') {
@@ -216,32 +228,147 @@ export default {
                 while (true) {
                   try {
                     await fs.access(newDest)
-                    newDest = path.join(dir, `${name} copy ${counter}${ext}`)
+                    newDest = path.join(dir, `${name}_copy_${counter}${ext}`)
                     counter++
                   } catch { return newDest }
                 }
               })(dest)
             }
 
-            if (mode === "cut") {
-              try {
-                await fs.rename(src, finalDest)
-              } catch (e) {
-                // rename might fail across devices, fallback to copy+unlink
-                await fs.cp(src, finalDest, { recursive: true, force: true })
-                await fs.rm(src, { recursive: true, force: true })
+            try {
+              if (mode === "cut") {
+                console.log(`[Explorer] Moving: ${src} -> ${finalDest} (overwrite: true)`)
+                await fs.move(src, finalDest, { overwrite: true })
+              } else {
+                console.log(`[Explorer] Copying: ${src} -> ${finalDest}`)
+                await fs.copy(src, finalDest, { overwrite: true })
               }
-            } else {
-              await fs.cp(src, finalDest, { recursive: true, force: true })
+            } catch (err) {
+              console.error(`[Explorer] File operation failed:`, err)
+              throw new Error(`文件操作失败: ${err.message}`)
             }
           }
 
+          // 广播全局刷新消息，通知所有正在看这两个目录的窗口刷新
+          io.emit("explorer:fs-change", { paths: [currentPath, destPath] })
+
+          if (args.noNavigate) {
+            return { ok: true, msg: "操作成功喵！" }
+          }
           return this.dispatch({ app, action: "navigate", args: { path: destPath, isHistoryOp: true }, appManager, io })
 
         // ====== AI 辅助 ======
 
+        // ====== 时光机专项还原 (独立逻辑) ======
+
+        case "tmCheckConflicts": {
+          const { hash, relPath, targetPath, repoRoot } = args;
+          const baseDest = targetPath || currentPath;
+          if (!hash || !relPath) return { error: "参数不完整" };
+          const lsRes = await timeMachineEngine.lsTree({ repoPath: repoRoot, hash, relPath, recursive: true });
+          if (!lsRes.ok) return { error: lsRes.msg };
+          const snapshotFiles = lsRes.data;
+          const conflicts = [];
+          for (const item of snapshotFiles) {
+            if (item.type === 'blob') {
+              // 计算相对于投送目标的子路径 (剥离 relPath 前缀)
+              let subRelative = item.path;
+              if (relPath && relPath !== "." && relPath !== "") {
+                const prefix = relPath.endsWith('/') ? relPath : relPath + '/';
+                if (item.path === relPath) {
+                  subRelative = path.basename(item.path);
+                } else if (item.path.startsWith(prefix)) {
+                  subRelative = item.path.slice(prefix.length);
+                }
+              } else {
+                subRelative = item.path;
+              }
+              /**
+               * 【核心路径解析算法】
+               * 1. baseDest 是还原的锚点（如 /MyProject/ai工作目录）。
+               * 2. subRelative 是快照项相对于 relPath 的路径（如 index.js）。
+               * 
+              /**
+               * 修复子文件路径误判 Bug (2026/05/04)
+               * 
+               * 精准判断是否为拖拽根项本身。如果 item.path 和 relPath 完全相等，说明是根项。
+               * 此时直接使用 baseDest。对于内部子文件，直接在 baseDest 基础上追加 subRelative。
+               */
+              const isRootFile = (item.path === relPath && relPath !== ".");
+              const destPath = path.resolve(
+                baseDest, 
+                isRootFile ? "" : subRelative
+              );
+              try {
+                if (fs.existsSync(destPath)) {
+                  conflicts.push(subRelative);
+                }
+              } catch (e) { }
+            }
+          }
+          return { ok: true, data: { conflicts } };
+        }
+
+        case "tmExecuteRestore": {
+          const { hash, relPath, targetPath, decisions = {}, repoRoot } = args;
+          const baseDest = targetPath || currentPath;
+          if (!hash || !relPath) return { error: "参数不完整" };
+
+          try {
+            // 遍历并逐个还原
+            const lsRes = await timeMachineEngine.lsTree({ repoPath: repoRoot, hash, relPath, recursive: true });
+            if (!lsRes.ok) throw new Error(lsRes.msg);
+            const snapshotFiles = lsRes.data;
+
+            for (const item of snapshotFiles) {
+              if (item.type !== 'blob') continue;
+
+              // 必须与 tmCheckConflicts 使用完全一致的 subRelative 算法，才能正确匹配 decisions
+              let subRelative = item.path;
+              if (relPath && relPath !== "." && relPath !== "") {
+                const prefix = relPath.endsWith('/') ? relPath : relPath + '/';
+                if (item.path === relPath) {
+                  subRelative = path.basename(item.path);
+                } else if (item.path.startsWith(prefix)) {
+                  subRelative = item.path.slice(prefix.length);
+                }
+              }
+
+              const decision = decisions[subRelative];
+              if (decision === 'skip') continue;
+
+              const isRootFile = (item.path === relPath && relPath !== ".");
+              const finalSubRelative = isRootFile ? "" : subRelative;
+
+              let finalDest;
+              if (decision === 'rename') {
+                const destPath = path.resolve(baseDest, finalSubRelative);
+                const ext = path.extname(destPath);
+                const base = destPath.slice(0, -ext.length || destPath.length);
+                let counter = 1;
+                while (fs.existsSync(`${base}_copy_${counter}${ext}`)) counter++;
+                finalDest = `${base}_copy_${counter}${ext}`;
+              } else {
+                // 覆盖或默认模式
+                finalDest = path.resolve(baseDest, finalSubRelative);
+              }
+
+              // 执行精准投送
+              const restoreRes = await timeMachineEngine.restoreFileTo({ repoPath: repoRoot, hash, relPath: item.path, destPath: finalDest });
+              if (!restoreRes.ok) console.error(`[Explorer] Restore failed for ${item.path}:`, restoreRes.msg);
+            }
+          } catch (e) {
+            console.error("[Explorer Backend] Restore failed:", e);
+            return { error: e.message };
+          }
+
+          // 刷新到目标文件夹
+          await this.dispatch({ app, action: "navigate", args: { path: path.dirname(baseDest), isHistoryOp: true }, appManager, io });
+          return { ok: true, msg: "已完成覆盖式还原喵！🕒" };
+        }
+
         case "getState":
-          return { ok: true, currentPath, files: (await this.listDir(currentPath)).data }
+          return { ok: true, currentPath, data: (await this.listDir(currentPath)).data }
 
         default:
           return { error: "未知操作" }

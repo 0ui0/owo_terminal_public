@@ -19,7 +19,8 @@ export default class DynamicData {
       }
 
       await fn(this.data, this)
-      this.data.version++
+      //防止nan+1
+      this.data.version = (Number(this.data.version) || 0) + 1
 
       let returns = {}
       //根据数据状态做一些逻辑

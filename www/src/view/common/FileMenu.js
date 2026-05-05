@@ -5,6 +5,7 @@ import commonData from "./commonData.js"
 import { trs } from "./i18n.js"
 import aiContext from "../titleMenu/aiContext.js"
 import getColor from "./getColor.js"
+import chatData from "../chat/chatData.js"
 
 export default () => {
   // Toggle Auto Save
@@ -31,7 +32,12 @@ export default () => {
   // Generic Action Handler
   const handleAction = async (action, saveAs = false) => {
     try {
-      let funcName = action === "save" ? "projectSave" : "projectLoad"
+      const funcMap = {
+        save: "projectSave",
+        load: "projectLoad",
+        new: "projectNew"
+      }
+      let funcName = funcMap[action]
       let args = []
       if (action === "save") args = [{ saveAs }]
       else args = [{}]
@@ -40,6 +46,8 @@ export default () => {
 
       if (res.ok) {
         console.log("Project action success:", action, res.path)
+
+        chatData.updateTmStatus?.()
         m.redraw()
       } else {
         if (res.msg !== "User canceled") {
@@ -74,6 +82,12 @@ export default () => {
         view: (v) => m(Box, {
           style: { display: "flex", flexDirection: "column", padding: "5px" }
         }, [
+          m(Box, {
+            isBtn: true,
+            style: { padding: "10px", textAlign: "left" },
+            onclick: () => { v.attrs.delete(); handleAction("new") }
+          }, trs("菜单栏/操作/新建", { cn: "新建", en: "New" })),
+
           m(Box, {
             isBtn: true,
             style: { padding: "10px", textAlign: "left" },

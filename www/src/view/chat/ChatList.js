@@ -8,6 +8,7 @@ import ChatTerm from "./ChatTerm.js"
 import ToolCallGroup from "./ToolCallGroup.js"
 import { trs } from "../common/i18n.js"
 import getColor from "../common/getColor.js"
+import ChatTasks from "./ChatTasks.js"
 
 export default () => {
   return {
@@ -56,6 +57,7 @@ export default () => {
             position: "relative",
           }
         }, [
+          m(ChatTasks, { chatList }),
           // Header with Back Button logic
           m(Box, {
             style: {
@@ -109,7 +111,7 @@ export default () => {
             m(ChatItem, {
               chat: {
                 group: "preparing",
-                content: chatList?.streamChunks,
+                content: chatList?.streamDisplayContent || chatList?.streamChunks,
                 reasoning: chatList?.streamReasoningChunks, // 直接传递推理流内容
                 timestamp: Date.now(),
               }

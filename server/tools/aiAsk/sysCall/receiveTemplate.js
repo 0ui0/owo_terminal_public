@@ -1,7 +1,7 @@
 import Joi from "joi"
 export default {
   name: "接收模板",
-  id: "sendTemplate",
+  id: "receiveTemplate",
   async fn(argObj) {
     let { value, error } = this.joi().validate(argObj)
     if (error) {

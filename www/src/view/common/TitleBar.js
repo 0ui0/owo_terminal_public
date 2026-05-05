@@ -39,7 +39,7 @@ export default () => {
             }
           }, [
             m("div", { style: { width: "6px", height: "6px", borderRadius: "50%", background: "#4caf50", boxShadow: "0 0 5px #4caf50" } }),
-            m("span", commonData.currentProject.split(/[/\\]/).pop())
+            m("span", typeof commonData.currentProject === 'string' ? commonData.currentProject.split(/[/\\]/).pop() : "")
           ]) : null
         ])
       ])

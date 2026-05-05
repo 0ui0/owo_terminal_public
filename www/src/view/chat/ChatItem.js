@@ -14,6 +14,7 @@ import ChatList from "./ChatList.js"
 import AgentWindow from "./AgentWindow.js"
 import { trs } from "../common/i18n.js"
 import getColor from "../common/getColor.js"
+import { override } from "joi"
 
 const ReasoningBlock = () => {
   let show = false;
@@ -279,14 +280,14 @@ export default ChatItem = () => {
                 }
               }, chat.name) : null,
             //call的内容
-            chat.ask?.call ?
+            chat.ask?.content?.call ?
               m("", [
                 (() => {
                   let _chat = null
                   const chatLists = comData.data.get().chatLists
                   if (chatLists) {
                     for (const list of chatLists) {
-                      _chat = list.data.find(c => c.uuid == chat.ask.call)
+                      _chat = list.data.find(c => c.uuid == chat.ask.content.call)
                       if (_chat) break
                     }
                   }
@@ -301,8 +302,8 @@ export default ChatItem = () => {
                 })()
               ]) : null,
             //quotes引用
-            chat.ask?.quotes ?
-              chat.ask.quotes.map((quote) => {
+            chat.ask?.content?.quotes ?
+              chat.ask.content.quotes.map((quote) => {
                 return m(IconTag, {
                   iconName: "Quote",
                   ext: {
@@ -382,12 +383,20 @@ export default ChatItem = () => {
                       ]),
                       m("", {
                         style: {
-                          float: "right",
+                          float: showMind ? "unset" : "right",
                           whiteSpace: showMind ? "wrap" : "nowrap",
                           fontSize: "0.8rem",
-                        }
+                          maxHeight: "10rem",
+                          overflow: "auto",
+                        },
+                        onupdate({ dom }) {
+                          dom.scrollTop = dom.scrollHeight
+                        },
                       }, [
-                        chat.content,
+                        showMind
+                          ? m.trust(format(chat.content, "markdown"))
+                          : chat.content
+                        ,
                       ]),
                       m("", { style: { float: "clear" } })
                     ])
@@ -395,12 +404,20 @@ export default ChatItem = () => {
                   ]
 
                 default:
-                  return [
+                  return m("", [
                     chat.group === "tip"
                       ? [
                         showMore
-                          ? m.trust(format((attrs.isChildren ? chat.content.slice(0, 30) + "..." : chat.content), "markdown", {}))
+                          ? m("", {
+                            style: {
+                              maxHeight: "20rem",
+                              overflow: "auto"
+                            }
+                          }, [
+                            m.trust(format((attrs.isChildren ? chat.content.slice(0, 30) + "..." : chat.content), "markdown", {}))
+                          ])
                           : chat.ask.title,
+                        //标题
                         chat.ask.joi ? m("", [
                           m("", ["[joi]" + chat.ask.joi]),
                         ]) : null,
@@ -412,6 +429,7 @@ export default ChatItem = () => {
                       ]
                       : m.trust(format((attrs.isChildren ? chat.content.slice(0, 21) + "..." : chat.content), "markdown", {})),
                   ]
+                  )
               }
             })(),
 
@@ -436,7 +454,12 @@ export default ChatItem = () => {
                 }),
                 JSON.stringify(chat, null, "\t\t")
               ]) : null,
-            m("", { style: { fontSize: "0.8rem" } }, [
+            m("", {
+              style: {
+                fontSize: "0.8rem",
+                color: getColor("brown_1").front
+              }
+            }, [
               m("a", {
                 style: {
                   cursor: "pointer",
@@ -546,9 +569,7 @@ export default ChatItem = () => {
                     tip: trs("聊天/撤销/提示标题", { cn: "是否撤销", en: "Undo Check" }),
                     msg: trs("聊天/撤销/提示内容", { cn: "是否撤销本条消息?（若为提问消息本条消息将重新加入到输入框）", en: "Undo this message? (User questions will return to the input box)" }),
                     async confirm() {
-
                       await settingData.fnCall("undoChat", [chat.uuid])
-
                       if (chat.group === "user") {
                         data.inputText += chat.content
                         await comData.data.edit((_data) => {
@@ -556,9 +577,7 @@ export default ChatItem = () => {
                         })
                       }
                     }
-
                   })
-
                 },
               }, [
                 m.trust(window.iconPark.getIcon("Undo", {
@@ -566,6 +585,7 @@ export default ChatItem = () => {
                 })),
                 trs("聊天界面/词汇/撤销")
               ]),
+              // 1. 撤到此处按钮 (Undo)
               m(Tag, {
                 styleExt: {
                   background: getColor('purple_2').back,
@@ -582,9 +602,7 @@ export default ChatItem = () => {
                     tip: trs("聊天/撤到此处/提示标题", { cn: "是否撤到本条？", en: "Undo to here?" }),
                     msg: trs("聊天/撤到此处/提示内容", { cn: "是否撤销到本条消息？（这将清空包括本条和本条以后的所有消息，若为提问消息本条消息将重新加入到输入框）", en: "Undo all messages from this point? (This clears everything after, and returns user questions to input)" }),
                     async confirm() {
-
                       await settingData.fnCall("undoToChat", [chat.uuid])
-
                       if (chat.group === "user") {
                         data.inputText += chat.content
                         const listId = chat.chatListId || 0
@@ -595,7 +613,6 @@ export default ChatItem = () => {
                       }
                     }
                   })
-
                 },
               }, [
                 m.trust(window.iconPark.getIcon("Return", {
@@ -603,6 +620,43 @@ export default ChatItem = () => {
                 })),
                 trs("聊天/撤到此处/按钮", { cn: "撤到本条", en: "Undo to here" })
               ]),
+
+              // 2. 时光机还原按钮
+              (chat.uuid && chat.group !== "preparing" && (comData.data.get()?.snapshots || []).some(s => s.msgId === chat.uuid)) ? m(Tag, {
+                styleExt: {
+                  background: getColor('green_1').back,
+                  color: getColor('green_1').front,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  marginLeft: "0",
+                  marginRight: "0.5rem",
+                },
+                isBtn: true,
+                onclick: async () => {
+                  const projectRoot = comData.data.get()?.customCwd;
+                  Notice.launch({
+                    tip: "时光机还原",
+                    msg: "确定要将整个项目还原到该消息对应的快照状态吗？\n（此操作将执行全量替换，不可撤销）",
+                    confirm: async () => {
+                      try {
+                        const res = await settingData.fnCall("restoreChatFile", [{ uuid: chat.uuid }]);
+                        if (res.ok) {
+                          Notice.launch({ msg: res.msg, type: "success" });
+                        } else {
+                          Notice.launch({ msg: res.msg, type: "error" });
+                        }
+                      }
+                      catch (err) {
+                        console.log(err)
+                      }
+                    }
+                  });
+                }
+              }, [
+                m.trust(window.iconPark.getIcon("History", { fill: getColor('green_1').front })),
+                "还原文件变动"
+              ]) : null,
+
 
               m(Tag, {
                 styleExt: {

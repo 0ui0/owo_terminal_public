@@ -1,0 +1,13 @@
+{
+  "id": "owoTimeMachine",
+  "name": "时光机",
+  "icon": "🕒",
+  "description": "Mac 风格的项目快照与恢复工具",
+  "type": "utility",
+  "window": {
+    "width": 800,
+    "height": 600
+  },
+  "backend": "backend.js",
+  "frontend": "frontend.js"
+}

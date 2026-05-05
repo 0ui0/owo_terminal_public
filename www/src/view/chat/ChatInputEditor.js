@@ -1,4 +1,5 @@
 import data from "./chatData.js";
+import comData from "../../comData/comData.js";
 import { trs } from "../common/i18n.js";
 import getColor from "../common/getColor.js";
 
@@ -25,9 +26,22 @@ export default () => {
         return `<span contenteditable="false" class="editor-tag tag-attach" data-id="${id}">📎 ${id}</span>`;
       });
 
+      // 渲染文件路径标签 [filePath:xxx]
+      html = html.replace(/\[filePath:([^\]]+)\]/g, (match, path) => {
+        const fileName = path.split(/[/\\]/).pop();
+        return `<span contenteditable="false" class="editor-tag tag-file" data-id="${path}" title="${path}">📄 ${fileName}</span>`;
+      });
+
       // 渲染应用标签 [appid:xxx]
       html = html.replace(/\[appid:([^\]]+)\]/g, (match, id) => {
         return `<span contenteditable="false" class="editor-tag tag-app" data-id="${id}">🚀 ${id}</span>`;
+      });
+
+      // 渲染代码引用标签 [codeQuote:path:range]
+      html = html.replace(/\[codeQuote:([^:\]]+)(?::([^\]]+))?\]/g, (match, path, range) => {
+        const fileName = path.split(/[/\\]/).pop();
+        const display = range ? `${fileName} (${range})` : fileName;
+        return `<span contenteditable="false" class="editor-tag tag-code" data-id="${path}${range ? ':' + range : ''}" title="${path}${range ? ' @ ' + range : ''}">📝 ${display}</span>`;
       });
     }
 
@@ -46,7 +60,11 @@ export default () => {
     // 处理标签：从 data-id 恢复原始格式
     const tags = tempDiv.querySelectorAll(".editor-tag");
     tags.forEach(tag => {
-      const type = tag.classList.contains("tag-attach") ? "attachid" : "appid";
+      let type = "attachid";
+      if (tag.classList.contains("tag-app")) type = "appid";
+      else if (tag.classList.contains("tag-file")) type = "filePath";
+      else if (tag.classList.contains("tag-code")) type = "codeQuote";
+
       const id = tag.getAttribute("data-id");
       tag.replaceWith(`[${type}:${id}]`);
     });
@@ -107,6 +125,137 @@ export default () => {
             placeholder: attrs.placeholder || "",
             oninput: (e) => {
               data.inputText = htmlToText(e.target.innerHTML);
+            },
+            ondragover: (e) => {
+              e.preventDefault();
+              e.dataTransfer.dropEffect = 'copy';
+            },
+            ondrop: (e) => {
+              e.preventDefault();
+              const files = e.dataTransfer.files;
+              if (files && files.length > 0) {
+                const targetChatListId = (comData.data.get()?.targetChatListId || 0);
+                if (!data.attachmentsMap[targetChatListId]) data.attachmentsMap[targetChatListId] = [];
+
+                for (let i = 0; i < files.length; i++) {
+                  const file = files[i];
+                  const isImage = file.type.startsWith('image/');
+
+                  let path = "";
+                  if (window.electronAPI && window.electronAPI.getPathForFile) {
+                    path = window.electronAPI.getPathForFile(file);
+                  }
+
+                  if (!path) {
+                    path = file.path || file.name;
+                  }
+
+                  if (isImage) {
+                    const attachObj = {
+                      id: file.name,
+                      url: URL.createObjectURL(file),
+                      type: 'image',
+                      progress: 0,
+                      status: 'uploading'
+                    };
+                    data.attachmentsMap[targetChatListId].push(attachObj);
+
+                    const formData = new FormData();
+                    formData.append('file', file);
+
+                    const xhr = new XMLHttpRequest();
+                    xhr.upload.onprogress = (event) => {
+                      if (event.lengthComputable) {
+                        attachObj.progress = Math.round((event.loaded / event.total) * 100);
+                        m.redraw();
+                      }
+                    };
+                    xhr.onload = () => {
+                      if (xhr.status >= 200 && xhr.status < 300) {
+                        const res = JSON.parse(xhr.responseText);
+                        if (res && res.id) {
+                          attachObj.id = res.id;
+                          attachObj.url = res.url;
+                          attachObj.type = res.type || attachObj.type;
+                          attachObj.status = 'done';
+                          attachObj.progress = 100;
+                          data.quoteAttachId(res.id);
+                          m.redraw();
+                        }
+                      }
+                    };
+                    xhr.open('POST', `${window.location.protocol}//${window.location.hostname}:9501/api/attachments/set`);
+                    xhr.send(formData);
+                  } else {
+                    if (path) {
+                      data._insertAtCursor(` [filePath:${path}] `);
+                    }
+                  }
+                }
+              } else {
+                const text = e.dataTransfer.getData('text/plain');
+                if (text) {
+                  if (!text.includes("\n") && (text.startsWith("/") || /^[a-zA-Z]:[\\/]/.test(text))) {
+                    data._insertAtCursor(` [filePath:${text}] `);
+                  } else {
+                    data._insertAtCursor(text);
+                  }
+                }
+              }
+            },
+            onpaste: (e) => {
+              const items = (e.clipboardData || e.originalEvent.clipboardData).items;
+              for (let i = 0; i < items.length; i++) {
+                if (items[i].type.indexOf("image") !== -1) {
+                  const file = items[i].getAsFile();
+                  if (!file) continue;
+
+                  // 阻止默认粘贴行为（避免在 contenteditable 中直接插入原生 img 节点）
+                  e.preventDefault();
+
+                  // 准备上传
+                  const targetChatListId = (comData.data.get()?.targetChatListId || 0);
+                  if (!data.attachmentsMap[targetChatListId]) data.attachmentsMap[targetChatListId] = [];
+
+                  // 创建临时占位对象
+                  const attachObj = {
+                    id: `pasting-${Date.now()}`,
+                    url: URL.createObjectURL(file),
+                    type: 'image',
+                    progress: 0,
+                    status: 'uploading'
+                  };
+                  data.attachmentsMap[targetChatListId].push(attachObj);
+
+                  const formData = new FormData();
+                  formData.append('file', file, `pasted-image-${Date.now()}.png`);
+
+                  const xhr = new XMLHttpRequest();
+                  xhr.upload.onprogress = (event) => {
+                    if (event.lengthComputable) {
+                      attachObj.progress = Math.round((event.loaded / event.total) * 100);
+                      m.redraw();
+                    }
+                  };
+
+                  xhr.onload = () => {
+                    if (xhr.status >= 200 && xhr.status < 300) {
+                      const res = JSON.parse(xhr.responseText);
+                      if (res && res.id) {
+                        attachObj.id = res.id;
+                        attachObj.url = res.url;
+                        attachObj.status = 'done';
+                        attachObj.progress = 100;
+                        data.quoteAttachId(res.id); // 自动插入标签
+                        m.redraw();
+                      }
+                    }
+                  };
+
+                  xhr.open('POST', `${window.location.protocol}//${window.location.hostname}:9501/api/attachments/set`);
+                  xhr.send(formData);
+                }
+              }
             },
             onkeydown: (e) => {
               // 处理输入法组字状态，避免在选词时触发提交
@@ -222,6 +371,16 @@ export default () => {
              background: ${getColor('pink_2').back}; /* 紫色调应用 */
              color: ${getColor('pink_1').front};
              border-color: ${getColor('pink_1').back};
+          }
+          .tag-file {
+             background: ${getColor('blue_1').back}; /* 蓝色调文件路径 */
+             color: ${getColor('gray_8').front};
+             border-color: ${getColor('blue_1').back};
+          }
+          .tag-code {
+             background: ${getColor('orange_1').back}; /* 橙色调代码引用 */
+             color: ${getColor('orange_1').front};
+             border-color: ${getColor('orange_1').back};
           }
         `)
       ];

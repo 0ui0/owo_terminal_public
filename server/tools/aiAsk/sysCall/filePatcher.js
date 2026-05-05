@@ -19,6 +19,22 @@ export default {
     const comData = (await import("../../../comData/comData.js")).default
     const cwd = comData.data.get()?.customCwd || process.cwd()
     const resolvedPath = pathLib.resolve(cwd, path)
+    const fileState = (await import("../../fileState.js")).default
+    const stringUtils = (await import("../../stringUtils.js")).default
+
+    // 安全检查：过期判定 (Staleness Check)
+    try {
+      const stat = await fs.stat(resolvedPath)
+      const cached = fileState.get(resolvedPath)
+      if (cached && stat.mtimeMs > cached.timestamp) {
+        return `⚠️ 安全拦截：文件自上次读取以来已被外部修改过。
+当前文件修改时间：${new Date(stat.mtimeMs).toLocaleString()}
+上次读取时间：${new Date(cached.timestamp).toLocaleString()}
+为防止覆盖他人或自己的最新改动，请先使用 fileOpener 重新读取文件！`
+      }
+    } catch (err) {
+      if (err.code !== 'ENOENT') throw err
+    }
 
     const isInProject = resolvedPath.startsWith(cwd)
     if (!isInProject) {
@@ -64,24 +80,43 @@ export default {
         const delimiter = isCRLF ? '\r\n' : '\n'
         newContent = joinArray.join(delimiter)
       } else {
-        // 检查 target 是否存在
-        if (!content.includes(target)) {
+        // 风格保持处理
+        const actualTarget = stringUtils.normalizeQuotes(target)
+        let finalTarget = target
+        if (content.includes(actualTarget) && !content.includes(target)) {
+          finalTarget = actualTarget
+        }
+
+        // 检查 finalTarget 是否存在
+        if (!content.includes(finalTarget)) {
           return `错误：未找到目标字符串${target}。请先使用 fileOpener 确认文件内容。若修改范围大，强烈建议改用 startLine 和 endLine。`
         }
 
         // 检查唯一性
-        const matchCount = content.split(target).length - 1
+        const matchCount = content.split(finalTarget).length - 1
         if (matchCount > 1 && !allowMultiple) {
           return `错误：目标字符串${target}在文件中出现了 ${matchCount} 次。请提供更长的上下文以确保唯一匹配，或将 allowMultiple 设为 true。`
         }
 
+        const finalReplace = stringUtils.preserveQuoteStyle(target, finalTarget, replace)
+
         // 执行替换逻辑（在内存中）
         if (allowMultiple) {
-          newContent = content.replaceAll(target, replace)
+          newContent = content.replaceAll(finalTarget, finalReplace)
         } else {
-          newContent = content.replace(target, replace)
+          newContent = content.replace(finalTarget, finalReplace)
         }
       }
+
+      // 覆盖更新缓存状态
+      const newStat = await fs.stat(resolvedPath).catch(() => ({ mtimeMs: Date.now() }))
+      fileState.set(resolvedPath, {
+        timestamp: newStat.mtimeMs || Date.now(),
+        content: newContent,
+        // 这里如果是 target 模式，原本的行号范围失效了，简单置空
+        startLine: 0,
+        endLine: 0
+      })
 
       // 3. Launch Dedicated Editor Window
       const appId = `editor_patcher_${uuidV4().slice(0, 8)}`

@@ -10,7 +10,18 @@ export default {
         targetList.data.push(chat);
       } else {
         // Fallback: 如果连 ID 0 都没有，初始化一个
-        data.chatLists.push({ id: 0, linkid: 0, data: [chat] });
+        data.chatLists.push({
+          id: 0,
+          linkid: 0,
+          data: [chat],
+          replying: false,
+          streamChunks: "",
+          streamDisplayContent: "",
+          streamReasoningChunks: "",
+          confirmCmds: [],
+          stop: false,
+          tasks: []
+        });
       }
 
     })

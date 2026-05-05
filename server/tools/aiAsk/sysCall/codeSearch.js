@@ -32,7 +32,8 @@ export default {
     }
     let { query, includes, searchDir } = value
 
-    const cwd = process.cwd()
+    const comData = (await import("../../../comData/comData.js")).default
+    const cwd = comData.data.get()?.customCwd || process.cwd()
     const targetDir = searchDir ? pathLib.resolve(cwd, searchDir) : cwd
 
     // 构建参数数组

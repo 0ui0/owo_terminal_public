@@ -1,130 +1,159 @@
 import explorerData from "./explorerData.js"
+import ActionBar from "./frontendModules/ActionBar.js"
+import FileArea from "./frontendModules/FileArea.js"
+import ConflictDialog from "./frontendModules/ConflictDialog.js"
+import ContextMenu from "./frontendModules/ContextMenu.js"
+import tmRestoreModule from "./frontendModules/tmRestoreModule.js"
+import FormatUtils from "./frontendModules/FormatUtils.js"
 
 // Explorer 前端组件 (Closure Component)
 export default ({ appId, m, Notice, ioSocket, comData, commonData, settingData, Box, iconPark, getColor }) => {
-  console.log("Explorer app launched with getColor:", typeof getColor);
   // === 私有状态 (Private State) ===
   let currentPath = ""
   let inputPath = ""
   let files = []
   let selected = new Set()
-  //let historyIndex = 0
-  //let historyLen = 1
+  let searchKeyword = ""
+  let sortField = "name"
+  let sortOrder = 1
+  let viewMode = "grid"
+  let searchMode = "current"
+  let projectSearchResults = []
   let clipboard = { files: [], mode: null }
+  let isRestoring = false // 新增：全局还原锁
 
   // 拖拽多选状态
   let isSelecting = false
   let selectStart = { x: 0, y: 0 }
   let selectEnd = { x: 0, y: 0 }
-  let pivotIndex = undefined
+  let lastPointerTime = 0
+  let lastPointerTarget = null
+  let pendingSelectClear = null // 新增：记录待清除的多选状态
+  let searchTimer = null
+  let hoverTimer = null // 悬停进入定时器
+  let lastHoverPath = null // 上次悬停的文件夹路径
 
   // DOM 引用
   let dom = null
 
   // === 业务逻辑 (Business Logic) ===
 
-  const redraw = () => {
-    /* 
-       由于是闭包组件，m.redraw() 会触发 view() 
-       重新执行，从而读取到最新的闭包变量。
-    */
-    m.redraw()
-  }
+  const redraw = () => m.redraw()
 
   const navigate = async (path) => {
+    if (isRestoring) return Notice.launch({ msg: "操作被拦截：还原期间禁止切换目录，防止状态撕裂喵！", type: "warning" });
     await settingData.fnCall("appDispatch", [appId, "navigate", { path }])
   }
 
   const loadDir = async (path = null) => {
-    const res = await settingData.fnCall("appDispatch", [appId, "ls", { path }])
-    if (!res.ok) Notice.launch({ msg: res.error || "无法加载目录" })
+    const rawRes = await settingData.fnCall("appDispatch", [appId, "ls", { path }])
+    if (rawRes.ok && rawRes.data) {
+      files = rawRes.data.data || rawRes.data.files || [];
+      console.log(`[Explorer] Loaded ${files.length} files from ${path || currentPath}`);
+      redraw();
+    } else {
+      Notice.launch({ msg: rawRes.msg })
+    }
   }
 
   const openItem = async (item) => {
     if (item.isDirectory) {
       await navigate(item.name)
     } else {
-      await settingData.fnCall("appDispatch", [appId, "open", { filename: item.name }])
+      await settingData.fnCall("appDispatch", [appId, "open", { filename: item.isSearchResult ? item.path : item.name }])
     }
   }
 
   const goHistory = async (delta) => {
+    if (isRestoring) return Notice.launch({ msg: "操作被拦截：还原期间禁止切换目录，防止状态撕裂喵！", type: "warning" });
     await settingData.fnCall("appDispatch", [appId, "history", { delta }])
   }
 
   const resolveConflictsUI = (conflicts, index, decisions, performPaste) => {
-    // Conflict resolution logic (moved from view)
-    if (index >= conflicts.length) {
-      performPaste(decisions)
-      return
-    }
+    if (index >= conflicts.length) return performPaste(decisions)
     const file = conflicts[index]
-    const sign = "conflict_" + Date.now() + "_" + index
-    redraw()
-
     Notice.launch({
-      sign, width: 400,
+      sign: "conflict_" + Date.now(),
+      width: 450,
       content: {
-        view: (v) => m(Box, { style: { display: "flex", flexDirection: "column", padding: "10px" } }, [
-          m("div", { style: { marginBottom: "15px", fontWeight: "bold" } }, "文件冲突"),
-          m("div", { style: { marginBottom: "20px" } }, `目标位置已包含名为 "${file}" 的文件。`),
-          m("div", { style: { display: "flex", gap: "10px", justifyContent: "flex-end", flexWrap: "wrap" } }, [
-            m(Box, { isBtn: true, onclick: () => { v.attrs.delete(); decisions[file] = 'rename'; resolveConflictsUI(conflicts, index + 1, decisions, performPaste) } }, "重命名"),
-            m(Box, { isBtn: true, onclick: () => { v.attrs.delete(); decisions[file] = 'override'; resolveConflictsUI(conflicts, index + 1, decisions, performPaste) } }, "覆盖"),
-            m(Box, { isBtn: true, onclick: () => { v.attrs.delete(); decisions[file] = 'skip'; resolveConflictsUI(conflicts, index + 1, decisions, performPaste) } }, "跳过"),
-            m("div", { style: { width: "100%", height: "1px", background: getColor('gray_1').back, margin: "5px 0", opacity: 0.1 } }),
-            m(Box, { isBtn: true, onclick: () => { v.attrs.delete(); conflicts.slice(index).forEach(f => decisions[f] = 'rename'); performPaste(decisions) } }, "全部重命名"),
-            m(Box, { isBtn: true, onclick: () => { v.attrs.delete(); conflicts.slice(index).forEach(f => decisions[f] = 'override'); performPaste(decisions) } }, "全部覆盖"),
-            m(Box, { isBtn: true, onclick: () => { v.attrs.delete(); conflicts.slice(index).forEach(f => decisions[f] = 'skip'); performPaste(decisions) } }, "全部跳过"),
-            m(Box, { isBtn: true, color: "pink_1", onclick: () => v.attrs.delete() }, "取消"),
-          ])
-        ])
+        view: (v) => m(ConflictDialog, {
+          m, Box,
+          fileName: file,
+          onDecision: (d) => { v.attrs.delete(); decisions[file] = d; resolveConflictsUI(conflicts, index + 1, decisions, performPaste) },
+          onGlobalDecision: (d) => { v.attrs.delete(); conflicts.slice(index).forEach(f => decisions[f] = d); performPaste(decisions) },
+          onCancel: () => v.attrs.delete()
+        })
       }
     })
   }
 
-  const doPaste = async (targetPath) => {
+  const doPaste = async (targetPath, noNavigate = false) => {
     if (!clipboard || !clipboard.files.length) return Notice.launch({ msg: "剪贴板为空" })
-
     const performPaste = async (decisions = {}) => {
       try {
-        const rawRes = await settingData.fnCall("appDispatch", [
-          appId, "paste",
-          { mode: clipboard.mode, files: clipboard.files, targetPath, decisions }
-        ])
-        if (!rawRes.ok) return Notice.launch({ msg: rawRes.error || "请求失败" })
+        const rawRes = await settingData.fnCall("appDispatch", [appId, "paste", { mode: clipboard.mode, files: clipboard.files, targetPath, decisions, noNavigate }])
 
+        if (!rawRes.ok) return Notice.launch({ msg: rawRes.error || "请求失败" })
         const res = rawRes.data
+
         if (res.status === "conflict") {
           resolveConflictsUI(res.files, 0, decisions, performPaste)
         } else if (res.ok) {
           if (clipboard.mode === 'cut') clipboard = { files: [], mode: null }
+          if (noNavigate) loadDir()
           redraw()
         } else {
-          Notice.launch({ msg: res.error || "粘贴失败" })
+          Notice.launch({ msg: res.error || "操作失败" })
         }
       } catch (e) {
-        console.error(e)
-        Notice.launch({ msg: "粘贴异常: " + e.message })
+        Notice.launch({ msg: "操作异常: " + e.message })
       }
     }
     performPaste({})
   }
 
-  // === 对外接口 (Instance Interface) ===
+  // --- 时光机还原逻辑 (已迁移至模块) ---
+  const tmRestoreProcess = async (items, targetFolder = null) => {
+    if (isRestoring) return Notice.launch({ msg: "已有还原任务正在进行中，请耐心等待喵！", type: "warning" });
+    isRestoring = true;
+    try {
+      await tmRestoreModule.run({
+        items, targetFolder, currentPath, appId, m, Notice, Box, settingData, askConfirm
+      });
+    } finally {
+      isRestoring = false;
+    }
+  };
+
+  // --- Socket 监听器管理 ---
+  const tmTriggerHandler = (rawData) => {
+    const items = rawData.type === 'tm-items' ? rawData.items : (rawData.type === 'tm-item' ? [rawData] : []);
+    if (items.length > 0) tmRestoreProcess(items);
+  };
+
+  const fsChangeHandler = (msg) => {
+    if (msg && msg.paths && msg.paths.includes(currentPath)) {
+      loadDir();
+    }
+  };
+
+  if (ioSocket && ioSocket.socket) {
+    ioSocket.socket.on("tm:trigger-restore", tmTriggerHandler);
+    ioSocket.socket.on("explorer:fs-change", fsChangeHandler);
+  }
+
+  // === 对外接口 ===
   const instanceInterface = {
     onDispatch: (msg, callback) => {
-      // Handle socket messages
       if (msg.action === "updatePath") {
         currentPath = msg.args.path
         inputPath = msg.args.path
-        files = msg.args.files
+        files = msg.args.data || msg.args.files || []
         selected.clear()
         redraw()
       } else if (msg.action === "getHTML") {
-        const html = dom ? dom.innerHTML : ""
-        if (callback) callback({ ok: true, data: html })
-        return // getHTML returns here
+        if (callback) callback({ ok: true, data: dom ? dom.innerHTML : "" })
+        return
       } else if (msg.action === "navigate") {
         navigate(msg.args.path)
       } else if (msg.action === "select") {
@@ -132,86 +161,29 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, settingData, 
         selected.add(msg.args.filename)
         redraw()
       }
-
-      if (callback && msg.action !== "getHTML") callback({ ok: true })
+      if (callback) callback({ ok: true })
     }
   }
 
   // === Lifecycle ===
   const init = async () => {
-    // 注册到单例管理器
-    explorerData.addTool("commonData", commonData) // 注入依赖
+    explorerData.addTool("commonData", commonData)
     explorerData.registerInstances(appId, instanceInterface)
-
-    // 将单例注册到全局 Registry (只要一次即可，重复注册会被 warn 但无害)
-    if (commonData && commonData.registerApp) {
-      commonData.registerApp(appId, explorerData)
-    }
-
-    // 初始路径
-    const initialPath = comData.data.get()?.customCwd || "."
-    await navigate(initialPath)
+    if (commonData?.registerApp) commonData.registerApp(appId, explorerData)
+    await navigate(comData.data.get()?.customCwd || ".")
   }
+  init()
 
-  init() // 立即初始化 (Component creation)
-
-  // === Sub-components / Helpers ===
-  const getIcon = (item) => {
-    if (item.isDirectory) return "📁"
-    const ext = item.name.split(".").pop().toLowerCase()
-    const map = {
-      "js": "📜", "json": "⚙️", "md": "📝", "txt": "📄", "html": "🌐",
-      "css": "🎨", "png": "🖼️", "jpg": "🖼️", "mp4": "🎬", "mp3": "🎵"
-    }
-    return map[ext] || "📃"
-  }
-
-  // ... (Prompts / Menus helpers) ...
-  const askName = (title, defaultName) => {
+  const askConfirm = (msg, title = "确认") => {
     return new Promise((resolve) => {
-      let value = defaultName
-      const sign = "prompt_" + Date.now() + Math.random()
-      const close = () => {
-        const item = Notice.data.dataArr.find(i => i.sign === sign)
-        if (item) Notice.closeTab(item)
-      }
+      const sign = "confirm_" + Date.now()
       Notice.launch({
-        sign, width: 300,
+        sign, width: 350,
         content: {
-          view: (v) => m(Box, { style: { display: "flex", flexDirection: "column" } }, [
-            m("div", { style: { padding: "0.5rem", color: getColor('gray_4').front, fontWeight: "bold" } }, title),
-            m(Box, {
-              tagName: "input", ext: { type: "text" }, value: value,
-              color: "brown_4",
-              style: { borderRadius: "10rem" },
-              oninput: (_, e) => value = e.target.value,
-              onkeydown: (e) => {
-                if (e.key === "Enter") { resolve(value); v.attrs.delete() }
-                else if (e.key === "Escape") { resolve(null); v.attrs.delete() }
-                e.stopPropagation()
-              },
-              oncreate: (vn) => setTimeout(() => { vn.dom.focus(); vn.dom.select() }, 50)
-            }),
-            m("div", { style: { display: "flex", justifyContent: "flex-end", marginTop: "10px" } }, [
-              m(Box, { isBtn: true, color: "pink_1", onclick: () => { resolve(null); v.attrs.delete() } }, "取消"),
-              m(Box, { isBtn: true, onclick: () => { resolve(value); v.attrs.delete() } }, "确定")
-            ])
-          ])
-        }
-      })
-    })
-  }
-
-  const askConfirm = (msg) => {
-    return new Promise((resolve) => {
-      const sign = "confirm_" + Date.now() + Math.random()
-      const close = () => { const item = Notice.data.dataArr.find(i => i.sign === sign); if (item) Notice.closeTab(item) }
-      Notice.launch({
-        sign, width: 300,
-        content: {
-          view: (v) => m(Box, { style: { display: "flex", flexDirection: "column" } }, [
-            m("div", { style: { padding: "0.5rem", color: getColor('gray_4').front, fontWeight: "bold" } }, msg),
-            m("div", { style: { display: "flex", justifyContent: "flex-end", marginTop: "10px" } }, [
+          view: (v) => m(Box, { style: { display: "flex", flexDirection: "column", padding: "10px" } }, [
+            m("", { style: { marginBottom: "15px", fontWeight: "bold" } }, title),
+            m("", { style: { marginBottom: "20px" } }, msg),
+            m("", { style: { display: "flex", gap: "10px", justifyContent: "flex-end" } }, [
               m(Box, { isBtn: true, color: "pink_1", onclick: () => { resolve(false); v.attrs.delete() } }, "取消"),
               m(Box, { isBtn: true, onclick: () => { resolve(true); v.attrs.delete() } }, "确定")
             ])
@@ -221,215 +193,385 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, settingData, 
     })
   }
 
-  // === View ===
+  // === Helpers ===
+  const getIcon = (item) => {
+    if (item.isDirectory) return "📁"
+    const ext = item.name.split(".").pop().toLowerCase()
+    const map = { "js": "📜", "json": "⚙️", "md": "📝", "txt": "📄", "html": "🌐", "css": "🎨", "png": "🖼️", "jpg": "🖼️", "mp4": "🎬", "mp3": "🎵" }
+    return map[ext] || "📃"
+  }
+
+  const askName = (title, defaultName) => {
+    return new Promise((resolve) => {
+      let value = defaultName
+      const sign = "prompt_" + Date.now() + Math.random()
+      Notice.launch({
+        sign, width: 300,
+        content: {
+          view: (v) => m(Box, { style: { display: "flex", flexDirection: "column" } }, [
+            m("", { style: { padding: "0.5rem", fontWeight: "bold" } }, title),
+            m(Box, {
+              tagName: "input", ext: { type: "text" }, value: value, color: "brown_4", style: { borderRadius: "10rem" },
+              oninput: (_, e) => value = e.target.value,
+              onkeydown: (e) => { if (e.key === "Enter") { resolve(value); v.attrs.delete() } else if (e.key === "Escape") { resolve(null); v.attrs.delete() } e.stopPropagation() },
+              oncreate: (vn) => setTimeout(() => { vn.dom.focus(); vn.dom.select() }, 50)
+            }),
+            m("", { style: { display: "flex", justifyContent: "flex-end", marginTop: "10px" } }, [
+              m(Box, { isBtn: true, color: "pink_1", onclick: () => { resolve(null); v.attrs.delete() } }, "取消"),
+              m(Box, { isBtn: true, onclick: () => { resolve(value); v.attrs.delete() } }, "确定")
+            ])
+          ])
+        }
+      })
+    })
+  }
+
   return {
     onremove() {
+      if (ioSocket && ioSocket.socket) {
+        ioSocket.socket.off("tm:trigger-restore", tmTriggerHandler);
+        ioSocket.socket.off("explorer:fs-change", fsChangeHandler);
+      }
       explorerData.unregisterInstances(appId, commonData)
     },
-    view(vnode) {
-      // 闭包变量直接可用，无需 vnode.state
-      // ... View Logic ...
-      // 鉴于 View 逻辑较长且与之前大体一致，我将尽量保持原样，但替换数据源
-
-      const showParamsMenu = (e) => {
-        e.preventDefault()
-        if (e.target !== e.currentTarget) return
-        if (selected.size > 0) return showContext(e)
-        Notice.launch({
-          group: "contextMenu", width: 150, x: e.clientX, y: e.clientY,
-          content: {
-            view: (v) => m(Box, { style: { display: "flex", flexDirection: "column" } }, [
-              m(Box, { isBtn: true, style: { padding: "8px", textAlign: "left" }, onclick: async () => { v.attrs.delete(); const name = await askName("请输入文件夹名称", "新建文件夹"); if (name) await settingData.fnCall("appDispatch", [appId, "mkdir", { name }]) } }, "新建文件夹"),
-              m(Box, { isBtn: true, style: { padding: "8px", textAlign: "left" }, onclick: async () => { v.attrs.delete(); const name = await askName("请输入文件名", "新建文本.txt"); if (name) await settingData.fnCall("appDispatch", [appId, "newFile", { name }]) } }, "新建文件"),
-              clipboard.files.length > 0 ? m(Box, { isBtn: true, style: { padding: "8px", textAlign: "left" }, onclick: () => { v.attrs.delete(); doPaste(currentPath) } }, `粘贴 (${clipboard.files.length})`) : null
-            ])
-          }
-        })
-      }
-
-      const showContext = (e, item) => {
-        e.preventDefault()
-        if (item && !selected.has(item.name)) { selected.clear(); selected.add(item.name) }
-        redraw() // update select UI
-        const selectedCount = selected.size
-        const isSingle = selectedCount === 1
-        const firstItemName = isSingle ? Array.from(selected)[0] : null
-        const firstItem = isSingle ? files.find(f => f.name === firstItemName) : null
-
-        Notice.launch({
-          group: "contextMenu", width: 150, x: e.clientX, y: e.clientY,
-          content: {
-            view: (v) => m(Box, { style: { display: "flex", flexDirection: "column" } }, [
-              isSingle ? m(Box, { isBtn: true, style: { padding: "8px", textAlign: "left" }, onclick: () => { v.attrs.delete(); openItem(firstItem) } }, "打开") : null,
-              isSingle ? m(Box, { isBtn: true, style: { padding: "8px", textAlign: "left" }, onclick: async () => { v.attrs.delete(); const newName = await askName("重命名", firstItem.name); if (newName && newName !== firstItem.name) await settingData.fnCall("appDispatch", [appId, "rename", { oldName: firstItem.name, newName }]) } }, "重命名") : null,
-              m(Box, { isBtn: true, style: { padding: "8px", textAlign: "left" }, onclick: () => { v.attrs.delete(); const sep = currentPath.includes("\\") ? "\\" : "/"; const fs = Array.from(selected).map(n => currentPath + (currentPath.endsWith(sep) ? "" : sep) + n); clipboard = { files: fs, mode: 'copy' }; Notice.launch({ msg: `已复制 ${fs.length} 个项目` }) } }, "复制"),
-              m(Box, { isBtn: true, style: { padding: "8px", textAlign: "left" }, onclick: () => { v.attrs.delete(); const sep = currentPath.includes("\\") ? "\\" : "/"; const fs = Array.from(selected).map(n => currentPath + (currentPath.endsWith(sep) ? "" : sep) + n); clipboard = { files: fs, mode: 'cut' }; Notice.launch({ msg: `已剪切 ${fs.length} 个项目` }) } }, "剪切"),
-              m(Box, { isBtn: true, color: "pink_1", style: { padding: "8px", textAlign: "left" }, onclick: async () => { v.attrs.delete(); const fs = Array.from(selected); if (await askConfirm(`确定删除这 ${fs.length} 个项目吗？`)) await settingData.fnCall("appDispatch", [appId, "delete", { files: fs }]) } }, "删除")
-            ])
-          }
-        })
-      }
-
-      // 拖拽处理
-      const handleDragStart = (e, item) => {
-        const fullPath = currentPath + (currentPath.endsWith("/") ? "" : "/") + item.name
-        e.dataTransfer.setData("text/plain", fullPath)
-        e.dataTransfer.effectAllowed = "copy"
-        const div = document.createElement("div")
-        div.textContent = `${getIcon(item)} ${item.name}`
-        div.style.background = getColor('gray_4').back; div.style.color = getColor('gray_4').front; div.style.padding = "5px"; div.style.borderRadius = "4px"; div.style.position = "absolute"; div.style.top = "-9999px"
-        document.body.appendChild(div)
-        e.dataTransfer.setDragImage(div, 0, 0)
-        setTimeout(() => document.body.removeChild(div), 0)
-      }
-
-      return m("div", {
-        tabindex: 0,
-        style: {
-          display: "flex", flexDirection: "column",
-          width: "100%", height: "100%",
-          background: getColor('gray_4').back, color: getColor('gray_4').front, fontFamily: "system-ui",
-          outline: "none"
-        },
-        onkeydown: (e) => {
-          const isMod = e.metaKey || e.ctrlKey
-          if (isMod && e.key.toLowerCase() === 'a') {
-            e.preventDefault(); files.forEach(f => selected.add(f.name)); redraw()
-          } else if (e.key === 'Delete') {
-            if (selected.size > 0) { const fs = Array.from(selected); askConfirm(`确定删除这 ${fs.length} 个项目吗？`).then(yes => { if (yes) settingData.fnCall("appDispatch", [appId, "delete", { files: fs }]) }) }
-          }
-        },
-        oncreate: (vn) => { dom = vn.dom },
-      }, [
-        m("div", {
-          style: { display: "flex", padding: "8px", gap: "10px", background: getColor('gray_12').back, alignItems: "center" }
-        }, [
-          m("div", {
-            style: { cursor: "pointer", padding: "4px", borderRadius: "10rem", display: "flex", alignItems: "center", justifyContent: "center", width: "2rem", height: "2rem" },
-            class: "hover-bg",
-            onclick: () => goHistory(-1)
-          }, m.trust(iconPark.getIcon("Left", { size: "1.2rem", fill: getColor('gray_12').front }))),
-          m(Box, {
-            tagName: "input",
-            value: inputPath,
-            color: "brown_4",
-            padding: "0.5rem 1rem",
-            style: { flex: 1, borderRadius: "10rem", border: `1px solid ${getColor('gray_2').back}` },
-            oninput: (dom, e) => inputPath = e.target.value,
-            onkeydown: (dom, e) => { if (e.key === 'Enter') navigate(inputPath); e.stopPropagation() }
-          }),
-          m("div", {
-            style: { cursor: "pointer", padding: "4px", borderRadius: "10rem", display: "flex", alignItems: "center", justifyContent: "center", width: "2rem", height: "2rem" },
-            class: "hover-bg",
-            onclick: () => loadDir()
-          }, m.trust(iconPark.getIcon("Refresh", { size: "1.2rem", fill: getColor('gray_12').front })))
-        ]),
-
-        // File Grid
-        m("div", {
+    view() {
+      return m("",
+        {
+          tabindex: 0,
           style: {
-            flex: 1, overflowY: "auto", padding: "10px", display: "grid",
-            gridTemplateColumns: "repeat(auto-fill, minmax(90px, 1fr))",
-            gap: "10px", alignContent: "start", userSelect: "none", position: "relative"
+            display: "flex", flexDirection: "column",
+            width: "100%", height: "100%",
+            background: getColor('gray_12').back,
+            color: getColor('gray_12').front,
+            outline: "none", position: "relative", overflow: "hidden"
           },
-          oncontextmenu: showParamsMenu,
-          // onmousedown for drag select (Simplified for brevity, can re-add if needed or use existing logic)
-          onmousedown: (e) => {
-            dom.focus()
-            if (e.button !== 0 || e.target.closest('.file-item')) return
-            const container = e.currentTarget
-            const containerRect = container.getBoundingClientRect()
-            const startX = e.clientX - containerRect.left + container.scrollLeft
-            const startY = e.clientY - containerRect.top + container.scrollTop
-
-            isSelecting = false
-            selectStart = { x: startX, y: startY }
-            selectEnd = { x: startX, y: startY }
-            const threshold = 5
-
-            const move = (ev) => {
-              const cx = ev.clientX - containerRect.left + container.scrollLeft
-              const cy = ev.clientY - containerRect.top + container.scrollTop
-              if (!isSelecting && Math.hypot(cx - startX, cy - startY) > threshold) isSelecting = true
-              if (isSelecting) {
-                selectEnd = { x: cx, y: cy }
-                // Drag Select Logic
-                const sb = {
-                  left: Math.min(selectStart.x, selectEnd.x),
-                  top: Math.min(selectStart.y, selectEnd.y),
-                  width: Math.abs(selectEnd.x - selectStart.x),
-                  height: Math.abs(selectEnd.y - selectStart.y)
-                }
-
-                if (!ev.metaKey && !ev.ctrlKey) selected.clear()
-
-                const items = container.querySelectorAll('.file-item')
-                items.forEach(el => {
-                  const name = el.getAttribute('data-name')
-                  const rect = el.getBoundingClientRect()
-                  const item = {
-                    left: rect.left - containerRect.left + container.scrollLeft,
-                    top: rect.top - containerRect.top + container.scrollTop,
-                    width: rect.width,
-                    height: rect.height
-                  }
-
-                  if (
-                    sb.left < item.left + item.width &&
-                    sb.left + sb.width > item.left &&
-                    sb.top < item.top + item.height &&
-                    sb.top + sb.height > item.top
-                  ) {
-                    selected.add(name)
-                  }
-                })
-                redraw()
-              }
-            }
-            const up = () => {
-              window.removeEventListener('mousemove', move)
-              window.removeEventListener('mouseup', up)
-              if (!isSelecting && !e.metaKey && !e.ctrlKey) { selected.clear() }
-              isSelecting = false
+          oncreate: (vn) => { dom = vn.dom },
+          onkeydown: (e) => {
+            if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'a') {
+              e.preventDefault();
+              const pool = searchMode === 'project' && projectSearchResults.length > 0 ? projectSearchResults : files
+              pool.forEach(f => selected.add(f.isSearchResult ? `${f.path}:${f.line}` : f.name));
               redraw()
+            } else if (e.key === 'Delete' && selected.size > 0) {
+              const fs = Array.from(selected);
+              askConfirm(`确定要删除选中的 ${fs.length} 个项目吗？`, "确认删除").then(yes => {
+                if (yes) settingData.fnCall("appDispatch", [appId, "delete", { files: fs }])
+              })
             }
-            window.addEventListener('mousemove', move)
-            window.addEventListener('mouseup', up)
           }
-        }, [
-          isSelecting ? m("div", {
-            style: {
-              position: "absolute",
-              left: Math.min(selectStart.x, selectEnd.x) + "px",
-              top: Math.min(selectStart.y, selectEnd.y) + "px",
-              width: Math.abs(selectEnd.x - selectStart.x) + "px",
-              height: Math.abs(selectEnd.y - selectStart.y) + "px",
-              background: getColor('main').back + '44', border: `1px solid ${getColor('main').back}`, pointerEvents: "none", zIndex: 9999
-            }
-          }) : null,
-          files.map((item, index) => {
-            const isSelected = selected.has(item.name)
-            return m("div", {
-              class: "file-item",
-              "data-name": item.name,
-              draggable: true,
-              ondragstart: (e) => handleDragStart(e, item),
-              onclick: (e) => { e.stopPropagation(); if (e.metaKey || e.ctrlKey) { if (selected.has(item.name)) selected.delete(item.name); else selected.add(item.name) } else { selected.clear(); selected.add(item.name) } redraw() },
-              ondblclick: (e) => { e.stopPropagation(); openItem(item) },
-              oncontextmenu: (e) => { e.stopPropagation(); showContext(e, item) },
-              style: {
-                display: "flex", flexDirection: "column", alignItems: "center", padding: "10px",
-                background: isSelected ? getColor('main').back + '44' : "transparent",
-                borderRadius: "5px", border: isSelected ? `1px solid ${getColor('main').back}` : "1px solid transparent",
-                cursor: "pointer"
+        },
+        [
+          m(ActionBar, {
+            m, Box, iconPark, getColor, inputPath, searchMode, searchKeyword, sortField, sortOrder, viewMode,
+            askName, // 传递本地定义的 askName
+            onNavigate: navigate, onGoHistory: goHistory, onLoadDir: loadDir,
+            onDoProjectSearch: async () => {
+              if (!searchKeyword) { projectSearchResults = []; redraw(); return; }
+              const res = await settingData.fnCall("projectSearch", [searchKeyword])
+              if (res.ok) { projectSearchResults = res.data; viewMode = "list"; redraw(); }
+              else Notice.launch({ msg: "搜索失败: " + res.msg })
+            },
+            onInputPathChange: (v) => inputPath = v,
+            onSearchModeChange: (v) => { searchMode = v; if (v === 'current') projectSearchResults = []; redraw(); },
+            onSearchKeywordChange: (v) => {
+              searchKeyword = v;
+              if (searchMode === 'current') redraw();
+              else {
+                if (searchTimer) clearTimeout(searchTimer); searchTimer = setTimeout(() => {
+                  const doSearch = async () => {
+                    if (!searchKeyword) { projectSearchResults = []; redraw(); return; }
+                    const res = await settingData.fnCall("projectSearch", [searchKeyword])
+                    if (res.ok) { projectSearchResults = res.data; viewMode = "list"; redraw(); }
+                  };
+                  doSearch();
+                }, 300);
               }
-            }, [
-              m("div", { style: { fontSize: "32px", marginBottom: "5px" } }, getIcon(item)),
-              m("div", { style: { fontSize: "12px", textAlign: "center", overflow: "hidden", textOverflow: "ellipsis", width: "100%", whiteSpace: "nowrap" } }, item.name)
-            ])
+            },
+            onSortFieldChange: (v) => { sortField = v; redraw() },
+            onSortOrderToggle: () => { sortOrder *= -1; redraw() },
+            onViewModeToggle: () => { viewMode = viewMode === "grid" ? "list" : "grid"; redraw() }
+          }),
+          m(FileArea, {
+            m, getColor, iconPark, viewMode, selected, isSelecting, selectStart, selectEnd, getIcon, currentPath,
+            processedFiles: (() => {
+              let pool = searchMode === 'project' && projectSearchResults.length > 0 ? projectSearchResults : files.filter(f => f.name.toLowerCase().includes(searchKeyword.toLowerCase()))
+              if (searchMode !== 'project') pool.sort((a, b) => {
+                if (a.isDirectory && !b.isDirectory) return -1;
+                if (!a.isDirectory && b.isDirectory) return 1;
+                let vA = a[sortField], vB = b[sortField];
+                return (typeof vA === 'string' ? vA.localeCompare(vB) : vA - vB) * sortOrder;
+              });
+              return pool;
+            })(),
+            onContextMenu: (e) => {
+              e.preventDefault();
+              const itemEl = e.target.closest('.file-item');
+              const itemName = itemEl?.getAttribute('data-name');
+              const pool = searchMode === 'project' && projectSearchResults.length > 0 ? projectSearchResults : files;
+              const item = pool.find(f => (f.isSearchResult ? `${f.path}:${f.line}` : f.name) === itemName);
+              if (item && !selected.has(itemName)) { selected.clear(); selected.add(itemName); redraw(); }
+
+              Notice.launch({
+                group: "contextMenu",
+                width: 150,
+                x: e.clientX,
+                y: e.clientY,
+                content: {
+                  view: (v) => m(ContextMenu, {
+                    m, Box, getColor,
+                    selectedCount: selected.size,
+                    hasItem: !!item,
+                    canPaste: selected.size === 0 && clipboard.files.length > 0,
+                    onAction: async (type) => {
+                      v.attrs.delete();
+                      if (type === 'open') openItem(item);
+                      else if (type === 'rename') {
+                        const n = await askName("重命名", item.name);
+                        if (n && n !== item.name) await settingData.fnCall("appDispatch", [appId, "rename", { oldName: item.isSearchResult ? item.path : item.name, newName: n }]);
+                      } else if (type === 'copy' || type === 'cut') {
+                        const fs = Array.from(selected).map(n => n.includes("/") || n.includes("\\") ? n : currentPath + (currentPath.endsWith("/") ? "" : "/") + n);
+                        clipboard = { files: fs, mode: type };
+                      } else if (type === 'paste') {
+                        doPaste(currentPath);
+                      } else if (type === 'delete') {
+                        const fs = Array.from(selected);
+                        askConfirm(`确定要删除选中的 ${fs.length} 个项目吗？`, "确认删除").then(yes => {
+                          if (yes) settingData.fnCall("appDispatch", [appId, "delete", { files: fs }]);
+                        });
+                      } else if (type === 'mkdir') {
+                        const n = await askName("新建文件夹", "新建文件夹");
+                        if (n) await settingData.fnCall("appDispatch", [appId, "mkdir", { name: n }]);
+                      }
+                    }
+                  })
+                }
+              });
+            },
+            onPointerDown: (e) => {
+              dom.focus();
+              const target = e.currentTarget;
+              const itemEl = e.target.closest('.file-item');
+              const itemName = itemEl?.getAttribute('data-name');
+
+              if (itemEl && e.button === 0) {
+                const now = Date.now();
+                if (now - lastPointerTime < 300 && lastPointerTarget === itemName) {
+                  const pool = searchMode === 'project' && projectSearchResults.length > 0 ? projectSearchResults : files;
+                  const item = pool.find(f => (f.isSearchResult ? `${f.path}:${f.line}` : f.name) === itemName);
+                  if (item) openItem(item);
+                  lastPointerTime = 0;
+                } else {
+                  if (e.metaKey || e.ctrlKey) {
+                    if (selected.has(itemName)) selected.delete(itemName);
+                    else selected.add(itemName);
+                  } else {
+                    if (selected.has(itemName)) {
+                      // 如果已经选中，暂时不清除，标记为“可能需要清除”
+                      // 这样如果接下来的动作是拖拽，我们就能带走所有选中项
+                      pendingSelectClear = itemName;
+                    } else {
+                      selected.clear();
+                      selected.add(itemName);
+                    }
+                  }
+                  redraw();
+                }
+                lastPointerTime = now; lastPointerTarget = itemName;
+                return;
+              }
+              if (e.button !== 0) return;
+              if (!e.metaKey && !e.ctrlKey) { selected.clear(); redraw(); }
+              const rect = target.getBoundingClientRect();
+              const sX = e.clientX - rect.left + target.scrollLeft, sY = e.clientY - rect.top + target.scrollTop;
+              isSelecting = false; selectStart = { x: sX, y: sY }; selectEnd = { x: sX, y: sY };
+              const move = (ev) => {
+                const cx = ev.clientX - rect.left + target.scrollLeft, cy = ev.clientY - rect.top + target.scrollTop;
+                if (!isSelecting && Math.hypot(cx - sX, cy - sY) > 5) isSelecting = true;
+                if (isSelecting) {
+                  selectEnd = { x: cx, y: cy };
+                  if (!ev.metaKey && !ev.ctrlKey) selected.clear();
+                  target.querySelectorAll('.file-item').forEach(el => {
+                    const r = el.getBoundingClientRect();
+                    const iR = { left: r.left - rect.left + target.scrollLeft, top: r.top - rect.top + target.scrollTop, width: r.width, height: r.height };
+                    const sb = { l: Math.min(selectStart.x, selectEnd.x), t: Math.min(selectStart.y, selectEnd.y), w: Math.abs(selectEnd.x - selectStart.x), h: Math.abs(selectEnd.y - selectStart.y) };
+                    if (sb.l < iR.left + iR.width && sb.l + sb.w > iR.left && sb.t < iR.top + iR.height && sb.t + sb.h > iR.top) selected.add(el.getAttribute('data-name'));
+                  });
+                  redraw();
+                }
+              };
+              const up = () => { isSelecting = false; document.removeEventListener('pointermove', move); document.removeEventListener('pointerup', up); redraw(); };
+              document.addEventListener('pointermove', move); document.addEventListener('pointerup', up);
+            },
+            onPointerUp: (e) => {
+              if (pendingSelectClear) {
+                selected.clear();
+                selected.add(pendingSelectClear);
+                pendingSelectClear = null;
+                redraw();
+              }
+            },
+            onDragOver: (e) => {
+              e.preventDefault();
+              e.dataTransfer.dropEffect = "copy";
+
+              // 悬停自动进入逻辑
+              const targetEl = e.target.closest('.file-item[data-type="folder"]');
+              const path = targetEl?.getAttribute('data-path');
+
+              if (path && path !== currentPath) {
+                if (path !== lastHoverPath) {
+                  // 如果切换了悬停目标，重置定时器
+                  clearTimeout(hoverTimer);
+                  lastHoverPath = path;
+                  hoverTimer = setTimeout(() => {
+                    navigate(path); // 3秒后进入目录
+                    lastHoverPath = null;
+                  }, 3000);
+                }
+              } else {
+                clearTimeout(hoverTimer);
+                lastHoverPath = null;
+              }
+            },
+            onDrop: async (e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              clearTimeout(hoverTimer); // 取消可能的进入定时器
+              lastHoverPath = null;
+
+              try {
+                const raw = JSON.parse(e.dataTransfer.getData("application/json") || "{}");
+                const targetEl = e.target.closest('.file-item[data-type="folder"]');
+                const targetFolder = targetEl?.getAttribute('data-path') || currentPath;
+                const targetName = targetEl ? targetFolder.split(/[/\\]/).pop() : "当前目录";
+
+                if (raw.type === 'explorer-item') {
+                  const paths = raw.paths || [raw.path];
+                  // 过滤掉已经在目标目录中的文件
+                  const filesToMove = paths.filter(p => {
+                    const lastSlash = Math.max(p.lastIndexOf('/'), p.lastIndexOf('\\'));
+                    const parent = p.substring(0, lastSlash) || '/';
+                    return parent !== targetFolder;
+                  });
+
+                  if (filesToMove.length > 0) {
+                    // 只有真正需要移动时才询问
+                    Notice.launch({
+                      msg: `确定要将 ${filesToMove.length} 个项目移动到 "${targetName}" 吗？`,
+                      confirm: async () => {
+                        clipboard = { files: filesToMove, mode: 'cut' };
+                        await doPaste(targetFolder, true); // 拖放移动不自动跳转
+                      }
+                    });
+                  }
+                } else {
+                  // 时光机项目还原
+                  const items = raw.type === 'tm-items' ? raw.items : (raw.type === 'tm-item' ? [raw] : []);
+                  if (items.length > 0) await tmRestoreProcess(items, targetFolder);
+                }
+              } catch (err) { console.error(err); }
+            },
+            onDragStart: (e, item) => {
+              pendingSelectClear = null; // 开始拖拽，取消清除计划
+              const itemId = item.isSearchResult ? `${item.path}:${item.line}` : item.name;
+              let paths = [];
+              const fullPath = item.isSearchResult ? item.path : (currentPath + (currentPath.endsWith("/") ? "" : "/") + item.name);
+
+              if (selected.has(itemId) || (selected.size > 0 && selected.has(item.name))) {
+                const pool = searchMode === 'project' && projectSearchResults.length > 0 ? projectSearchResults : files;
+                paths = Array.from(selected).map(id => {
+                  const f = pool.find(file => (file.isSearchResult ? `${file.path}:${file.line}` : file.name) === id);
+                  return f ? (f.isSearchResult ? f.path : (currentPath + (currentPath.endsWith("/") ? "" : "/") + f.name)) : null;
+                }).filter(p => p);
+              } else {
+                paths = [fullPath];
+              }
+
+              // 设置拖拽数据
+              e.dataTransfer.setData("text/plain", fullPath);
+              e.dataTransfer.effectAllowed = "copy";
+              e.dataTransfer.setData("application/json", JSON.stringify({
+                type: 'explorer-item',
+                paths,
+                path: paths[0],
+                name: item.name,
+                isDirectory: item.isDirectory
+              }));
+
+              // 恢复自定义拖拽镜像
+              // 增强型自定义拖拽镜像：图标堆叠 + 数量角标
+              console.log(`[Explorer] Dragging ${paths.length} items:`, paths);
+              const container = document.createElement("div");
+              container.style.cssText = `
+                position: absolute;
+                top: -1000px;
+                left: -1000px;
+                width: 80px;
+                height: 80px;
+                pointer-events: none;
+                z-index: 10000;
+              `;
+
+              // 专门为拖拽镜像准备的图标获取函数
+              const getIconStr = (it) => {
+                if (it.isDirectory) return "📁";
+                const ext = (it.name || "").split('.').pop().toLowerCase();
+                const map = { "js": "📜", "json": "⚙️", "md": "📝", "txt": "📄", "html": "🌐", "css": "🎨", "png": "🖼️", "jpg": "🖼️", "mp4": "🎬", "mp3": "🎵" };
+                return map[ext] || "📃";
+              };
+
+              const stackCount = Math.min(paths.length, 3);
+              for (let i = 0; i < stackCount; i++) {
+                const img = document.createElement("div");
+                img.textContent = getIconStr(item);
+                img.style.cssText = `
+                  position: absolute;
+                  font-size: 40px;
+                  left: ${20 + i * 6}px;
+                  top: ${20 + i * 6}px;
+                  z-index: ${10 - i};
+                  line-height: 1;
+                  text-shadow: 0 2px 4px rgba(0,0,0,0.2);
+                `;
+                container.appendChild(img);
+              }
+
+              // 无论 1 个还是多个，都显示角标
+              const badge = document.createElement("div");
+              badge.textContent = paths.length;
+              badge.style.cssText = `
+                position: absolute;
+                top: 10px;
+                left: 10px;
+                background: #ff4d4f;
+                color: white;
+                border-radius: 20px;
+                min-width: 20px;
+                height: 20px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                padding: 0 4px;
+                font-size: 12px;
+                font-weight: bold;
+                border: 2px solid white;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.4);
+                z-index: 50;
+              `;
+              container.appendChild(badge);
+
+              document.body.appendChild(container);
+              // 偏移量也相应调整，让鼠标指在第一张图标的中心附近
+              e.dataTransfer.setDragImage(container, 40, 40);
+              setTimeout(() => document.body.removeChild(container), 0);
+            },
+            onHeaderClick: (f) => { if (sortField === f) sortOrder *= -1; else { sortField = f; sortOrder = 1; } redraw(); },
+            formatDate: FormatUtils.formatDate,
+            formatSize: FormatUtils.formatSize,
+            renderHighlightedText: (text, matches) => FormatUtils.renderHighlightedText(m, text, matches)
           })
-        ])
-      ])
+        ]
+      )
     }
   }
 }

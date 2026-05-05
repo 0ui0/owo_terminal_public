@@ -144,9 +144,12 @@ export default {
       })
     })
 
+
     this.socket.on("project:state", async (msg) => {
-      if (msg.path) commonData.currentProject = msg.path
-      if (msg.autoSave !== undefined) commonData.autoSaveEnabled = msg.autoSave
+      commonData.currentProject = msg.path || ""
+      if (msg.autoSave !== undefined) {
+        commonData.autoSaveEnabled = msg.autoSave
+      }
       m.redraw()
     })
 
@@ -196,7 +199,7 @@ export default {
         let component = module.default
         if (typeof component === "function") {
           // 参数注入模式
-          component = component({ appId: msg.appId, m, Notice, ioSocket: this, comData, commonData, chatData, settingData, format, Box, iconPark: window.iconPark, getColor })
+          component = component({ appId: msg.appId, m, Notice, ioSocket: this, comData, commonData, chatData, settingData, format, Box, iconPark: window.iconPark, getColor, trs })
         }
         // Window Management: Resolve Geometry
         const saved = msg.data && msg.data.window
@@ -263,9 +266,9 @@ export default {
 
         Notice.launch(noticeObj)
       } catch (e) {
-        console.error("加载 App 前端失败:", e)
+        console.log("app加载失败:", e)
         Notice.launch({
-          msg: `应用加载失败: ${e.message}`,
+          msg: `app加载失败: ${e.message}`,
           timeout: 5000,
           color: "red"
         })

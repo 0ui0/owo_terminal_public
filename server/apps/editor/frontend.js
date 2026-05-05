@@ -2,9 +2,10 @@
 import editorData from "./editorData.js"
 
 // Editor App 前端组件 (Closure Version)
-export default ({ appId, m, Notice, ioSocket, comData, commonData, settingData, Box }) => {
+export default ({ appId, m, Notice, ioSocket, comData, commonData, chatData, settingData, Box, getColor }) => {
   // === Private State ===
   let isDiff = false
+  let readOnly = false
   let filePath = ""
   let content = ""
   let originalContent = ""
@@ -73,20 +74,68 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, settingData, 
         original: monaco.editor.createModel(originalContent, language),
         modified: monaco.editor.createModel(proposedContent, language)
       })
+
+      const addQuoteAction = (ed, labelPrefix = "") => {
+        ed.addAction({
+          id: 'quote-to-chat',
+          label: `${labelPrefix}引用到聊天框`,
+          contextMenuGroupId: 'navigation',
+          contextMenuOrder: 1,
+          run: (innerEd) => {
+            const selection = innerEd.getSelection()
+            if (!selection || selection.isEmpty()) return
+            const startLine = selection.startLineNumber
+            const endLine = selection.endLineNumber
+            const range = startLine === endLine ? `L${startLine}` : `L${startLine}-L${endLine}`
+            if (chatData && chatData.quoteCode) {
+              chatData.quoteCode(filePath, range)
+              Notice.launch({ msg: "已引用到聊天框" })
+            } else {
+              Notice.launch({ msg: "未找到聊天框实例" })
+            }
+          }
+        })
+      }
+
+      addQuoteAction(diffEditor.getOriginalEditor(), "从原始文件")
+      addQuoteAction(diffEditor.getModifiedEditor(), "从修改方案")
     } else {
       editor = monaco.editor.create(container, {
-        value: content, language: language, theme: "vs-dark", automaticLayout: true, fontSize: 14, lineHeight: 20, wordWrap: wordWrap ? "on" : "off"
+        value: content, language: language, theme: "vs-dark", automaticLayout: true, fontSize: 14, lineHeight: 20, wordWrap: wordWrap ? "on" : "off",
+        readOnly: readOnly
       })
-      editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => handleSave())
+      editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => { if(!readOnly) handleSave() })
 
       // Auto-save content state (Debounced 1s)
       let timer = null
       editor.onDidChangeModelContent(() => {
+        if (readOnly) return
         content = editor.getValue()
         if (timer) clearTimeout(timer)
         timer = setTimeout(() => {
           settingData.fnCall("appUpdateData", [appId, { content: content }])
         }, 1000)
+      })
+
+      // Add Native Context Menu Action
+      editor.addAction({
+        id: 'quote-to-chat',
+        label: '引用到聊天框',
+        contextMenuGroupId: 'navigation',
+        contextMenuOrder: 1,
+        run: (ed) => {
+          const selection = ed.getSelection()
+          if (!selection || selection.isEmpty()) return
+          const startLine = selection.startLineNumber
+          const endLine = selection.endLineNumber
+          const range = startLine === endLine ? `L${startLine}` : `L${startLine}-L${endLine}`
+          if (chatData && chatData.quoteCode) {
+            chatData.quoteCode(filePath, range)
+            Notice.launch({ msg: "已引用到聊天框" })
+          } else {
+            Notice.launch({ msg: "未找到聊天框实例" })
+          }
+        }
       })
     }
     redraw()
@@ -171,7 +220,8 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, settingData, 
         return done({ ok: true, data: { filePath, content: editor ? editor.getValue() : content } })
       }
       if (msg.action === "open") {
-        filePath = msg.args.filePath; content = msg.args.content; isDiff = false
+        filePath = msg.args.filePath; content = msg.args.content; 
+        isDiff = false; readOnly = !!msg.args.readOnly
         updateEditor()
         done({ ok: true })
       } else if (msg.action === "showDiff") {
@@ -217,6 +267,7 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, settingData, 
       if (vnode.attrs.data) {
         const d = vnode.attrs.data
         isDiff = d.isDiff || false
+        readOnly = !!d.readOnly
         filePath = d.filePath || ""
         content = d.content || ""
         originalContent = d.originalContent || ""
@@ -267,7 +318,10 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, settingData, 
           ])
         ]),
         // Path
-        m("div", { style: { display: "flex", height: "22px", padding: "0 10px", background: "#252526", alignItems: "center", fontSize: "11px", color: "#aaa", boxShadow: "inset 0 1px 3px rgba(0,0,0,0.2)" } }, filePath || "未选择文件"),
+        m("div", { style: { display: "flex", height: "22px", padding: "0 10px", background: "#252526", alignItems: "center", fontSize: "11px", color: readOnly ? getColor('pink_1').front : "#aaa", boxShadow: "inset 0 1px 3px rgba(0,0,0,0.2)" } }, [
+          readOnly ? m("span", { style: { fontWeight: "bold", marginRight: "8px" } }, "[只读预览]") : null,
+          filePath || "未选择文件"
+        ]),
         // Editor
         m("div", { style: { flex: 1, position: "relative", margin: "0", overflow: "hidden" } }, [
           m("div", { class: "monaco-container", style: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, width: "100%", height: "100%" } })

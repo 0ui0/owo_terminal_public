@@ -12,6 +12,21 @@ export default () => {
       const duration = doneChat?.ask?.toolCallDuration
       const isLoading = !doneChat // 没有"完毕"消息说明还在执行中
 
+      // 提取所有工具名
+      const getToolNames = () => {
+        const prepareChat = chats.find(chat => chat.ask?.toolCallStage === "prepare")
+        const sysCalls = prepareChat?.ask?.sysCalls || []
+        const sysReturns = doneChat?.ask?.sysReturns || []
+        
+        // 优先从结果里拿，如果没有结果（还在加载），从预备调用里拿
+        const names = sysReturns.length > 0 
+          ? sysReturns.map(r => r.name || r.id) 
+          : sysCalls.map(c => c.name || c.id)
+        
+        return names.length > 0 ? ` (${names.join(', ')})` : ''
+      }
+      const toolNames = getToolNames()
+
       return m('', {
         style: {
           display: "inline-block",
@@ -41,7 +56,7 @@ export default () => {
               marginRight: '0.5rem',
             }
           }) : null,
-          hasError ? '⚠ 工具调用失败' : (isLoading ? '工具调用中...' : '工具调用'),
+          (hasError ? '⚠ 工具调用失败' : (isLoading ? '工具调用中...' : '工具调用')) + toolNames,
           m('span', { style: { marginLeft: '0.5rem', opacity: 0.7 } },
             `(${chats.length})${duration ? ` · ${(duration / 1000).toFixed(1)}s` : ''}`
           )

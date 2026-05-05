@@ -40,8 +40,10 @@ export default {
     let session = null
 
     if (tid === "-1") {
+      const { customCwd } = comData.data.get()
       session = await tSession.add(ioServer.io, {
         listId: currentListId,
+        cwd: customCwd, // 修复：必须透传当前工作目录
         toolCallGroupId: toolCallGroupId,
         deferredFns: deferredFns  // 传入延迟队列，用于协议安全期间的 addAsk
       })
@@ -81,7 +83,7 @@ export default {
         }
       }
 
-      //静默检测：1.5秒无输出则提前返回，最大等待 waitSec 秒
+      //静默检测：3秒无输出则提前返回，最大等待 waitSec 秒
       await new Promise((res) => {
         let t1 = null
         let t2 = null
@@ -98,10 +100,10 @@ export default {
 
         disposer = session.shell.onData(() => {
           clearTimeout(t1)
-          t1 = setTimeout(done, 1500)
+          t1 = setTimeout(done, 3000)
         })
 
-        t1 = setTimeout(done, 1500)
+        t1 = setTimeout(done, 3000)
       })
 
       let lastLines = stripAnsi(session.content).split(/\r?\n/).slice(-20).join("\n").slice(-1000)
@@ -123,14 +125,14 @@ export default {
     return Joi.object({
       tid: Joi.string().required().description("终端tid,值为字符串-1则新建终端"),
       command: Joi.string().required().description("执行命令"),
-      waitSec: Joi.number().default(10).description("最大等待秒数，默认10（静默1.5秒无输出会提前返回）"),
+      waitSec: Joi.number().default(10).description("最大等待秒数，默认10（静默3秒无输出会提前返回）"),
       argsDesc: Joi.string().required().description("必填，终端命令用途和终端命令的参数说明（Markdown表格格式）")
     })
   },
   getDoc() {
     return `
       向指定tid终端写入并执行命令
-      系统会检测输出静默（1.5秒无新输出）自动返回结果
+      系统会检测输出静默（3秒无新输出）自动返回结果
       waitSec为最大等待时间兜底，防止长时间阻塞
       argsDesc范例
       命令：df -h

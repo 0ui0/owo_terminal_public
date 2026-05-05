@@ -12,10 +12,26 @@ export default {
       return "错误：" + error.details[0].message
     }
     let { path, startLine, endLine, searchQuery, isRegex } = value
+    const fileState = (await import("../../fileState.js")).default
 
     const comData = (await import("../../../comData/comData.js")).default
     const cwd = comData.data.get()?.customCwd || process.cwd()
     const resolvedPath = pathLib.resolve(cwd, path)
+
+    // 缓存校验（Token Dedup）
+    try {
+      const stat = await fs.stat(resolvedPath)
+      const existingState = fileState.get(resolvedPath)
+      // 如果没有搜索查询，且读取范围一致，且 mtime 未变，则返回已读存根
+      if (!searchQuery && existingState && existingState.timestamp === stat.mtimeMs) {
+        const rangeMatch = existingState.startLine === startLine && existingState.endLine === endLine
+        if (rangeMatch) {
+          return `> [!NOTE] 文件内容自上次读取以来未发生变化 (${path})。已利用缓存存根减少 Token 消耗。`
+        }
+      }
+    } catch (err) {
+      // 忽略 stat 错误，后续 readFile 会处理
+    }
 
     const isInProject = resolvedPath.startsWith(cwd)
     if (!isInProject) {
@@ -131,7 +147,7 @@ export default {
       let resultStr = resultLines.join("\n")
 
       // 2. 字符硬截断保护（按行截断，避免截断在行中间）
-      const MAX_CHARS = 4000
+      const MAX_CHARS = 15000
       let isCharClipped = false
       if (resultStr.length > MAX_CHARS) {
         while (resultStr.length > MAX_CHARS && resultLines.length > 1) {
@@ -156,6 +172,14 @@ export default {
       if (isCharClipped) {
         indicators.push(`> [!WARNING] 单次读取超过 ${MAX_CHARS} 字符，已按行截断。剩余内容请通过增加 startLine 继续。`)
       }
+
+      // 4. 更新缓存
+      fileState.set(resolvedPath, {
+        timestamp: stat.mtimeMs,
+        startLine,
+        endLine,
+        content: resultStr
+      })
 
       return `${rangeInfo}\n${indicators.join("\n")}\n\`\`\`\n${resultStr}\n\`\`\``
 

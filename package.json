@@ -1,7 +1,7 @@
 {
   "name": "owo-terminal",
   "productName": "owo-terminal",
-  "version": "1.0.15",
+  "version": "1.1.0",
   "type": "module",
   "main": "app.js",
   "description": "Super cute terminal",
@@ -33,7 +33,8 @@
       "!.vscode",
       "!**/*.env",
       "!**/*._*",
-      "!**/.DS_Store"
+      "!**/.DS_Store",
+      "!**/_mind_.txt"
     ],
     "asar": false,
     "nsis": {
@@ -88,6 +89,7 @@
     "@xterm/xterm": "^5.5.0",
     "adm-zip": "^0.5.16",
     "axios": "^1.13.6",
+    "best-effort-json-parser": "^1.4.0",
     "electron-updater": "^6.7.3",
     "fs-extra": "^11.3.2",
     "highlight.js": "^11.11.1",
@@ -99,6 +101,7 @@
     "lodash": "^4.17.21",
     "marked": "^16.3.0",
     "marked-admonition-extension": "^0.0.4",
+    "mermaid": "^11.14.0",
     "mithril": "^2.3.7",
     "node-html-markdown": "^2.0.0",
     "openai": "^6.16.0",
@@ -115,6 +118,8 @@
     "concurrently": "^9.2.1",
     "electron": "^38.2.1",
     "electron-builder": "^26.0.12",
+    "typescript": "^6.0.3",
+    "typescript-language-server": "^5.1.3",
     "vite": "^7.1.9"
   }
 }

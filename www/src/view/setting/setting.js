@@ -455,11 +455,18 @@ export default () => {
             onmouseover: (e) => { e.target.style.background = "rgba(255,255,255,0.05)"; e.target.style.borderColor = "rgba(255,255,255,0.2)" },
             onmouseout: (e) => { e.target.style.background = "transparent"; e.target.style.borderColor = "rgba(255,255,255,0.1)" },
             onclick: () => {
-              const template = value.length > 0 ? JSON.parse(JSON.stringify(value[0])) : {
-                name: trs("设置/模型/新模型", { cn: "新模型", en: "New Model" }), model: "gpt-3.5-turbo", apiKey: "", url: "https://api.openai.com/v1",
-                price: 1, tokenRate: 1, system: 0, prompt: "", switch: 1, preTokens: 4000
+              const template = {
+                name: trs("设置/模型/新模型", { cn: "新模型 " + (value.length + 1), en: "New Model " + (value.length + 1) }),
+                model: trs("设置/模型/新模型", { cn: "新模型 " + (value.length + 1), en: "New Model " + (value.length + 1) }),
+                apiKey: "ollama",
+                price: 0,
+                url: "http://localhost:11434",
+                tokenRate: 0,
+                system: 0,
+                prompt: "",
+                switch: 1,
+                preTokens: 1000000,
               }
-              template.name = "New Model " + (value.length + 1) // Ensure simple string
               delete template._expanded
               delete template._showKey
               value.push(template)
