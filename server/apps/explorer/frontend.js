@@ -40,6 +40,18 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, settingData, 
 
   const redraw = () => m.redraw()
 
+  const resolveItemPath = (item) => {
+    if (!item) return null
+    return item.isSearchResult ? item.path : (currentPath + (currentPath.endsWith("/") ? "" : "/") + item.name)
+  }
+
+  const resolveSelectedPaths = (pool, ids) => {
+    return ids.map((id) => {
+      const item = pool.find(f => (f.isSearchResult ? `${f.path}:${f.line}` : f.name) === id)
+      return resolveItemPath(item)
+    }).filter(Boolean)
+  }
+
   const navigate = async (path) => {
     if (isRestoring) return Notice.launch({ msg: "操作被拦截：还原期间禁止切换目录，防止状态撕裂喵！", type: "warning" });
     await settingData.fnCall("appDispatch", [appId, "navigate", { path }])
@@ -253,7 +265,7 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, settingData, 
               pool.forEach(f => selected.add(f.isSearchResult ? `${f.path}:${f.line}` : f.name));
               redraw()
             } else if (e.key === 'Delete' && selected.size > 0) {
-              const fs = Array.from(selected);
+              const fs = resolveSelectedPaths(searchMode === 'project' && projectSearchResults.length > 0 ? projectSearchResults : files, Array.from(selected))
               askConfirm(`确定要删除选中的 ${fs.length} 个项目吗？`, "确认删除").then(yes => {
                 if (yes) settingData.fnCall("appDispatch", [appId, "delete", { files: fs }])
               })
@@ -327,14 +339,19 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, settingData, 
                       if (type === 'open') openItem(item);
                       else if (type === 'rename') {
                         const n = await askName("重命名", item.name);
-                        if (n && n !== item.name) await settingData.fnCall("appDispatch", [appId, "rename", { oldName: item.isSearchResult ? item.path : item.name, newName: n }]);
+                        if (n && n !== item.name) {
+                          const res = await settingData.fnCall("appDispatch", [appId, "rename", { oldName: item.isSearchResult ? item.path : item.name, newName: n }]);
+                          if (!res?.ok) {
+                            Notice.launch({ msg: res?.msg || "重命名失败", type: "error" });
+                          }
+                        }
                       } else if (type === 'copy' || type === 'cut') {
-                        const fs = Array.from(selected).map(n => n.includes("/") || n.includes("\\") ? n : currentPath + (currentPath.endsWith("/") ? "" : "/") + n);
+                        const fs = resolveSelectedPaths(pool, Array.from(selected))
                         clipboard = { files: fs, mode: type };
                       } else if (type === 'paste') {
                         doPaste(currentPath);
                       } else if (type === 'delete') {
-                        const fs = Array.from(selected);
+                        const fs = resolveSelectedPaths(pool, Array.from(selected))
                         askConfirm(`确定要删除选中的 ${fs.length} 个项目吗？`, "确认删除").then(yes => {
                           if (yes) settingData.fnCall("appDispatch", [appId, "delete", { files: fs }]);
                         });

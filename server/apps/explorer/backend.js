@@ -16,6 +16,16 @@ export default {
   async dispatch({ app, action, args, appManager, io }) {
     const { currentPath } = app.data
 
+    const normalizeName = (name) => {
+      if (typeof name !== "string") return null
+      const trimmed = name.trim()
+      if (!trimmed) return null
+      if (path.isAbsolute(trimmed)) return null
+      if (trimmed.includes("/") || trimmed.includes("\\")) return null
+      if (trimmed === "." || trimmed === "..") return null
+      return trimmed
+    }
+
     try {
       switch (action) {
         case "tmTriggerRestore":
@@ -122,7 +132,9 @@ export default {
 
         case "mkdir":
           if (args.name) {
-            await fs.mkdir(path.resolve(currentPath, args.name), { recursive: true })
+            const safeName = normalizeName(args.name)
+            if (!safeName) return { error: "文件夹名称不合法" }
+            await fs.mkdir(path.resolve(currentPath, safeName), { recursive: true })
             io.emit("explorer:fs-change", { paths: [currentPath] })
             return this.dispatch({ app, action: "navigate", args: { path: currentPath, isHistoryOp: true }, appManager, io })
           }
@@ -130,7 +142,9 @@ export default {
 
         case "newFile":
           if (args.name) {
-            const target = path.resolve(currentPath, args.name)
+            const safeName = normalizeName(args.name)
+            if (!safeName) return { error: "文件名不合法" }
+            const target = path.resolve(currentPath, safeName)
             try {
               await fs.writeFile(target, "", { flag: 'wx' }) // fail if exists
               io.emit("explorer:fs-change", { paths: [currentPath] })
@@ -145,7 +159,9 @@ export default {
           if (args.oldName && args.newName) {
             const oldPath = path.resolve(currentPath, args.oldName)
             const dir = path.dirname(oldPath)
-            const newPath = path.resolve(dir, args.newName) // 确保重命名后还在原目录下
+            const safeName = normalizeName(args.newName)
+            if (!safeName) return { error: "新名称不合法" }
+            const newPath = path.resolve(dir, safeName) // 确保重命名后还在原目录下
             await fs.rename(oldPath, newPath)
             io.emit("explorer:fs-change", { paths: [currentPath] })
             return this.dispatch({ app, action: "navigate", args: { path: currentPath, isHistoryOp: true }, appManager, io })
@@ -170,6 +186,7 @@ export default {
 
           const conflicts = []
           const operations = []
+          const seenDest = new Map()
 
           console.log(`[Explorer] Paste: ${files.length} files to ${destPath}`, { mode, decisions })
 
@@ -177,6 +194,12 @@ export default {
           for (const src of files) {
             const basename = path.basename(src)
             const dest = path.resolve(destPath, basename)
+
+            if (seenDest.has(dest) && seenDest.get(dest) !== src) {
+              conflicts.push(basename)
+              continue
+            }
+            seenDest.set(dest, src)
 
             let action = decisions[basename]
 
