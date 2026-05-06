@@ -60,7 +60,12 @@ export default {
           streamReasoningChunks: "",
           confirmCmds: [],
           stop: false,
-          tasks: []
+          tasks: [],
+          notes: [],
+          graph: {
+            nodes: {},
+            links: []
+          }
         });
       });
 

@@ -18,6 +18,12 @@ import projectLoad from "./server/crossFuncs/projectLoad.js"
 // --- Auto Updater Configuration ---
 autoUpdater.autoDownload = false // 2026-02-06 Changed to false for manual confirmation
 autoUpdater.autoInstallOnAppQuit = true
+autoUpdater.setFeedURL({
+  provider: "github",
+  owner: "0ui0",
+  repo: "owo_terminal_public"
+})
+
 
 
 
@@ -346,9 +352,22 @@ const createWindow = () => {
 
   autoUpdater.on('error', (err) => {
     win.setProgressBar(-1)
-    const errorMsg = trs("系统/错误/提示") + (err.message || "Error")
+    let missAppUpdate = ""
+    const errStr = String(err)
+    if (errStr.includes('app-update.yml') || errStr.includes('ENOENT')) {
+      missAppUpdate = "\n" + trs("系统/更新/绿色版提示", {
+        cn: "（提示，windows系统下是绿色版，无法自动检测更新）软件为了能让ai和用户自己修改源码，没有采用标准安装器模式（该模式下软件目录是隔离的，无法自动修改）",
+        en: "(Note: This is a portable version on Windows, and cannot auto-check for updates.) To allow AI and users to modify the source code freely, we avoid standard installers (which isolate the app directory and prevent modifications)."
+      })
+    }
+    const errorMsg = trs("系统/错误/提示") + (err.message) + missAppUpdate
     broadcastStatus({ state: "error", msg: errorMsg })
-    dialog.showErrorBox(trs("系统/错误/标题", { cn: "更新出错", en: "Update Error" }), errorMsg)
+    dialog.showMessageBox(win, {
+      type: 'error',
+      title: trs("系统/错误/标题", { cn: "更新出错", en: "Update Error" }),
+      message: trs("系统/错误/标题", { cn: "更新出错", en: "Update Error" }),
+      detail: errorMsg
+    })
   })
 
   // Listen for frontend check request
@@ -475,6 +494,38 @@ const createWindow = () => {
 
 app.whenReady().then(async () => {
   try {
+    // === Installation Path & Permission Check ===
+    const exePath = process.execPath
+    const isWin = process.platform === 'win32'
+    const isInProgramFiles = isWin && (/[a-zA-Z]:\\Program Files/i.test(exePath) || /[a-zA-Z]:\\Program Files \(x86\)/i.test(exePath))
+
+    if (isInProgramFiles) {
+      let hasWriteAccess = false
+      try {
+        const testFile = pathLib.join(pathLib.dirname(exePath), '.permission_test')
+        fs.writeFileSync(testFile, 'test')
+        fs.unlinkSync(testFile)
+        hasWriteAccess = true
+      } catch (e) {
+        hasWriteAccess = false
+      }
+
+      if (!hasWriteAccess) {
+        await dialog.showMessageBox({
+          type: "error",
+          title: trs("系统/提示/权限不足", { cn: "权限不足", en: "Insufficient Permissions" }),
+          message: trs("系统/消息/无法读写", { cn: "无法在当前目录读写数据", en: "Cannot read/write in current directory" }),
+          detail: trs("系统/消息/系统目录警告", {
+            cn: "检测到程序安装在 Program Files 且没有管理员权限。由于本软件需要在程序目录下读写数据库（db.sqlite），在当前位置运行会导致配置无法保存。\n\n建议：\n1. 将程序文件夹移动到桌面或非系统盘运行（推荐）；\n2. 或者右键点击程序，选择“以管理员身份运行”。",
+            en: "Detected installation in Program Files without admin rights. Since the app needs write access to its directory for the database (db.sqlite), running here may cause data loss.\n\nSuggestions:\n1. Move the folder to Desktop or a non-system drive (Recommended);\n2. Right-click and 'Run as Administrator'."
+          }),
+          buttons: [trs("通用/退出", { cn: "退出程序", en: "Quit" })]
+        })
+        app.quit()
+        return
+      }
+    }
+
     await serve()
 
     // 脏检查：利用 DynamicData 原生的观察者机制，当 comData 数据变动时标记项目为脏

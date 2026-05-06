@@ -136,6 +136,46 @@ export default () => {
             style: { padding: "10px", textAlign: "left" },
             onclick: async () => {
               v.attrs.delete()
+              const resDialog = await settingData.fnCall("appSaveDialog", [{
+                title: trs("菜单栏/操作/导出系统设置", { cn: "导出系统设置 (数据库)", en: "Export System Settings (DB)" }),
+                filters: [{ name: "SQLite Database", extensions: ["sqlite"] }],
+                filePath: "db_backup.sqlite"
+              }])
+              if (!resDialog.ok || !resDialog.filePath) return
+              const resExport = await settingData.fnCall("dbExport", [{ filePath: resDialog.filePath }])
+              Notice.launch({ msg: resExport.ok ? trs("系统/消息/操作成功") : resExport.msg })
+            }
+          }, trs("菜单栏/操作/导出系统设置", { cn: "导出系统设置", en: "Export Settings" })),
+
+          m(Box, {
+            isBtn: true,
+            style: { padding: "10px", textAlign: "left" },
+            onclick: async () => {
+              v.attrs.delete()
+              const resDialog = await settingData.fnCall("appOpenDialog", [{
+                title: trs("菜单栏/操作/导入系统设置", { cn: "选择要导入的数据库文件", en: "Select Database to Import" }),
+                filters: [{ name: "SQLite Database", extensions: ["sqlite"] }]
+              }])
+              if (!resDialog.ok || !resDialog.filePath) return
+
+              Notice.launch({
+                tip: trs("系统/提示/确认导入", { cn: "确认导入并重启？", en: "Confirm Import & Restart?" }),
+                msg: trs("系统/消息/导入警告", { cn: "导入将覆盖当前所有设置并自动重启应用，是否继续？", en: "Importing will overwrite all settings and restart. Continue?" }),
+                confirm: async () => {
+                  const resImport = await settingData.fnCall("dbImport", [{ filePath: resDialog.filePath }])
+                  if (!resImport.ok) Notice.launch({ msg: resImport.msg })
+                }
+              })
+            }
+          }, trs("菜单栏/操作/导入系统设置", { cn: "导入系统设置", en: "Import Settings" })),
+
+          m("div", { style: { height: "1px", background: "rgba(255,255,255,0.1)", margin: "5px 0" } }),
+
+          m(Box, {
+            isBtn: true,
+            style: { padding: "10px", textAlign: "left" },
+            onclick: async () => {
+              v.attrs.delete()
 
               // 1. 打开文件选择对话框
               const resDialog = await settingData.fnCall("appOpenDialog", [{

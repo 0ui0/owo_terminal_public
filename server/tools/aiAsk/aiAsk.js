@@ -29,13 +29,13 @@ import joiToText from "../joiToText.js";
 //console.log JSON.stringify(joiToJSON(sendTemplate.joi()),null,"\t")
 
 // 递归清理 JSON Schema 中大模型不支持的字段
-cleanJsonSchema = function (obj) {
+cleanJsonSchema = function(obj) {
   var item, key, newObj, value;
   if (!obj || typeof obj !== 'object') {
     return obj;
   }
   if (Array.isArray(obj)) {
-    return (function () {
+    return (function() {
       var j, len, results;
       results = [];
       for (j = 0, len = obj.length; j < len; j++) {
@@ -59,20 +59,20 @@ cleanJsonSchema = function (obj) {
 };
 
 // 尝试从杂乱文本或 Markdown 中提取 JSON 字符串
-tryExtractJSON = function (text) {
+tryExtractJSON = function(text) {
   var cleanText, jsonMatch, markdownMatch;
   if (!text) {
     throw new Error("消息内容为空，json解析失败");
   }
   // 1. 清理 BOM 和首尾空白
   cleanText = text.replace(/^\uFEFF/, '').trim();
-
+  
   // 2. 尝试从 Markdown 代码块中提取
   markdownMatch = cleanText.match(/```json\s*([\s\S]*?)\s*```/);
   if (markdownMatch) {
     return markdownMatch[1].trim();
   }
-
+  
   // 3. 兜底方案：贪婪匹配 { ... }
   jsonMatch = cleanText.match(/\{[\s\S]*\}/);
   if (jsonMatch) {
@@ -83,7 +83,7 @@ tryExtractJSON = function (text) {
 
 import axios from "axios";
 
-debug = true;
+debug = false;
 
 // 调试用：异步防抖写入 sendConfig.json
 lastConfigStr = "";
@@ -98,8 +98,8 @@ writeDebugConfig = (configStr) => {
     return;
   }
   clearTimeout(debugWriteTimer);
-  return debugWriteTimer = setTimeout(function () {
-    return (async function () {
+  return debugWriteTimer = setTimeout(function() {
+    return (async function() {
       var e, tmpDir;
       lastConfigStr = configStr;
       try {
@@ -293,7 +293,7 @@ formatToolsForPrompt = (tools) => {
   }
   return tools.map((t) => {
     return `name:${t.name}
-id:${t.id})
+id:${t.id}
 说明: ${t.description}
 参数:
 ${joiToText(t.joi || t.parameters, "    ")}`.trim();
@@ -399,7 +399,7 @@ export default (class {
 
   prePareAsk(user, role, msg, ext) {
     var ask, error, time;
-    ({ error } = Joi.array().ordered(Joi.string().label("用户名").required(), Joi.string().valid("user", "system", "assistant", "tool").label("角色").required(), Joi.string().label("消息正文").allow(""), Joi.object().label("扩展字段")).validate([...arguments]));
+    ({error} = Joi.array().ordered(Joi.string().label("用户名").required(), Joi.string().valid("user", "system", "assistant", "tool").label("角色").required(), Joi.string().label("消息正文").allow(""), Joi.object().label("扩展字段")).validate([...arguments]));
     if (error) {
       throw error;
     }
@@ -510,72 +510,72 @@ export default (class {
 ${memStr}
 ↑↑↑
 ${(() => {
-        var argsObj, argsStr, e, entries, expandedBlocks, item, j, len, lines, resultStr, snippet, truncateDeep;
-        entries = Object.values(this.fnCallCachePool);
-        if (!(entries.length > 0)) {
-          return "";
-        }
-        lines = ["【工具缓存池】当前包含以下结果（最大保留10条）："];
-        expandedBlocks = [];
-        for (j = 0, len = entries.length; j < len; j++) {
-          item = entries[j];
-          if (item.count > 0) {
-            lines.push(`- [已展开] ${item.cacheid} | ${item.name}`);
-            argsStr = "";
-            if (item.arguments) {
-              try {
-                argsObj = typeof item.arguments === "string" ? JSON.parse(item.arguments) : item.arguments;
-
-                // 递归截断函数
-                truncateDeep = (obj) => {
-                  var k, newObj, v;
-                  if (typeof obj === "string") {
-                    if (obj.length > 200) {
-                      return obj.slice(0, 200) + `...(已截断，共${obj.length}字)`;
-                    }
-                    return obj;
-                  }
-                  if (Array.isArray(obj)) {
-                    return obj.map((i) => {
-                      return truncateDeep(i);
-                    });
-                  }
-                  if (typeof obj === "object" && obj !== null) {
-                    newObj = {};
-                    for (k in obj) {
-                      v = obj[k];
-                      newObj[k] = truncateDeep(v);
-                    }
-                    return newObj;
+      var argsObj, argsStr, e, entries, expandedBlocks, item, j, len, lines, resultStr, snippet, truncateDeep;
+      entries = Object.values(this.fnCallCachePool);
+      if (!(entries.length > 0)) {
+        return "";
+      }
+      lines = ["【工具缓存池】当前包含以下结果（最大保留10条）："];
+      expandedBlocks = [];
+      for (j = 0, len = entries.length; j < len; j++) {
+        item = entries[j];
+        if (item.count > 0) {
+          lines.push(`- [已展开] ${item.cacheid} | ${item.name}`);
+          argsStr = "";
+          if (item.arguments) {
+            try {
+              argsObj = typeof item.arguments === "string" ? JSON.parse(item.arguments) : item.arguments;
+              
+              // 递归截断函数
+              truncateDeep = (obj) => {
+                var k, newObj, v;
+                if (typeof obj === "string") {
+                  if (obj.length > 200) {
+                    return obj.slice(0, 200) + `...(已截断，共${obj.length}字)`;
                   }
                   return obj;
-                };
-                argsStr = yaml.dump(truncateDeep(argsObj)).trim();
-              } catch (error1) {
-                e = error1;
-                argsStr = String(item.arguments);
-                if (argsStr.length > 500) {
-                  argsStr = argsStr.slice(0, 500) + "...(参数截断)";
                 }
+                if (Array.isArray(obj)) {
+                  return obj.map((i) => {
+                    return truncateDeep(i);
+                  });
+                }
+                if (typeof obj === "object" && obj !== null) {
+                  newObj = {};
+                  for (k in obj) {
+                    v = obj[k];
+                    newObj[k] = truncateDeep(v);
+                  }
+                  return newObj;
+                }
+                return obj;
+              };
+              argsStr = yaml.dump(truncateDeep(argsObj)).trim();
+            } catch (error1) {
+              e = error1;
+              argsStr = String(item.arguments);
+              if (argsStr.length > 500) {
+                argsStr = argsStr.slice(0, 500) + "...(参数截断)";
               }
             }
-            expandedBlocks.push(`>>> [展开的缓存内容: ${item.name} (${item.cacheid})]
+          }
+          expandedBlocks.push(`>>> [展开的缓存内容: ${item.name} (${item.cacheid})]
 【入参摘要】
 ${argsStr || "无"}
 【输出结果】
 ${item.output}
 <<<`.trim());
-          } else {
-            snippet = String(item.output || "").slice(0, 81).replace(/\n/g, " ");
-            lines.push(`- [已折叠] ${item.cacheid} | ${item.name} | ${snippet}...`);
-          }
+        } else {
+          snippet = String(item.output || "").slice(0, 81).replace(/\n/g, " ");
+          lines.push(`- [已折叠] ${item.cacheid} | ${item.name} | ${snippet}...`);
         }
-        resultStr = lines.join("\n");
-        if (expandedBlocks.length > 0) {
-          resultStr += "\n\n【当前展开的缓存内容】\n" + expandedBlocks.join("\n\n");
-        }
-        return resultStr;
-      })()}
+      }
+      resultStr = lines.join("\n");
+      if (expandedBlocks.length > 0) {
+        resultStr += "\n\n【当前展开的缓存内容】\n" + expandedBlocks.join("\n\n");
+      }
+      return resultStr;
+    })()}
 【务必做】若需回忆或发现用户发送内容接不上或已经调查过的代码看不到了，请调用查询历史消息工具`.trim();
   }
 
@@ -585,7 +585,7 @@ ${item.output}
     //toolTipObj.sysCalls
     //toolTipObj.userCall
     //toolTipObj.aiCall
-    return `${(function () {
+    return `${(function() {
       switch (config.toolsMode) {
         case 1:
           return `${getCorePrompt(this.name, !!this.aiConfig.prompt)}
@@ -638,7 +638,7 @@ ${item.output}
       if (index === 0) {
         return ask.content;
       }
-      tmp = { ...ask };
+      tmp = {...ask};
       if (ask.role === "assistant") {
         //发送前尝试格式化content，尽可能避免json被二次stringify，为了防止ai错误理解成2层json
         //附加字段我们用文本发送
@@ -690,7 +690,7 @@ ${yaml.dump(tmp)}`.trim();
               usedAttachIds.push(attachment.id);
               try {
                 filePath = attachment.url.startsWith('/') ? attachment.url.startsWith('/attachment/') ? pathLib.resolve(`.${attachment.url}`) : attachment.url : pathLib.resolve(`${this.mediaDir // 绝对路径
-                  }/${attachment.url}`);
+}/${attachment.url}`);
                 if (fs.existsSync(filePath)) {
                   bitmap = fs.readFileSync(filePath);
                   base64Data = Buffer.from(bitmap).toString('base64');
@@ -826,7 +826,7 @@ id为${fnCallCache.cacheid}
       // 针对推理模型，将 note 映射为 reasoning_content 作为一种取巧的上下文回传方式
       // 只要该消息原本有 reasoning 或 note，就传回 reasoning_content，以保证会话的完整性
       if (ask.role === "assistant") {
-        note = (function () {
+        note = (function() {
           try {
             return JSON.parse(ask.content).note;
           } catch (error1) {
@@ -1012,7 +1012,7 @@ ${config.getExtraInfo()}`;
           // 检查是否已停止，如果已停止则立即退出循环
           //if @stop
           //  break
-          await (async (chunk) => {
+          await (async(chunk) => {
             var deltaToolCalls, index, j, len, toolCallChunk;
             //console.log JSON.stringify(chunk)
             doneChunk = chunk;
@@ -1252,7 +1252,7 @@ ${config.getExtraInfo()}`;
         thinkControl: config.thinkControl,
         thinkStrength: config.thinkStrength
       }));
-
+      
       // 如果是因为用户主动停止导致的 sendAsk 结束，则不再进行后续解析和校验逻辑，防止解析残缺 JSON 报错并触发重试
       if (this.stop) {
         this.replying = false;
@@ -1293,7 +1293,9 @@ ${config.getExtraInfo()}`;
           }
         }
         joiSchema = sendTemplate.joi(config.toolsMode);
-        validateOutput = joiSchema.validate(replyJSON);
+        validateOutput = joiSchema.validate(replyJSON, {
+          abortEarly: false
+        });
         joiError = validateOutput.error;
         if (aiReply.toolCalls) { //如果使用了tools参数，把工具调用转换为sysCalls
           if (replyJSON.sysCalls == null) {
@@ -1319,7 +1321,9 @@ ${config.getExtraInfo()}`;
         console.log("解析错误", joiError, parseError);
         console.log("重试次数", config.retry);
         console.log("=====");
-        returnJoi = joiError ? "joi校验错误:" + JSON.stringify(joiError.details) : parseError;
+        returnJoi = joiError ? "joi校验错误" + joiError.details.map(function(d) {
+          return d.message;
+        }).join('; ') : parseError;
         // 如果本轮有工具调用，通过还原工具结果来报回错误，避免 400 错误并保护执行安全
         if (((ref2 = aiReply.toolCalls) != null ? ref2.length : void 0) > 0) {
           ref3 = aiReply.toolCalls;
@@ -1335,7 +1339,7 @@ ${config.getExtraInfo()}`;
           // 直接进入递归重试
           if (config.retry < 4) {
             config.retry++;
-            await this.sendAskByMsgProtocol({ ...config });
+            await this.sendAskByMsgProtocol({...config});
             this.replying = false;
             return;
           } else {
@@ -1343,7 +1347,7 @@ ${config.getExtraInfo()}`;
             ask = this.addAsk("系统通讯中枢", "user", tip, {
               isSystem: 1,
               retry: config.retry,
-              joi: joiError ? joiError.details[0].message : parseError,
+              joi: returnJoi,
               group: "tip"
             });
             if (config.onResponse) {
@@ -1369,7 +1373,7 @@ ${config.getExtraInfo()}`;
             config.retry++;
             await this.sendAskByMsgProtocol({
               ...config,
-              onResponse: async (reply) => {
+              onResponse: async(reply) => {
                 if (config.onResponse) {
                   return (await config.onResponse(reply));
                 }
@@ -1382,7 +1386,7 @@ ${config.getExtraInfo()}`;
             ask = this.addAsk("系统通讯中枢", "user", tip, {
               isSystem: 1,
               retry: config.retry,
-              joi: joiError ? joiError.details[0].message : parseError,
+              joi: returnJoi,
               group: "tip"
             });
             if (config.onResponse) {
@@ -1395,7 +1399,7 @@ ${config.getExtraInfo()}`;
         }
       }
       config.retry = 0; //重置
-
+      
       //处理任务
       if (replyJSON.tasks && (config != null ? config.onTaskChange : void 0)) {
         try {
@@ -1502,7 +1506,7 @@ ${config.getExtraInfo()}`;
           }
           // 计算执行时长和判断是否成功
           toolCallDuration = Date.now() - toolCallStartTime;
-          toolCallSuccess = sysReturns.every(function (ret) {
+          toolCallSuccess = sysReturns.every(function(ret) {
             return !ret.error;
           });
           // 同步加入缓存池，避免下一回合才能获取到索引
@@ -1547,8 +1551,8 @@ ${config.getExtraInfo()}`;
             }
           }
           //处理函数调用，缓存最近10条
-          sysReturnsStr = (function (output) {
-            sysReturns.forEach(function (ret) {
+          sysReturnsStr = (function(output) {
+            sysReturns.forEach(function(ret) {
               return output += `[name:${ret.name}][id:${ret.id}][call_id:${ret.call_id}]\n${ret.output}\n`;
             });
             return output;
@@ -1558,7 +1562,7 @@ ${config.getExtraInfo()}`;
           if (this.fnCallOutputs.length > 10) {
             this.fnCallOutputs.shift();
           }
-          // 在协议安全窗口内，统一执行工具注册的延迟函数（如 aiSendMessage）
+// 在协议安全窗口内，统一执行工具注册的延迟函数（如 aiSendMessage）
           for (p = 0, len4 = deferredFns.length; p < len4; p++) {
             deferFn = deferredFns[p];
             await deferFn();
@@ -1681,7 +1685,7 @@ ${config.getExtraInfo()}`;
 
   // ========== 记忆管理 ==========
 
-  // 双重滚动总结：超过100条时裁剪并按需生成摘要
+    // 双重滚动总结：超过100条时裁剪并按需生成摘要
   async _rollMemory(config) {
     var completion, err, ref, ref1, ref2, ref3, ref4, rollContent, summaryIdx, summaryText;
     if (!(this.memorys.length >= 100)) {
@@ -1700,7 +1704,7 @@ ${config.getExtraInfo()}`;
           return m.content;
         }
       }).join("\n");
-
+      
       // 2. 执行物理裁剪 (100 - 51 = 49条剩余)
       this.memorys.splice(0, 51);
       if (config != null) {

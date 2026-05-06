@@ -1,4 +1,4 @@
-import { exec, execFile, spawn } from 'child_process';
+import { execFile, spawn } from 'child_process';
 import path from 'path';
 import fs from 'fs-extra';
 import comData from '../../comData/comData.js';
@@ -20,7 +20,7 @@ const timeMachineEngine = {
   checkGit: async () => {
     try {
       const version = await new Promise((resolve, reject) => {
-        exec('git --version', {
+        execFile(gitPath, ['--version'], {
           env: { ...process.env, GIT_DIR: undefined, GIT_WORK_TREE: undefined }
         }, (err, stdout) => {
           if (err) reject(err);
@@ -43,6 +43,12 @@ const timeMachineEngine = {
       };
     } catch (err) {
       console.log(err);
+      if (err?.code === 'ENOENT') {
+        return {
+          ok: false,
+          msg: "未检测到 Git 客户端，请确认 Git 已安装并加入 PATH"
+        };
+      }
       return {
         ok: false,
         msg: "Git 环境检测发生异常：" + err.message
@@ -217,7 +223,7 @@ const timeMachineEngine = {
       await fs.ensureDir(repoPath);
       if (!fs.existsSync(gitDir)) {
         await new Promise((resolve, reject) => {
-          exec(`"${gitPath}" init`, { cwd: repoPath, env: { ...process.env, GIT_DIR: undefined, GIT_WORK_TREE: undefined } }, (error, stdout) => {
+          execFile(gitPath, ['init'], { cwd: repoPath, env: { ...process.env, GIT_DIR: undefined, GIT_WORK_TREE: undefined } }, (error, stdout) => {
             if (error) reject(error); else resolve(stdout);
           });
         });

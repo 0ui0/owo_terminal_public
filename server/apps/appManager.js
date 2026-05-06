@@ -27,7 +27,7 @@ class AppManager {
   // 监听 apps 目录变动
   watchAppDefs() {
     const appsDir = path.resolve(import.meta.dirname, "../apps")
-    console.log(`[AppManager] Watching for app changes in: ${appsDir}`)
+    console.log(`[AppManager] 监听app更改: ${appsDir}`)
 
     // 使用 fs.watch (非 promise 版本更适合长期监听)
     fs.watch(appsDir, { recursive: true }, (eventType, filename) => {
@@ -35,7 +35,7 @@ class AppManager {
         const parts = filename.split(path.sep)
         const appDirName = parts[0]
         if (!appDirName) return
-        console.log(`[AppManager] Detected change in ${filename}, refreshing ${appDirName}...`)
+        console.log(`[AppManager] ${filename}已更改, 刷新 ${appDirName}...`)
         this.loadappDefs(appDirName).then(() => {
           if (this.io) this.io.emit("appDefs:updated", this.getappDefs())
         })
@@ -46,7 +46,7 @@ class AppManager {
   // 读取 apps 目录，注册所有 App 类型
   async loadappDefs(specificDir = null) {
     const appsDir = path.resolve(import.meta.dirname, "../apps")
-    console.log(`[AppManager] Reading apps from: ${appsDir}`)
+    console.log(`[AppManager] 从${appsDir}读取app`)
     try {
       const dirNames = specificDir ? [specificDir] : await fsP.readdir(appsDir)
 
@@ -87,7 +87,7 @@ class AppManager {
             try {
               backend.setup({ manager: this })
             } catch (se) {
-              console.error(`[AppManager] Setup hook failed for ${appJson.id}:`, se)
+              console.error(`[AppManager] ${appJson.id} 的 Setup 钩子执行失败:`, se)
             }
           }
 
@@ -97,14 +97,14 @@ class AppManager {
             frontendPath: path.join(appDirPath, appJson.frontend || "frontend.js")
           })
           this.appDefsErrors.delete(appJson.id) // 加载成功，清除错误记录
-          console.log(`[AppManager] Registered/Updated app: ${appJson.id}`)
+          console.log(`[AppManager] 加载app: ${appJson.id}`)
         } catch (e) {
           const errorMsg = `加载 App 失败 (${dirName}): ${e.message}`
           this.appDefsErrors.set(dirName, errorMsg)
           if (!specificDir) {
             // 静默加载
           } else {
-            console.error(`[AppManager] ${errorMsg}`)
+            console.error(`[AppManager] 错误: ${errorMsg}`)
             if (this.io) this.io.emit("app:error", { msg: errorMsg })
           }
         }
@@ -157,7 +157,7 @@ class AppManager {
         try {
           await appDef.backend.init(app, this)
         } catch (initErr) {
-          console.error(`[AppManager] Backend init failed for ${type}:`, initErr)
+          console.error(`[AppManager] ${type} 的后端初始化失败:`, initErr)
           this.apps.delete(appId) // 撤销注册
           const errorMsg = `App 初始化失败: ${initErr.message}`
           if (this.io) this.io.emit("app:error", { appId, msg: errorMsg })
@@ -194,7 +194,7 @@ class AppManager {
       try {
         await appDef.backend.destroy(app, this)
       } catch (e) {
-        console.error(`[AppManager] Backend destroy error for ${appId}:`, e)
+        console.error(`[AppManager] ${appId} 的后端销毁执行出错:`, e)
       }
     }
 
@@ -229,7 +229,7 @@ class AppManager {
         const result = await appDef.backend.dispatch({ app, action, args, appManager: this, io: this.io })
         return result
       } catch (e) {
-        console.error(`[AppManager] Backend dispatch error for ${app.id}:`, e)
+        console.error(`[AppManager] ${app.id} 的后端调度执行出错:`, e)
         return { error: e.message }
       }
     }
@@ -387,7 +387,7 @@ class AppManager {
     const toolDirs = [
       { dir: "sysCall", type: "sysCall" },
       { dir: "usrCall", type: "usrCall" },
-      { dir: "aiCall",  type: "aiCall" }
+      { dir: "aiCall", type: "aiCall" }
     ]
     const aiAskDir = path.resolve(import.meta.dirname, "../tools/aiAsk")
 

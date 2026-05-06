@@ -8,6 +8,8 @@ import options from "../../../config/options.js"
 import ioServer from "../../../ioServer/ioServer.js"
 import Joi from "joi"
 
+import getMsgProtocalConfig from "../../../ioServer/ioApis/chat/getMsgProtocalConfig.js"
+
 export default {
   name: "呼叫智能体",
   id: "callAgent",
@@ -95,119 +97,16 @@ export default {
             }
           });
 
-          await targetAgent.sendAskByMsgProtocol({
-            toolsMode: comData.data.get().toolsMode,
+          // 获取当前模型配置用于 Token 统计
+          const aiList = await options.get("ai_aiList");
+          const modelName = comData.data.get().currentModel;
+          const currentTokenConfig = aiList.find(m => m.name === modelName);
+
+          await targetAgent.sendAskByMsgProtocol(getMsgProtocalConfig({
+            targetModel: targetAgent,
             listId: targetListId,
-            enableThinking: comData.data.get().enableThinking,
-            async onSendAskBefore(aiAskInstance) {
-              const aiList = await options.get("ai_aiList");
-              // 计费模型：无论主从，都使用从用户当前的模型里扣费
-              const modelName = comData.data.get().currentModel;
-              const modelConfig = aiList.find(m => m.name === modelName);
-
-              if (!modelConfig) {
-                throw new Error(`找不到扣除preToken模型 ${modelName} 的配置`);
-              }
-              if (modelConfig.preTokens <= 0) {
-                throw new Error(`模型 ${modelName} preToken 不足`);
-              }
-            },
-
-            async onTokenChange(aiAskInstance, usage) {
-              const aiList = await options.get("ai_aiList");
-              const modelName = comData.data.get().currentModel;
-              const modelIndex = aiList.findIndex(m => m.name === modelName);
-
-              if (modelIndex >= 0) {
-                aiList[modelIndex].preTokens = Number(aiList[modelIndex].preTokens) - Number(usage.totalT);
-                await options.set("ai_aiList", aiList);
-              }
-            },
-
-            async onResponse(reply) {
-              let mind, content;
-              let replyJSON = null;
-              let contentJSON = null;
-              mind = content = "";
-
-              if (reply.role === "assistant") {
-                try {
-                  contentJSON = JSON.parse(reply.content);
-                  mind = contentJSON.mind;
-                  content = contentJSON.content;
-
-                  // 数人动作 (全局)
-                  /* if (contentJSON.faceAction) {
-                    await comData.data.edit(data => data.faceAction = contentJSON.faceAction);
-                  }
-                  if (contentJSON.playFace) {
-                    await comData.data.edit(data => data.playFaces.current = contentJSON.playFace);
-                  } */
-                } catch (error) {
-                  replyJSON = {
-                    user: "系统错误",
-                    mind: "解析错误",
-                    content: `原始json${reply}`
-                  };
-                }
-              } else {
-                mind = null;
-                content = reply.content;
-              }
-
-              let msg = `${mind ? `(${mind})\n` : ""}${content}`;
-
-              let responseChat = {
-                uuid: reply.id,
-                content: msg,
-                reasoning: reply.reasoning, // 保存推理思维链
-                name: reply.user,
-                group: reply.group,
-                timestamp: Date.now(),
-                chatListId: targetListId,
-                ask: {
-                  ...reply,
-                  content: contentJSON
-                }
-              };
-
-              if (ioServer.io) ioServer.io.emit("chat", responseChat);
-              await chats.add(responseChat, targetListId);
-            },
-
-            async beforeRun() {
-              const list = comData.data.get().chatLists.find(l => l.id === targetListId);
-              if (list?.stop) {
-                targetAgent.addAsk("系统", "user", "用户手动中断回复");
-                targetAgent.stopRun();
-              }
-              await comData.data.edit((data) => {
-                const l = data.chatLists.find(x => x.id === targetListId);
-                if (l) l.replying = targetAgent.replying;
-              });
-            },
-
-            async endRun() {
-              await comData.data.edit((data) => {
-                const l = data.chatLists.find(x => x.id === targetListId);
-                if (l) {
-                  l.replying = targetAgent.replying;
-                  l.streamChunks = "";
-                  l.streamReasoningChunks = ""; // 运行结束，清理流缓冲
-                }
-              });
-            },
-
-            async streamFn({ chunk, replyChunk, reasoningChunk }) {
-              await comData.data.edit((data) => {
-                const l = data.chatLists.find(x => x.id === targetListId);
-                if (l) {
-                  if (replyChunk) l.streamChunks += replyChunk;
-                  if (reasoningChunk) l.streamReasoningChunks += reasoningChunk;
-                }
-              });
-            }
-          });
+            currentTokenConfig
+          }))
 
           // 自动汇报检测逻辑
           if (targetListId !== 0) { // 仅针对子智能体
