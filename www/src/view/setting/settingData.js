@@ -3,7 +3,7 @@ let data
 export default data = {
   async initSocket() {
     return
-    this.socket = io(`${window.location.hostname}:9501`)
+    this.socket = io()
     this.socket.on("cross", (data) => {
     })
   },
@@ -39,7 +39,7 @@ export default data = {
   async fnCall(name, params) {
     try {
       let tmp = await m.request({
-        url: `${window.location.protocol}//${window.location.hostname}:9501/api/cross`,
+        url: `/api/cross`,
         //withCredentials:true,
         method: "post",
         body: {

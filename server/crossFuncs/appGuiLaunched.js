@@ -8,7 +8,7 @@ export default {
       if (appManager) {
         appManager.onGuiLaunched(appId)
         console.log(`[CrossFunc] App GUI launched: ${appId}`)
-        return { ok: true }
+        return { ok: true, msg: "App 前端 GUI 已就绪" }
       }
       return { ok: false, msg: "AppManager not ready" }
     } catch (e) {

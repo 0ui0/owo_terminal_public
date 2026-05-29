@@ -130,7 +130,7 @@ export const globalDict = {
   "系统/动作/稍后提醒": { cn: "稍后提醒", en: "Remind Me Later" },
   "系统/错误/提示": { cn: "发生错误: ", en: "Error: " },
   "系统/错误/启动失败": { cn: "启动失败", en: "Start Failed" },
-  "系统/错误/端口占用": { cn: "端口 9501 被占用，请检查是否已打开另一个实例。", en: "Port 9501 is in use. Check if another instance is running." },
+  "系统/错误/端口占用": { cn: "端口被占用，无法启动服务。请检查是否已打开另一个实例。", en: "Port is in use. Unable to start server. Check if another instance is running." },
 
   // API 错误消息
   "API/错误/服务器内部错误": { cn: "服务器内部错误", en: "Internal Server Error" },

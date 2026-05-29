@@ -475,13 +475,21 @@ export default ChatItem = () => {
               m("br"),
               new Date(chat.timestamp).toISOString(),
               m("br"),
-              chat?.ask?.totalTokens ?
+              chat?.ask?.totalTokens ? [
                 `${trs("chatItem/token消耗", { cn: "token消耗", en: "token consumption" })}
                 ${trs("chatItem/输入", { cn: "输入", en: "input" })}:${chat?.ask?.promptTokens}
                 ${trs("chatItem/缓存", { cn: "缓存", en: "cached" })}:${chat?.ask?.cachedTokens || 0}
                 ${trs("chatItem/输出", { cn: "输出", en: "output" })}:${chat?.ask?.completionTokens}
                 ${trs("chatItem/合计", { cn: "合计", en: "total" })}:${chat?.ask?.totalTokens}
-                `: null
+                `,
+                m("span", {
+                  style: {
+                    fontWeight: "bold",
+                    color: getColor('pink_1').back,
+                    fontSize: "0.8rem",
+                  }
+                }, `${trs("chatItem/实际消耗", { cn: "实际消耗", en: "actual cost" })}:${chat.ask.totalTokens - (chat.ask.cachedTokens || 0)}`)
+              ] : null
             ])
           ]),
 

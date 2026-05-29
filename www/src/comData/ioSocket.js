@@ -5,6 +5,7 @@ import Notice from "../view/common/notice.js"
 import ChatTerm from "../view/chat/ChatTerm.js"
 import m from "mithril"
 import Box from "../view/common/box.js"
+import Tag from "../view/common/tag.js"
 import settingData from "../view/setting/settingData.js"
 import format from "../view/common/format.js"
 import { trs } from "../view/common/i18n.js"
@@ -18,7 +19,7 @@ export default {
     if (this.isInit) {
       return
     }
-    this.socket = io(`${window.location.hostname}:9501`)
+    this.socket = io()
 
     this.socket.on("connect", () => {
       console.log("连接成功")
@@ -39,7 +40,7 @@ export default {
 
     this.socket.on("comData", async (data, callback) => {
       try {
-        if (data.version >= comData.data.get().version) {
+        if (data.version > comData.data.get().version) {
           comData.data.setData(data)
           m.redraw()
           callback({
@@ -53,7 +54,7 @@ export default {
         }
         else {
           let tmp = await m.request({
-            url: `${window.location.protocol}//${window.location.hostname}:9501/api/comData/get`
+            url: `/api/comData/get`
           })
           comData.data.setData(tmp.data)
           callback({
@@ -199,7 +200,7 @@ export default {
         let component = module.default
         if (typeof component === "function") {
           // 参数注入模式
-          component = component({ appId: msg.appId, m, Notice, ioSocket: this, comData, commonData, chatData, settingData, format, Box, iconPark: window.iconPark, getColor, trs })
+          component = component({ appId: msg.appId, m, Notice, ioSocket: this, comData, commonData, chatData, settingData, format, Box, Tag, iconPark: window.iconPark, getColor, trs })
         }
         // Window Management: Resolve Geometry
         const saved = msg.data && msg.data.window
@@ -313,15 +314,15 @@ export default {
 
     // === App 最小化指令 (Back-to-Front) ===
     // 此监听器处理由后端主动发起的最小化请求（例如：浏览器截图工具在抓取完成后要求恢复隐藏）。
-    // 
+    //
     // 【系统设计原则：状态闭环同步】
-    // 1. 常规模式 (Front-to-Back): 用户点击前端窗口上的最小化按钮 -> 触发并执行 Notice.minimizeWindow() 
-    //    -> 修改前端内存 state -> 触发 handleWindowUpdate 钩子 -> 
+    // 1. 常规模式 (Front-to-Back): 用户点击前端窗口上的最小化按钮 -> 触发并执行 Notice.minimizeWindow()
+    //    -> 修改前端内存 state -> 触发 handleWindowUpdate 钩子 ->
     //    通过 settingData.fnCall("appUpdateWindow") 将最新坐标/最小化状态同步回执给后端存储。
     //
-    // 2. 指令模式 (Back-to-Front): 后端通过 Socket 发出 "app:minimize" -> 前端在此接收指令 -> 
+    // 2. 指令模式 (Back-to-Front): 后端通过 Socket 发出 "app:minimize" -> 前端在此接收指令 ->
     //    调用 Notice.minimizeWindow() -> 进而驱动执行上述【常规模式】的所有逻辑（视觉隐藏 + 再次状态回执）。
-    // 
+    //
     // 这种设计确保了无论是谁发起的动作，最终的“窗口最小化状态”在物理表现和前后端数据镜像中都能保持严格一致。
     this.socket.on("app:minimize", async (msg) => {
       const { appId } = msg
@@ -348,10 +349,10 @@ export default {
         if (data.onDispatch) {
           data.onDispatch(msg, callback)
         } else {
-          if (typeof callback === 'function') callback({ error: "App data instance missing onDispatch method" })
+          if (typeof callback === 'function') callback({ ok: false, msg: "App 数据实例缺少 onDispatch 方法" })
         }
       } else {
-        if (typeof callback === 'function') callback({ error: "App instance not found" })
+        if (typeof callback === 'function') callback({ ok: false, msg: "未找到运行中的 App 实例" })
       }
     })
 

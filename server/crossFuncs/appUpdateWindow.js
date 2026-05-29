@@ -11,7 +11,7 @@ export default {
         if (!app.data.window) app.data.window = {}
         Object.assign(app.data.window, windowRect)
         projectManager.markDirty()
-        return { ok: true }
+        return { ok: true, msg: "窗口尺寸同步成功" }
       }
       return { ok: false, msg: "App not found" }
     } catch (e) {

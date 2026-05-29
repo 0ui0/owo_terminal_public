@@ -9,7 +9,7 @@ export default {
     vnode.state.loading = true
     // 获取 App 类型列表
     settingData.fnCall("appGetTypes").then(result => {
-      vnode.state.appDefs = result || []
+      vnode.state.appDefs = result.data || []
       vnode.state.loading = false
       m.redraw()
     })

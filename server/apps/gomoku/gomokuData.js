@@ -10,7 +10,7 @@ export default {
     if (instance && instance.onDispatch) {
       instance.onDispatch(msg, callback)
     } else {
-      if (callback) callback({ error: "Instance not found" })
+      if (callback) callback({ ok: false, msg: "Instance not found" })
     }
   },
 

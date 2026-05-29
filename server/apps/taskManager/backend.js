@@ -8,7 +8,7 @@ export default {
   async dispatch({ app, action, args, appManager, io }) {
     if (action === "list") {
       const summary = appManager.getSummary()
-      return { ok: true, data: summary }
+      return { ok: true, data: summary, msg:"列出app成功"}
     }
 
     if (action === "show") {
@@ -19,7 +19,7 @@ export default {
 
       // 调用 launch，由于实例已存在，它会触发 GUI 唤醒（基于对 appManager 的改动）
       await appManager.launch(targetApp.type, { appId: targetId })
-      return { ok: true }
+      return { ok: true , msg:`成功唤起app${targetId}`}
     }
 
     if (action === "kill") {
@@ -28,12 +28,12 @@ export default {
 
       const res = await appManager.close(targetId)
       if (res.ok) {
-        return { ok: true }
+        return { ok: true, msg:`已终止app${targetId}`}
       } else {
         return { ok: false, msg: res.msg }
       }
     }
 
-    return { error: `Action ${action} not supported` }
+    return { ok: false, msg: `Action ${action} not supported` }
   }
 }

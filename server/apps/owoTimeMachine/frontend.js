@@ -92,8 +92,8 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, settingData, 
   // --- 核心业务函数 ---
   const loadFiles = async () => {
     if (!repoPath) return;
-    const rawRes = await settingData.fnCall("appDispatch", [appId, "ls", { hash, relPath, repoPath }]);
-    files = (rawRes?.ok && rawRes.data?.ok) ? (Array.isArray(rawRes.data.data) ? rawRes.data.data : []) : [];
+    const res = await settingData.fnCall("appDispatch", [appId, "ls", { hash, relPath, repoPath }]);
+    files = res?.ok ? (Array.isArray(res.data) ? res.data : []) : [];
     selected.clear();
     m.redraw();
   };
@@ -101,13 +101,12 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, settingData, 
   const loadHistory = async () => {
     if (!repoPath) return;
     const res = await settingData.fnCall("appDispatch", [appId, "loadBackup", { repoPath }]);
-    const realRes = res?.data ? res.data : res;
-    if (realRes?.ok) {
-      history = realRes.history || [];
+    if (res?.ok) {
+      history = res.history || [];
       m.redraw();
       return true;
     } else {
-      Notice.launch({ title: "无法打开备份", msg: (realRes?.msg) || "该目录不是有效的时光机备份仓库喵！" });
+      Notice.launch({ title: "无法打开备份", msg: (res?.msg) || "该目录不是有效的时光机备份仓库喵！" });
       history = [];
       repoPath = "";
       m.redraw();
@@ -209,18 +208,18 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, settingData, 
               onDelete: async (item) => {
                 if (await askConfirm("确定删除该还原点？")) {
                   const res = await settingData.fnCall("appDispatch", [appId, "deleteSnapshot", { id: item.id, repoPath }]);
-                  if (res.ok && res.data?.ok) return loadHistory();
+                  if (res?.ok) return loadHistory();
                 }
               },
               onSnap: async () => {
                 const checkRes = await settingData.fnCall("appDispatch", [appId, "detectNested", { repoPath }]);
-                if (checkRes.ok && checkRes.data?.data?.length > 0) {
+                if (checkRes.ok && checkRes.data?.length > 0) {
                   if (!(await askConfirm("检测到嵌套仓库，建议移除子目录中的 .owoTimeMachine 文件夹后再操作喵。", "数据完整性警报"))) return;
                 }
                 const msg = await askName("创建版本快照", `备份 ${new Date().toLocaleString()}`);
                 if (!msg) return;
                 const res = await settingData.fnCall("appDispatch", [appId, "snap", { repoPath, msg }]);
-                if (res?.ok && res.data?.ok) {
+                if (res?.ok) {
                   Notice.launch({ msg: "版本快照已保存", type: "success" });
                   if (isMob) showSidebar = false;
                   return loadHistory();

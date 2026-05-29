@@ -18,7 +18,7 @@ export default {
 
     // 1. 获取当前内容
     const appRes = await appManager.dispatch(appId, "getContent")
-    if (!appRes || appRes.error) return `无法获取编辑器内容: ${appRes?.error || "未知错误"}`
+    if (!appRes || !appRes.ok) return `无法获取编辑器内容: ${appRes?.msg || "未知错误"}`
 
     const currentContent = appRes.data.content
     const filePath = appRes.data.filePath

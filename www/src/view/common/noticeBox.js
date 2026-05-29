@@ -105,8 +105,31 @@ export default function () {
     const onMove = (e) => {
       if (!isMoving) return
       const dx = e.clientX - moveStartX; const dy = e.clientY - moveStartY
-      win.x = moveStartWinX + dx
-      win.y = moveStartWinY + dy
+      let newX = moveStartWinX + dx
+      let newY = moveStartWinY + dy
+
+      const screenW = window.innerWidth
+      const screenH = window.innerHeight
+      const winW = win.width || 200
+      const winH = win.height || 150
+
+      const minVisibleW = 100
+      const minVisibleH = 30
+
+      if (newX < minVisibleW - winW) {
+        newX = minVisibleW - winW
+      } else if (newX > screenW - minVisibleW) {
+        newX = screenW - minVisibleW
+      }
+
+      if (newY < 0) {
+        newY = 0
+      } else if (newY > screenH - minVisibleH) {
+        newY = screenH - minVisibleH
+      }
+
+      win.x = newX
+      win.y = newY
       m.redraw()
     }
     const onUp = (e) => {

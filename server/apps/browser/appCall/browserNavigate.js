@@ -32,7 +32,7 @@ export default {
 
     const res = await appManager.dispatch(appId, "navigate", { url })
     if (res && res.ok) return `跳转完成 (ID: ${appId})`
-    return `错误：${String(res?.error || res?.msg || "跳转失败 (空响应)")}`
+    return `错误：${String(res?.msg || "跳转失败 (空响应)")}`
   },
 
   joi() {

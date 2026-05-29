@@ -35,7 +35,7 @@ export default {
   async pullList() {
     try {
       let tmp = await m.request({
-        url: `${window.location.protocol}//${window.location.hostname}:9501/api/comData/get`
+        url: `/api/comData/get`
       })
       this.list = tmp.data.chatLists?.find(l => l.id === 0)?.data || []
       return this.list

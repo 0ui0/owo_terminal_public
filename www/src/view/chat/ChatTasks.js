@@ -12,8 +12,9 @@ export default () => {
 
 
       const notes = chatList?.notes || [];
+      const hasGraph = chatList?.graph?.nodes && Object.keys(chatList.graph.nodes).length > 0;
 
-      if ((!chatList?.tasks || chatList.tasks.length === 0) && notes.length === 0) return null;
+      if ((!chatList?.tasks || chatList.tasks.length === 0) && notes.length === 0 && !hasGraph) return null;
 
       const renderTaskEntry = (task, depth = 0) => {
         const itemKey = (task.taskid || task.subtaskid) + "_" + depth;
@@ -147,8 +148,8 @@ export default () => {
           }, `${activeTask?.process || 0}%`)
         ]) : null,
 
-        // 笔记按钮 (当有笔记历史时显示)
-        notes.length > 0 ? m(".note-capsule", {
+        // 笔记按钮 (当有笔记历史或有网点图时显示)
+        (notes.length > 0 || hasGraph) ? m(".note-capsule", {
           style: {
             marginTop: "0.4rem",
             padding: "0.25rem 0.6rem 0.25rem 0.4rem", // Match task-capsule padding

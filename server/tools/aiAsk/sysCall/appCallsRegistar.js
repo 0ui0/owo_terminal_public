@@ -4,6 +4,7 @@ import appManager from "../../../apps/appManager.js"
 export default {
   name: "注册App工具",
   id: "appCallsRegistar",
+  hidden: true,
 
   async fn(argObj) {
     const { value, error } = this.joi().validate(argObj)

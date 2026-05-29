@@ -1,6 +1,33 @@
 import Box from "./box.js"
 import NBox from "./noticeBox.js"
 
+function clampWindow(config) {
+  const isAuto = config.width === 0 || config.height === 0
+  if (config.x === 0 && config.y === 0 && isAuto) {
+    return
+  }
+
+  const screenW = window.innerWidth
+  const screenH = window.innerHeight
+  const winW = config.width || 200
+  const winH = config.height || 150
+
+  const minVisibleW = 100
+  const minVisibleH = 30
+
+  if (config.x < minVisibleW - winW) {
+    config.x = minVisibleW - winW
+  } else if (config.x > screenW - minVisibleW) {
+    config.x = screenW - minVisibleW
+  }
+
+  if (config.y < 0) {
+    config.y = 0
+  } else if (config.y > screenH - minVisibleH) {
+    config.y = screenH - minVisibleH
+  }
+}
+
 export default {
   data: {
     dataArr: [], // 扁平化的一维数组，存储所有 Tab 实例
@@ -88,6 +115,9 @@ export default {
     targetConfig.activeSign = obj.sign
     this.data.dataArr.push(obj)
 
+    // 限制在可视区域
+    clampWindow(targetConfig)
+
     // Trigger initial update
     if (obj.onWindowUpdate) obj.onWindowUpdate(targetConfig)
 
@@ -101,10 +131,23 @@ export default {
     const item = this.data.dataArr.find(i => i._winConfig.id === winId)
     if (item) {
       const config = item._winConfig
+      let needsUpdate = false
       if (config.minimized) {
         config.minimized = false
+        needsUpdate = true
+      }
+
+      const oldX = config.x
+      const oldY = config.y
+      clampWindow(config)
+      if (config.x !== oldX || config.y !== oldY) {
+        needsUpdate = true
+      }
+
+      if (needsUpdate) {
         this.handleWindowUpdate(config)
       }
+
       this.data.zIndexBase++
       config.zIndex = this.data.zIndexBase
       this.data.activeWindowId = winId

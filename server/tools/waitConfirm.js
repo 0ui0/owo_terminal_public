@@ -44,6 +44,7 @@ export default async (config) => {
       let _confirmCmd = list.confirmCmds.find(_confirmCmd => _confirmCmd.id === confirmCmd.id)
 
       if (!_confirmCmd) {
+        console.warn(`[waitConfirm 竞态警报] 发现发出去的 confirmCmd (ID: ${confirmCmd.id}) 丢失了！`);
         // 指令可能已被外力移除，异常结束
         res({ ok: false, comment: "" });
         return;

@@ -24,7 +24,8 @@ export default {
       formatDate,
       formatSize,
       renderHighlightedText,
-      currentPath
+      currentPath,
+      isProjectSearching
     } = vnode.attrs;
 
     const renderSortIcon = (field) => {
@@ -148,8 +149,28 @@ export default {
         // 文件项渲染
         (() => {
           const listItems = [];
+          
+          // 搜索中状态提示
+          if (isProjectSearching) {
+            listItems.push(m("div", {
+              style: {
+                display: "flex",
+                justifyContent: "center",
+                alignItems: "center",
+                width: "100%",
+                padding: "3rem 0",
+                fontSize: "1.4rem",
+                color: getColor('gray_6').front,
+                gap: "0.6rem"
+              }
+            }, [
+              m("span", "⏳"),
+              "搜索中..."
+            ]));
+            return listItems;
+          }
+          
           let lastFilePath = null;
-
       processedFiles.forEach((item) => {
             const itemId = item.isSearchResult ? `${item.path}:${item.line}` : item.name;
             const isSelected = selected.has(itemId);
@@ -261,12 +282,33 @@ export default {
                                 fontWeight: item.isSearchResult ? "bold" : "normal",
                                 overflow: "hidden",
                                 textOverflow: "ellipsis",
-                                whiteSpace: "nowrap"
+                                whiteSpace: "nowrap",
+                                display: "flex",
+                                alignItems: "center",
+                                gap: "0.6rem"
                               }
                             },
-                            item.isSearchResult ? `行 ${item.line}:` : item.name
+                            item.isFileNameMatch
+                              ? [
+                                  item.name,
+                                  m("span",
+                                    {
+                                      style: {
+                                        fontSize: "1rem",
+                                        padding: "0.1rem 0.5rem",
+                                        borderRadius: "0.3rem",
+                                        background: getColor('main').back + "55",
+                                        color: getColor('main').front,
+                                        flexShrink: 0
+                                      }
+                                    },
+                                    "文件名"
+                                  )
+                                ]
+                              : item.isSearchResult ? `行 ${item.line}:` : item.name
                           ),
-                          item.isSearchResult ? m("div",
+                          item.isSearchResult && !item.isFileNameMatch ? m("div",
+
                             {
                               style: {
                                 fontSize: "1.1rem",
@@ -313,3 +355,4 @@ export default {
     );
   }
 }
+

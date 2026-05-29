@@ -22,6 +22,9 @@ const TSession = class {
   close(tid) {
     const session = this.sessions[tid]
     if (session) {
+      if (session.editThrottleTimer) {
+        clearTimeout(session.editThrottleTimer)
+      }
       if (session.shell) {
         try {
           session.shell.kill()
@@ -163,7 +166,13 @@ const TSession = class {
       chat.content += output //给对话更新终端内容
       session.content += output //给终端数组项目也缓存终端内容，因为spawn本身不提供内容访问
 
-      comData.data.edit(() => { }) //手动触发更新
+      // 节流机制：限制 comData.data.edit 全量广播的最大频率为每 100ms 一次
+      if (!session.editThrottleTimer) {
+        session.editThrottleTimer = setTimeout(() => {
+          session.editThrottleTimer = null
+          comData.data.edit(() => { })
+        }, 100)
+      }
 
     } else {
       await chats.add(msg, session.listId || 0)

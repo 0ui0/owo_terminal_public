@@ -20,7 +20,7 @@ const loadPrefabs = async () => {
 const buildPrefab = (iframe, prefabName, startX, startY) => {
     if (!prefabsData || !prefabsData[prefabName]) {
         console.error(`${TAG} Prefab not found: ${prefabName}`);
-        return { success: false, error: `Prefab "${prefabName}" not found` };
+        return { ok: false, msg: `Prefab "${prefabName}" not found` };
     }
 
     const prefab = prefabsData[prefabName];
@@ -29,7 +29,7 @@ const buildPrefab = (iframe, prefabName, startX, startY) => {
 
     if (!owoAPI) {
         console.error(`${TAG} OwoAPI not available in iframe`);
-        return { success: false, error: "OwoAPI not ready" };
+        return { ok: false, msg: "OwoAPI not ready" };
     }
 
     console.log(`${TAG} Building prefab "${prefabName}" at (${startX}, ${startY}), size: ${width}x${height}`);
@@ -54,7 +54,7 @@ const buildPrefab = (iframe, prefabName, startX, startY) => {
     }
 
     console.log(`${TAG} Prefab "${prefabName}" built successfully`);
-    return { success: true, prefab: prefabName, x: startX, y: startY };
+    return { ok: true, msg: `建筑 "${prefabName}" 建造成功`, prefab: prefabName, x: startX, y: startY };
 };
 
 export default ({ appId, m, Notice, ioSocket, comData, commonData, settingData, Box, iconPark }) => {
@@ -137,7 +137,7 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, settingData, 
                         console.log(`${TAG} Spawned ${spawnedIds.length} events:`, spawnedIds);
                     }
 
-                    if (callback) callback({ ok: true });
+                    if (callback) callback({ ok: true, msg: "场景更新已完成" });
                     break;
                 }
 
@@ -160,7 +160,7 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, settingData, 
                     }
                     stats = args;
                     redraw();
-                    if (callback) callback({ ok: true });
+                    if (callback) callback({ ok: true, msg: "场景更新已完成" });
                     break;
                 }
 
@@ -173,7 +173,7 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, settingData, 
                     } else {
                         console.warn(`${TAG} OwoAPI.showMessage not available`);
                     }
-                    if (callback) callback({ ok: true });
+                    if (callback) callback({ ok: true, msg: "场景更新已完成" });
                     break;
                 }
 
@@ -186,7 +186,7 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, settingData, 
                     } else {
                         console.warn(`${TAG} OwoAPI.showChoices not available`);
                     }
-                    if (callback) callback({ ok: true });
+                    if (callback) callback({ ok: true, msg: "场景更新已完成" });
                     break;
                 }
 
@@ -197,7 +197,7 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, settingData, 
                     if (owoAPI?.changeMap) {
                         owoAPI.changeMap(mapId, x, y);
                     }
-                    if (callback) callback({ ok: true });
+                    if (callback) callback({ ok: true, msg: "场景更新已完成" });
                     break;
                 }
 
@@ -209,7 +209,7 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, settingData, 
                     if (owoAPI?.spawnEvent) {
                         eventId = owoAPI.spawnEvent(x, y, name, imageName, imageIndex);
                     }
-                    if (callback) callback({ ok: eventId > 0, eventId });
+                    if (callback) callback({ ok: eventId > 0, msg: eventId > 0 ? "事件生成成功" : "事件生成失败", eventId });
                     break;
                 }
 
@@ -237,7 +237,7 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, settingData, 
                                         playerPos.y >= p.y && playerPos.y < p.y + ph) {
                                         const errorMsg = `无法在 (${p.x}, ${p.y}) 放置 [${p.prefabName}]，因为这会将玩家 (${playerPos.x}, ${playerPos.y}) 困在建筑内。请选择其他位置。`;
                                         addFloatingText(errorMsg, "#e57373");
-                                        if (callback) callback({ ok: false, error: errorMsg });
+                                        if (callback) callback({ ok: false, msg: errorMsg });
                                         return;
                                     }
                                 }
@@ -287,7 +287,7 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, settingData, 
                             owoAPI.setMapData(newData);
                         }
                     }
-                    if (callback) callback({ ok: true });
+                    if (callback) callback({ ok: true, msg: "场景更新已完成" });
                     break;
                 }
 
@@ -299,7 +299,7 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, settingData, 
 
                 default:
                     console.log(`${TAG} Unknown action: ${action}`);
-                    if (callback) callback({ ok: false, error: "Unknown action" });
+                    if (callback) callback({ ok: false, msg: "Unknown action" });
             }
         }
     };

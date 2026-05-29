@@ -1,7 +1,4 @@
-import path from 'path';
-import { pathToFileURL } from 'url';
-
-let timeMachineEngine;
+import timeMachineEngine from './timeMachineEngine.js';
 
 /**
  * 时光机后端路由分发器
@@ -16,7 +13,7 @@ const actions = {
       }
       const res = await timeMachineEngine.getHistory({ repoPath });
       if (!res.ok) return res;
-      return { ok: true, history: res.data, repoPath, gitOk: true };
+      return { ok: true, msg: "备份历史加载成功", history: res.data, repoPath, gitOk: true };
     } catch (e) {
       return { ok: false, msg: e.message };
     }
@@ -96,35 +93,13 @@ const actions = {
   },
 };
 
-/**
- * 确保引擎已加载（用于应对热更新后的变量丢失）
- */
-async function ensureEngine() {
-  if (!timeMachineEngine) {
-    console.log("[owoTimeMachine] Loading engine...");
-    const enginePath = path.resolve(import.meta.dirname, './timeMachineEngine.js');
-    const engineUrl = pathToFileURL(enginePath).href;
-    const module = await import(`${engineUrl}?t=${Date.now()}`);
-    console.log("[owoTimeMachine] Module imported:", !!module, !!module.default);
-    timeMachineEngine = module.default;
-    if (!timeMachineEngine) {
-      console.error("[owoTimeMachine] CRITICAL: timeMachineEngine is undefined after import!");
-    } else {
-      await timeMachineEngine.checkGit();
-      console.log("[owoTimeMachine] Engine initialized successfully.");
-    }
-  }
-}
-
 export default {
-  // App 初始化钩子
   init: async (app) => {
-    await ensureEngine();
-    return { ok: true };
+    await timeMachineEngine.checkGit();
+    return { ok: true, msg: "时光机后端已就绪" };
   },
 
   dispatch: async ({ app, action, args, appManager, io }) => {
-    await ensureEngine(); // 每次分发前确保引擎可用
     if (actions[action]) {
       return await actions[action](args);
     }

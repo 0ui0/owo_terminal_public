@@ -31,10 +31,10 @@ export default {
     // Call the updateStats method we designed on the backend
     let res = await appDef.backend.updateStats(statsObj, appDef, appId, ioServer.io);
 
-    if (res.success) {
+    if (res && res.ok) {
       return "Player stats panel updated successfully.";
     } else {
-      return "Failed to update player stats.";
+      return `Failed to update player stats: ${res?.msg || "unknown error"}`;
     }
   },
 

@@ -23,34 +23,67 @@ export default {
       }
     }
 
-    const action = "getHTML" // 强制获取 HTML 以便后端解析
+    const action = "getHTMLWithFrames" // 强制获取包含 iframe 的 HTML 以便后端解析
     const res = await appManager.dispatch(targetAppId, action)
 
     if (res && res.ok) {
-      let content = res.data || ""
+      const pages = Array.isArray(res.data) ? res.data : [{ url: "", isMain: true, html: res.data || "" }]
+      let mergedContent = ""
 
-      // 1. 预处理内容
-      if (type !== "html") {
+      for (const page of pages) {
+        let pageHtml = page.html || ""
         if (clean) {
-          // 仅当开启 clean 时移除大块标签
-          content = content.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "")
-          content = content.replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, "")
+          pageHtml = pageHtml.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "")
+          pageHtml = pageHtml.replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, "")
         }
 
-        try {
-          const htmlToMarkdown = (await import("../../../tools/htmlToMarkdown.js")).default
-          content = htmlToMarkdown(content)
-        } catch (e) {
-          content = content.replace(/<[^>]+>/g, "\n").replace(/\n+/g, "\n")
+        if (type !== "html") {
+          let pageMd = ""
+          try {
+            const htmlToMarkdown = (await import("../../../tools/htmlToMarkdown.js")).default
+            pageMd = htmlToMarkdown(pageHtml)
+          } catch (e) {
+            pageMd = pageHtml.replace(/<[^>]+>/g, "\n").replace(/\n+/g, "\n")
+          }
+
+          const trimmedMd = pageMd.trim()
+          if (trimmedMd.length > 0) {
+            if (page.isMain) {
+              mergedContent += trimmedMd + "\n"
+            } else {
+              mergedContent += `\n\n---\n> [!INFO] 子框架 (iframe) 内容 (URL: ${page.url || "未知"}):\n\n${trimmedMd}\n`
+            }
+          } else if (pageHtml.includes("获取框架 HTML 失败")) {
+            mergedContent += `\n\n---\n> [!WARNING] 子框架 (iframe) 获取失败 (URL: ${page.url || "未知"}):\n> 提示：${pageHtml}\n`
+          }
+        } else {
+          if (page.isMain) {
+            mergedContent += `<!-- 主页面 HTML (URL: ${page.url || "未知"}) -->\n${pageHtml}\n`
+          } else {
+            mergedContent += `\n<!-- 子框架 iframe HTML (URL: ${page.url || "未知"}) -->\n${pageHtml}\n`
+          }
         }
       }
+
+      let content = mergedContent
 
       // 2. 行切分与范围选择
       const totalChars = content.length
       const totalBytes = Buffer.byteLength(content, "utf8")
       const kbSize = (totalBytes / 1024).toFixed(2) + " KB"
 
-      let lines = content.split(/\r?\n/)
+      const rawLines = content.split(/\r?\n/)
+      const lines = []
+      const MAX_LINE_LEN = 1000 // 对单行长度进行硬限制，超过该长度则自动逻辑折行
+      for (const line of rawLines) {
+        if (line.length <= MAX_LINE_LEN) {
+          lines.push(line)
+        } else {
+          for (let i = 0; i < line.length; i += MAX_LINE_LEN) {
+            lines.push(line.slice(i, i + MAX_LINE_LEN))
+          }
+        }
+      }
       const totalLines = lines.length
 
       let startIdx, endIdx
@@ -193,7 +226,7 @@ export default {
       return resultText + footer
     }
 
-    return `错误：${res?.error || res?.msg || "获取内容失败 (空响应)"}`
+    return `错误：${res?.msg || "获取内容失败 (空响应)"}`
   },
 
   joi() {

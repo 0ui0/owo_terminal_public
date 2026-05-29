@@ -42,15 +42,15 @@ export default {
       if (action === "click") {
         const res = await appManager.dispatch(targetAppId, "click", { selector })
         if (res && res.ok) resultMsg = "点击成功"
-        else resultMsg = `错误：${String(res?.error || res?.msg || "点击失败")}`
+        else resultMsg = `错误：${String(res?.msg || "点击失败")}`
       } else if (action === "type") {
         const res = await appManager.dispatch(targetAppId, "type", { selector, text, pressEnter: value.pressEnter })
         if (res && res.ok) resultMsg = "输入完成"
-        else resultMsg = `错误：${String(res?.error || res?.msg || "输入失败")}`
+        else resultMsg = `错误：${String(res?.msg || "输入失败")}`
       } else if (action === "pressKey") {
         const res = await appManager.dispatch(targetAppId, "pressKey", { selector, key: value.key || value.text || "Enter" })
         if (res && res.ok) resultMsg = "按键成功"
-        else resultMsg = `错误：${String(res?.error || res?.msg || "按键失败")}`
+        else resultMsg = `错误：${String(res?.msg || "按键失败")}`
       } else {
         resultMsg = "错误：不支持的交互操作"
       }

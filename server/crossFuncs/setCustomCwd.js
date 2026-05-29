@@ -28,7 +28,7 @@ export default {
         });
       }
 
-      return { ok: true }
+      return { ok: true, msg: `工作目录已切换至: ${path}` }
     } catch (e) {
       console.error("[CrossFunc] setCustomCwd Error:", e)
       return { ok: false, msg: e.message }

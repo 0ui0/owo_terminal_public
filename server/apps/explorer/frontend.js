@@ -19,6 +19,8 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, settingData, 
   let viewMode = "grid"
   let searchMode = "current"
   let projectSearchResults = []
+  let searchVersion = 0
+  let isProjectSearching = false
   let clipboard = { files: [], mode: null }
   let isRestoring = false // 新增：全局还原锁
 
@@ -59,12 +61,12 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, settingData, 
 
   const loadDir = async (path = null) => {
     const rawRes = await settingData.fnCall("appDispatch", [appId, "ls", { path }])
-    if (rawRes.ok && rawRes.data) {
-      files = rawRes.data.data || rawRes.data.files || [];
+    if (rawRes.ok && Array.isArray(rawRes.data)) {
+      files = rawRes.data;
       console.log(`[Explorer] Loaded ${files.length} files from ${path || currentPath}`);
       redraw();
     } else {
-      Notice.launch({ msg: rawRes.msg })
+      Notice.launch({ msg: rawRes.msg || "获取列表失败" })
     }
   }
 
@@ -105,17 +107,16 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, settingData, 
       try {
         const rawRes = await settingData.fnCall("appDispatch", [appId, "paste", { mode: clipboard.mode, files: clipboard.files, targetPath, decisions, noNavigate }])
 
-        if (!rawRes.ok) return Notice.launch({ msg: rawRes.error || "请求失败" })
-        const res = rawRes.data
+        if (!rawRes.ok) return Notice.launch({ msg: rawRes.msg || "请求失败" })
 
-        if (res.status === "conflict") {
-          resolveConflictsUI(res.files, 0, decisions, performPaste)
-        } else if (res.ok) {
+        if (rawRes.status === "conflict") {
+          resolveConflictsUI(rawRes.files, 0, decisions, performPaste)
+        } else if (rawRes.ok) {
           if (clipboard.mode === 'cut') clipboard = { files: [], mode: null }
           if (noNavigate) loadDir()
           redraw()
         } else {
-          Notice.launch({ msg: res.error || "操作失败" })
+          Notice.launch({ msg: rawRes.msg || "操作失败" })
         }
       } catch (e) {
         Notice.launch({ msg: "操作异常: " + e.message })
@@ -278,36 +279,49 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, settingData, 
             askName, // 传递本地定义的 askName
             onNavigate: navigate, onGoHistory: goHistory, onLoadDir: loadDir,
             onDoProjectSearch: async () => {
-              if (!searchKeyword) { projectSearchResults = []; redraw(); return; }
+              if (!searchKeyword) { projectSearchResults = []; isProjectSearching = false; redraw(); return; }
+              isProjectSearching = true; redraw();
+              searchVersion++;
+              const currentVersion = searchVersion;
               const res = await settingData.fnCall("projectSearch", [searchKeyword])
-              if (res.ok) { projectSearchResults = res.data; viewMode = "list"; redraw(); }
+              if (currentVersion !== searchVersion) return;
+              if (res.ok) { projectSearchResults = res.data; viewMode = "list"; }
               else Notice.launch({ msg: "搜索失败: " + res.msg })
+              isProjectSearching = false; redraw();
             },
             onInputPathChange: (v) => inputPath = v,
-            onSearchModeChange: (v) => { searchMode = v; if (v === 'current') projectSearchResults = []; redraw(); },
+            onSearchModeChange: (v) => { 
+              searchMode = v; 
+              if (v === 'current') { projectSearchResults = []; isProjectSearching = false; } 
+              redraw(); 
+            },
             onSearchKeywordChange: (v) => {
               searchKeyword = v;
-              if (searchMode === 'current') redraw();
-              else {
-                if (searchTimer) clearTimeout(searchTimer); searchTimer = setTimeout(() => {
-                  const doSearch = async () => {
-                    if (!searchKeyword) { projectSearchResults = []; redraw(); return; }
-                    const res = await settingData.fnCall("projectSearch", [searchKeyword])
-                    if (res.ok) { projectSearchResults = res.data; viewMode = "list"; redraw(); }
-                  };
-                  doSearch();
-                }, 300);
-              }
+              if (searchMode === 'current') { redraw(); return; }
+              
+              if (searchTimer) clearTimeout(searchTimer);
+              searchTimer = setTimeout(async () => {
+                if (!searchKeyword) { projectSearchResults = []; isProjectSearching = false; redraw(); return; }
+                isProjectSearching = true; redraw();
+                searchVersion++;
+                const currentVersion = searchVersion;
+                const res = await settingData.fnCall("projectSearch", [searchKeyword])
+                if (currentVersion !== searchVersion) return;
+                if (res.ok) { projectSearchResults = res.data; viewMode = "list"; }
+                else Notice.launch({ msg: "搜索失败: " + res.msg })
+                isProjectSearching = false; redraw();
+              }, 300);
             },
             onSortFieldChange: (v) => { sortField = v; redraw() },
             onSortOrderToggle: () => { sortOrder *= -1; redraw() },
             onViewModeToggle: () => { viewMode = viewMode === "grid" ? "list" : "grid"; redraw() }
           }),
           m(FileArea, {
-            m, getColor, iconPark, viewMode, selected, isSelecting, selectStart, selectEnd, getIcon, currentPath,
+            m, getColor, iconPark, viewMode, selected, isSelecting, selectStart, selectEnd, getIcon, currentPath, isProjectSearching,
             processedFiles: (() => {
-              let pool = searchMode === 'project' && projectSearchResults.length > 0 ? projectSearchResults : files.filter(f => f.name.toLowerCase().includes(searchKeyword.toLowerCase()))
-              if (searchMode !== 'project') pool.sort((a, b) => {
+              if (searchMode === 'project') return projectSearchResults;
+              let pool = files.filter(f => f.name.toLowerCase().includes(searchKeyword.toLowerCase()))
+              pool.sort((a, b) => {
                 if (a.isDirectory && !b.isDirectory) return -1;
                 if (!a.isDirectory && b.isDirectory) return 1;
                 let vA = a[sortField], vB = b[sortField];
@@ -342,7 +356,7 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, settingData, 
                         if (n && n !== item.name) {
                           const res = await settingData.fnCall("appDispatch", [appId, "rename", { oldName: item.isSearchResult ? item.path : item.name, newName: n }]);
                           if (!res?.ok) {
-                            Notice.launch({ msg: res?.msg || "重命名失败", type: "error" });
+                            Notice.launch({ msg: res?.msg || "重命名失败" });
                           }
                         }
                       } else if (type === 'copy' || type === 'cut') {

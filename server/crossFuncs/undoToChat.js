@@ -103,7 +103,7 @@ export default {
         if (targetAgent) cleanupModel(targetAgent);
       }
 
-      return { ok: true };
+      return { ok: true, msg: "已回溯至选定的历史节点" };
     } catch (err) {
       console.error(err);
       return { ok: false, msg: err.message };

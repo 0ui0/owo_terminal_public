@@ -19,7 +19,7 @@ export default {
         }
       }
 
-      return { ok: true, data: pkgs }
+      return { ok: true, msg: `获取到 ${pkgs.length} 个可用角色包`, data: pkgs }
     } catch (e) {
       console.error("[petPkgList] Failed:", e)
       return { ok: false, msg: e.message }

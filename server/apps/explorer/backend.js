@@ -30,7 +30,7 @@ export default {
       switch (action) {
         case "tmTriggerRestore":
           io.emit("tm:trigger-restore", args)
-          return { ok: true }
+          return { ok: true, msg: "已触发时光机还原操作" }
 
         // ====== 导航与列表 ======
 
@@ -49,10 +49,10 @@ export default {
           try {
             const stat = await fs.stat(targetPath)
             if (!stat.isDirectory()) {
-              return { error: "目标不是文件夹" }
+              return { ok: false, msg: "目标不是文件夹" }
             }
           } catch (e) {
-            return { error: "路径不存在" }
+            return { ok: false, msg: "路径不存在" }
           }
 
           app.data.currentPath = targetPath
@@ -71,7 +71,7 @@ export default {
             args: { path: targetPath, data: (await this.listDir(targetPath)).data }
           })
 
-          return { ok: true, path: targetPath }
+          return { ok: true, msg: "目录跳转成功", path: targetPath }
 
         case "history":
           const delta = args.delta || 0
@@ -86,7 +86,7 @@ export default {
               appManager, io
             })
           }
-          return { ok: false }
+          return { ok: false, msg: "无法进行该历史记录跳转" }
 
         // ====== 文件操作 ======
 
@@ -101,7 +101,7 @@ export default {
             const ext = path.extname(filePath).toLowerCase()
 
             // 1. 文本/代码 -> Editor
-            if ([".js", ".json", ".md", ".txt", ".log", ".css", ".html", ".py", ".java", ".c", ".cpp", ".h", ".ts", ".xml", ".yaml", ".yml"].includes(ext)) {
+            if ([".js", ".json", ".md", ".txt", ".log", ".css", ".html", ".py", ".java", ".c", ".cpp", ".h", ".ts", ".xml", ".yaml", ".yml", ".coffee"].includes(ext)) {
               await appManager.launch("editor", { data: { filePath } })
               return { ok: true, msg: "已用编辑器打开" }
             }
@@ -133,40 +133,40 @@ export default {
         case "mkdir":
           if (args.name) {
             const safeName = normalizeName(args.name)
-            if (!safeName) return { error: "文件夹名称不合法" }
+            if (!safeName) return { ok: false, msg: "文件夹名称不合法" }
             await fs.mkdir(path.resolve(currentPath, safeName), { recursive: true })
             io.emit("explorer:fs-change", { paths: [currentPath] })
             return this.dispatch({ app, action: "navigate", args: { path: currentPath, isHistoryOp: true }, appManager, io })
           }
-          return { error: "缺少文件夹名称" }
+          return { ok: false, msg: "缺少文件夹名称" }
 
         case "newFile":
           if (args.name) {
             const safeName = normalizeName(args.name)
-            if (!safeName) return { error: "文件名不合法" }
+            if (!safeName) return { ok: false, msg: "文件名不合法" }
             const target = path.resolve(currentPath, safeName)
             try {
               await fs.writeFile(target, "", { flag: 'wx' }) // fail if exists
               io.emit("explorer:fs-change", { paths: [currentPath] })
               return this.dispatch({ app, action: "navigate", args: { path: currentPath, isHistoryOp: true }, appManager, io })
             } catch (e) {
-              return { error: "文件已存在或无法创建: " + e.message }
+              return { ok: false, msg: "文件已存在或无法创建: " + e.message }
             }
           }
-          return { error: "缺少文件名" }
+          return { ok: false, msg: "缺少文件名" }
 
         case "rename":
           if (args.oldName && args.newName) {
             const oldPath = path.resolve(currentPath, args.oldName)
             const dir = path.dirname(oldPath)
             const safeName = normalizeName(args.newName)
-            if (!safeName) return { error: "新名称不合法" }
+            if (!safeName) return { ok: false, msg: "新名称不合法" }
             const newPath = path.resolve(dir, safeName) // 确保重命名后还在原目录下
             await fs.rename(oldPath, newPath)
             io.emit("explorer:fs-change", { paths: [currentPath] })
             return this.dispatch({ app, action: "navigate", args: { path: currentPath, isHistoryOp: true }, appManager, io })
           }
-          return { error: "参数不完整" }
+          return { ok: false, msg: "参数不完整" }
 
         case "paste":
           // args: { mode: 'copy'|'cut', files: ['fullPath1', ...], targetPath: ... }
@@ -182,7 +182,7 @@ export default {
           const { mode, files, targetPath: destPathArg, decisions = {} } = args
           const destPath = destPathArg || currentPath
 
-          if (!files || !Array.isArray(files) || files.length === 0) return { error: "剪贴板为空" }
+          if (!files || !Array.isArray(files) || files.length === 0) return { ok: false, msg: "剪贴板为空" }
 
           const conflicts = []
           const operations = []
@@ -229,10 +229,10 @@ export default {
             }
           }
 
-          // 如果仍有未决冲突，返回错误状态
+          // 如果仍有未决冲突，返回标准错误状态
           if (conflicts.length > 0) {
             console.log(`[Explorer] Conflicts detected:`, conflicts)
-            return { status: "conflict", files: conflicts }
+            return { ok: true, status: "conflict", files: conflicts, msg: "检测到文件冲突" }
           }
 
           // Execute phase
@@ -287,9 +287,9 @@ export default {
         case "tmCheckConflicts": {
           const { hash, relPath, targetPath, repoRoot } = args;
           const baseDest = targetPath || currentPath;
-          if (!hash || !relPath) return { error: "参数不完整" };
+          if (!hash || !relPath) return { ok: false, msg: "参数不完整" };
           const lsRes = await timeMachineEngine.lsTree({ repoPath: repoRoot, hash, relPath, recursive: true });
-          if (!lsRes.ok) return { error: lsRes.msg };
+          if (!lsRes.ok) return { ok: false, msg: lsRes.msg };
           const snapshotFiles = lsRes.data;
           const conflicts = [];
           for (const item of snapshotFiles) {
@@ -319,7 +319,7 @@ export default {
                */
               const isRootFile = (item.path === relPath && relPath !== ".");
               const destPath = path.resolve(
-                baseDest, 
+                baseDest,
                 isRootFile ? "" : subRelative
               );
               try {
@@ -329,13 +329,13 @@ export default {
               } catch (e) { }
             }
           }
-          return { ok: true, data: { conflicts } };
+          return { ok: true, msg: "冲突检测完成", data: { conflicts } };
         }
 
         case "tmExecuteRestore": {
           const { hash, relPath, targetPath, decisions = {}, repoRoot } = args;
           const baseDest = targetPath || currentPath;
-          if (!hash || !relPath) return { error: "参数不完整" };
+          if (!hash || !relPath) return { ok: false, msg: "参数不完整" };
 
           try {
             // 遍历并逐个还原
@@ -382,7 +382,7 @@ export default {
             }
           } catch (e) {
             console.error("[Explorer Backend] Restore failed:", e);
-            return { error: e.message };
+            return { ok: false, msg: e.message };
           }
 
           // 刷新到目标文件夹
@@ -391,14 +391,14 @@ export default {
         }
 
         case "getState":
-          return { ok: true, currentPath, data: (await this.listDir(currentPath)).data }
+          return { ok: true, msg: "获取当前状态成功", currentPath, data: (await this.listDir(currentPath)).data }
 
         default:
-          return { error: "未知操作" }
+          return { ok: false, msg: "未知操作" }
       }
     } catch (e) {
       console.error("[Explorer]", e)
-      return { error: e.message }
+      return { ok: false, msg: e.message }
     }
   },
 
@@ -427,9 +427,9 @@ export default {
         return a.name.localeCompare(b.name)
       })
 
-      return { ok: true, data: files }
+      return { ok: true, msg: "目录列表读取成功", data: files }
     } catch (e) {
-      return { error: `无法读取目录: ${e.message}` }
+      return { ok: false, msg: `无法读取目录: ${e.message}` }
     }
   }
 }

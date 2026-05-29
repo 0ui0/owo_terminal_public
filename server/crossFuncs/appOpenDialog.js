@@ -19,10 +19,10 @@ export default {
       })
 
       if (result.canceled || result.filePaths.length === 0) {
-        return { ok: false, canceled: true }
+        return { ok: false, msg: "操作已取消", canceled: true }
       }
 
-      return { ok: true, filePath: result.filePaths[0] }
+      return { ok: true, msg: "文件已成功打开", filePath: result.filePaths[0] }
     } catch (e) {
       console.error("[CrossFunc] AppOpenDialog Error:", e)
       return { ok: false, msg: e.message }

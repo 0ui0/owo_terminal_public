@@ -75,7 +75,7 @@ export default {
         }
       }
 
-      return { ok: true };
+      return { ok: true, msg: "聊天历史已清空" };
     } catch (err) {
       console.error(err);
       return { ok: false, msg: err.message };

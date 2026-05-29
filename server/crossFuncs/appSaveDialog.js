@@ -19,10 +19,10 @@ export default {
       })
 
       if (result.canceled) {
-        return { ok: false, canceled: true }
+        return { ok: false, msg: "操作已取消", canceled: true }
       }
 
-      return { ok: true, filePath: result.filePath }
+      return { ok: true, msg: "文件保存路径已选定", filePath: result.filePath }
     } catch (e) {
       console.error("[CrossFunc] AppSaveDialog Error:", e)
       return { ok: false, msg: e.message }

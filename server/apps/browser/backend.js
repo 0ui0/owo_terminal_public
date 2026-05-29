@@ -45,10 +45,131 @@ export default {
         if (args.url) app.data.url = args.url
         if (args.title) app.data.title = args.title
         if (args.content) app.data.content = args.content
-        return { ok: true }
+        return { ok: true, msg: "状态更新成功" }
 
       case "getState":
-        return { ok: true, data: app.data }
+        return { ok: true, msg: "获取实时状态成功", data: app.data }
+
+      case "getCookies":
+        return new Promise(async (resolve) => {
+          let sockets = []
+          if (io.fetchSockets) {
+            sockets = await io.fetchSockets()
+          } else if (io.sockets && io.sockets.sockets) {
+            sockets = Array.from(io.sockets.sockets.values())
+          }
+
+          if (sockets.length === 0) {
+            return resolve({ ok: false, msg: "未检测到已连接的客户端" })
+          }
+
+          const tracker = DispatchTracker.create(10000)
+
+          io.emit("app:dispatch", {
+            appId: app.id,
+            action: "getCookies",
+            args,
+            trackerId: tracker.id
+          })
+
+          const res = await tracker.promise
+          if (!res.ok) {
+            return resolve(res)
+          }
+
+          const { webContentsId } = res
+          if (!webContentsId) {
+            return resolve({ ok: false, msg: "未获取到 webContentsId" })
+          }
+
+          try {
+            const contents = electron.webContents.fromId(webContentsId)
+            if (!contents) {
+              return resolve({ ok: false, msg: "未找到对应的 webContents 实例" })
+            }
+
+            const cookies = await contents.session.cookies.get({ url: contents.getURL() })
+            const cookieStr = cookies.map(c => `${c.name}=${c.value}`).join("; ")
+            resolve({
+              ok: true,
+              msg: "获取 Cookies 成功",
+              data: {
+                cookieString: cookieStr,
+                cookies: cookies
+              }
+            })
+          } catch (err) {
+            resolve({ ok: false, msg: `获取 Cookies 失败: ${err.message}` })
+          }
+        })
+
+      case "getHTMLWithFrames":
+        return new Promise(async (resolve) => {
+          let sockets = []
+          if (io.fetchSockets) {
+            sockets = await io.fetchSockets()
+          } else if (io.sockets && io.sockets.sockets) {
+            sockets = Array.from(io.sockets.sockets.values())
+          }
+
+          if (sockets.length === 0) {
+            return resolve({ ok: false, msg: "未检测到已连接的客户端" })
+          }
+
+          const tracker = DispatchTracker.create(15000)
+
+          io.emit("app:dispatch", {
+            appId: app.id,
+            action: "getWebContentsId",
+            args,
+            trackerId: tracker.id
+          })
+
+          const trackerRes = await tracker.promise
+          if (!trackerRes.ok) {
+            return resolve(trackerRes)
+          }
+
+          const { webContentsId } = trackerRes
+          if (!webContentsId) {
+            return resolve({ ok: false, msg: "未获取到 webContentsId" })
+          }
+
+          try {
+            const contents = electron.webContents.fromId(webContentsId)
+            if (!contents) {
+              return resolve({ ok: false, msg: "未找到对应的 webContents 实例" })
+            }
+
+            const frames = contents.mainFrame.framesInSubtree
+            const framePromises = frames.map(async (frame) => {
+              try {
+                const html = await frame.executeJavaScript("document.documentElement.outerHTML")
+                return {
+                  url: frame.url || (typeof frame.getURL === "function" ? frame.getURL() : ""),
+                  isMain: frame.parent === null,
+                  html
+                }
+              } catch (e) {
+                return {
+                  url: frame.url || (typeof frame.getURL === "function" ? frame.getURL() : "未知"),
+                  isMain: frame.parent === null,
+                  html: `<!-- 获取框架 HTML 失败 (Error: ${e.message || String(e)}) -->`
+                }
+              }
+            })
+
+            const frameResults = await Promise.all(framePromises)
+
+            resolve({
+              ok: true,
+              msg: "获取多框架 HTML 成功",
+              data: frameResults
+            })
+          } catch (err) {
+            resolve({ ok: false, msg: `获取多框架 HTML 失败: ${err.message}` })
+          }
+        })
 
       case "navigate":
       case "getContent":
@@ -69,13 +190,14 @@ export default {
           }
 
           if (sockets.length === 0) {
-            return resolve({ ok: false, error: "未检测到已连接的客户端" })
+            return resolve({ ok: false, msg: "未检测到已连接的客户端" })
           }
 
           // 创建一个总的追踪器，任意一个窗口通过 fnCall 回传结果即可触发 resolve
           const tracker = DispatchTracker.create(30000)
 
           // 广播指令，附加 trackerId
+          console.log(`[BrowserBackend] Broadcasting action: ${action} to appId: ${app.id} (Sockets: ${sockets.length})`);
           io.emit("app:dispatch", {
             appId: app.id,
             action,

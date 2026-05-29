@@ -16,7 +16,7 @@ export default {
     if (instance && instance.onDispatch) {
       instance.onDispatch(msg, callback)
     } else {
-      if (callback) callback({ error: "Instance not found or missing onDispatch" })
+      if (callback) callback({ ok: false, msg: "Instance not found or missing onDispatch" })
     }
   },
 

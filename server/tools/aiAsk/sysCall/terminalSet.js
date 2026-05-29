@@ -19,6 +19,12 @@ export default {
     }
 
     let { tid, command, waitSec, argsDesc } = value
+    
+    // 超长防护拦截：防 Zsh 解析过载卡死与 TTY 截断
+    if (command.length > 1000) {
+      return "错误：命令超长(>1000字)，Zsh交互式解析会卡死。请改用fileWriter写成文件后执行。"
+    }
+
     const currentListId = metaData?.listId || 0
     const toolCallGroupId = metaData?.toolCallGroupId
     const deferredFns = metaData?.deferredFns

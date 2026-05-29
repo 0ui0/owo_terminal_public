@@ -6,6 +6,7 @@ export default {
   func: async () => {
     return {
       ok: true,
+      msg: "i18n 语言包已同步",
       dict: i18n.globalDict
     };
   }

@@ -23,15 +23,17 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, settingData, 
     if (gameState.gameOver || gameState.thinking) return
     const res = await settingData.fnCall("appDispatch", [appId, "move", { x, y }])
     console.log(`[Gomoku2] Move result:`, res)
-    if (!res.ok || !res.data?.success) {
-      Notice.launch({ msg: res.data?.message || res.msg || "落子失败" })
+    if (res.ok) {
+      if (res.data.gameOver) Notice.launch({ msg: res.msg })
+    } else {
+      Notice.launch({ msg: res.msg })
     }
   }
 
   const undo = async () => {
     const res = await settingData.fnCall("appDispatch", [appId, "undo", {}])
-    if (!res.ok || !res.data?.success) {
-      Notice.launch({ msg: res.data?.message || "悔棋失败" })
+    if (!res.ok) {
+      Notice.launch({ msg: res.msg })
     }
   }
 
@@ -42,8 +44,8 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, settingData, 
   const confirmMove = async () => {
     if (gameState.gameOver || gameState.history.length === 0) return
     const res = await settingData.fnCall("appDispatch", [appId, "commitMove", {}])
-    if (!res.ok || !res.data?.success) {
-      Notice.launch({ msg: res.data?.message || res.msg || "通知AI失败" })
+    if (!res.ok) {
+      Notice.launch({ msg: res.msg })
     }
   }
 
@@ -83,7 +85,7 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, settingData, 
   // === Helpers ===
   const getPlayerName = (player) => player === 1 ? "黑子" : "白子"
   const getPlayerIcon = (player) => player === 1 ? "⚫" : "⚪"
-  
+
   const formatHistory = () => {
     return gameState.history.map((h, i) => `${i + 1}. ${getPlayerIcon(h.player)}(${h.x + 1},${h.y + 1})`).join(" → ")
   }
@@ -118,11 +120,11 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, settingData, 
         // Game Status
         m("div", { style: { display: "flex", gap: "10px", marginBottom: "5px", alignItems: "center", flexWrap: "wrap", justifyContent: "center" } }, [
           // Status Badge
-          m("div", { style: { 
+          m("div", { style: {
             padding: "4px 10px", borderRadius: "10px", fontSize: "12px", fontWeight: "bold",
             background: gameOver ? (winner === 1 ? "#e74c3c" : "#3498db") : "#27ae60",
             boxShadow: "0 4px 15px rgba(0,0,0,0.3)", minWidth: "100px", textAlign: "center"
-          } }, gameOver 
+          } }, gameOver
             ? `🏆 ${getPlayerName(winner)} 获胜！`
             : `当前: ${getPlayerIcon(currentPlayer)} ${getPlayerName(currentPlayer)}`
           )
@@ -138,14 +140,14 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, settingData, 
         }, [
           // Board Grid
           m("div", {
-            style: { 
+            style: {
               display: "grid", gridTemplateColumns: "repeat(15, 20px)", gridTemplateRows: "repeat(15, 20px)",
               gap: "0", background: "#d4a574", borderRadius: "4px", position: "relative"
             }
           }, board.flatMap((row, x) => row.map((cell, y) => {
             const isStarPoint = ([3,7,11].includes(x) && [3,7,11].includes(y)) || (x === 7 && y === 7)
             const isLastMove = history.length > 0 && history[history.length - 1].x === x && history[history.length - 1].y === y
-            
+
             return m("div", {
               style: {
                 width: "20px", height: "20px", display: "flex", alignItems: "center", justifyContent: "center",
@@ -157,21 +159,21 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, settingData, 
               // Grid Lines
               m("div", { style: { position: "absolute", width: "100%", height: "1px", background: "#5c4033", top: "50%", pointerEvents: "none" } }),
               m("div", { style: { position: "absolute", height: "100%", width: "1px", background: "#5c4033", left: "50%", pointerEvents: "none" } }),
-              
+
               // Star Point
-              isStarPoint && cell === 0 ? m("div", { 
-                style: { position: "absolute", width: "4px", height: "4px", borderRadius: "50%", background: "#5c4033", pointerEvents: "none" } 
+              isStarPoint && cell === 0 ? m("div", {
+                style: { position: "absolute", width: "4px", height: "4px", borderRadius: "50%", background: "#5c4033", pointerEvents: "none" }
               }) : null,
 
               // Piece
               cell !== 0 ? m("div", {
-                style: { 
+                style: {
                   width: "16px", height: "16px", borderRadius: "50%", zIndex: 2,
-                  background: cell === 1 
-                    ? "radial-gradient(circle at 35% 35%, #444, #000)" 
+                  background: cell === 1
+                    ? "radial-gradient(circle at 35% 35%, #444, #000)"
                     : "radial-gradient(circle at 35% 35%, #fff, #ddd)",
-                  boxShadow: cell === 1 
-                    ? "2px 2px 4px rgba(0,0,0,0.5), inset -1px -1px 2px rgba(0,0,0,0.3)" 
+                  boxShadow: cell === 1
+                    ? "2px 2px 4px rgba(0,0,0,0.5), inset -1px -1px 2px rgba(0,0,0,0.3)"
                     : "2px 2px 4px rgba(0,0,0,0.4), inset -1px -1px 2px rgba(0,0,0,0.1)",
                   border: cell === 2 ? "1px solid #ccc" : "none",
                   transform: isLastMove ? "scale(1.1)" : "scale(1)",
@@ -203,7 +205,7 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, settingData, 
             onclick: confirmMove,
             disabled: history.length === 0 || gameOver
           }, "✅ 发送给AI"),
-          
+
           m("button", {
             style: {
               padding: "6px 12px", borderRadius: "12px", border: "none", cursor: history.length === 0 || gameOver ? "not-allowed" : "pointer",
@@ -214,7 +216,7 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, settingData, 
             onclick: undo,
             disabled: history.length === 0 || gameOver
           }, "↩️ 悔棋"),
-          
+
           m("button", {
             style: {
               padding: "6px 12px", borderRadius: "12px", border: "none", cursor: "pointer",
@@ -226,16 +228,16 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, settingData, 
         ]),
 
         // History
-        m("div", { style: { 
-          marginTop: "6px", padding: "8px 10px", background: "rgba(0,0,0,0.3)", 
+        m("div", { style: {
+          marginTop: "6px", padding: "8px 10px", background: "rgba(0,0,0,0.3)",
           borderRadius: "6px", maxWidth: "500px", width: "100%", boxSizing: "border-box"
         } }, [
           m("div", { style: { fontSize: "12px", opacity: 0.6, marginBottom: "5px" } }, `📜 落子记录 (${history.length}步)`),
-          m("div", { 
-            style: { 
+          m("div", {
+            style: {
               fontSize: "13px", lineHeight: "1.6", maxHeight: "60px", overflow: "auto",
               wordBreak: "break-all", fontFamily: "monospace"
-            } 
+            }
           }, history.length > 0 ? formatHistory() : "暂无落子...")
         ])
       ])

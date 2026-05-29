@@ -1,4 +1,5 @@
-import { parse as parseBestEffort } from "best-effort-json-parser"
+import { parse as parseBestEffort, disableErrorLogging } from "best-effort-json-parser"
+disableErrorLogging()
 import { v4 as uuidV4 } from "uuid"
 import idTool from "../../../tools/idTool.js"
 import { trs } from "../../../tools/i18n.js"
@@ -172,6 +173,21 @@ const socketOnChat = async (que, callback) => {
       chat.ask = ask
       await chats.add(chat, listId) // 存储到特定列表
 
+      // --- [精准转发] 将本地输入的消息同步给物理 QQ 群 ---
+      // [HMR 重要注意事项]：
+      // 此处【绝对禁止】直接使用静态 import 引入 botMsgCenter，
+      // 否则 ioApi_chat 将永远持有旧模块引用，导致热更新对消息转发失效。
+      // 必须通过 appManager.dispatch 动态查找当前“活着”的最新实例。
+      const qqBotApp = [...appManager.apps.values()].find(a => a.type === "qqBot");
+      if (qqBotApp) {
+        await appManager.dispatch(qqBotApp.id, "send", {
+          source: "local",
+          tag: chat.name,
+          msg: chat.content,
+          ext: { listId: listId }
+        });
+      }
+
       //去掉回复和引用
       if (!que.isSystemCall) {
         await comData.data.edit((data) => {
@@ -268,6 +284,21 @@ const socketOnChat = async (que, callback) => {
           // AI 在当前任务的下一轮迭代会自动抓取到刚才 addAsk 进去的新消息
           if (targetModel.replying) return;
 
+          // [精准拦截] 如果是 QQ 机器人相关的列表，且不是系统命令触发，则只同步记忆和转发，不触发 AI 自动思考
+          const qqBotApp = [...appManager.apps.values()].find(a => a.type === "qqBot");
+          const cfg = qqBotApp?.data?.config;
+          const qqListIds = [
+            ...(cfg?.["3rd_qqRobot_groups"] || []),
+            ...(cfg?.["3rd_qqRobotLocal_groups"] || []),
+            ...(cfg?.["3rd_qqRobot_channels"] || [])
+          ].map(g => g.listId);
+
+          // isSystemCall 为 true 时代表是系统工具、自动化脚本或游戏引擎发出的指令（非人类手动输入）。
+          // 这种情况下即使在 QQ 列表也允许 AI 自动触发思考，以维持系统逻辑（如游戏回合推进）的连贯性。
+          if (qqListIds.includes(listId) && !que.isSystemCall) {
+            return;
+          }
+
           await targetModel.sendAskByMsgProtocol(getMsgProtocalConfig({
             targetModel,
             listId,
@@ -283,7 +314,11 @@ const socketOnChat = async (que, callback) => {
 
   } catch (error) {
     console.log(error)
-    const errorListId = que?.chatListId || 0;
+    let { targetChatListId: errorListId } = comData.data.get()
+    if (que.targetChatListId !== void 0) {
+      errorListId = que.targetChatListId
+    }
+
     await comData.data.edit(data => {
       const list = data.chatLists.find(l => l.id === errorListId);
       if (list) list.replying = false;
@@ -294,7 +329,7 @@ const socketOnChat = async (que, callback) => {
       name: trs("角色/系统"),
       group: "error",
       timestamp: Date.now(),
-      chatListId: que?.chatListId || 0
+      chatListId: errorListId || 0
     }
     io.emit("chat", chat)
     await chats.add(chat, chat.chatListId)

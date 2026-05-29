@@ -77,7 +77,7 @@ export default {
         if (targetAgent) cleanupModel(targetAgent);
       }
 
-      return { ok: true };
+      return { ok: true, msg: "已撤销最后一条聊天记录" };
     } catch (err) {
       console.error(err);
       return { ok: false, msg: err.message };

@@ -5,7 +5,7 @@ export default {
   func: async () => {
     try {
       const actions = actorAction.getPlayFaces()
-      return { ok: true, data: actions }
+      return { ok: true, msg: "可用角色动作列表已加载", data: actions }
     } catch (e) {
       console.error("[petPkgGetAvailableActions] Failed:", e)
       return { ok: false, msg: e.message }

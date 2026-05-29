@@ -12,7 +12,7 @@ export default {
         // Shallow merge updates
         Object.assign(app.data, dataUpdate)
         projectManager.markDirty()
-        return { ok: true }
+        return { ok: true, msg: "App 数据更新成功" }
       }
       return { ok: false, msg: "App not found" }
     } catch (e) {

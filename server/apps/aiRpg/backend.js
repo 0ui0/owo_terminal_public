@@ -37,7 +37,7 @@ export default {
                     console.error(`[${TAG}] 唤醒 AI 失败:`, err);
                 });
 
-                return { success: true, message: "Event routed to AI Game Master." };
+                return { ok: true, msg: "事件已转发至 AI Game Master。" };
             }
             case 'choiceSelected': {
                 const { choiceIndex, choiceText } = args;
@@ -60,29 +60,29 @@ export default {
                     console.error(`[${TAG}] 唤醒 AI 失败:`, err);
                 });
 
-                return { success: true, message: "Choice routed to AI Game Master." };
+                return { ok: true, msg: "选项已转发至 AI Game Master。" };
             }
             case 'syncPlayer': {
                 const { x, y, mapId } = args;
                 app.data.playerPos = { x, y, mapId };
                 // We do not log this purely positional sync to avoid too much noise, just return success
-                return { success: true };
+                return { ok: true, msg: "玩家位置已同步" };
             }
             case 'log': {
                 console.log(`[${TAG}] Frontend Log: ${args.message}`);
-                return { success: true };
+                return { ok: true, msg: "日志记录成功" };
             }
             case 'action_complete': {
-                return { success: true };
+                return { ok: true, msg: "动作确认成功" };
             }
             case 'get_scene': {
-                return { success: true, sceneData: app.data.sceneData };
+                return { ok: true, msg: "场景数据已就绪", sceneData: app.data.sceneData };
             }
             case 'get_stats': {
-                return { success: true, playerStats: app.data.playerStats };
+                return { ok: true, msg: "玩家属性已就绪", playerStats: app.data.playerStats };
             }
             default:
-                return { success: false, reason: "unknown action" };
+                return { ok: false, msg: "未知操作" };
         }
     },
 
@@ -95,7 +95,7 @@ export default {
             action: 'scene_updated',
             args: { mapId, events }
         });
-        return { success: true };
+        return { ok: true, msg: "场景已更新" };
     },
 
     async updateStats(stats, appDef, appId, io) {
@@ -103,10 +103,10 @@ export default {
         if (app) app.data.playerStats = stats;
 
         io.emit('app:dispatch', {
-             appId: appId,
-             action: 'stats_updated',
-             args: stats
+            appId: appId,
+            action: 'stats_updated',
+            args: stats
         });
-        return { success: true };
+        return { ok: true, msg: "场景已更新" };
     }
 }

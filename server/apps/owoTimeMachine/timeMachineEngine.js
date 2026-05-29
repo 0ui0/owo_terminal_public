@@ -296,7 +296,7 @@ const timeMachineEngine = {
       const newSnapshot = { id: db.snapshots.length + 1, msgId: msgId || null, hash: fullHash, time: Date.now(), msg: message };
       db.snapshots.push(newSnapshot);
       await fs.writeJson(dbPath, db, { spaces: 2 });
-      return { ok: true, data: newSnapshot };
+      return { ok: true, msg: "快照创建成功喵！📸", data: newSnapshot };
     } catch (err) { return { ok: false, msg: err.message || "快照创建失败" }; }
   },
 

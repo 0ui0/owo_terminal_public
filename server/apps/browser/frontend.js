@@ -1,7 +1,7 @@
 
 import browserData from "./browserData.js"
 
-export default ({ appId, m, Notice, ioSocket, settingData, comData, commonData, iconPark }) => {
+export default ({ appId, m, Notice, ioSocket, settingData, comData, commonData, iconPark, getColor, trs }) => {
   // === 私有状态 (Private State) ===
   let url = "about:blank"
   let inputUrl = "about:blank"
@@ -9,6 +9,8 @@ export default ({ appId, m, Notice, ioSocket, settingData, comData, commonData, 
   let loadError = null
   let webview = null
   let loadResolvers = []
+  let canGoBack = false
+  let canGoForward = false
 
   const redraw = () => m.redraw()
 
@@ -33,6 +35,28 @@ export default ({ appId, m, Notice, ioSocket, settingData, comData, commonData, 
     redraw()
   }
 
+  const navigateTo = (targetUrl) => {
+    if (!targetUrl.match(/^https?:\/\//) && !targetUrl.includes("://")) {
+      targetUrl = "http://" + targetUrl
+    }
+    inputUrl = targetUrl
+    isLoading = true
+    loadError = null
+
+    if (webview) {
+      try {
+        webview.loadURL(targetUrl)
+      } catch (err) {
+        console.error("[BrowserFrontend] loadURL failed, fallback to url variable:", err)
+        url = targetUrl
+        redraw()
+      }
+    } else {
+      url = targetUrl
+      redraw()
+    }
+  }
+
   // === Instance Interface ===
   const instanceInterface = {
     onDispatch: async (msg, callback) => {
@@ -45,19 +69,20 @@ export default ({ appId, m, Notice, ioSocket, settingData, comData, commonData, 
         if (typeof callback === 'function') callback(res)
       }
 
-      if (!webview) return done({ ok: false, error: "webview 未就绪" })
+      console.log(`[BrowserFrontend] onDispatch received: ${msg.action} for appId: ${appId}, webview status: ${webview ? "OK" : "NULL"}`);
+      if (!webview) return done({ ok: false, msg: "webview 未就绪" })
 
       try {
-        if (msg.action === "navigate") {
-          let targetUrl = msg.args.url
-          if (!targetUrl.match(/^https?:\/\//) && !targetUrl.includes("://")) {
-            targetUrl = "http://" + targetUrl
+        if (msg.action === "getCookies" || msg.action === "getWebContentsId") {
+          try {
+            const webContentsId = webview.getWebContentsId()
+            done({ ok: true, msg: "获取 WebContents ID 成功", webContentsId })
+          } catch (err) {
+            done({ ok: false, msg: String(err.message || err) })
           }
-          url = targetUrl
-          inputUrl = targetUrl
-          isLoading = true
-          loadError = null
-          redraw()
+
+        } else if (msg.action === "navigate") {
+          navigateTo(msg.args.url)
 
           const result = await new Promise((resolve) => {
             const timer = setTimeout(() => {
@@ -74,11 +99,11 @@ export default ({ appId, m, Notice, ioSocket, settingData, comData, commonData, 
               loadResolvers.push((res) => { clearTimeout(timer); resolve(res) })
             })
           }
-          if (loadError) return done({ ok: false, error: `页面加载失败: ${loadError}` })
+          if (loadError) return done({ ok: false, msg: `页面加载失败: ${loadError}` })
           try {
             const text = await webview.executeJavaScript("document.body.innerText")
-            done({ ok: true, data: text || "" })
-          } catch (err) { done({ ok: false, error: String(err.message) }) }
+            done({ ok: true, msg: "获取纯文本成功", data: text || "" })
+          } catch (err) { done({ ok: false, msg: String(err.message) }) }
 
         } else if (msg.action === "getHTML") {
           if (isLoading) {
@@ -87,15 +112,15 @@ export default ({ appId, m, Notice, ioSocket, settingData, comData, commonData, 
               loadResolvers.push((res) => { clearTimeout(timer); resolve(res) })
             })
           }
-          if (loadError) return done({ ok: false, error: `页面加载失败: ${loadError}` })
+          if (loadError) return done({ ok: false, msg: `页面加载失败: ${loadError}` })
           try {
             const html = await webview.executeJavaScript("document.documentElement.outerHTML")
-            done({ ok: true, data: html || "" })
-          } catch (err) { done({ ok: false, error: String(err.message) }) }
+            done({ ok: true, msg: "获取 HTML 成功", data: html || "" })
+          } catch (err) { done({ ok: false, msg: String(err.message) }) }
 
         } else if (msg.action === "executeJS") {
           const result = await webview.executeJavaScript(msg.args.code)
-          done({ ok: true, data: result })
+          done({ ok: true, msg: "执行成功", data: result })
 
         } else if (msg.action === "click") {
           const selector = JSON.stringify(msg.args.selector)
@@ -103,11 +128,11 @@ export default ({ appId, m, Notice, ioSocket, settingData, comData, commonData, 
             (() => {
               try {
                 const el = document.querySelector(${selector});
-                if (!el) return { ok: false, error: "未找到元素: " + ${selector} };
+                if (!el) return { ok: false, msg: "未找到元素: " + ${selector} };
                 el.click();
-                return { ok: true };
+                return { ok: true, msg: "点击成功" };
               } catch (e) {
-                return { ok: false, error: "选择器无效: " + e.message };
+                return { ok: false, msg: "选择器无效: " + e.message };
               }
             })()
           `)
@@ -121,7 +146,7 @@ export default ({ appId, m, Notice, ioSocket, settingData, comData, commonData, 
               (() => {
                 try {
                   const el = document.querySelector(${selector});
-                  if (!el) return { ok: false, error: "未找到元素: " + ${selector} };
+                  if (!el) return { ok: false, msg: "未找到元素: " + ${selector} };
                   const val = ${text};
                   if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') {
                     el.value = val;
@@ -137,9 +162,9 @@ export default ({ appId, m, Notice, ioSocket, settingData, comData, commonData, 
                     const upEvent = new KeyboardEvent("keyup", { key: "Enter", code: "Enter", keyCode: 13, which: 13, bubbles: true });
                     el.dispatchEvent(upEvent);
                   }
-                  return { ok: true };
+                  return { ok: true, msg: "操作成功" };
                 } catch (e) {
-                  return { ok: false, error: "选择器无效: " + e.message };
+                  return { ok: false, msg: "选择器无效: " + e.message };
                 }
               })()
            `)
@@ -151,15 +176,15 @@ export default ({ appId, m, Notice, ioSocket, settingData, comData, commonData, 
               (() => {
                 try {
                   const el = document.querySelector(${selector});
-                  if (!el) return { ok: false, error: "未找到元素: " + ${selector} };
+                  if (!el) return { ok: false, msg: "未找到元素: " + ${selector} };
                   const k = ${key};
                   const downEvent = new KeyboardEvent("keydown", { key: k, bubbles: true });
                   el.dispatchEvent(downEvent);
                   const upEvent = new KeyboardEvent("keyup", { key: k, bubbles: true });
                   el.dispatchEvent(upEvent);
-                  return { ok: true };
+                  return { ok: true, msg: "操作成功" };
                 } catch (e) {
-                  return { ok: false, error: "选择器无效: " + e.message };
+                  return { ok: false, msg: "选择器无效: " + e.message };
                 }
               })()
           `)
@@ -174,7 +199,7 @@ export default ({ appId, m, Notice, ioSocket, settingData, comData, commonData, 
               loadResolvers.push((res) => { clearTimeout(timer); resolve(res) })
             })
           }
-          if (loadError) return done({ ok: false, error: `页面加载失败: ${loadError}` })
+          if (loadError) return done({ ok: false, msg: `页面加载失败: ${loadError}` })
 
           // 1. 捕获页面快照
           try {
@@ -213,9 +238,7 @@ export default ({ appId, m, Notice, ioSocket, settingData, comData, commonData, 
             const formData = new FormData();
             formData.append('file', blob, `screenshot_${Date.now()}.png`);
 
-            // 3. 上传到服务器 (固定后端 9501 端口，忽略可能存在的 Vite 转发乱窜)
-            const serverHost = window.location.hostname || "127.0.0.1";
-            const uploadUrl = `http://${serverHost}:9501/api/attachments/set`;
+            const uploadUrl = `/api/attachments/set`;
             console.log("[Screenshot] fetch:", uploadUrl);
 
             const uploadRes = await fetch(uploadUrl, {
@@ -231,10 +254,10 @@ export default ({ appId, m, Notice, ioSocket, settingData, comData, commonData, 
             const resData = await uploadRes.json();
             console.log("[Screenshot] upload success obj:", resData);
             // 4. 返回附件元数据
-            done({ ok: true, data: resData });
+            done({ ok: true, msg: "截图成功", data: resData });
           } catch (err) {
             console.error("[Screenshot] Error caught:", err);
-            done({ ok: false, error: "截图处理失败: " + (err.message || String(err)) });
+            done({ ok: false, msg: "截图处理失败: " + (err.message || String(err)) });
           }
 
         } else if (msg.action === "scroll") {
@@ -242,7 +265,7 @@ export default ({ appId, m, Notice, ioSocket, settingData, comData, commonData, 
           const y = msg.args.y ?? 0
           const distanceX = msg.args.distanceX
           const distanceY = msg.args.distanceY
-          
+
           if (typeof distanceX === 'number' || typeof distanceY === 'number') {
             // 相对滚动
             await webview.executeJavaScript(`window.scrollBy(${distanceX ?? 0}, ${distanceY ?? 0})`)
@@ -250,13 +273,13 @@ export default ({ appId, m, Notice, ioSocket, settingData, comData, commonData, 
             // 绝对滚动
             await webview.executeJavaScript(`window.scrollTo(${x}, ${y})`)
           }
-          done({ ok: true })
+          done({ ok: true, msg: "滚动成功" })
 
         } else {
-          done({ ok: false, error: `不支持的操作: ${msg.action}` })
+          done({ ok: false, msg: `不支持的操作: ${msg.action}` })
         }
       } catch (e) {
-        done({ ok: false, error: String(e.message || e) })
+        done({ ok: false, msg: String(e.message || e) })
       }
     }
   }
@@ -264,6 +287,7 @@ export default ({ appId, m, Notice, ioSocket, settingData, comData, commonData, 
   // === Lifecycle ===
   const init = async () => {
     // 注入 & 注册
+    console.log(`[BrowserFrontend] Initializing appId: ${appId}`);
     browserData.addTool("commonData", commonData)
     browserData.registerInstances(appId, instanceInterface)
 
@@ -295,36 +319,121 @@ export default ({ appId, m, Notice, ioSocket, settingData, comData, commonData, 
           background: "#1e1e1e"
         }
       }, [
-        // Controls / Address Bar
         m("form", {
-          style: { display: "flex", padding: "8px", gap: "8px", background: "#333", borderBottom: "1px solid #444" },
+          style: {
+            display: "flex",
+            alignItems: "center",
+            padding: "8px",
+            gap: "8px",
+            background: getColor("gray_3").back,
+            borderBottom: `0.1rem solid ${getColor("gray_3").front}22`
+          },
           onsubmit(e) {
             e.preventDefault()
-            let target = inputUrl
-            if (target && !target.match(/^https?:\/\//) && !target.includes("://")) {
-              target = "http://" + target
-            }
-            url = target
-            inputUrl = target
-            setLoading(true)
-            loadError = null
+            navigateTo(inputUrl)
           }
         }, [
+          // 后退按钮
+          m("button", {
+            type: "button",
+            disabled: !canGoBack,
+            style: {
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              width: "30px",
+              height: "30px",
+              padding: "0",
+              background: "transparent",
+              border: "none",
+              cursor: canGoBack ? "pointer" : "not-allowed",
+              opacity: canGoBack ? 1 : 0.4
+            },
+            onclick() {
+              if (webview && webview.canGoBack()) {
+                webview.goBack()
+              }
+            }
+          }, m.trust(iconPark.getIcon("Left", { fill: getColor("gray_3").front, size: "18px" }))),
+
+          // 前进按钮
+          m("button", {
+            type: "button",
+            disabled: !canGoForward,
+            style: {
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              width: "30px",
+              height: "30px",
+              padding: "0",
+              background: "transparent",
+              border: "none",
+              cursor: canGoForward ? "pointer" : "not-allowed",
+              opacity: canGoForward ? 1 : 0.4
+            },
+            onclick() {
+              if (webview && webview.canGoForward()) {
+                webview.goForward()
+              }
+            }
+          }, m.trust(iconPark.getIcon("Right", { fill: getColor("gray_3").front, size: "18px" }))),
+
+          // 刷新按钮
+          m("button", {
+            type: "button",
+            style: {
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              width: "30px",
+              height: "30px",
+              padding: "0",
+              background: "transparent",
+              border: "none",
+              cursor: "pointer"
+            },
+            onclick() {
+              if (webview) {
+                webview.reload()
+              }
+            }
+          }, m.trust(iconPark.getIcon("Refresh", { fill: getColor("gray_3").front, size: "18px" }))),
+
           m("input", {
             style: {
-              flex: 1, padding: "6px 12px", border: "0.1rem solid #755d5c", borderRadius: "100px",
-              background: "#4a443f99", color: "#eee", outline: "none", fontSize: "13px"
+              flex: 1,
+              padding: "6px 12px",
+              border: `0.1rem solid ${getColor("gray_3").front}33`,
+              borderRadius: "100px",
+              background: getColor("brown_4").back,
+              color: getColor("brown_4").front,
+              outline: "none",
+              fontSize: "13px"
             },
             value: inputUrl,
             oninput(e) { inputUrl = e.target.value }
           }),
+
           m("button", {
             type: "submit",
             style: {
-              padding: "6px 15px", background: "#4a9eff", border: "none",
-              borderRadius: "100px", color: "#fff", cursor: "pointer", fontSize: "13px"
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              width: "30px",
+              height: "30px",
+              padding: "0",
+              background: getColor("main").back,
+              border: "none",
+              borderRadius: "100px",
+              color: getColor("main").front,
+              cursor: "pointer"
             }
-          }, isLoading ? "加载中..." : "前往"),
+          }, isLoading ?
+            m.trust(iconPark.getIcon("LoadingOne", { fill: getColor("main").front, size: "16px" })) :
+            m.trust(iconPark.getIcon("Check", { fill: getColor("main").front, size: "16px" }))
+          ),
 
 
         ]),
@@ -335,19 +444,46 @@ export default ({ appId, m, Notice, ioSocket, settingData, comData, commonData, 
             src: url,
             style: { width: "100%", height: "100%" },
             allowpopups: true,
+            onbeforeupdate() {
+              return false
+            },
             oncreate({ dom }) {
+              console.log(`[BrowserFrontend] oncreate triggered for appId: ${appId}, dom:`, dom);
               webview = dom
               dom.addEventListener("did-start-loading", () => { setLoading(true); setError(null) })
-              dom.addEventListener("dom-ready", () => { if (isLoading) { setLoading(false); resolveLoad({ ok: true }); redraw() } })
-              dom.addEventListener("did-fail-load", (e) => { if (e.errorCode === -3) return; setLoading(false); setError(`${e.errorDescription} (${e.errorCode})`); resolveLoad({ ok: false, error: loadError }); redraw() })
-              dom.addEventListener("did-stop-loading", () => { if (isLoading) { setLoading(false); resolveLoad({ ok: true }); redraw() } })
+              dom.addEventListener("dom-ready", () => {
+                canGoBack = dom.canGoBack()
+                canGoForward = dom.canGoForward()
+                if (isLoading) { setLoading(false); resolveLoad({ ok: true }); redraw() }
+              })
+              dom.addEventListener("did-fail-load", (e) => {
+                if (e.errorCode === -3) return;
+                setLoading(false);
+                setError(`${e.errorDescription} (${e.errorCode})`);
+                resolveLoad({ ok: false, error: loadError });
+                redraw()
+              })
+              dom.addEventListener("did-stop-loading", () => {
+                canGoBack = dom.canGoBack()
+                canGoForward = dom.canGoForward()
+                if (isLoading) { setLoading(false); resolveLoad({ ok: true }); redraw() }
+              })
               dom.addEventListener("did-navigate", (e) => {
                 setInputUrl(e.url)
+                canGoBack = dom.canGoBack()
+                canGoForward = dom.canGoForward()
                 settingData.fnCall("appUpdateData", [appId, { url: e.url }])
               })
               dom.addEventListener("did-redirect-navigation", (e) => {
                 setInputUrl(e.url)
+                canGoBack = dom.canGoBack()
+                canGoForward = dom.canGoForward()
                 settingData.fnCall("appUpdateData", [appId, { url: e.url }])
+              })
+              dom.addEventListener("did-navigate-in-page", (e) => {
+                canGoBack = dom.canGoBack()
+                canGoForward = dom.canGoForward()
+                redraw()
               })
               dom.addEventListener("page-title-updated", (e) => {
                 if (vnode.attrs.noticeConfig) { vnode.attrs.noticeConfig.tip = e.title; redraw() }

@@ -10,6 +10,6 @@ export default {
     } else {
       projectManager.stopAutoSave()
     }
-    return { ok: true }
+    return { ok: true, msg: "项目已自动保存到磁盘" }
   }
 }

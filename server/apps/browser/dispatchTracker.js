@@ -15,7 +15,7 @@ if (!global.owo_browserDispatchTracker) {
         if (this.requests.has(id)) {
           this.requests.delete(id)
           console.log(`[DispatchTracker] ❌ Timeout after ${timeout}ms for ID: ${id}`)
-          resolve({ ok: false, error: `Backend Timeout (${timeout / 1000}s)` })
+          resolve({ ok: false, msg: `Backend Timeout (${timeout / 1000}s)` })
         }
       }, timeout)
 

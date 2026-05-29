@@ -37,6 +37,7 @@ export default () => {
         }
       }, [
         //bg
+
         m(ChatVideo),
         //left
         !window.Mob ? m("", {

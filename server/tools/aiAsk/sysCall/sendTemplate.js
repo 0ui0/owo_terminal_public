@@ -24,15 +24,23 @@ export default {
       mind: Joi.string().max(800).required().description("必填 你的思考大纲，用箭头（→）连接想法，尽量简短。"),
       mood: Joi.number().min(0).max(10).required().description("必填 你的心情值"),
       at: Joi.string().description("选填 @用户的用户名"),
-      content: Joi.string().max(2000).required().description(`
-        必填 思考后决定回复给用户的正文，使用markdown（支持html+svg模式）。
-        【规则1】若本次对话包含工具函数调用（sysCalls），则这里只需简述意图（例如：我将查看xxx以确认xxx）。
-        【规则2】若本次对话不再调用工具，或任务已取得阶段性结论，请在本字段提供详尽的markdown总结报告、代码分析或最终答案。
-      `.trim()),
+
+      //模式5不需要content
+      ...(
+        toolsMode !== 5 && {
+          content: Joi.string().max(2000).required().description(`
+            必填 思考后决定回复给用户的正文，使用markdown（支持html+svg模式）。
+            【规则1】若本次对话包含工具函数调用（sysCalls），则这里只需简述意图（例如：我将查看xxx以确认xxx）。
+            【规则2】若本次对话不再调用工具，或任务已取得阶段性结论，请在本字段提供详尽的markdown总结报告、代码分析或最终答案。
+          `.trim()),
+        }
+      ),
+
 
       ...(
-        toolsMode !== 2 && {
-          note: Joi.object({
+        //模式2或5不需要笔记和任务
+        (toolsMode !== 2 && toolsMode !== 5) && {
+          /* note: Joi.object({
             memory: Joi.object({
               when: Joi.string().max(30).required().description("必填 时间"),
               where: Joi.string().max(30).required().description("必填 地点"),
@@ -63,7 +71,7 @@ export default {
             ).required().description("必填 关注点")
           }).required().description("必填 系统会裁剪你的记忆，本字段作为记忆被裁剪前的关键笔记【重要】。不会发送给用户。"),
 
-
+ */
           tasks: Joi.array().items(Joi.object({
             mode: Joi.string().valid("add", "update").required().description("操作模式：add(新增), update(更新)"),
             taskid: Joi.number().integer().description("更新时必填，新增时不填"),
@@ -80,8 +88,8 @@ export default {
         }
       ),
 
-
-      /* note: Joi.string().max(200).required().description(`
+      ...((toolsMode !== 2) && {
+        note: Joi.string().max(1000).required().description(`
         必填 你的记忆笔记，markdown格式，用第一人称记叙文叙述
         系统会定期截断上下文，笔记是你唯一的记忆依据，务必!!!认真填写!!! 笔记不会发送给用户，只给你自己看
         注意[时间][地点][人物][起因][经过][结果]、[关注点]、和[推理链条]
@@ -90,7 +98,9 @@ export default {
         多依据复合须拆分多条推理
         若有必要，可用表格和流程图增加记录
         【注意】笔记将在列表的末尾追加，故勿复述旧笔记的内容
-      `.trim()), */
+      `.trim())
+      }),
+
 
 
       //tasks: Joi.string().valid("我已知晓").required().description("必填 【重要】每次对话！！必须！！调用任务相关工具规划、推进、清理任务"),

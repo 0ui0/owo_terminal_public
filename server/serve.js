@@ -15,36 +15,34 @@ import fs from "fs-extra"
 
 
 
-const init = async () => {
-  try {
+const init = async (config) => {
 
-    process.on('unhandledRejection', (err) => {
-      console.log(err);
-    });
+  let { port = 9501 } = config || {}
 
-    await fs.ensureDir(pathLib.resolve("./tools/aiAsk/usrCall"))
-    await fs.ensureDir(pathLib.resolve("./tools/aiAsk/aiCall"))
-    await fs.ensureDir(pathLib.resolve("../aiWork"))
+  process.on('unhandledRejection', (err) => {
+    console.log(err);
+  });
+
+  await fs.ensureDir(pathLib.resolve("./tools/aiAsk/usrCall"))
+  await fs.ensureDir(pathLib.resolve("./tools/aiAsk/aiCall"))
+  await fs.ensureDir(pathLib.resolve("../aiWork"))
 
 
-
-    // 创建服务器实例
-    const server = Hapi.server({
-      port: 9501,
-      host: '0.0.0.0',//'0.0.0.0',//'localhost',
-      routes: {
-        cors: {
-          origin: ['*'], // 允许所有来源的请求
-          headers: ['Accept', 'Content-Type']
-        },
-        payload: {
-          maxBytes: 50 * 1024 * 1024, // 50MB
-        }
+  const serverOpts = (usePort) => ({
+    port: usePort,
+    host: '0.0.0.0',
+    routes: {
+      cors: {
+        origin: ['*'],
+        headers: ['Accept', 'Content-Type']
+      },
+      payload: {
+        maxBytes: 50 * 1024 * 1024,
       }
-    });
+    }
+  })
 
-    await server.register(inert)
-
+  const registerRoutes = async (server) => {
     server.route({
       method: "get",
       path: "/{param*}",
@@ -67,7 +65,6 @@ const init = async () => {
     })
 
 
-    //加载路由
     let apiDir = new Dir("./apis")
     let apiFiles = await apiDir.ls()
     for (let i = 0; i < apiFiles.length; i++) {
@@ -86,29 +83,35 @@ const init = async () => {
         apiDir.cd("..")
       }
     }
+  }
 
+  const buildServer = async (usePort) => {
+    const server = Hapi.server(serverOpts(usePort))
+    await server.register(inert)
+    await registerRoutes(server)
     await ioServer.init(server)
     await ioServer.run()
-
-
-
-
-
     await db.init()
     server.db = db
     server.comData = comData
-
     await aiBasic.initList()
+    return server
+  }
 
-
-    // 启动服务器
+  try {
+    const server = await buildServer(port)
     await server.start()
-
-
-
     console.log('Server running on %s', server.info.uri);
+    return { server, port: server.info.port }
   }
   catch (err) {
+    if (port !== 0 && err.code === 'EADDRINUSE') {
+      console.log('Port %s in use, trying dynamic port...', port)
+      const server = await buildServer(0)
+      await server.start()
+      console.log('Server running on %s', server.info.uri);
+      return { server, port: server.info.port }
+    }
     console.log(err)
     throw err
   }

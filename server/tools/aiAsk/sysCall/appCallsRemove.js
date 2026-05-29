@@ -4,6 +4,7 @@ import appManager from "../../../apps/appManager.js"
 export default {
   name: "卸载App工具",
   id: "appCallsRemove",
+  hidden: true,
 
   async fn(argObj) {
     const { value, error } = this.joi().validate(argObj)

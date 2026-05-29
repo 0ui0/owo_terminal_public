@@ -49,7 +49,7 @@ export default {
         }
       }
 
-      return { ok: true, path: filePath }
+      return { ok: true, msg: "项目已成功载入喵！", path: filePath }
     } catch (e) {
       return { ok: false, msg: e.message }
     }

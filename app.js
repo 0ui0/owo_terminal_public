@@ -7,13 +7,15 @@ import pkgUpdater from "electron-updater"
 const { autoUpdater } = pkgUpdater
 import serve from "./server/serve.js"
 import pathLib from "path"
-import { fileURLToPath } from 'url';
+import { fileURLToPath, pathToFileURL } from 'url';
 import projectManager from "./server/managers/projectManager.js"
 import ioServer from "./server/ioServer/ioServer.js"
 import { trs } from "./server/tools/i18n.js"
 import comData from "./server/comData/comData.js"
 import projectSave from "./server/crossFuncs/projectSave.js"
 import projectLoad from "./server/crossFuncs/projectLoad.js"
+
+
 
 // --- Auto Updater Configuration ---
 autoUpdater.autoDownload = false // 2026-02-06 Changed to false for manual confirmation
@@ -49,6 +51,10 @@ cleanAttachments()
 // Register Shutdown Clean
 app.on('will-quit', cleanAttachments)
 
+
+
+let port
+
 const createWindow = () => {
   const win = new BrowserWindow({
     width: 1152,
@@ -65,7 +71,7 @@ const createWindow = () => {
   })
 
   //win.loadFile('www/dist/index.html')
-  win.loadURL("http://localhost:9501")
+  win.loadURL(`http://localhost:${port}`)
 
   // === Close Confirmation ===
   let forceClose = false
@@ -312,7 +318,7 @@ const createWindow = () => {
       state: "up-to-date",
       msg: trs("系统/更新/已是最新", { cn: "当前已是最新版本", en: "Already up to date" }) + ` (${info.version})`
     })
-    // If manually checked (how to track?), show dialog. 
+    // If manually checked (how to track?), show dialog.
     // Just broadcast for now, UI can decide to show toast.
   })
 
@@ -344,9 +350,9 @@ const createWindow = () => {
       // Since we use manual download now, this event might not be triggered by autoUpdater if we don't use it.
       // But if we did use autoUpdater.downloadUpdate(), this would trigger.
       // Since we switched to manual `win.webContents.downloadURL`, this block is effectively dead code for new flow,
-      // but kept for safety or if we revert. 
-      // Actually, let's just keep it simple or comment it out to avoid confusion? 
-      // The `will-download` listener handles the manual flow. 
+      // but kept for safety or if we revert.
+      // Actually, let's just keep it simple or comment it out to avoid confusion?
+      // The `will-download` listener handles the manual flow.
     }
   })
 
@@ -526,7 +532,29 @@ app.whenReady().then(async () => {
       }
     }
 
-    await serve()
+    const serveResult = await serve()
+    port = serveResult.port
+
+    // 在 server 启动后注册 Loader Hook（动态注册，避免 Electron 初始化阶段的 data: URL 冲突）
+    try {
+      const { register } = await import("node:module")
+      const { MessageChannel } = await import("worker_threads")
+      const { setLoaderPort } = await import("./server/apps/moduleRegistry.js")
+
+      const { port1, port2 } = new MessageChannel()
+      const loaderUrl = pathToFileURL(pathLib.join(serveDir, "server/apps/moduleRegistry.js")).href
+
+      register(loaderUrl, {
+        parentURL: import.meta.url,
+        data: { port: port2 },
+        transferList: [port2]
+      })
+
+      setLoaderPort(port1)
+      console.log("[HMR] Loader hook registered with MessageChannel")
+    } catch (e) {
+      console.warn("[HMR] Loader hook not supported:", e.message)
+    }
 
     // 脏检查：利用 DynamicData 原生的观察者机制，当 comData 数据变动时标记项目为脏
     if (comData.data) {
@@ -560,7 +588,7 @@ app.whenReady().then(async () => {
     }
   } catch (err) {
     if (err.code === 'EADDRINUSE') {
-      dialog.showErrorBox('启动失败', '端口 9501 被占用，请检查是否已打开另一个实例。')
+      dialog.showErrorBox(trs("系统/错误/启动失败"), trs("系统/错误/端口占用"))
       app.quit()
     } else {
       dialog.showErrorBox('启动错误', err.message || '未知错误')

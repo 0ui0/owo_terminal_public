@@ -4,7 +4,9 @@ import comData from "../../../comData/comData.js"
 export default {
   name: "设置任务",
   id: "taskSet",
-  hidden: true, //隐藏，因为发送模板已经涵盖
+  hidden(toolsMode) {
+    return toolsMode !== 5
+  },
 
   async fn(argObj, context) {
     const listId = context.listId ?? 0

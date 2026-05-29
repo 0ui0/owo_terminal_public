@@ -54,7 +54,7 @@ export default {
       return `已执行滚动操作。`;
     }
 
-    return `滚动失败：${String(res?.error || res?.msg || "响应为空")}`
+    return `滚动失败：${String(res?.msg || "响应为空")}`
   },
 
   joi() {

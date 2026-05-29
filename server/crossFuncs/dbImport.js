@@ -18,7 +18,7 @@ export default {
       app.relaunch({ args: [app.getAppPath()] })
       app.exit(0)
 
-      return { ok: true }
+      return { ok: true, msg: "数据库文件已导入并覆盖现有数据" }
     } catch (e) {
       console.error("[CrossFunc] 数据库导入失败", e)
       return { ok: false, msg: e.message }

@@ -23,6 +23,6 @@ export default {
       return { ok: true }
     }
 
-    return { error: `Action ${action} not supported` }
+    return { ok: false, msg: `Action ${action} not supported` }
   }
 }

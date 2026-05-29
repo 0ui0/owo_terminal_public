@@ -12,7 +12,7 @@ export default {
   async init(app, appManager) {
     // 获取启动时传入的初始状态（如果有）
     const initialState = app.data.gameState || {}
-    
+
     // 初始化游戏状态，纯净版：不需要区分模式
     app.data.gameState = {
       appId: app.id,
@@ -34,10 +34,10 @@ export default {
         const { x, y } = args
         console.log(`[Gomoku2 Backend] move action received for app ${app.id}:`, { x, y })
         const result = this.makeMove(gameState, x, y)
-        if (result.success) {
+        if (result.ok) {
           // 添加历史记录
           gameState.history.push({ x, y, player: result.player })
-          
+
           // 通知前端
           console.log(`[Gomoku2 Backend] Emitting update to app ${app.id}`)
           io.emit("app:dispatch", {
@@ -45,7 +45,7 @@ export default {
             action: "update",
             args: { x, y, player: result.player, gameState }
           })
-          
+
           // 无条件向数据层 Resolve 状态 (兼容旧的或少部分阻塞调用的场景)
           if (!gameState.gameOver) {
             gomoku2Data.resolveUpdate(app.id, {
@@ -61,27 +61,27 @@ export default {
         return result
       }
       case "commitMove": {
-        if (gameState.gameOver) return { success: false, message: '游戏已结束' }
+        if (gameState.gameOver) return { ok: false, msg: '游戏已结束' }
         const lastMove = gameState.history[gameState.history.length - 1]
         const boardStr = this.getBoardStr(gameState.board)
-        
+
         // 唤醒大模型
         const targetListId = comData.data.get().targetChatListId || 0
         const sysMsg = `[appid:${app.id}] 该你了。\n我在 (${lastMove.x}, ${lastMove.y}) 落子。\n当前局势（我执黑X，你执白O）：\n${boardStr}\n请直接根据局势调用 aiGomokuMove 落子反击，无需调用工具查看局势。`
-        
+
         socketOnChat({
-           inputText: sysMsg,
-           name: "系统",
-           group: "user",
-           sendMode: "agent",
-           call: null,
-           isSystemCall: true,
-           targetChatListId: targetListId
+          inputText: sysMsg,
+          name: "系统",
+          group: "user",
+          sendMode: "agent",
+          call: null,
+          isSystemCall: true,
+          targetChatListId: targetListId
         }).catch(err => {
-           console.error("五子棋后台唤醒 AI 失败:", err)
+          console.error("五子棋后台唤醒 AI 失败:", err)
         })
-        
-        return { success: true }
+
+        return { ok: true }
       }
 
       case "getBoard": {
@@ -96,7 +96,7 @@ export default {
 
       case "undo": {
         const result = this.undoMove(gameState)
-        if (result.success) {
+        if (result.ok) {
           io.emit("app:dispatch", { appId: app.id, action: "update", args: { gameState } })
         }
         return result
@@ -113,14 +113,14 @@ export default {
           thinking: false
         }
         io.emit("app:dispatch", { appId: app.id, action: "reset", args: { gameState: app.data.gameState } })
-        return { success: true }
+        return { ok: true, msg: "游戏已重置" }
       }
 
       case "getState":
-        return { success: true, gameState }
+        return { ok: true, msg: "获取实时状态成功", gameState }
 
       default:
-        return { success: false, message: "未知操作" }
+        return { ok: false, msg: "未知操作" }
     }
   },
 
@@ -163,7 +163,7 @@ export default {
   // 处理落子
   makeMove(gameState, x, y) {
     if (gameState.gameOver || gameState.thinking || gameState.board[x][y] !== 0) {
-      return { success: false, message: '无效的落子位置' }
+      return { ok: false, msg: '无效的落子位置' }
     }
 
     const player = gameState.currentPlayer
@@ -172,27 +172,27 @@ export default {
     if (this.checkWin(gameState.board, x, y, player)) {
       gameState.gameOver = true
       gameState.winner = player
-      return { success: true, message: `玩家 ${player} 获胜！`, player, gameOver: true }
+      return { ok: true, msg: `玩家 ${player} 获胜！`, player, gameOver: true }
     }
 
     gameState.currentPlayer = player === 1 ? 2 : 1
-    return { success: true, message: '落子成功', player, gameOver: false }
+    return { ok: true, msg: '落子成功', player, gameOver: false }
   },
 
   // 悔棋
   undoMove(gameState) {
     if (gameState.history.length === 0) {
-      return { success: false, message: '没有可以悔棋的步骤' }
+      return { ok: false, msg: '没有可以悔棋的步骤' }
     }
-    
+
     // 悔一步
     const lastMove = gameState.history.pop()
     gameState.board[lastMove.x][lastMove.y] = 0
     gameState.currentPlayer = lastMove.player
-    
+
     gameState.gameOver = false
     gameState.winner = null
-    
-    return { success: true, message: '悔棋成功' }
+
+    return { ok: true, msg: '悔棋成功' }
   }
 }

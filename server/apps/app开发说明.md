@@ -26,7 +26,8 @@
 ## 2. 核心机制详解
 
 ### 2.1 动态加载与热重载
--   **后端热重载**: `appManager.js` 监听 `server/apps` 目录变动。检测到 `backend.js` 更新时，使用时间戳 query (`?t=Date.now()`) 重新 `import` 模块，绕过 Node.js 缓存。
+-   **后端热重载**: `appManager.js` 监听 `server/apps` 目录变动。文件变更时，通过 `moduleRegistry.js` 的 `bumpAppDir()` 递增整个 App 目录下所有 `.js` 文件的版本号，版本号通过 `MessageChannel` 同步到 Node.js Loader 线程。`loadappDefs()` 使用带版本号的 URL（如 `backend.js?v=3`）重新 import，Loader 线程的 `resolve` hook 拦截所有子模块的相对路径 import，自动注入版本号穿透 ESM 缓存。
+-   **开发规范**: App 内部直接使用标准的静态 `import` 即可，无需任何 `?t=` 或其他缓存穿透 hack。改了任意子模块文件，loader hook 会自动让整个依赖链重载。
 -   **前端热重载**: `appManager` 推送的 `frontendUrl` 同样带有时间戳，确保浏览器加载最新的 `frontend.js`。
 -   **子模块缓存穿透**: 浏览器会缓存 ESM 的 `import` 请求。为了确保 `frontend.js` 内部 `import` 的子组件也能同步更新，系统后端通过 `/api/apps/:type/frontend.js` 路由对代码进行了动态重写，会自动为内部引用的子模块路径补全时间戳 (`?t=...`)。开发者无需手动处理子模块的缓存问题。
 
@@ -77,7 +78,7 @@ export default {
     if (instance && instance.onDispatch) {
       instance.onDispatch(msg, callback)
     } else {
-      if (callback) callback({ error: "Instance not found" })
+      if (callback) callback({ ok: false, msg: "未找到运行中的 App 实例" })
     }
   },
 
@@ -102,7 +103,7 @@ import myAppData from "./myAppData.js"
 
 // 1. 接收注入依赖 (必须包含 commonData, ioSocket 等)
 export default ({ appId, m, Notice, ioSocket, commonData, iconPark }) => {
-  
+
   // 2. 私有闭包状态 (代替 vnode.state)
   let count = 0
 
@@ -117,7 +118,7 @@ export default ({ appId, m, Notice, ioSocket, commonData, iconPark }) => {
       if (msg.action === "getHTML") {
         // 返回当前 DOM HTML
       }
-      if (callback) callback({ ok: true })
+      if (callback) callback({ ok: true, msg: "操作成功" })
     }
   }
 
@@ -155,7 +156,7 @@ export default {
     // app.data 是内存级持久化存储，重启丢失
     app.data.count = 0
   },
-  
+
   // 可选：销毁 (App 关闭时)
   async destroy(app, appManager) {
     console.log("App destroyed")
@@ -194,6 +195,23 @@ export default {
     -   最大化/最小化状态 (`isMaximized`, `minimized`)
     -   层级 (`zIndex`)
 -   **开发者无需任何操作**。
+
+常规Notice使用范例：
+```javascript:
+Notice.launch({
+  tip:"我是标题", //可以省略，默认为【提示】
+  msg:"我是消息",
+  confirm:(){
+    return undefined //确认回调函数，返回undefined关闭窗口
+  },
+  calcel:(){
+    //取消回调函数，同confirm返回undefined关闭窗口，或整个函数留空
+    //js函数默认返回值为undefined
+  }
+})
+```
+
+
 
 ### 5.2 App 内部数据 (App Internal Data) [需手动同步]
 -   **机制**: 如果您的 App 有需要在重启后保持的数据（如编辑器内容、当前 URL、游戏进度），需要**主动**告知后端。
@@ -276,6 +294,9 @@ oninit(vnode) {
 
 
 异步调用返回统一
+接口规范已经更新，按如下规范
+【重要】旧版规范兼容参考appDispatch.js（不再推荐使用）
+
 
 ```javascript:
 try{
@@ -294,7 +315,36 @@ catch(err){
     ok:false
     msg:"服务器内部错误（或具体错误信息）" //必须带msg对象
     //错误不需要data字段
-    
+
   }
 }
+```
+
+Box万能组件使用范例，使用前务必先阅读box源码
+```javascript:
+m(Box,{
+  color:"" //使用getColor里定义的颜色值
+  tagName:"input[type=text]", //可以省略整个属性，但是可以通过这个属性调整成表单，如果是表单，建议先let FormInput = new Box()，然后m(FormInput)
+  //注意阅读box源码，文本框等表单内部可以绑定数据到data.value，使用formInput.data.value可以获取表单的输入数据，无需再次绑定
+  //也可以覆盖表单事件来直接绑定外部变量（不用内部的data.value）
+  //Box还支持结合data.value和isSwitch属性让它变成一个按钮
+  style:{
+    //style注入覆盖 注意box默认有自带一大堆样式
+  },
+  ext:{
+    onclick(){}//事件注入
+  }
+  onclick(){}//外部也有一个onclick是包装过的，可以用，但是和原生onclick不一样，需要看源代码，懒得写ext可以优先用这个，但是不推荐
+},"我是内容")
+```
+Tag是box的派生组件用法稍有不同，也建议阅读源代码
+```javascript:
+m(Tag,{
+  styleExt:{
+    //使用styleExt覆盖样式
+  },
+  ext:{
+    //依旧使用ext覆盖事件
+  }
+},"我是标签")
 ```

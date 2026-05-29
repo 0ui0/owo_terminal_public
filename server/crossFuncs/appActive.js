@@ -6,7 +6,7 @@ export default {
     try {
       if (ioServer.io) {
         ioServer.io.emit("app:active", { appId, ...options })
-        return { ok: true }
+        return { ok: true, msg: "App 已激活并置顶" }
       }
       return { ok: false, msg: "Socket server not initialized" }
     } catch (e) {

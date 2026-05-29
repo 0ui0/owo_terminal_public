@@ -184,7 +184,7 @@ export default () => {
                         }
                       }
                     };
-                    xhr.open('POST', `${window.location.protocol}//${window.location.hostname}:9501/api/attachments/set`);
+                    xhr.open('POST', `/api/attachments/set`);
                     xhr.send(formData);
                   } else {
                     if (path) {
@@ -252,7 +252,7 @@ export default () => {
                     }
                   };
 
-                  xhr.open('POST', `${window.location.protocol}//${window.location.hostname}:9501/api/attachments/set`);
+                  xhr.open('POST', `/api/attachments/set`);
                   xhr.send(formData);
                 }
               }

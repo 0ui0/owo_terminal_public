@@ -48,13 +48,13 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, chatData, set
     }
     const txt = editor.getValue()
     const res = await settingData.fnCall("appDispatch", [appId, "save", { content: txt, filePath: currentPath }])
-    if (res.ok && res.data?.ok) {
-      filePath = res.data.data.filePath
+    if (res.ok) {
+      filePath = res.data.filePath
       content = txt
       redraw()
-      Notice.launch({ msg: "文件已保存" })
+      Notice.launch({ msg: res.msg })
     } else {
-      Notice.launch({ msg: "保存失败: " + (res.data?.msg || res.data?.error || res.msg || "未知错误") })
+      Notice.launch({ msg: res.msg })
     }
   }
 
@@ -104,7 +104,7 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, chatData, set
         value: content, language: language, theme: "vs-dark", automaticLayout: true, fontSize: 14, lineHeight: 20, wordWrap: wordWrap ? "on" : "off",
         readOnly: readOnly
       })
-      editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => { if(!readOnly) handleSave() })
+      editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => { if (!readOnly) handleSave() })
 
       // Auto-save content state (Debounced 1s)
       let timer = null
@@ -144,7 +144,7 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, chatData, set
   const handleAccept = async () => {
     const newContent = proposedContent
     const res = await settingData.fnCall("appDispatch", [appId, "acceptDiff", { proposedContent: newContent }])
-    if (res.ok && res.data?.ok) {
+    if (res.ok) {
       content = newContent
       isDiff = false
       if (confirmId) {
@@ -161,9 +161,8 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, chatData, set
         localComment = ""
       }
       updateEditor()
-      Notice.launch({ msg: "修改已应用" })
     } else {
-      Notice.launch({ msg: "操作失败" })
+      Notice.launch({ msg: res.msg })
     }
   }
 
@@ -193,7 +192,7 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, chatData, set
       const dialogRes = await settingData.fnCall("appOpenDialog", [{ title: "打开文件", filters: [{ name: "All", extensions: ["*"] }] }])
       if (!dialogRes.ok || dialogRes.canceled) return
       const res = await settingData.fnCall("appDispatch", [appId, "open", { filePath: dialogRes.filePath }])
-      if (res.ok && res.data?.ok) { filePath = res.data.data.filePath; content = res.data.data.content; isDiff = false; updateEditor() }
+      if (res.ok) { filePath = res.data.filePath; content = res.data.content; isDiff = false; updateEditor() }
     },
     save: () => handleSave(),
     saveAs: () => handleSave(true),
@@ -220,7 +219,7 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, chatData, set
         return done({ ok: true, data: { filePath, content: editor ? editor.getValue() : content } })
       }
       if (msg.action === "open") {
-        filePath = msg.args.filePath; content = msg.args.content; 
+        filePath = msg.args.filePath; content = msg.args.content;
         isDiff = false; readOnly = !!msg.args.readOnly
         updateEditor()
         done({ ok: true })
@@ -230,9 +229,9 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, chatData, set
         updateEditor()
         done({ ok: true })
       } else if (msg.action === "acceptDiff") {
-        proposedContent = msg.args.proposedContent; handleAccept(); done({ ok: true })
+        proposedContent = msg.args.proposedContent; handleAccept(); done({ ok: true, msg: "Diff 已接受" })
       } else {
-        done({ error: `Not supported: ${msg.action}` })
+        done({ ok: false, msg: `Not supported: ${msg.action}` })
       }
     }
   }

@@ -116,7 +116,7 @@ export default () => {
       const endpoint = viewMode === "chats" ? "chats/get" : "asks/get"
       const res = await m.request({
         method: "GET",
-        url: `http://${window.location.hostname}:9501/api/aiAsk/${endpoint}?_t=${Date.now()}`
+        url: `/api/aiAsk/${endpoint}?_t=${Date.now()}`
       })
       data = res
     } catch (e) {

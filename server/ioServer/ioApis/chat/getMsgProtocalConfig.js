@@ -5,7 +5,8 @@ import appManager from "../../../apps/appManager.js"
 import { trs } from "../../../tools/i18n.js"
 import chats from "./chats.js"
 import options from "../../../config/options.js"
-import { parse as parseBestEffort } from "best-effort-json-parser"
+import { parse as parseBestEffort, disableErrorLogging } from "best-effort-json-parser"
+disableErrorLogging()
 import yaml from "js-yaml"
 
 export default function (json) {
@@ -26,7 +27,9 @@ export default function (json) {
     tools: comData.data.get().toolsMode === 3
       ? appManager.getTools()
       : appManager.getTools().filter((tool) => {
-        return !tool.hidden
+        const toolsMode = comData.data.get().toolsMode
+        const isHidden = typeof tool.hidden === 'function' ? tool.hidden(toolsMode) : !!tool.hidden
+        return !isHidden
       }),
 
     onMemoryChange: async (aiAskInstance, notes) => {
@@ -261,12 +264,41 @@ export default function (json) {
       mind = content = "";
       if (reply.role === "assistant") {
         try {
-          contentJSON = JSON.parse(reply.content)
+          const toolsMode = comData.data.get().toolsMode;
+
+          if (toolsMode === 5) {
+            // 模式 5：兼容纯 Markdown 加 <extJsonConfig> 的情况
+            let extConfig = {};
+            const match = reply.content.match(/<extJsonConfig>([\s\S]+?)<\/extJsonConfig>/);
+            if (match && match[1]) {
+              try {
+                extConfig = JSON.parse(match[1].trim());
+              } catch (e) {
+                console.error("模式 5 extJsonConfig 解析失败:", e.message);
+              }
+            }
+            // 剥离 <extJsonConfig> 标签，让前台拿到纯净的 markdown 内容
+            const cleanContent = reply.content.replace(/<extJsonConfig>[\s\S]*?<\/extJsonConfig>/, "").trim();
+
+            contentJSON = {
+              mind: extConfig.mind || "...",
+              mood: extConfig.mood ?? 5,
+              content: cleanContent,
+              playFace: extConfig.playFace || "无表情",
+              faceAction: extConfig.faceAction || "none",
+              graph: extConfig.graph || "我已知晓"
+            };
+          } else {
+            // 其它普通模式：大模型直接返回全量 JSON 字符串
+            contentJSON = JSON.parse(reply.content);
+          }
+
           mind = contentJSON.mind
           content = contentJSON.content
 
           if (listId === 0) {
-            if (contentJSON.playFace && contentJSON.playFaces !== "无表情") {
+
+            if (contentJSON.playFace && contentJSON.playFace !== "无表情") {
               await comData.data.edit((data) => {
                 data.playFaces.current = contentJSON.playFace
               })
@@ -275,18 +307,19 @@ export default function (json) {
             if (contentJSON.faceAction && contentJSON.faceAction !== "none") {
               await comData.data.edit((data) => {
                 data.faceAction = contentJSON.faceAction
-
               })
             }
+
+
           }
-
-
         } catch (error) {
+
           replyJSON = {
             user: trs("crossFuncs/错误/系统错误"),
             mind: trs("错误/解析错误", { cn: "解析错误", en: "Parse Error" }),
             content: `原始json${reply.content}`
           };
+
         }
       } else {
         mind = null;
@@ -371,7 +404,10 @@ export default function (json) {
                 list.streamDisplayContent = mindPart + contentPart + notePart;
               }
             } catch (e) {
-              console.log("流json处理失败", e)
+              if (!list._hasLoggedStreamError) {
+                console.log("[qqBot/Stream] 流json处理失败(仅提示一次):", e.message);
+                list._hasLoggedStreamError = true;
+              }
             }
           }
           if (reasoningChunk) list.streamReasoningChunks += reasoningChunk;

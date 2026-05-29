@@ -19,7 +19,7 @@ export default {
       case "move":
         const { x, y } = args
         const result = this.makeMove(gameState, x, y)
-        if (result.success) {
+        if (result.ok) {
           // 通知前端落子
           io.emit("app:dispatch", {
             appId: app.id,
@@ -37,13 +37,13 @@ export default {
           winner: null
         }
         io.emit("app:dispatch", { appId: app.id, action: "reset", args: { gameState: app.data.gameState } })
-        return { success: true }
+        return { ok: true, msg: "游戏重置成功" }
 
       case "getState":
-        return { success: true, gameState }
+        return { ok: true, msg: "获取游戏状态成功", gameState }
 
       default:
-        return { success: false, message: "未知操作" }
+        return { ok: false, msg: "未知操作" }
     }
   },
 
@@ -70,7 +70,7 @@ export default {
   // 内部逻辑：处理落子
   makeMove(gameState, x, y) {
     if (gameState.gameOver || gameState.board[x][y] !== 0) {
-      return { success: false, message: '无效的落子位置' }
+      return { ok: false, msg: '无效的落子位置' }
     }
 
     const player = gameState.currentPlayer
@@ -79,10 +79,10 @@ export default {
     if (this.checkWin(gameState.board, x, y, player)) {
       gameState.gameOver = true
       gameState.winner = player
-      return { success: true, message: `玩家 ${player} 获胜！`, player, gameOver: true }
+      return { ok: true, msg: `玩家 ${player} 获胜！`, player, gameOver: true }
     }
 
     gameState.currentPlayer = player === 1 ? 2 : 1
-    return { success: true, message: '落子成功', player, gameOver: false }
+    return { ok: true, msg: '落子成功', player, gameOver: false }
   }
 }

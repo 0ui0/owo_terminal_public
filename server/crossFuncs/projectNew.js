@@ -44,7 +44,7 @@ export default {
         ioServer.io.emit("notice", trs("系统/消息/操作成功"))
       }
 
-      return { ok: true }
+      return { ok: true, msg: "新项目已初始化成功" }
     } catch (e) {
       console.error("[projectNew] Error:", e)
       return { ok: false, msg: e.message }

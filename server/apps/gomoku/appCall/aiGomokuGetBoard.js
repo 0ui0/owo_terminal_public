@@ -14,9 +14,9 @@ export default {
 
     const appManager = (await import("../../../apps/appManager.js")).default
     const res = await appManager.dispatch(appId, "getBoard", {})
-    
-    if (!res || res.error) {
-       return `获取状态失败: ${res?.error || "未知原因"}`
+
+    if (!res || !res.ok) {
+      return `获取状态失败: ${res?.msg || "未知原因"}`
     }
     return `当前棋盘状态:\n${res.boardStr}\n${res.gameOver ? `游戏结束，获胜者: ${res.winner}` : `当前轮到玩家: ${res.currentPlayer === 1 ? "1(黑子X)" : "2(白子O)"}`}`
   },

@@ -18,8 +18,8 @@ export default {
     const appManager = (await import("../../../apps/appManager.js")).default
     const res = await appManager.dispatch(appId, "move", { x, y })
 
-    if (!res || !res.success) {
-      return `落子失败: ${res?.message || res?.error || "未知原因"}`
+    if (!res || !res.ok) {
+      return `落子失败: ${res?.msg || "未知原因"}`
     }
     // 切断模型后续对话生成，避免重复罗嗦 "我已经落子了"
     const targetListId = comData.data.get().targetChatListId || 0
@@ -31,7 +31,7 @@ export default {
     if (!res.gameOver) {
       return `[OK]`
     } else {
-      return `[游戏结束] ${res.message}`
+      return `[游戏结束] ${res.msg}`
     }
   },
 

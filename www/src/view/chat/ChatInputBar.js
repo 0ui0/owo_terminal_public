@@ -109,7 +109,7 @@ export default () => {
           };
           xhr.onerror = () => reject(new Error('Network error'));
 
-          xhr.open('POST', `${window.location.protocol}//${window.location.hostname}:9501/api/attachments/set`);
+          xhr.open('POST', `/api/attachments/set`);
           xhr.send(formData);
         });
 
@@ -504,6 +504,8 @@ export default () => {
                 ? trs("输入栏/模式/宅喵工具", { cn: "宅喵工具模式", en: "OwO Tools" }) : null,
               comData.data.get()?.toolsMode === 4
                 ? trs("输入栏/模式/原生外壳", { cn: "原生外壳模式", en: "Native Wrapper" }) : null,
+              comData.data.get()?.toolsMode === 5
+                ? trs("输入栏/模式/编程模式", { cn: "编程模式", en: "Coding Mode" }) : null,
             ]),
             m.trust(window.iconPark.getIcon("Down")),
 
@@ -525,7 +527,8 @@ export default () => {
                 { id: 1, label: trs("输入栏/模式/提示词/名称", { cn: "提示词模式", en: "Prompt" }) },
                 { id: 2, label: trs("输入栏/模式/标准工具/名称", { cn: "标准工具模式", en: "Standard" }) },
                 { id: 3, label: trs("输入栏/模式/宅喵工具/名称", { cn: "宅喵工具模式", en: "OwO Tools" }) },
-                { id: 4, label: trs("输入栏/模式/原生外壳/名称", { cn: "原生外壳模式", en: "Native Wrapper" }) }
+                { id: 4, label: trs("输入栏/模式/原生外壳/名称", { cn: "原生外壳模式", en: "Native Wrapper" }) },
+                { id: 5, label: trs("输入栏/模式/编程模式/名称", { cn: "编程模式", en: "Coding Mode" }) }
               ].map((mode) => {
                 const isActive = comData.data.get()?.toolsMode === mode.id
                 return m(Tag, {
@@ -593,8 +596,7 @@ export default () => {
 
 
           (() => {
-            const targetId = comData.data.get()?.targetChatListId || 0;
-            const targetList = comData.data.get().chatLists?.find(l => l.id === targetId);
+            const targetList = comData.data.get().chatLists?.find(l => l.id === targetChatListId);
             return targetList?.replying ?
               m(IconTag, {
                 iconName: "PauseOne",
@@ -605,7 +607,7 @@ export default () => {
 
                     try {
                       let tmp = await m.request({
-                        url: `${window.location.protocol}//${window.location.hostname}:9501/api/aiAsk/stop`,
+                        url: `/api/aiAsk/stop`,
                         method: "get"
                       })
                       await comData.data?.edit((data) => {
@@ -936,7 +938,7 @@ export default () => {
                   if (attach.status === 'done' || !attach.status) {
                     try {
                       await m.request({
-                        url: `${window.location.protocol}//${window.location.hostname}:9501/api/attachments/del`,
+                        url: `/api/attachments/del`,
                         method: "POST",
                         body: { id: attach.id }
                       });

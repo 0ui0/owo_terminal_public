@@ -1,0 +1,10 @@
+{
+  "id": "qqBot",
+  "name": "QQ机器人控制中心",
+  "description": "基于子智能体架构的QQ机器人管理App，支持OneBot与官方API",
+  "icon": "🤖",
+  "version": "1.0.0",
+  "autoLoadTools": true,
+  "backend": "backend.js",
+  "frontend": "frontend.js"
+}

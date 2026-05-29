@@ -29,10 +29,10 @@ export default {
     // Call the bound updateScene method we created earlier on the backend module
     let res = await appDef.backend.updateScene({ mapId, events }, appDef, appId, ioServer.io);
 
-    if (res.success) {
+    if (res && res.ok) {
       return "Scene data synced. Frontend RPG Maker iframe will update shortly.";
     } else {
-      return `Failed to sync scene: ${res.reason}`;
+      return `Failed to sync scene: ${res?.msg || "unknown error"}`;
     }
   },
 

@@ -52,7 +52,7 @@ export default {
       return `--- App: ${targetApp.type} (${appId}) 运行状态 ---\n\n${content}`
     }
 
-    return `错误：无法获取 App 运行内容。原因：${res?.error || res?.msg || "App 未响应或不支持调试指令"}`
+    return `错误：无法获取 App 运行内容。原因：${res?.msg || "App 未响应或不支持调试指令"}`
   },
 
   joi() {

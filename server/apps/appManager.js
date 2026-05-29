@@ -4,6 +4,7 @@ import path from "path"
 import { pathToFileURL } from "url"
 import { app } from "electron"
 import idTool from "../tools/idTool.js"
+import { bumpAppDir, getAppVersion } from "./moduleRegistry.js"
 
 class AppManager {
   constructor() {
@@ -24,19 +25,40 @@ class AppManager {
     await this.loadAutoAppTools()   // 3. 最后加载标记为自动加载的 App 工具
   }
 
-  // 监听 apps 目录变动
+  /** [HMR] 监听 apps 目录变动：当文件改变时，驱动整个热更新流程 */
   watchAppDefs() {
     const appsDir = path.resolve(import.meta.dirname, "../apps")
     console.log(`[AppManager] 监听app更改: ${appsDir}`)
 
     // 使用 fs.watch (非 promise 版本更适合长期监听)
-    fs.watch(appsDir, { recursive: true }, (eventType, filename) => {
-      if (filename && (filename.endsWith(".json") || filename.endsWith(".js") || filename.endsWith(".coffee"))) {
-        const parts = filename.split(path.sep)
-        const appDirName = parts[0]
-        if (!appDirName) return
-        console.log(`[AppManager] ${filename}已更改, 刷新 ${appDirName}...`)
+    fs.watch(appsDir, { recursive: true }, async (eventType, filename) => {
+      if (!filename) return
+
+      const parts = filename.split(path.sep)
+      const appDirName = parts[0]
+      if (!appDirName) return
+
+      // [HMR 第一步] 检测到核心文件变动：.js / .coffee / .json
+      if (filename.endsWith(".json") || filename.endsWith(".js") || filename.endsWith(".coffee")) {
+        const appDirPath = path.join(appsDir, appDirName)
+
+        // 过滤：如果 appDirName 只是一个文件（比如 appManager.js 自身变动），则跳过目录遍历
+        const stat = fs.statSync(appDirPath, { throwIfNoEntry: false })
+        if (!stat || !stat.isDirectory()) return
+
+        // [HMR 第二步] 关键：递增该目录版本号。这会通过 MessageChannel 同步给 Loader 线程，粉碎后续 import 缓存
+        // 【硬核修正】显式 await 同步过程，确保 Loader 线程收到 ACK 后再继续，杜绝竞态冲突
+        const start = Date.now()
+        await bumpAppDir(appDirPath)
+
+        const timeStr = new Date().toLocaleTimeString()
+        const syncTime = Date.now() - start
+        console.log(`\x1b[36m[HMR]\x1b[0m \x1b[90m${timeStr}\x1b[0m \x1b[32m${filename} 已同步至 Loader 线程 (${syncTime}ms)\x1b[0m`)
+
+        // [HMR 第三步] 重新触发加载流程
         this.loadappDefs(appDirName).then(() => {
+          const totalTime = Date.now() - start
+          console.log(`\x1b[36m[HMR]\x1b[0m \x1b[32m${appDirName} 已原地复活 (${totalTime}ms)\x1b[0m`)
           if (this.io) this.io.emit("appDefs:updated", this.getappDefs())
         })
       }
@@ -74,10 +96,11 @@ class AppManager {
 
           let backend
           try {
-            // 使用 timestamp 绕过 ESM import 缓存，实现热重载
-            // Fixed for Windows: Convert path to File URL
+            // [HMR 第四步] 执行加载。因为路径带了 v=...，Node.js 会认为这是新模块，触发 Loader 拦截
             const backendUrl = pathToFileURL(backendPath).href
-            backend = (await import(`${backendUrl}?t=${Date.now()}`)).default
+            const v = getAppVersion(dirName)
+            const cacheBust = v > 0 ? `?v=${v}` : ""
+            backend = (await import(`${backendUrl}${cacheBust}`)).default
           } catch (ie) {
             throw new Error(`加载后端 backend.js 失败: ${ie.message}`)
           }
@@ -91,13 +114,40 @@ class AppManager {
             }
           }
 
-          this.appDefs.set(appJson.id, {
+          // [HMR 第五步] 资源回收：在应用新代码前，强制旧实例执行 destroy 钩子，清理如 WebSocket 等长链接
+          const oldAppDef = this.appDefs.get(appJson.id)
+          if (oldAppDef?.backend?.destroy) {
+            for (const app of this.apps.values()) {
+              if (app.type === appJson.id) {
+                console.log(`[AppManager] 热更新清理: 销毁旧实例 ${app.id}...`)
+                try {
+                  await oldAppDef.backend.destroy(app, this)
+                } catch (de) {
+                  console.error(`[AppManager] 销毁旧实例出错:`, de)
+                }
+              }
+            }
+          }
+
+          this.appDefs.set(appJson.id, { // 此时内存中的 appDef 已正式替换为新代码
             ...appJson,
             backend,
             frontendPath: path.join(appDirPath, appJson.frontend || "frontend.js")
           })
           this.appDefsErrors.delete(appJson.id) // 加载成功，清除错误记录
           console.log(`[AppManager] 加载app: ${appJson.id}`)
+
+          // [HMR 第六步] 状态恢复：对正在运行的实例执行新后端的 init，让业务逻辑带著新代码原地复活
+          for (const app of this.apps.values()) {
+            if (app.type === appJson.id && backend.init) {
+              console.log(`[AppManager] 热更新恢复: 重新初始化新实例 ${app.id}...`)
+              try {
+                await backend.init(app, this)
+              } catch (ie) {
+                console.error(`[AppManager] 重新初始化新实例出错:`, ie)
+              }
+            }
+          }
         } catch (e) {
           const errorMsg = `加载 App 失败 (${dirName}): ${e.message}`
           this.appDefsErrors.set(dirName, errorMsg)
@@ -126,19 +176,21 @@ class AppManager {
       if (this.apps.has(appId)) {
         const existingApp = this.apps.get(appId)
         if (!options.background && this.io) {
-          // 重新发射 launch 事件以唤醒/重建前端 GUI
-          this.io.emit("app:launch", {
-            appId,
-            type,
-            name: appDef.name,
-            icon: appDef.icon,
-            frontendUrl: `/api/apps/${type}/frontend.js?t=${Date.now()}`,
-            window: appDef.window,
-            data: existingApp.data
-          })
+          /**
+           * 【重要：禁止在此发送 app:launch】
+           * 以前的逻辑是重新发送 launch 导致前端 frontend.js 带时间戳重载。
+           * 在协议标准化提速后，这会引发严重的竞态冲突，导致 webview 变量丢失报 NULL。
+           * 且重载会导致所有未同步到后端的临时状态丢失。故改为仅发送 app:active。
+           *
+           * this.io.emit("app:launch", {
+           *   appId, type, name: appDef.name, icon: appDef.icon,
+           *   frontendUrl: `/api/apps/${type}/frontend.js?t=${Date.now()}`,
+           *   window: appDef.window, data: existingApp.data
+           * })
+           */
           this.io.emit("app:active", { appId })
         }
-        return { ok: true, app: existingApp, msg: "App 已唤醒" }
+        return { ok: true, app: existingApp, msg: `App ${appId} 已唤醒并置顶` }
       }
 
       const app = {
@@ -178,7 +230,7 @@ class AppManager {
         })
       }
 
-      return { ok: true, app }
+      return { ok: true, msg: `App ${appId} (${type}) 已成功启动`, app }
     } catch (error) {
       throw error
     }
@@ -212,14 +264,14 @@ class AppManager {
       this.io.emit("app:close", { appId })
     }
 
-    return { ok: true }
+    return { ok: true, msg: `App ${appId} 已成功关闭` }
   }
 
   // 调用 App 操作（转发到后端执行）
   async dispatch(appId, action, args = {}) {
     let app = this.apps.get(appId)
 
-    if (!app) return { error: `App ${appId} 不存在` }
+    if (!app) return { ok: false, msg: `App ${appId} 不存在` }
 
     const appDef = this.appDefs.get(app.type)
 
@@ -230,10 +282,10 @@ class AppManager {
         return result
       } catch (e) {
         console.error(`[AppManager] ${app.id} 的后端调度执行出错:`, e)
-        return { error: e.message }
+        return { ok: false, msg: `后端调度执行出错: ${e.message}` }
       }
     }
-    return { error: `App ${app.id} 未实现 dispatch 接口` }
+    return { ok: false, msg: `App ${app.id} (${app.type}) 未实现 dispatch 接口` }
   }
 
   // 获取单个 App
@@ -457,8 +509,11 @@ class AppManager {
       for (const file of files) {
         if (!file.endsWith(".js")) continue
         try {
-          const fileUrl = pathToFileURL(path.join(appCallDir, file)).href
-          const mod = (await import(`${fileUrl}?t=${Date.now()}`)).default
+          const filePath = path.join(appCallDir, file)
+          const fileUrl = pathToFileURL(filePath).href
+          const v = getAppVersion(appType)
+          const cacheBust = v > 0 ? `?v=${v}` : ""
+          const mod = (await import(`${fileUrl}${cacheBust}`)).default
           if (!mod || !mod.name || !mod.id) continue
           mod.type = "appCall"
           mod._appType = appType // 标记所属 App，用于卸载

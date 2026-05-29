@@ -17,10 +17,10 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, settingData, 
   const move = async (x, y) => {
     if (gameState.gameOver) return
     const res = await settingData.fnCall("appDispatch", [appId, "move", { x, y }])
-    if (res.ok && res.data?.success) {
-      if (res.data.gameOver) Notice.launch({ msg: res.data.message })
+    if (res.ok) {
+      if (res.data.gameOver) Notice.launch({ msg: res.msg })
     } else {
-      Notice.launch({ msg: res.data?.message || res.msg || "落子失败" })
+      Notice.launch({ msg: res.msg })
     }
   }
 

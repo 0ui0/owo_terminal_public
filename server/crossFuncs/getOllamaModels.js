@@ -56,6 +56,7 @@ export default {
 
       return {
         ok: true,
+        msg: `成功获取到 ${clientModels.length} 个 Ollama 模型`,
         data: clientModels
       }
 

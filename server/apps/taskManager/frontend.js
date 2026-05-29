@@ -15,7 +15,7 @@ export default ({ appId, m, Notice, ioSocket, commonData, chatData, settingData,
     m.redraw()
     try {
       const res = await settingData.fnCall("appDispatch", [appId, "list", {}])
-      if (res.ok && res.data?.ok) {
+      if (res.ok) {
         appList = res.data.data
         lastRefresh = Date.now()
       }
@@ -30,11 +30,11 @@ export default ({ appId, m, Notice, ioSocket, commonData, chatData, settingData,
   const killApp = async (targetId) => {
     try {
       const res = await settingData.fnCall("appDispatch", [appId, "kill", { targetId }])
-      if (res.ok && res.data?.ok) {
-        Notice.launch({ msg: `已成功终止: ${targetId}`, color: "green" })
+      if (res.ok) {
+        Notice.launch({ msg:res.msg, color: "green" })
         await fetchList(true)
       } else {
-        Notice.launch({ msg: "操作失败: " + (res.msg || "应用可能已退出"), color: "red" })
+        Notice.launch({ msg: res.msg, color: "red" })
       }
     } catch (e) {
       console.error(e)
@@ -44,8 +44,8 @@ export default ({ appId, m, Notice, ioSocket, commonData, chatData, settingData,
   const showApp = async (targetId) => {
     try {
       const res = await settingData.fnCall("appDispatch", [appId, "show", { targetId }])
-      if (res.ok && res.data?.ok) {
-        Notice.launch({ msg: `已尝试唤醒界面: ${targetId}`, color: "green" })
+      if (res.ok) {
+        Notice.launch({ msg: res.msg, color: "green" })
       }
     } catch (e) {
       console.error(e)

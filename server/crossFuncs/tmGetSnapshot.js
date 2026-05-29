@@ -9,7 +9,7 @@ export default {
       const repoPath = path.join(projectRoot, ".owoTimeMachine");
       const res = await timeMachineEngine.findSnapshotByMsgId({ repoPath, msgId });
       if (!res.ok) return res;
-      return { ok: true, snapshot: res.data };
+      return { ok: true, msg: "快照数据已加载", snapshot: res.data };
     } catch (e) {
       console.error("[CrossFunc] tmGetSnapshot Error:", e);
       return { ok: false, msg: e.message };

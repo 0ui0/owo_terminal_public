@@ -1,5 +1,6 @@
 import Joi from "joi"
 import appManager from "../../../apps/appManager.js"
+import options from "../../../config/options.js"
 
 export default {
   name: "浏览器截图",
@@ -9,6 +10,58 @@ export default {
     const { value, error } = this.joi().validate(argObj)
     if (error) {
       return "错误：" + error.details[0].message
+    }
+
+    let isVisionSupported = true;
+    if (metaData && metaData.aiAskInstance && metaData.aiAskInstance.openAi) {
+      const ai = metaData.aiAskInstance;
+      if (ai.isVisionSupported === undefined) {
+        try {
+          const testRes = await ai.openAi.chat.completions.create({
+            model: ai.aiConfig.model,
+            max_tokens: 1,
+            messages: [
+              {
+                role: "user",
+                content: [
+                  { type: "text", text: "t" },
+                  {
+                    type: "image_url",
+                    image_url: {
+                      url: "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"
+                    }
+                  }
+                ]
+              }
+            ]
+          });
+          ai.isVisionSupported = true;
+
+          // 扣除探针产生的 Token 消耗，保证 preTokens 余额审计无断层
+          const totalTokens = testRes.usage?.total_tokens || 0;
+          if (totalTokens > 0) {
+            try {
+              const aiList = await options.get("ai_aiList");
+              const modelIndex = aiList.findIndex(m => m.name === ai.aiConfig.name);
+              if (modelIndex !== -1) {
+                aiList[modelIndex].preTokens = Number(aiList[modelIndex].preTokens) - totalTokens;
+                await options.set("ai_aiList", aiList);
+              }
+            } catch (tokenErr) {
+              console.error("[browserScreenshot] 扣除探针 token 失败:", tokenErr);
+            }
+          }
+        } catch (err) {
+          ai.isVisionSupported = false;
+          console.warn(`[browserScreenshot] 检测到模型 [${ai.aiConfig.model}] 不支持多模态图片。`);
+        }
+      }
+      isVisionSupported = ai.isVisionSupported;
+    }
+
+    if (!isVisionSupported) {
+      const modelName = metaData?.aiAskInstance?.aiConfig?.model || "当前模型";
+      return `错误：当前模型 [${modelName}] 不支持图片等多模态输入接口，无法使用浏览器截图工具。请勿再次调用此工具进行截图。若需获取网页内容，请改用其它非截图类的工具。`;
     }
 
     let { appId } = value
@@ -76,7 +129,7 @@ export default {
       return `截图已发送，请结合快照分析。`;
     }
 
-    return `截图失败：${String(res?.error || res?.msg || "响应为空")}`
+    return `截图失败：${String(res?.msg || "响应为空")}`
   },
 
   joi() {
