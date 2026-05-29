@@ -1,1 +1,2 @@
-新增编程模式,全面支持deepseek
+全面支持deepseek
+新增编程模式,deepseek专用
