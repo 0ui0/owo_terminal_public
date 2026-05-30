@@ -1,8 +1,16 @@
 # 宅喵终端 (owo_terminal) ฅ^•ﻌ•^ฅ
 
-![预览图](readmeImg/preview.png)
-![蓝色预览图](readmeImg/blue_preview.png)
-![语言切换](readmeImg/languageSwitch.png)
+> **[English Edition](README_EN.md) | 简体中文版**
+
+<p align="center">
+  <img src="readmeImg/preview.png" width="800" />
+</p>
+<p align="center">
+  <img src="readmeImg/blue_preview.png" height="600" />
+</p>
+<p align="center">
+  <img src="readmeImg/languageSwitch.png" height="600" />
+</p>
 
 一直以来，我用了市面上的很多 AI 软件，都一直不太满意。
 这些软件包括 Trae、codeX、antigravity……各类主流 AI IDE。
@@ -81,7 +89,9 @@ App 部分由 AI 自行发挥，是个例外。
 
 ### 如何创建模型
 
-![创建模型截图](readmeImg/settingCreateModel.png)
+<p align="center">
+  <img src="readmeImg/settingCreateModel.png" height="600" />
+</p>
 
 宅喵终端为纯本地软件，本身没有提供模型服务，你需要自己寻找大模型服务商来接入模型。
 
@@ -101,7 +111,9 @@ App 部分由 AI 自行发挥，是个例外。
 
 ### 终端说明
 
-![终端命令说明](readmeImg/terminalAsk.png)
+<p align="center">
+  <img src="readmeImg/terminalAsk.png" height="600" />
+</p>
 
 宅喵终端使用 `node-pty` 配合 `xterm.js` 来和你的系统命令行终端交互。
 > [!WARNING]
@@ -114,7 +126,9 @@ App 部分由 AI 自行发挥，是个例外。
 
 ### 模型缓存和撤回
 
-![撤回消息](readmeImg/undoMsg.png)
+<p align="center">
+  <img src="readmeImg/undoMsg.png" width="800" />
+</p>
 
 与主流大模型对话通常会使用**前缀缓存（Prefix Caching）**来大幅节约 Token 消耗。
 - 系统提供了**撤回消息**功能，但请注意，撤回中间的历史消息会直接导致大模型端的缓存失效（缓存穿透），使用前请充分考虑。
@@ -124,13 +138,19 @@ App 部分由 AI 自行发挥，是个例外。
 
 ### 对话回复和引用
 
-![终端锁定说明](readmeImg/terminalReply.png)
+<p align="center">
+  <img src="readmeImg/terminalReply.png" height="600" />
+</p>
 
 - **终端锁定**：在终端模式下，向文本框发送消息时，会自动锁定回复给某个指定的终端。再次点击该锁定按钮可以取消锁定。此时发送新消息可以新建一个终端窗口。
 - **消息引用与回复**：在大模型模式下，你可以引用过去的某个会话，或者指定回复某个会话，类似聊天软件里的引用和回复。
 - **AI 的反向引用**：AI 也可以引用或回复你的对话，在 UI 上会有精美的特殊呈现，如图所示：
-  ![引用对话1](readmeImg/quote1.png)
-  ![引用对话2](readmeImg/quote2.png)
+  <p align="center">
+    <img src="readmeImg/quote1.png" width="800" />
+  </p>
+  <p align="center">
+    <img src="readmeImg/quote2.png" width="800" />
+  </p>
 
 ---
 
@@ -141,11 +161,15 @@ App 部分由 AI 自行发挥，是个例外。
 - **备份存放**：启用时光机后，会在项目根目录下创建 `.owoTimeMachine` 文件夹用来存放备份，请勿删除该文件夹，否则将无法恢复备份。
 - **自动还原点**：启用了时光机后，在对话过程中系统会自动创建还原点快照。你可以随时点击按钮还原文件状态（*注意：还原模式是用快照存档覆盖，对话中新增的文件不会被自动删除*）。
 
-![时光机1](readmeImg/timeMachine1.png)
+<p align="center">
+  <img src="readmeImg/timeMachine1.png" height="600" />
+</p>
 
 - **精确还原**：你也可以在时光机 App 里，手动拖拽时间快照中需要还原的文件到资源管理器 App 进行覆盖，以实现精确的文件级还原。系统会挨个弹窗询问你对每个文件是要覆盖还是跳过。
 
-![时光机2](readmeImg/timeMachine2.png)
+<p align="center">
+  <img src="readmeImg/timeMachine2.png" width="800" />
+</p>
 
 - **设计解耦（开发特别注意）**：
   > [!IMPORTANT]
@@ -168,7 +192,9 @@ App 部分由 AI 自行发挥，是个例外。
 
 ### RPG游戏
 
-![RPG介绍](readmeImg/rpgIntroduce.png)
+<p align="center">
+  <img src="readmeImg/rpgIntroduce.png" width="800" />
+</p>
 
 系统自带一个可以被 AI 编辑的小型 RPG 游戏，你可以和 AI 一起玩 RPG 游戏。AI 可以自主设计游戏场景并生成交互事件来与你进行妙趣横生的剧情互动。
 
@@ -180,186 +206,3 @@ App 部分由 AI 自行发挥，是个例外。
 
 > [ 可以这样做 ] 免费学习、个人研究、和小伙伴一起玩、自由修改源码。
 > [ 不可以这样做 ] 未经授权用于商业牟利、拆解核心逻辑用于无关项目、隐藏版权声明。
-
----
-
-# owo_terminal (宅喵终端) ฅ^•ﻌ•^ฅ (English Version)
-
-![Preview](readmeImg/preview.png)
-![Blue Preview](readmeImg/blue_preview.png)
-![Language Switch](readmeImg/languageSwitch.png)
-
-For a long time, I have used various AI software on the market, but none have truly satisfied me.
-These include Trae, codeX, antigravity... and other mainstream AI IDEs.
-
-I want my AI assistant to feel like a real companion—one with a defined persona, facial expressions, and movement.
-I expect a lively, anime-styled (2D) interface.
-I expect it to be versatile enough to manage my computer, interact with my browser (or allow side-by-side interaction while browsing), control Linux servers for one-click production deployment, debugging, and daily maintenance, and even play games with me.
-
-None of the existing tools met these demands.
-
-Most importantly, in the age of AI, I must have an AI application where I can fully control every single communication and interaction process.
-
-This is why I designed and created **owo_terminal**.
-
----
-
-### Design Language
-
-It inherits the design style of [OwoHome](https://www.iw-i.com) and shares almost the exact same design language.
-The App system is an exception, where the AI is given creative freedom.
-
----
-
-### Architecture Design
-
-It features a **System Core + App Ecosystem** architecture.
-
-- **System Core**: I am fully responsible for this part, knowing every single detail and communication flow inside out.
-- **App Ecosystem**: The applications within the App system are fully written and reviewed by the AI. This part is a "mystery box" to me—I don’t care about the specific implementation details as long as the functionality works flawlessly. I will also participate in designing some of the core basic Apps. This part is still under active development.
-
----
-
-### Saves & Archiving
-
-The software's behavior mirrors classic document editors like Word or Notepad:
-- All chat histories must be archived to external files, and each archive corresponds to a single chat session.
-- To start a new conversation, please create a new save file.
-- The save format `.owo` is actually a `zip` archive. You can unzip it manually or let the AI read the chat logs inside. It is designed as a compressed bundle instead of plain text because chats may involve image storage.
-
----
-
-### Character & Live2D Customization
-
-You can design and import custom anime character packs to change the character avatar at will. A character pack is a `.zip` archive with the following folder structure:
-
-```
-test_character_pack.zip
-  ├── pet/
-  │    └── expression_name.png  # 2048*2048px, transparent background (static expressions)
-  └── pet2/
-       └── video_name.webm       # 1920*1440, WebM with alpha channel (dynamic video pets standing by)
-```
-
-> [!TIP]
-> **Recommended Video Production Workflow**:
-> 1. Have the AI generate a character image with a green background.
-> 2. Convert it into a green screen video, using starting/ending frames and stitching two videos together to let the character return to the idle position (or design it yourself).
-> 3. Use video editors (like CapCut) to chroma-key the green screen, remove the audio track, export it in a format with alpha-channel support, and finally convert it into `webm` format using `ffmpeg`.
-
----
-
-### System Settings
-
-System settings are not stored in regular chat saves because they contain sensitive API keys.
-System settings must be imported and exported separately via the menu in `sqlite` format.
-
----
-
-### App Config Import/Export
-
-Settings for certain Apps also need to be imported/exported as separate individual archives, isolated from the main chat session saves to ensure configuration sandboxing.
-
----
-
-### How to Add Models
-
-![Create Model Settings](readmeImg/settingCreateModel.png)
-
-owo_terminal is a purely local application and does not provide built-in LLM services. You need to connect your own model service provider.
-
-**Common Model Providers Recommended**:
-- **Ollama** ([https://ollama.com](https://ollama.com)): A local LLM runner. No API Key required, completely free, and works offline. Highly recommended for a 100% local, privacy-first experience.
-- **DeepSeek** ([https://platform.deepseek.com](https://platform.deepseek.com)): High performance-to-cost ratio Chinese LLM provider. Its reasoning models offer excellent logical deduction, and owo_terminal features dedicated UI rendering for its reasoning chain (CoT).
-- **OpenAI** ([https://platform.openai.com](https://platform.openai.com)): The industry standard, offering top-tier models like GPT-4o and o1, supporting prefix caching and native function calling.
-- **Anthropic** ([https://console.anthropic.com](https://console.anthropic.com)): Provider of the Claude 3.5 Sonnet model, widely recognized as the best-in-class for coding and complex structured tasks.
-- **SiliconFlow** ([https://siliconflow.cn](https://siliconflow.cn)): A leading Chinese API aggregator providing high-speed, cost-effective endpoints for DeepSeek, Qwen, Llama, and various multimodal/reasoning models.
-
-**Connection Steps**:
-1. Visit the provider's official website, sign up/login, and obtain your `apiKey`, the **OpenAI-compatible Base URL**, and the `model ID` (usually you can copy the specific ID from their documentation/console).
-2. The model alias can be anything you like, but it must be unique.
-3. Open Settings -> "AI" -> "Add New Model" and enter the corresponding details.
-
----
-
-### Terminal & Commands
-
-![Terminal Command Instructions](readmeImg/terminalAsk.png)
-
-owo_terminal uses `node-pty` integrated with `xterm.js` to interface with your system terminal.
-> [!WARNING]
-> **Please Note: The application does NOT run in a virtual sandbox; all executed commands affect your host machine directly.**
-
-- Every command the AI attempts to execute will trigger a system confirmation prompt, showing a description written by the AI explaining what the command does. You can block any execution by writing a refusal reason.
-- **Be extremely cautious with file deletion commands!** Avoid letting the AI automatically delete files. Escaped characters or spaces in directories can easily lead to unintended data loss. It is always safer to delete files manually.
-
----
-
-### Model Cache & Message Undo
-
-![Undo Messages](readmeImg/undoMsg.png)
-
-Conversations with modern LLMs leverage **Prefix Caching** to significantly reduce Token consumption and cost.
-- The system provides a **Message Undo** feature. However, reverting messages in the middle of history will break the prefix cache (causing cache penetration). Please use it with caution.
-- In most cases, it is recommended to use the **"Undo to Here" (撤到本条)** function. This only removes the conversation history starting from the selected message to the end, preserving the prefix cache up to that point.
-
----
-
-### Replies & Quotes
-
-![Terminal Lock Instructions](readmeImg/terminalReply.png)
-
-- **Terminal Locking**: In terminal mode, sending a message automatically locks the reply context to a specific terminal instance. Clicking the lock button again unlocks it, allowing a new terminal window to open on your next message.
-- **Quotes & Replies**: In AI chat mode, you can quote or reply to past messages in the conversation stream, similar to standard messaging apps.
-- **AI Self-Quoting**: The AI can also quote or reply to your past messages. This is rendered beautifully on the UI as shown below:
-  ![Quote 1](readmeImg/quote1.png)
-  ![Quote 2](readmeImg/quote2.png)
-
----
-
-### Workspace & Time Machine
-
-Once a workspace directory is selected, the Time Machine backup feature will be forcibly enabled; otherwise, the workspace cannot be bound.
-The Time Machine is a standalone backup system built on Git mechanisms, operating entirely independently of any `.git` repository present in your project.
-- **Backup Location**: Enabling the Time Machine generates a `.owoTimeMachine` directory in your project root. Do not delete this directory, or you will lose your backup checkpoints.
-- **Auto-Snapshots**: Once enabled, the system automatically creates file state snapshots during conversations. You can click a button to restore files to a previous snapshot (*Note: This replaces current file states; files created after the snapshot will not be deleted*).
-
-![Time Machine 1](readmeImg/timeMachine1.png)
-
-- **Granular Restoration**: You can open the Time Machine App and drag specific files from a snapshot directly into the File Explorer App to overwrite them. The system will ask you for each file whether to overwrite or skip.
-
-![Time Machine 2](readmeImg/timeMachine2.png)
-
-- **Decoupled Architecture (Note for Developers)**:
-  > [!IMPORTANT]
-  > When launching the Time Machine App directly and using the "Open Backup Directory" button, make sure to select the backup folder (like `.owoTimeMachine`) itself rather than the project directory.
-  >
-  > The Time Machine App only manages the backup files and previews their contents. Theoretically, it is not bound to any project—it purely manages backup archives. You can copy the backup files anywhere, rename them, and open them in the App.
-  > The association between backups and projects is handled by the main system using the Time Machine App as a helper; the App itself remains strictly independent with no coupling.
-
-- **Git Compatibility**:
-  Your project can have its own `.git` repository. The project's `.git` files will not be backed up into the Time Machine. When creating `.owoTimeMachine`, the system automatically edits your `.gitignore` to exclude the backup directory, ensuring they never conflict.
-
----
-
-### Browser App
-
-The Browser App allows you to log into websites and interact with the AI. The AI can also automate browser actions with your permission.
-This enables a highly efficient **Human-AI Collaboration**—for example, when a website requires manual CAPTCHA solving or secure login, you can handle it yourself and then hand control back to the AI.
-
----
-
-### RPG Game
-
-![RPG Showcase](readmeImg/rpgIntroduce.png)
-
-The system includes a mini-RPG game engine editable by the AI. You can play RPG games with the AI, where the AI dynamically designs game maps, scenarios, and story events to interact with you.
-
----
-
-### License
-
-This project uses a custom **"Non-Commercial, Source-Available"** license. See [LICENSE.md](LICENSE.md) for details.
-
-> [ YOU CAN ] Learn for free, conduct personal research, play with friends, and modify the source code.
-> [ YOU CANNOT ] Use it for unauthorized commercial profit, strip core logic for unrelated projects, or hide copyright notices.
