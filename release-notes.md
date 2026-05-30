@@ -1,2 +1,0 @@
-全面支持deepseek
-新增编程模式,deepseek专用

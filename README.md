@@ -1,105 +1,180 @@
 # 宅喵终端 (owo_terminal) ฅ^•ﻌ•^ฅ
 
-![预览图](preview.png)
-![蓝色预览图](blue_preview.png)
-![语言切换](languageSwitch.png)
+![预览图](readmeImg/preview.png)
+![蓝色预览图](readmeImg/blue_preview.png)
+![语言切换](readmeImg/languageSwitch.png)
+
+一直以来，我用了市面上的很多 AI 软件，都一直不太满意。
+这些软件包括 Trae、codeX、antigravity……各类主流 AI IDE。
+
+我期待我的 AI 助理像个伙伴，有形象，有表情，要能动。
+我期待它有二次元的活泼界面。
+我期待它足够万能，能够帮我管理电脑，能接管我的浏览器，或者让我一边开着浏览器，一边和它互动；
+能帮我接管 Linux 服务器，一键部署生产内容，调试和日常运维；
+以及，能和我玩游戏。
+
+以上这些需求，现有的软件都不能满足我。
+
+最重要的是，在 AI 时代，我必须拥有一个我能够完全掌控所有通信交互流程的 AI 程序。
+
+所以我设计和制作了 **宅喵终端**。
+
+---
+
+### 设计语言
+
+它继承了 [喵宅苑](https://www.iw-i.com) 的设计风格，使用了几乎一致的设计语言。
+App 部分由 AI 自行发挥，是个例外。
+
+---
+
+### 架构设计
+
+它的架构设计是一个 **系统核心 + App系统**。
+
+- **系统核心**：我完全负责这部分，核心的每一部分我都了如指掌。
+- **App系统**：旗下的 App 程序我交由 AI 来全部负责编写、审查。这部分对我是个“盲盒”，我不管具体的实现细节，只要保证功能不出问题即可。部分基础核心 App 我也会参与设计。目前这部分还在完善中。
+
+---
+
+### 存档
+
+软件的行为逻辑和 Word、记事本等软件一致：
+- 所有的聊天记录都需要存档到外部位置，且每一份存档对应一次聊天会话。
+- 要开启新聊天，请新建存档。
+- 存档的格式 `.owo` 实际上是一个 `zip` 压缩包，你可以解压其中的内容，或者让 AI 读取其中的聊天记录。之所以设计成压缩包而不是文本，是因为聊天过程中可能会涉及到图片等媒体文件的存储。
+
+---
+
+### 角色设计
+
+你可以设计二次元角色包、导入角色包来自由更换软件里的角色。角色包为一个 `zip` 压缩包，目录规范为：
+
+```
+测试角色包.zip
+  ├── pet/
+  │    └── 表情名.png         # 2048*2048px，透明背景（静态表情）
+  └── pet2/
+       └── 视频名.webm        # 1920*1440，带透明通道的 WebM 格式（动态视频表情，如站在旁边活动的角色）
+```
 
 > [!TIP]
-> 你可以在「设置」->「通用」->「基本」中，按照上图所示切换系统语言（支持简体中文和英文）。
-
-你好呀！欢迎来到**宅喵终端**的仓库。这是一个充满了傲娇灵魂、却又极度实用的本地 AIOS (AI Operating System) 实验性终端项目。
-
----
-
-> [!IMPORTANT]
-> **发布仓库说明 (Release Repository)**
-> *   本仓库作为 **正式版本发布仓库**。我们非常欢迎你提出 **Issue**（问题、建议或 Bug 反馈）。
-> *   **不支持 Pull Requests (PR)**：这里不接受直接的代码提交或合并申请。所有更新均由内部私有仓库整理后同步发布至此。
-> *   **源码说明**：除 `server/tools/aiAsk/AiAsk.coffee` 以外，本仓库提供的是标准的 **JavaScript 源码**。虽然部分文件开头标注了由 CoffeeScript 编译，但为了便于 AI 开发和协作，项目已整体转向 JS，原 CoffeeScript 源文件已删除。唯一的例外是 `AiAsk.coffee`，它与作者的其他项目共享逻辑，故保留原文件。
-
+> **角色视频制作流程建议**：
+> 1. 让 AI 制作好绿色背景的角色图片。
+> 2. 让 AI 转成绿幕视频，尽可能使用首尾帧 + 拼接 2 个视频来让角色归位。或者自行设计。
+> 3. 使用剪映等视频剪辑软件的抠像功能把背景抠掉，去掉声音轨道，导出成带 alpha 通道的格式，最后使用 `ffmpeg` 转成 `webm` 格式。
 
 ---
 
-## 🚀 最新动态 (Latest Updates)
+### 系统设置
 
-- **模型支持与深度思考 (AI & Logic)**:
-  - ✨ **深度适配**: 支持 DeepSeek 等模型的 `reasoning_content`（深度思考/思维链）实时回传与展示。
-  - 🛠️ **兼容性增强**: 优化消息协议，自动合并连续的 `user` 或 `system` 消息，解决部分模型在多轮对话中的故障问题。
-  - 📜 **协议统一**: 所有发送模式均已集成最新的通讯规范，确保对话稳定。
-
-- **视觉与交互升级 (UI & UX)**:
-  - 🎨 **主题全家桶**: 新增蓝色预览版、黄色版主题，并对“浅色模式”下的资源管理器进行了视觉优化。
-  - 🖱️ **交互精简**: 模式切换由按钮改为更节省空间的**下拉菜单**设计。
-  - 💄 **细节打磨**: 修复了标题栏图标边距、工具组配色，整体视觉更加精致。
-
-- **功能与架构重构 (Feature & Arch)**:
-  - 🧩 **工具模块化**: 将 App 工具分散到各自的 App 目录中，项目结构更加清晰，方便开发者扩展。
-  - ⏳ **节奏优化**: 引入工具调用期间的消息延迟发送机制，让对话节奏更自然。
-  - 💬 **协作增强**: `waitConfirm` 确认环节新增留言功能，提升人机协作的透明度。
-
-- **Bug 修复 (Bug Fixes)**:
-  - 修复了 RPG 模式下物品放置功能的 Bug，以及若干已知交互细节。
+系统设置不会被保存到普通存档中，因为其中包含了敏感的 API 密钥。
+系统设置需要使用菜单单独导入和导出，格式为 `sqlite`。
 
 ---
 
-## 🏗️ 项目架构 (The Architecture)
+### App 的导入导出
 
-本项目采用了现代化的前端 + 稳健的后端 + 本地存储的架构，确保你的所有数据都留在本地。
-
-*   **核心引擎**: Node.js
-*   **图形界面**: Electron (提供原生桌面窗口体验)
-*   **数据持久化**:
-    *   **配置信息**: 存储在本地 `db.sqlite` 中（全局设置、模型配置等）。
-    *   **对话与状态**: 聊天记录、AI 记忆以及 App 运行状态均保存在独立的 **项目文件 (.json)** 中，由你自主决定保存位置，实现数据的灵活迁移与隔离。
+部分 App 的设置也需要导入导出成独立存档，和主程序会话存档分开，以确保配置隔离。
 
 ---
 
-## ⚙️ 如何构建 (Build Your World)
+### 如何创建模型
 
-想要在本地跑起来？跟着下面这几个简单步骤走：
+![创建模型截图](readmeImg/settingCreateModel.png)
 
-1.  **准备环境**: 确保你安装了 Node.js。
-2.  **安装依赖**:
-    ```bash
-    npm install
-    ```
-3.  **启动开发模式**:
-    ```bash
-    npm run dev
-    ```
-    *(这会同时启动后端服务和前端 Vite 预览)*
-4.  **构建桌面应用**:
-    ```bash
-    npm run build
-    ```
+宅喵终端为纯本地软件，本身没有提供模型服务，你需要自己寻找大模型服务商来接入模型。
 
----
+**常见的模型服务商推荐如下**：
+- **Ollama** ([https://ollama.com](https://ollama.com))：本地大模型运行框架。无需 API 密钥，完全免费且支持断网离线使用，是宅喵终端强力推荐的真·本地隐私伴侣。
+- **DeepSeek** ([https://platform.deepseek.com](https://platform.deepseek.com))：高性价比的明星大模型，其 Reasoning 深度思考模型能提供极其卓越的逻辑推理，且宅喵终端对深度思考回传有专门的完美 UI 渲染适配。
+- **OpenAI** ([https://platform.openai.com](https://platform.openai.com))：业界风向标，提供 GPT-4o、o1 等顶级闭源大模型，支持前缀缓存与原生工具调用（Function Calling）。
+- **Anthropic** ([https://console.anthropic.com](https://console.anthropic.com))：提供 Claude 3.5 Sonnet 等业界公认代码能力最强的模型，极其适合复杂的编程和连续工作流。
+- **SiliconFlow (硅基流动)** ([https://siliconflow.cn](https://siliconflow.cn))：国内优秀的模型 API 聚合与托管平台，提供了极速且低成本的 DeepSeek、Qwen、Llama 等多模态与推理模型的 API 服务。
 
-## 🧩 扩展性：App 与 自定义函数
-
-宅喵终端不仅仅是一个对话框，它是一个可以不断进化的系统。
-
-*   **App 机制**: 你可以创建属于自己的内置 App，集成在终端界面中，实现特定的功能模块。
-*   **自定义函数 (Tools/Fns)**:
-    *   **`userCall`**: 用户预设的函数。你可以编写 JavaScript 脚本来扩展终端的能力。
-    *   **`aiCall`**: AI 可以自主调用的函数。赋予 AI 读写文件、网络请求、甚至控制系统的能力！
-    *   *存放位置*: 位于 `server/tools/aiAsk/` 目录下相应的文件夹中。
+**接入步骤**：
+1. 前往模型服务商的官网阅读说明，获取 `apiKey`、**与 OpenAI 兼容的接口地址**（Base URL）以及 `模型id`（通常你可以切换选择多个模型，你需要复制对应模型的模型 ID）。
+2. 模型别名（Alias）可以任意取，但是不能重名。
+3. 打开设置面板 -> 「人工智能」 -> 「添加新模型」，填入相应配置即可。
 
 ---
 
-## 🛡️ 隐私与模型说明 (Local First)
+### 终端说明
 
-**(๑•̀ㅂ•́)و✧ 重点在这里：**
+![终端命令说明](readmeImg/terminalAsk.png)
 
-1.  **纯本地软件**: 本软件是一个运行在本地的“容器”和“中枢”。我们不通过中转服务器处理你的任何对话。
-2.  **无内置模型**: 出于隐私和成本考虑，**本项目不提供任何内置的 AI 模型接口 (API Key)**。
-3.  **如何使用 AI?**:
-    *   **手动配置**: 在软件的「设置」菜单中，填入你自己申请的 OpenAI 或兼容格式的 API Key 与 Base URL。
-    *   **本地 Ollama**: 我们深度适配了 Ollama。只要你的本地运行着 Ollama，点击设置里的「从 Ollama 导入」即可一键连接，彻底实现断网可用的真·本地 AI。
+宅喵终端使用 `node-pty` 配合 `xterm.js` 来和你的系统命令行终端交互。
+> [!WARNING]
+> **请注意：内部没有使用虚拟环境，一切操作命令都会执行在你的真实电脑上。**
+
+- AI 试图执行的所有命令都会经过系统的安全拦截，询问你是否允许执行，并附带上一段 AI 编写的命令说明。若要拒绝，你可以写上备注信息驳回。
+- **特别警惕删除文件的命令！** 尽量不要让 AI 去自动删除文件。因为有时可能由于转义符号写错、带空格的目录解析有误等，导致非预期目录被误删。删除文件最好由你人工手动处理。
 
 ---
 
-## 📜 授权协议 (License)
+### 模型缓存和撤回
+
+![撤回消息](readmeImg/undoMsg.png)
+
+与主流大模型对话通常会使用**前缀缓存（Prefix Caching）**来大幅节约 Token 消耗。
+- 系统提供了**撤回消息**功能，但请注意，撤回中间的历史消息会直接导致大模型端的缓存失效（缓存穿透），使用前请充分考虑。
+- 更多的时候，推荐使用**【撤到本条】**功能。这只会删除最末尾的局部对话，不会破坏前面已有的前缀缓存。
+
+---
+
+### 对话回复和引用
+
+![终端锁定说明](readmeImg/terminalReply.png)
+
+- **终端锁定**：在终端模式下，向文本框发送消息时，会自动锁定回复给某个指定的终端。再次点击该锁定按钮可以取消锁定。此时发送新消息可以新建一个终端窗口。
+- **消息引用与回复**：在大模型模式下，你可以引用过去的某个会话，或者指定回复某个会话，类似聊天软件里的引用和回复。
+- **AI 的反向引用**：AI 也可以引用或回复你的对话，在 UI 上会有精美的特殊呈现，如图所示：
+  ![引用对话1](readmeImg/quote1.png)
+  ![引用对话2](readmeImg/quote2.png)
+
+---
+
+### 工作目录和时光机
+
+若选定了工作目录，系统将会强制开启时光机功能，否则将无法选定该工作目录。
+时光机备份是一个基于 Git 机制但独立于你项目里已有 Git 仓库的独立备份系统。
+- **备份存放**：启用时光机后，会在项目根目录下创建 `.owoTimeMachine` 文件夹用来存放备份，请勿删除该文件夹，否则将无法恢复备份。
+- **自动还原点**：启用了时光机后，在对话过程中系统会自动创建还原点快照。你可以随时点击按钮还原文件状态（*注意：还原模式是用快照存档覆盖，对话中新增的文件不会被自动删除*）。
+
+![时光机1](readmeImg/timeMachine1.png)
+
+- **精确还原**：你也可以在时光机 App 里，手动拖拽时间快照中需要还原的文件到资源管理器 App 进行覆盖，以实现精确的文件级还原。系统会挨个弹窗询问你对每个文件是要覆盖还是跳过。
+
+![时光机2](readmeImg/timeMachine2.png)
+
+- **设计解耦（开发特别注意）**：
+  > [!IMPORTANT]
+  > 如果你打开了时间机器 App 本身，使用「打开备份目录」按钮时，请选择一个类似 `.owoTimeMachine` 的备份文件夹，而不是项目根文件夹。
+  >
+  > 时间机器 App 只对备份文件负责，它可以预览备份文件的内容。理论上时间机器 App 不绑定任何项目，它只管备份文件本身。你可以把备份文件复制到任何地方，随便重命名，都可以用时间机器 App 打开。
+  > 备份和项目的绑定逻辑是由主系统借助时间机器 App 来实现的，和 App 本身无关（**开发时候特别注意，这部分没有任何耦合，App 就是纯粹独立的 App**）。
+
+- **Git 兼容性**：
+  时间机器的备份允许你的项目本身存在一个 `.git` 仓库，且项目里的 `.git` 仓库内容不会被备份到时间机器里。同时，在创建 `.owoTimeMachine` 文件的同时，主系统会自动编辑已有的 `.gitignore` 文件，把该备份目录加入排除列表，保证二者不会发生冲突。
+
+---
+
+### 浏览器App
+
+浏览器 App 允许你登录一些网站并与 AI 交互，AI 也可以在获得授权后调用浏览器来完成某些自动化操作。
+这实现了极佳的**人机互补**行为——例如某些需要人机验证（CAPTCHA）或复杂安全登录的操作必须由你来完成，你操作完成后，再将控制权交还给 AI 继续剩下的自动化流程。
+
+---
+
+### RPG游戏
+
+![RPG介绍](readmeImg/rpgIntroduce.png)
+
+系统自带一个可以被 AI 编辑的小型 RPG 游戏，你可以和 AI 一起玩 RPG 游戏。AI 可以自主设计游戏场景并生成交互事件来与你进行妙趣横生的剧情互动。
+
+---
+
+### 授权协议
 
 本项目使用自定义的 **“非商业、源码可见”** 授权协议。详情请参阅 [LICENSE.md](LICENSE.md)。
 
@@ -108,123 +183,183 @@
 
 ---
 
-希望宅喵能成为你得心应手的得力助手！如果有任何问题，欢迎提出 Issue。 
+# owo_terminal (宅喵终端) ฅ^•ﻌ•^ฅ (English Version)
 
-祝你玩得开心！ ฅ(=^･ω･^=)ฅ
+![Preview](readmeImg/preview.png)
+![Blue Preview](readmeImg/blue_preview.png)
+![Language Switch](readmeImg/languageSwitch.png)
+
+For a long time, I have used various AI software on the market, but none have truly satisfied me.
+These include Trae, codeX, antigravity... and other mainstream AI IDEs.
+
+I want my AI assistant to feel like a real companion—one with a defined persona, facial expressions, and movement.
+I expect a lively, anime-styled (2D) interface.
+I expect it to be versatile enough to manage my computer, interact with my browser (or allow side-by-side interaction while browsing), control Linux servers for one-click production deployment, debugging, and daily maintenance, and even play games with me.
+
+None of the existing tools met these demands.
+
+Most importantly, in the age of AI, I must have an AI application where I can fully control every single communication and interaction process.
+
+This is why I designed and created **owo_terminal**.
 
 ---
 
-# owo_terminal ฅ^•ﻌ•^ฅ (English Version)
+### Design Language
 
-Hello! Welcome to the **owo_terminal** repository. This is a local AIOS (AI Operating System) experimental terminal project that is both tsundere in soul and extremely practical in function.
+It inherits the design style of [OwoHome](https://www.iw-i.com) and shares almost the exact same design language.
+The App system is an exception, where the AI is given creative freedom.
 
-![Language Switch](languageSwitch.png)
-![Blue Preview](blue_preview.png)
+---
+
+### Architecture Design
+
+It features a **System Core + App Ecosystem** architecture.
+
+- **System Core**: I am fully responsible for this part, knowing every single detail and communication flow inside out.
+- **App Ecosystem**: The applications within the App system are fully written and reviewed by the AI. This part is a "mystery box" to me—I don’t care about the specific implementation details as long as the functionality works flawlessly. I will also participate in designing some of the core basic Apps. This part is still under active development.
+
+---
+
+### Saves & Archiving
+
+The software's behavior mirrors classic document editors like Word or Notepad:
+- All chat histories must be archived to external files, and each archive corresponds to a single chat session.
+- To start a new conversation, please create a new save file.
+- The save format `.owo` is actually a `zip` archive. You can unzip it manually or let the AI read the chat logs inside. It is designed as a compressed bundle instead of plain text because chats may involve image storage.
+
+---
+
+### Character & Live2D Customization
+
+You can design and import custom anime character packs to change the character avatar at will. A character pack is a `.zip` archive with the following folder structure:
+
+```
+test_character_pack.zip
+  ├── pet/
+  │    └── expression_name.png  # 2048*2048px, transparent background (static expressions)
+  └── pet2/
+       └── video_name.webm       # 1920*1440, WebM with alpha channel (dynamic video pets standing by)
+```
 
 > [!TIP]
-> You can switch the system language (supports Simplified Chinese and English) in **Settings** -> **General** -> **Basic**, as shown in the image above.
+> **Recommended Video Production Workflow**:
+> 1. Have the AI generate a character image with a green background.
+> 2. Convert it into a green screen video, using starting/ending frames and stitching two videos together to let the character return to the idle position (or design it yourself).
+> 3. Use video editors (like CapCut) to chroma-key the green screen, remove the audio track, export it in a format with alpha-channel support, and finally convert it into `webm` format using `ffmpeg`.
 
 ---
 
-> [!IMPORTANT]
-> **Notice: Release Repository**
-> *   This is the **Official Release Repository**. We warmly welcome **Issues** (questions, suggestions, or bug reports).
-> *   **No Pull Requests (PR)**: We do not accept direct code submissions or merge requests here. All updates are curated in a private internal repository and synchronized here.
-> *   **Source Code Status**: The repository provides standard **JavaScript source code**, with the sole exception of `server/tools/aiAsk/AiAsk.coffee`. Some files may include headers indicating they were compiled from CoffeeScript; however, the project has transitioned to JS to better support AI-driven development, and the original Coffee files (except `AiAsk`) have been removed. `AiAsk.coffee` remains because it is shared across multiple projects.
+### System Settings
 
+System settings are not stored in regular chat saves because they contain sensitive API keys.
+System settings must be imported and exported separately via the menu in `sqlite` format.
 
 ---
 
-## 🚀 Latest Updates
+### App Config Import/Export
 
-- **Models & Deep Thinking (AI & Logic)**:
-  - ✨ **Deep Thinking Support**: Native support for DeepSeek's `reasoning_content` (Chain of Thought) streaming and display.
-  - 🛠️ **Compatibility Fixes**: Optimized message protocols to automatically merge consecutive `user` or `system` messages, solving issues with various LLM endpoints.
-  - 📜 **Unified Protocols**: All communication modes now strictly follow updated messaging standards for improved stability.
-
-- **Visual & UI Enhancements (UI & UX)**:
-  - 🎨 **Theme Expansion**: Added new Blue and Yellow themes; optimized "Light Mode" visuals for the Resource Explorer.
-  - 🖱️ **Streamlined Interaction**: Switched mode selection to a compact **Dropdown Menu** design.
-  - 💄 **Polish**: Refined title bar layouts, icon margins, and tool group color palettes.
-
-- **Architecture & Features (Feature & Arch)**:
-  - 🧩 **Modular Tools**: Refactored App tools into separate directories for better maintainability and extensibility.
-  - ⏳ **Optimized Flow**: Introduced delayed message sending during tool calls for a more natural interaction rhythm.
-  - 💬 **Enhanced Collaboration**: Added a messaging feature to the `waitConfirm` dialog for better human-AI transparency.
-
-- **Bug Fixes**:
-  - Fixed RPG placement mechanics and other interactive UI glitches.
+Settings for certain Apps also need to be imported/exported as separate individual archives, isolated from the main chat session saves to ensure configuration sandboxing.
 
 ---
 
-## 🏗️ Architecture
+### How to Add Models
 
-This project uses a modern frontend + robust backend + local storage architecture to ensure all your data stays on your machine.
+![Create Model Settings](readmeImg/settingCreateModel.png)
 
-*   **Core Engine**: Node.js
-*   **GUI**: Electron (providing a native desktop window experience)
-*   **Frontend**: Vite + Mithril (lightweight, high-performance rendering engine)
-*   **Persistence**: 
-    *   **Configuration**: Stored in local `db.sqlite` (global settings, model configs, etc.).
-    *   **Chat & State**: Conversation history, AI memory, and App states are saved in independent **Project Files (.json)**. You decide where to save them.
-*   **Protocols**: Supports standard OpenAI format APIs and direct Ollama integration.
+owo_terminal is a purely local application and does not provide built-in LLM services. You need to connect your own model service provider.
 
----
+**Common Model Providers Recommended**:
+- **Ollama** ([https://ollama.com](https://ollama.com)): A local LLM runner. No API Key required, completely free, and works offline. Highly recommended for a 100% local, privacy-first experience.
+- **DeepSeek** ([https://platform.deepseek.com](https://platform.deepseek.com)): High performance-to-cost ratio Chinese LLM provider. Its reasoning models offer excellent logical deduction, and owo_terminal features dedicated UI rendering for its reasoning chain (CoT).
+- **OpenAI** ([https://platform.openai.com](https://platform.openai.com)): The industry standard, offering top-tier models like GPT-4o and o1, supporting prefix caching and native function calling.
+- **Anthropic** ([https://console.anthropic.com](https://console.anthropic.com)): Provider of the Claude 3.5 Sonnet model, widely recognized as the best-in-class for coding and complex structured tasks.
+- **SiliconFlow** ([https://siliconflow.cn](https://siliconflow.cn)): A leading Chinese API aggregator providing high-speed, cost-effective endpoints for DeepSeek, Qwen, Llama, and various multimodal/reasoning models.
 
-## ⚙️ How to Build
-
-Want to run it locally? Just follow these simple steps:
-
-1.  **Environment**: Ensure you have Node.js installed.
-2.  **Dependencies**:
-    ```bash
-    npm install
-    ```
-3.  **Dev Mode**:
-    ```bash
-    npm run dev
-    ```
-    *(This starts both the backend service and Vite preview)*
-4.  **Build Desktop App**:
-    ```bash
-    npm run build
-    ```
+**Connection Steps**:
+1. Visit the provider's official website, sign up/login, and obtain your `apiKey`, the **OpenAI-compatible Base URL**, and the `model ID` (usually you can copy the specific ID from their documentation/console).
+2. The model alias can be anything you like, but it must be unique.
+3. Open Settings -> "AI" -> "Add New Model" and enter the corresponding details.
 
 ---
 
-## 🧩 Extensibility: Apps & Custom Functions
+### Terminal & Commands
 
-owo_terminal is more than just a chat box; it's an evolving system.
+![Terminal Command Instructions](readmeImg/terminalAsk.png)
 
-*   **App Mechanism**: You can create your own built-in Apps, integrated into the terminal interface.
-*   **Custom Functions (Tools/Fns)**:
-    *   **`userCall`**: Functions preset by the user. You can write JavaScript to extend the terminal's capabilities.
-    *   **`aiCall`**: Functions that the AI can call autonomously. Give your AI the power to read/write files, make network requests, or even control the system!
-    *   *Location*: Found in the `server/tools/aiAsk/` directory within respective folders.
+owo_terminal uses `node-pty` integrated with `xterm.js` to interface with your system terminal.
+> [!WARNING]
+> **Please Note: The application does NOT run in a virtual sandbox; all executed commands affect your host machine directly.**
 
----
-
-## 🛡️ Privacy & Models (Local First)
-
-**(๑•̀ㅂ•́)و✧ IMPORTANT:**
-
-1.  **Purely Local**: This software is a "container" and "hub" running on your machine. We do not process your conversations through any intermediary servers.
-2.  **No Built-in Models**: For privacy and cost reasons, **this project does not provide any built-in AI model APIs (API Keys)**.
-3.  **How to use AI?**:
-    *   **Manual Config**: In the "Settings" menu, enter your own OpenAI-compatible API Key and Base URL.
-    *   **Local Ollama**: We are deeply integrated with Ollama. If Ollama is running on your machine, just click "Import from Ollama" in settings for a one-click connection—realizing a truly offline, local AI experience.
+- Every command the AI attempts to execute will trigger a system confirmation prompt, showing a description written by the AI explaining what the command does. You can block any execution by writing a refusal reason.
+- **Be extremely cautious with file deletion commands!** Avoid letting the AI automatically delete files. Escaped characters or spaces in directories can easily lead to unintended data loss. It is always safer to delete files manually.
 
 ---
 
-## 📜 License
+### Model Cache & Message Undo
+
+![Undo Messages](readmeImg/undoMsg.png)
+
+Conversations with modern LLMs leverage **Prefix Caching** to significantly reduce Token consumption and cost.
+- The system provides a **Message Undo** feature. However, reverting messages in the middle of history will break the prefix cache (causing cache penetration). Please use it with caution.
+- In most cases, it is recommended to use the **"Undo to Here" (撤到本条)** function. This only removes the conversation history starting from the selected message to the end, preserving the prefix cache up to that point.
+
+---
+
+### Replies & Quotes
+
+![Terminal Lock Instructions](readmeImg/terminalReply.png)
+
+- **Terminal Locking**: In terminal mode, sending a message automatically locks the reply context to a specific terminal instance. Clicking the lock button again unlocks it, allowing a new terminal window to open on your next message.
+- **Quotes & Replies**: In AI chat mode, you can quote or reply to past messages in the conversation stream, similar to standard messaging apps.
+- **AI Self-Quoting**: The AI can also quote or reply to your past messages. This is rendered beautifully on the UI as shown below:
+  ![Quote 1](readmeImg/quote1.png)
+  ![Quote 2](readmeImg/quote2.png)
+
+---
+
+### Workspace & Time Machine
+
+Once a workspace directory is selected, the Time Machine backup feature will be forcibly enabled; otherwise, the workspace cannot be bound.
+The Time Machine is a standalone backup system built on Git mechanisms, operating entirely independently of any `.git` repository present in your project.
+- **Backup Location**: Enabling the Time Machine generates a `.owoTimeMachine` directory in your project root. Do not delete this directory, or you will lose your backup checkpoints.
+- **Auto-Snapshots**: Once enabled, the system automatically creates file state snapshots during conversations. You can click a button to restore files to a previous snapshot (*Note: This replaces current file states; files created after the snapshot will not be deleted*).
+
+![Time Machine 1](readmeImg/timeMachine1.png)
+
+- **Granular Restoration**: You can open the Time Machine App and drag specific files from a snapshot directly into the File Explorer App to overwrite them. The system will ask you for each file whether to overwrite or skip.
+
+![Time Machine 2](readmeImg/timeMachine2.png)
+
+- **Decoupled Architecture (Note for Developers)**:
+  > [!IMPORTANT]
+  > When launching the Time Machine App directly and using the "Open Backup Directory" button, make sure to select the backup folder (like `.owoTimeMachine`) itself rather than the project directory.
+  >
+  > The Time Machine App only manages the backup files and previews their contents. Theoretically, it is not bound to any project—it purely manages backup archives. You can copy the backup files anywhere, rename them, and open them in the App.
+  > The association between backups and projects is handled by the main system using the Time Machine App as a helper; the App itself remains strictly independent with no coupling.
+
+- **Git Compatibility**:
+  Your project can have its own `.git` repository. The project's `.git` files will not be backed up into the Time Machine. When creating `.owoTimeMachine`, the system automatically edits your `.gitignore` to exclude the backup directory, ensuring they never conflict.
+
+---
+
+### Browser App
+
+The Browser App allows you to log into websites and interact with the AI. The AI can also automate browser actions with your permission.
+This enables a highly efficient **Human-AI Collaboration**—for example, when a website requires manual CAPTCHA solving or secure login, you can handle it yourself and then hand control back to the AI.
+
+---
+
+### RPG Game
+
+![RPG Showcase](readmeImg/rpgIntroduce.png)
+
+The system includes a mini-RPG game engine editable by the AI. You can play RPG games with the AI, where the AI dynamically designs game maps, scenarios, and story events to interact with you.
+
+---
+
+### License
 
 This project uses a custom **"Non-Commercial, Source-Available"** license. See [LICENSE.md](LICENSE.md) for details.
 
 > [ YOU CAN ] Learn for free, conduct personal research, play with friends, and modify the source code.
 > [ YOU CANNOT ] Use it for unauthorized commercial profit, strip core logic for unrelated projects, or hide copyright notices.
-
----
-
-Hope owo_terminal becomes your favorite assistant! If you have any questions, feel free to open an Issue.
-
-Have fun! ฅ(=^･ω･^=)ฅ
