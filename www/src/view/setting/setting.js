@@ -175,7 +175,7 @@ export default () => {
           }, [
             m("div", { style: { flex: 1, color: getColor('gray_1').front } }, [
               m("span", { style: { opacity: 0.5, marginRight: "0.8rem", fontSize: "0.8rem" } }, idx + 1),
-              m("span", item)
+              m("span", { style: { fontSize: "1.3rem" } }, item)
             ]),
             m("div", { style: { display: "flex", gap: "8px" } }, [
               // Move Up

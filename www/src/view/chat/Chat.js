@@ -26,12 +26,10 @@ export default () => {
         style: {
           width: "100%",
           height: "100%",
-          padding: Mob ? "1rem" : "4rem",
-          paddingBottom: "11rem",
+          padding: Mob ? "1rem 1rem 10rem 1rem" : "2rem 2rem 10rem 2rem",
           boxSizing: "border-box",
           display: "flex",
           position: "relative",
-
           //alignItems:"center",
 
         }
