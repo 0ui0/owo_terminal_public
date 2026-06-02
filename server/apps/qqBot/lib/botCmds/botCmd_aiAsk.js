@@ -256,10 +256,12 @@ const Executor = {
       for (const app of allowApps) await backend.appManager.registerAppTools(app);
       const tools = backend.appManager.getTools().filter(t => allowApps.includes(t._appType) || t.id === 'findHistoryChats');
 
+      const currentToolsMode = 5;
+
       await agent.sendAskByMsgProtocol(getMsgProtocalConfig({
         targetModel: agent, listId, currentTokenConfig,
         extraConfig: {
-          tools, toolsMode: 1,
+          tools, toolsMode: currentToolsMode,
           // 【核心修复】强制覆盖全局钩子，消除 preToken 读取错误
           onSendAskBefore: async () => {
             const innerAiList = await options.get("ai_aiList");
@@ -282,10 +284,27 @@ const Executor = {
             try {
               const p = JSON.parse(content);
               content = p.content || content;
-              parseSuccess = true;
+              parseSuccess = true
             } catch (e) {
-              // 解析失败说明是中间过程、报错或非 JSON 格式
-              parseSuccess = false;
+              if (currentToolsMode === 5) {
+                // 解析失败，走模式 5 的 Markdown + extJsonConfig 格式兼容
+                let extConfig = {};
+                const match = content.match(/<extJsonConfig>([\s\S]+?)<\/extJsonConfig>/);
+                if (match && match[1]) {
+                  try {
+                    extConfig = JSON.parse(match[1].trim());
+                  } catch (err) {
+                    parseSuccess = false;
+                    console.error("[qqBot] 模式 5 extJsonConfig 解析失败:", err.message);
+                  }
+                }
+                content = content.replace(/<extJsonConfig>[\s\S]*?<\/extJsonConfig>/, "").trim();
+                // 只要剥离完标签后的 Markdown 正文非空，且没有发生语法解析错误，即可视作解析成功
+                parseSuccess = true
+
+              } else {
+                parseSuccess = false;
+              }
             }
 
             const replyExt = { listId, meta, group: reply.group, ask: reply };

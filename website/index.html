@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>宅喵终端 (owo_terminal) - 二次元专属 AI 协同终端</title>
+  <meta name="description" content="宅喵终端 (owo_terminal) 是一款融合了二次元活泼界面、系统核心+App沙盒架构、PTY命令安全拦截及时光机影子备份的AI协同终端。">
+  <meta name="keywords" content="owo_terminal, 宅喵终端, AI终端, AI IDE, 二次元终端, 时光机备份">
+  <!-- 引入现代字体 -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800;900&family=JetBrains+Mono:wght@400;600;800&family=Noto+Sans+SC:wght@400;700;900&display=swap" rel="stylesheet">
+  
+  <!-- 引入独立抽离的 CSS 样式模块 -->
+  <link rel="stylesheet" href="index.css">
+</head>
+<body>
+
+  <!-- ==========================================================================
+     1. 导航栏 (Navigation)
+     ========================================================================== -->
+  <header>
+    <div class="nav-container">
+      <a href="#" class="logo-area">
+        <img class="logo-svg" src="icon.svg" alt="owo_terminal logo">
+        <span class="logo-title">owo_<span>terminal</span></span>
+      </a>
+      
+      <button class="hamburger" id="hamburger-menu">
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
+
+      <ul class="nav-links" id="nav-links">
+        <li><a href="https://www.iw-i.com" target="_blank" data-trs="nav/website">喵宅苑</a></li>
+        <li><a href="#features" data-trs="nav/features">设计与痛点</a></li>
+        <li><a href="#models" data-trs="nav/models">模型接入</a></li>
+        <li><a href="#gallery" data-trs="nav/gallery">机能图谱</a></li>
+        <li><a href="#license" data-trs="nav/license">授权 FAQ</a></li>
+        <li><a href="https://github.com/0ui0/owo_terminal" target="_blank" class="nav-btn" data-trs="nav/github">GitHub 源码</a></li>
+        <!-- 双语切换交互按钮 -->
+        <li><a href="javascript:void(0)" class="nav-lang-btn" onclick="toggleLanguage()" style="color: var(--color-brand); font-weight: 800;">🇺🇸 English</a></li>
+      </ul>
+    </div>
+  </header>
+
+  <main>
+    <!-- ==========================================================================
+       2. 视口主区域 (Hero Area & 1:1 Live Simulation)
+       ========================================================================== -->
+    <section class="hero-section">
+      <div class="hero-info">
+        <span class="partner-tag" data-trs="hero/tag">ฅ^•ﻌ•^ฅ 你的二次元 AI 协同终端</span>
+        <h1 class="hero-title" data-trs="hero/title">写代码，<br>怎么能少了<span>二次元</span>？</h1>
+        <p class="hero-desc" data-trs="hero/desc">
+          <b>宅喵终端 (owo_terminal)</b> 是一个融合了 1:1 二次元透明立绘微交互、Reasoning 深度思考折叠展现与任务树进度追踪的 AI 协同终端。我们用影子时光机为您提供物理级的版本快照恢复，让每一次重构都充满温情与安全感。
+        </p>
+        <div class="hero-actions">
+          <a href="https://github.com/0ui0/owo_terminal_public/releases" target="_blank" class="btn-primary">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2A10 10 0 0 0 2 12c0 4.42 2.87 8.17 6.84 9.5.5.08.66-.23.66-.5v-1.69c-2.77.6-3.36-1.34-3.36-1.34-.46-1.16-1.11-1.47-1.11-1.47-.9-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.9 1.52 2.34 1.07 2.91.83.1-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.55-4.92 0-1.11.38-2 1.03-2.71-.1-.25-.45-1.29.1-2.64 0 0 .84-.27 2.75 1.02.79-.22 1.65-.33 2.5-.33.85 0 1.71.11 2.5.33 1.91-1.29 2.75-1.02 2.75-1.02.55 1.35.2 2.39.1 2.64.65.71 1.03 1.6 1.03 2.71 0 3.82-2.34 4.66-4.57 4.91.36.31.69.92.69 1.85V21c0 .27.16.59.67.5C19.14 20.16 22 16.42 22 12A10 10 0 0 0 12 2z"/></svg>
+            <span data-trs="hero/action/download">立即下载</span>
+          </a>
+          <a href="#features" class="btn-secondary" data-trs="hero/action/more">阅读设计初衷</a>
+        </div>
+      </div>
+
+      <!-- 右侧：真实打包的 Vue/Mithril 编译前端 1:1 精确仿真渲染 -->
+      <div class="simulator-wrapper">
+        <div class="sim-iframe-container">
+          <iframe id="sim-iframe" class="sim-iframe-target" src="simulator.html" scrolling="no"></iframe>
+        </div>
+      </div>
+    </section>
+
+    <!-- 体验操作栏 (通过拦截注入消息到 iframe 内部跑真实 main.js 的事件) -->
+    <div class="demo-action-row">
+      <span style="font-size: 0.75rem; color: #4a5a6a; display: flex; align-items: center; font-weight: 700;" data-trs="sim/title">交互动作模拟：</span>
+      <button class="demo-act-btn" onclick="triggerSimAction('restore')" data-trs="sim/restore">⏳ 模拟 PTY 时光机还原</button>
+      <button class="demo-act-btn" onclick="triggerSimAction('rpg')" data-trs="sim/rpg">⚔️ 开启内置文字RPG事件</button>
+      <button class="demo-act-btn" onclick="triggerSimAction('pout')" data-trs="sim/pout">💬 捏脸/调戏内置角色</button>
+    </div>
+
+    <!-- ==========================================================================
+       3. 诞生的痛点与初衷 Section
+       ========================================================================== -->
+    <section class="contrast-section" id="features">
+      <h3 class="info-title" data-trs="intro/title">为什么设计 <span>宅喵终端</span>？</h3>
+      <div class="contrast-grid" style="grid-template-columns: 1fr; gap: 1.5rem;">
+        <div class="contrast-card owo" style="background: var(--bg-card); padding: 2.2rem; border-radius: 12px;">
+          <p class="desc-paragraph" data-trs="intro/p1">
+            一直以来，作者尝试了市面上的很多 AI IDE 软件（如 Trae、codeX、antigravity 等），但都不能完全满意。我们渴望的不仅仅是一个冰冷的代码输出文本框，而是一个充满陪伴温度、有形象、有表情、有动作的二次元协同伴侣。
+          </p>
+          <p class="desc-paragraph" data-trs="intro/p2" style="margin-bottom: 0;">
+            更重要的是，在 AI 时代，我们**必须拥有一个自己能够完全掌控所有通信交互流程的 AI 终端程序**。因此，宅喵终端应运而生！
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==========================================================================
+       3.2 架构设计与设计语言 Section
+       ========================================================================== -->
+    <section class="contrast-section">
+      <h3 class="info-title" data-trs="arch/title">经典蓝白美学 与 <span>盲盒架构</span></h3>
+      <div class="contrast-grid">
+        <!-- 设计语言 -->
+        <div class="contrast-card owo" style="padding: 1.8rem; display: flex; flex-direction: column; justify-content: center;">
+          <p class="desc-paragraph" data-trs="arch/p1" data-html="true">
+            <b>设计语言</b>：宅喵终端继承了 <a href="https://www.iw-i.com" target="_blank">喵宅苑</a> 标志性的清爽淡蓝发光设计风格，UI 骨架极其简洁明朗，专为追求品质感的极客开发者定制。
+          </p>
+          <p class="desc-paragraph" data-trs="arch/p2" data-html="true" style="margin-bottom: 0;">
+            <b>系统核心 + App 盲盒架构</b>：软件拆分为两大层次：
+          </p>
+        </div>
+        <!-- 系统核心 & App 系统 -->
+        <div class="contrast-card owo" style="padding: 1.8rem; display: flex; flex-direction: column; gap: 1.2rem;">
+          <div>
+            <h4 style="font-size: 1rem; font-weight: 800; color: var(--color-brand); margin-bottom: 0.4rem;" data-trs="arch/core/title">⚙️ 系统核心 (Core)</h4>
+            <p style="font-size: 0.82rem; color: var(--color-text-desc); line-height: 1.5;" data-trs="arch/core/desc">
+              由作者本人精雕细琢，核心的每一行逻辑、通信协议与拦截机制都绝对安全可控，确保底层的稳固。
+            </p>
+          </div>
+          <div style="border-top: 1px solid rgba(83, 166, 255, 0.15); padding-top: 0.8rem;">
+            <h4 style="font-size: 1rem; font-weight: 800; color: #ffbc2e; margin-bottom: 0.4rem;" data-trs="arch/app/title">🎁 盲盒应用 (App System)</h4>
+            <p style="font-size: 0.82rem; color: var(--color-text-desc); line-height: 1.5;" data-trs="arch/app/desc">
+              具体的扩展应用 (如编辑器、时光机、资源管理器) 全权交由 AI 编写及审查。作者不干预细节，人机互补，释放 AI 自治生产力。
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==========================================================================
+       3.4 大模型接入与配置指南 Section
+       ========================================================================== -->
+    <section class="ecology-section" id="models">
+      <h3 class="info-title" data-trs="models/title">快速创建与 <span>接入大模型</span></h3>
+      <p style="color: var(--color-text-desc); font-size: 0.88rem; margin-top: -2rem;" data-trs="models/desc">
+        本软件为纯本地运行，本身不提供任何云端大模型服务，用户需自己寻找兼容 OpenAI 接口地址的服务商进行一键接入：
+      </p>
+      
+      <!-- 五大模型商推荐 -->
+      <div class="ecology-grid">
+        <div class="eco-card">
+          <div class="icon" style="color: #FF5E00;">🦙</div>
+          <h5>Ollama</h5>
+          <p data-trs="models/list/ollama">本地大模型运行框架。无需 API Key，完全免费且支持断网离线使用，是本终端强力推荐的真·本地隐私伴侣。</p>
+        </div>
+        <div class="eco-card">
+          <div class="icon" style="color: #0066FF;">🐳</div>
+          <h5>DeepSeek</h5>
+          <p data-trs="models/list/deepseek">高性价比的明星模型。其 Reasoning 思考过程回传有专门的完美 UI 折叠渲染适配。</p>
+        </div>
+        <div class="eco-card">
+          <div class="icon" style="color: #00A67E;">🎨</div>
+          <h5>OpenAI</h5>
+          <p data-trs="models/list/openai">提供 GPT-4o、o1/o3 等顶级模型，支持前缀缓存与原生工具调用 (Function Calling)。</p>
+        </div>
+        <div class="eco-card">
+          <div class="icon" style="color: #D97706;">🍁</div>
+          <h5>Anthropic</h5>
+          <p data-trs="models/list/anthropic">提供 Claude 3.5 Sonnet 等公认代码能力最顶级的模型，多轮连续重构体验佳。</p>
+        </div>
+        <div class="eco-card">
+          <div class="icon" style="color: var(--color-brand);">🌊</div>
+          <h5>SiliconFlow</h5>
+          <p data-trs="models/list/siliconflow">国内优秀的模型 API 聚合与托管平台，提供了极速且低成本的 DeepSeek/Qwen 托管服务。</p>
+        </div>
+      </div>
+
+      <!-- 3步接入步骤 -->
+      <div class="contrast-card owo" style="max-width: 800px; margin: 2rem auto 0 auto; text-align: left; padding: 1.8rem; background: var(--bg-card);">
+        <h4 style="font-size: 1.05rem; font-weight: 800; margin-bottom: 0.8rem;" data-trs="models/setup/title">🛠️ 接入大模型只需 3 步</h4>
+        <ol class="bullet-list" style="margin-left: 1.5rem; list-style-type: decimal;">
+          <li data-trs="models/setup/step1" data-html="true">获取服务商官网的 apiKey、Base URL (与 OpenAI 兼容) 以及 模型ID。</li>
+          <li data-trs="models/setup/step2">打开设置面板 -> 「人工智能」 -> 「添加新模型」。</li>
+          <li data-trs="models/setup/step3">输入相应配置保存即可（模型别名可以任意取，但不能重名）。</li>
+        </ol>
+      </div>
+    </section>
+
+    <!-- ==========================================================================
+       3.5 系统全貌与核心机能画廊 (System Showcase Gallery - 图文分栏强化)
+       ========================================================================== -->
+    <section class="gallery-section" id="gallery">
+      <h3 class="info-title" data-trs="gallery/title">核心机能 <span>实机图谱</span></h3>
+      <p style="color: var(--color-text-desc); font-size: 0.88rem; margin-top: -2rem; text-align: center; margin-bottom: 2rem;" data-trs="gallery/desc">
+        点击分类查看宅喵在各场景下的真实工作状态，支持点击放大预览高清细节
+      </p>
+      
+      <div class="gallery-container">
+        <!-- 左侧分类 Tab -->
+        <div class="gallery-tabs">
+          <button class="gallery-tab-btn active" onclick="switchGalleryTab(0)" data-trs="gallery/tab/0">🎭 交互界面</button>
+          <button class="gallery-tab-btn" onclick="switchGalleryTab(1)" data-trs="gallery/tab/1">🔒 终端与安全</button>
+          <button class="gallery-tab-btn" onclick="switchGalleryTab(2)" data-trs="gallery/tab/2">⏳ 时光机快照</button>
+          <button class="gallery-tab-btn" onclick="switchGalleryTab(3)" data-trs="gallery/tab/3">⚡ 缓存与游戏</button>
+        </div>
+        
+        <!-- 右侧图片展示区 -->
+        <div class="gallery-content">
+          <!-- Tab 0: 智能交互 & 主界面 -->
+          <div class="gallery-pane active">
+            <div class="gallery-grid">
+              <!-- 卡片 1 (垂直上下结构) -->
+              <div class="gallery-item layout-vertical" onclick="openLightbox('readmeImg/preview.png')">
+                <img src="readmeImg/preview.png" alt="主界面预览">
+                <div class="gallery-item-text">
+                  <div class="gallery-item-title" data-trs="gallery/item/preview/title">经典蓝白双栏主界面</div>
+                  <div class="gallery-item-desc" data-trs="gallery/item/preview/desc">清爽的浅蓝色发光边框 UI，搭配静态二次元抠像角色或透明 WebM 视频。角色首尾帧平滑拼接，待机呼吸极其自然，写代码时伙伴会根据 AI 执行状态做出实时表情回馈，提供满满的陪伴温度。</div>
+                </div>
+              </div>
+              <!-- 卡片 2 (左右双栏结构) -->
+              <div class="gallery-item" onclick="openLightbox('readmeImg/languageSwitch.png')">
+                <img src="readmeImg/languageSwitch.png" alt="中英文切换">
+                <div class="gallery-item-text">
+                  <div class="gallery-item-title" data-trs="gallery/item/lang/title">全局多语言切换</div>
+                  <div class="gallery-item-desc" data-trs="gallery/item/lang/desc">软件内置完美的 i18n 国际化字典包，支持一键在简体中文与英文之间瞬间切换，包含所有的菜单、配置字段、FAQ 以及工具说明，完全满足全球化开发与无缝阅读的需求。</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Tab 1: 🔒 终端与安全 -->
+          <div class="gallery-pane">
+            <div class="gallery-grid">
+              <!-- 卡片 1 (左右双栏) -->
+              <div class="gallery-item" onclick="openLightbox('terminalAsk.png')">
+                <img src="readmeImg/terminalAsk.png" alt="终端安全拦截">
+                <div class="gallery-item-text">
+                  <div class="gallery-item-title" data-trs="gallery/item/term_ask/title">node-pty 安全确认拦截</div>
+                  <div class="gallery-item-desc" data-trs="gallery/item/term_ask/desc">集成真实的 xterm.js 命令行终端。当 AI 试图执行写命令时，系统核心会强制触发安全确认弹窗，并要求 AI 附带解释。支持人工修改参数、拒绝或补充说明驳回，绝不静默运行。</div>
+                  <!-- Markdown 警告警示框 -->
+                  <div class="warning-box">
+                    <strong>⚠️ [!WARNING] 请注意：</strong>
+                    软件内部没有使用虚拟环境，一切操作命令都会直接执行在你的真实电脑上。请特别警惕删除文件的命令！
+                  </div>
+                </div>
+              </div>
+              <!-- 卡片 2 (左右双栏) -->
+              <div class="gallery-item" onclick="openLightbox('terminalReply.png')">
+                <img src="readmeImg/terminalReply.png" alt="真实终端返回">
+                <div class="gallery-item-text">
+                  <div class="gallery-item-title" data-trs="gallery/item/term_reply/title">真实命令行返回</div>
+                  <div class="gallery-item-desc" data-trs="gallery/item/term_reply/desc">AI 执行的所有命令结果将 100% 实时反馈在终端流中。终端支持终端锁定与消息引用，AI 可以像聊天软件一般反向引用或答复你的某条指令，确保交互透明度。</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Tab 2: ⏳ 时光机快照 -->
+          <div class="gallery-pane">
+            <div class="gallery-grid">
+              <!-- 卡片 1 (左右双栏) -->
+              <div class="gallery-item" onclick="openLightbox('timeMachine1.png')">
+                <img src="readmeImg/timeMachine1.png" alt="时光机自动快照">
+                <div class="gallery-item-text">
+                  <div class="gallery-item-title" data-trs="gallery/item/tm1/title">时光机影子备份 (.owoTimeMachine)</div>
+                  <div class="gallery-item-desc" data-trs="gallery/item/tm1/desc">选定工作目录后强制开启影子快照备份。备份文件隔离存放于隐藏的 .owoTimeMachine 文件夹下。系统会自动将该目录追加到项目的 .gitignore 中，与项目已有的 Git 仓库完全互不干扰。</div>
+                </div>
+              </div>
+              <!-- 卡片 2 (上下结构) -->
+              <div class="gallery-item layout-vertical" onclick="openLightbox('timeMachine2.png')">
+                <img src="readmeImg/timeMachine2.png" alt="精确拖拽还原">
+                <div class="gallery-item-text">
+                  <div class="gallery-item-title" data-trs="gallery/item/tm2/title">可视化差异比对与拖拽还原</div>
+                  <div class="gallery-item-desc" data-trs="gallery/item/tm2/desc">支持时间线点查与历史 commit 节点差异预览。你可以在时间机器 App 中将某个备份文件直接拖出并覆盖到资源管理器 App 中。系统会挨个弹窗询问是要覆盖还是跳过，实现极具物理感的文件级精确还原。</div>
+                  <!-- Markdown 重要提示框 -->
+                  <div class="important-box">
+                    <strong>💡 [!IMPORTANT] 影子设计特别说明：</strong>
+                    时间机器 App 仅对备份文件本身负责，与具体项目和主系统完全解耦。主系统基于此 App 实现了项目备份的管理，这正是软件盲盒扩展性的极佳体现。
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Tab 3: ⚡ 缓存与游戏 -->
+          <div class="gallery-pane">
+            <div class="gallery-grid">
+              <!-- 卡片 1 (上下结构) -->
+              <div class="gallery-item layout-vertical" onclick="openLightbox('undoMsg.png')">
+                <img src="readmeImg/undoMsg.png" alt="前缀缓存优化">
+                <div class="gallery-item-text">
+                  <div class="gallery-item-title" data-trs="gallery/item/undo/title">前缀缓存 (Prefix Caching) 节约资费</div>
+                  <div class="gallery-item-desc" data-trs="gallery/item/undo/desc">与大模型对话依赖前缀缓存节省开销。传统的整段撤回极易破坏大模型端前缀缓存（缓存穿透），导致白白消耗大量 API 资费。我们强烈推荐使用「撤到本条」功能，只清除尾部局部会话，完美保住头部缓存，极速且省钱。</div>
+                </div>
+              </div>
+              <!-- 卡片 2 (上下结构) -->
+              <div class="gallery-item layout-vertical" onclick="openLightbox('rpgIntroduce.png')">
+                <img src="readmeImg/rpgIntroduce.png" alt="内置 RPG 游戏 App">
+                <div class="gallery-item-text">
+                  <div class="gallery-item-title" data-trs="gallery/item/rpg/title">内置盲盒文字 RPG 游戏 App</div>
+                  <div class="gallery-item-desc" data-trs="gallery/item/rpg/desc">工作累了？随时可以使用内置的小型 RPG 游戏 App。大模型会化身地城领主自主设计森林、城堡等游戏场景，并生成各种带交互选项的剧情分支，让你在终端里就能与伙伴开启妙趣横生的剧情互动。</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==========================================================================
+       6. 常见 FAQ 与许可
+       ========================================================================== -->
+    <section class="faq-container" id="license">
+      <h3 class="info-title" style="margin-bottom: 2rem;" data-trs="faq/title">授权协议 与 <span>常见疑问</span></h3>
+      
+      <div class="faq-item">
+        <div class="faq-header" onclick="toggleFaq(this)" data-trs="faq/q1">它的授权协议是怎样的？我能免费修改代码吗？</div>
+        <div class="faq-body" data-trs="faq/a1" data-html="true">
+          本项目使用自定义的 **“非商业、源码可见”** 授权协议。<br>
+          <strong style="color: #62ba46">[ 可以这样做 ]</strong> 免费个人学习、学术研究、与好友共同体验调试、自由二开并发布修改版源码。<br>
+          <strong style="color: #ff6159">[ 绝不可以 ]</strong> 未经授权作为商业产品售卖牟利，或者删除及隐藏原有著作权声明。详情请参阅 LICENSE.md。
+        </div>
+      </div>
+
+      <div class="faq-item">
+        <div class="faq-header" onclick="toggleFaq(this)" data-trs="faq/q2">时光机影子备份是否会污染我已有的 Git 库？</div>
+        <div class="faq-body" data-trs="faq/a2" data-html="true">
+          完全不会。时光机影子工作区拥有自己完全隔离的 Git 控制库（位于 `.owoTimeMachine/` 隐藏文件夹下）。主系统会自动将该文件夹写入项目 `.gitignore` 中，保证两者互不干扰。
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- ==========================================================================
+     7. 页脚
+     ========================================================================== -->
+  <footer>
+    <div class="foot-container">
+      <div class="foot-links">
+        <a href="https://www.iw-i.com" target="_blank" data-trs="foot/website">喵宅苑官网</a>
+        <a href="https://github.com/0ui0/owo_terminal" target="_blank" data-trs="foot/repo">GitHub 仓库</a>
+        <a href="https://github.com/0ui0/owo_terminal/blob/main/LICENSE.md" target="_blank" data-trs="foot/license">授权条款</a>
+      </div>
+      <p class="copyright" data-trs="foot/copy">© 2026 owo_terminal. 由 0ui0 & 米卡卡 (AI Partner) 联合呈献 ฅ^•ﻌ•^ฅ</p>
+    </div>
+  </footer>
+
+  <!-- 模态框灯箱 (Lightbox Modal) -->
+  <div id="lightbox-modal" class="lightbox-modal" onclick="closeLightbox()">
+    <span class="lightbox-close">&times;</span>
+    <img class="lightbox-img" id="lightbox-target-img" src="" alt="大图预览">
+  </div>
+
+  <!-- 引入独立抽离的 JS 交互逻辑 -->
+  <script src="index.js"></script>
+</body>
+</html>

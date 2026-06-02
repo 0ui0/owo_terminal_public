@@ -36,8 +36,22 @@ import settingData from "./view/setting/settingData.js"
     await i18nInit()
     //同步共同数据到服务端
 
-    await settingData.options?.pull()
-    commonData.themeColor = await settingData.options.get("global_themeColor")
+    try {
+      await settingData.options?.pull()
+    } catch (err) {
+      console.warn("拉取配置失败，将使用本地默认兜底配置：", err)
+      // 为静态展示注入默认的 option 兜底，防止视频立绘和经典蓝白主题失效
+      settingData.options.data = [
+        { key: "global_themeColor", value: 2 },
+        { key: "global_actorSwitch", value: 1 },
+        { key: "global_language", value: "cn" }
+      ]
+    }
+    let themeColor = await settingData.options.get("global_themeColor")
+    if (themeColor === undefined) {
+      themeColor = 2 // 静态预览环境默认使用经典蓝白主题
+    }
+    commonData.themeColor = themeColor
 
 
 
