@@ -11,7 +11,7 @@ export default function (colorStr) {
   if (themeId === 1) {
     const themeOverrides = {
       main: { back: "#ffdb66", front: "#333333" },    // 经典蔚蓝 (品牌色)
-      pink_1: { back: "#FF6B6B", front: "#FFFFFF" },  // 活力珊瑚红 (发送按钮)
+      pink_1: { back: "#ff8585", front: "#FFFFFF" },  // 活力珊瑚红 (发送按钮)
       pink_2: { back: "#FFCE54", front: "#333" },     // [raw] 标签 (正黄色)
       gray_1: { back: "#fff3dd", front: "#000000" },   // 全局背景 (浅蓝) / 文字调至纯黑补偿 + '55'
       gray_2: { back: "#BDC3C7", front: "#333" },
@@ -60,7 +60,7 @@ export default function (colorStr) {
   if (themeId === 2) {
     const themeOverrides = {
       main: { back: "#53a6ff", front: "#FFFFFF" },    // 经典蔚蓝 (品牌色)
-      pink_1: { back: "#FF6B6B", front: "#FFFFFF" },  // 活力珊瑚红 (发送按钮)
+      pink_1: { back: "#ff8585", front: "#FFFFFF" },  // 活力珊瑚红 (发送按钮)
       pink_2: { back: "#FFCE54", front: "#333" },     // [raw] 标签 (正黄色)
       gray_1: { back: "#DDEEFF", front: "#000000" },   // 全局背景 (浅蓝) / 文字调至纯黑补偿 + '55'
       gray_2: { back: "#BDC3C7", front: "#333" },
