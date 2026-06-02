@@ -468,9 +468,7 @@ export default function () {
           margin-block-start: 0.5rem;
           margin-block-end: 0.5rem;
         }
-        *{
-          letter-spacing:0.15rem;
-        }
+
         .xterm, .xterm *{
           letter-spacing: normal !important;
         }
