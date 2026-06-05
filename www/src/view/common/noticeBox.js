@@ -425,7 +425,8 @@ export default function () {
             alignItems: "center",
             flexShrink: 0,
             userSelect: "none",
-            padding: "0.4rem 1rem"
+            padding: "0.4rem 1rem",
+            minHeight: "3.3rem", // 防止按钮全部隐藏时标题栏高度坍塌
           },
           onpointerdown: (e) => handleTitleDown(e, win, attrs.onActivate),
           ondblclick: (e) => toggleMaximize(e, win)

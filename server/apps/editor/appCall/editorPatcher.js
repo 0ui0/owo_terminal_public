@@ -56,12 +56,13 @@ export default {
 
     // 【关键重构】由工具负责最终落盘
     const fs = await import("fs/promises")
+    let commentSuffix = userConfirm.comment ? `。用户备注：${userConfirm.comment}` : ""
     if (filePath) {
       await fs.writeFile(filePath, proposedContent, "utf-8")
-      return `修改已成功应用并保存到 ${filePath}。`
+      return `修改已成功应用并保存到 ${filePath}${commentSuffix}。`
     }
 
-    return `修改已成功应用（由于当前编辑器未关联文件路径，仅同步到内存）。`
+    return `修改已成功应用（由于当前编辑器未关联文件路径，仅同步到内存）${commentSuffix}。`
   },
 
   joi() {

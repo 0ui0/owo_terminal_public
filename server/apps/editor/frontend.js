@@ -2,10 +2,11 @@
 import editorData from "./editorData.js"
 
 // Editor App 前端组件 (Closure Version)
-export default ({ appId, m, Notice, ioSocket, comData, commonData, chatData, settingData, Box, getColor }) => {
+export default ({ appId, m, Notice, ioSocket, comData, commonData, chatData, settingData, Box, Tag, getColor }) => {
   // === Private State ===
   let isDiff = false
   let readOnly = false
+  let isDirty = false
   let filePath = ""
   let content = ""
   let originalContent = ""
@@ -19,6 +20,7 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, chatData, set
   let editor = null
   let diffEditor = null
   let container = null
+  let currentTheme = null
   const redraw = () => m.redraw()
 
   // === Helpers ===
@@ -36,14 +38,14 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, chatData, set
   }
 
   const handleSave = async (forceDialog = false) => {
-    if (!editor) return
+    if (!editor) return false
     let currentPath = filePath
     if (!currentPath || forceDialog) {
       const dialogRes = await settingData.fnCall("appSaveDialog", [{
         title: "另存为", filePath: currentPath,
         filters: [{ name: "文本文件", extensions: ["txt", "js", "py", "md", "html", "css", "json"] }, { name: "所有文件", extensions: ["*"] }]
       }])
-      if (!dialogRes.ok || dialogRes.canceled) return
+      if (!dialogRes.ok || dialogRes.canceled) return false
       currentPath = dialogRes.filePath
     }
     const txt = editor.getValue()
@@ -51,11 +53,53 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, chatData, set
     if (res.ok) {
       filePath = res.data.filePath
       content = txt
+      isDirty = false
       redraw()
       Notice.launch({ msg: res.msg })
+      return true
     } else {
       Notice.launch({ msg: res.msg })
+      return false
     }
+  }
+
+  // 💡 自定义三按钮保存确认弹窗
+  const AskSaveComponent = {
+    view: (vnode) => m("",
+      [
+        m(Box, {
+          isBlock: true,
+        }, "文件尚未保存，是否保存窗口？"),
+        m("",
+          [
+            m(Box,
+              {
+                isBtn: true,
+                color: "main",
+                onclick: () => vnode.attrs.onYes(vnode.attrs.delete)
+              },
+              "保存且关闭"
+            ),
+            m(Box,
+              {
+                isBtn: true,
+                color: "gray_2",
+                onclick: () => vnode.attrs.onNo(vnode.attrs.delete)
+              },
+              "不保存且关闭"
+            ),
+            m(Box,
+              {
+                isBtn: true,
+                color: "gray_3",
+                onclick: () => vnode.attrs.delete() // 物理关闭自身询问弹窗
+              },
+              "取消"
+            )
+          ]
+        )
+      ]
+    )
   }
 
   const updateEditor = () => {
@@ -68,8 +112,12 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, chatData, set
     const langMap = { js: "javascript", py: "python", md: "markdown", html: "html", css: "css", json: "json", coffee: "coffeescript" }
     const language = langMap[extension] || "text"
 
+    const isDark = (commonData.themeColor || 0) === 0
+    const monacoTheme = isDark ? "vs-dark" : "vs"
+    currentTheme = monacoTheme
+
     if (isDiff) {
-      diffEditor = monaco.editor.createDiffEditor(container, { theme: "vs-dark", automaticLayout: true, readOnly: true, renderSideBySide: true })
+      diffEditor = monaco.editor.createDiffEditor(container, { theme: monacoTheme, automaticLayout: true, readOnly: true, renderSideBySide: true })
       diffEditor.setModel({
         original: monaco.editor.createModel(originalContent, language),
         modified: monaco.editor.createModel(proposedContent, language)
@@ -101,7 +149,7 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, chatData, set
       addQuoteAction(diffEditor.getModifiedEditor(), "从修改方案")
     } else {
       editor = monaco.editor.create(container, {
-        value: content, language: language, theme: "vs-dark", automaticLayout: true, fontSize: 14, lineHeight: 20, wordWrap: wordWrap ? "on" : "off",
+        value: content, language: language, theme: monacoTheme, automaticLayout: true, fontSize: 14, lineHeight: 20, wordWrap: wordWrap ? "on" : "off",
         readOnly: readOnly
       })
       editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => { if (!readOnly) handleSave() })
@@ -111,6 +159,8 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, chatData, set
       editor.onDidChangeModelContent(() => {
         if (readOnly) return
         content = editor.getValue()
+        isDirty = true
+        redraw()
         if (timer) clearTimeout(timer)
         timer = setTimeout(() => {
           settingData.fnCall("appUpdateData", [appId, { content: content }])
@@ -147,6 +197,7 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, chatData, set
     if (res.ok) {
       content = newContent
       isDiff = false
+      isDirty = false
       if (confirmId) {
         await comData.data.edit(data => {
           data.chatLists.forEach(list => {
@@ -187,12 +238,12 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, chatData, set
 
   // === Actions ===
   const actions = {
-    newFile: () => { filePath = ""; content = ""; isDiff = false; updateEditor() },
+    newFile: () => { filePath = ""; content = ""; isDiff = false; isDirty = false; updateEditor() },
     openFile: async () => {
       const dialogRes = await settingData.fnCall("appOpenDialog", [{ title: "打开文件", filters: [{ name: "All", extensions: ["*"] }] }])
       if (!dialogRes.ok || dialogRes.canceled) return
       const res = await settingData.fnCall("appDispatch", [appId, "open", { filePath: dialogRes.filePath }])
-      if (res.ok) { filePath = res.data.filePath; content = res.data.content; isDiff = false; updateEditor() }
+      if (res.ok) { filePath = res.data.filePath; content = res.data.content; isDiff = false; isDirty = false; updateEditor() }
     },
     save: () => handleSave(),
     saveAs: () => handleSave(true),
@@ -220,7 +271,7 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, chatData, set
       }
       if (msg.action === "open") {
         filePath = msg.args.filePath; content = msg.args.content;
-        isDiff = false; readOnly = !!msg.args.readOnly
+        isDiff = false; readOnly = !!msg.args.readOnly; isDirty = false;
         updateEditor()
         done({ ok: true })
       } else if (msg.action === "showDiff") {
@@ -247,17 +298,85 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, chatData, set
 
   // === View Components ===
   const MenuItem = {
-    view: (v) => m("div", {
-      style: { padding: "8px 15px", cursor: "pointer", display: "flex", justifyContent: "space-between", minWidth: "150px", color: "#ccc", fontSize: "13px", transition: "background 0.1s" },
-      onmouseenter: (e) => e.currentTarget.style.background = "#094771", onmouseleave: (e) => e.currentTarget.style.background = "transparent",
-      onclick: (e) => { e.stopPropagation(); closeMenu(); if (v.attrs.action) v.attrs.action() }
-    }, [m("span", { style: { pointerEvents: "none" } }, v.attrs.label), v.attrs.shortcut ? m("span", { style: { color: "#888", fontSize: "12px", marginLeft: "15px", pointerEvents: "none" } }, v.attrs.shortcut) : null])
+    view: (v) => m("",
+      {
+        style: {
+          padding: "0.8rem 1.5rem",
+          cursor: "pointer",
+          display: "flex",
+          justifyContent: "space-between",
+          minWidth: "15.0rem",
+          color: getColor('gray_4').front,
+          fontSize: "1.3rem",
+          transition: "background 0.1s"
+        },
+        onmouseenter: (e) => e.currentTarget.style.background = getColor('main').back,
+        onmouseleave: (e) => e.currentTarget.style.background = "transparent",
+        onclick: (e) => {
+          e.stopPropagation()
+          closeMenu()
+          if (v.attrs.action) v.attrs.action()
+        }
+      },
+      [
+        m("span",
+          {
+            style: {
+              pointerEvents: "none"
+            }
+          },
+          v.attrs.label
+        ),
+        v.attrs.shortcut
+          ? m("span",
+            {
+              style: {
+                color: getColor('gray_2').back,
+                fontSize: "1.2rem",
+                marginLeft: "1.5rem",
+                pointerEvents: "none"
+              }
+            },
+            v.attrs.shortcut
+          )
+          : null
+      ]
+    )
   }
 
   const MenuDropdown = {
-    view: (v) => m("div", {
-      style: { position: "absolute", top: "30px", left: "0", background: "#252526", border: "1px solid #454545", zIndex: 1000, borderRadius: "3px", padding: "4px 0", boxShadow: "0 2px 8px rgba(0,0,0,0.5)" }
-    }, v.attrs.items.map(item => item === "sep" ? m("div", { style: { height: "1px", background: "#454545", margin: "4px 0" } }) : m(MenuItem, { ...item, closeMenu })))
+    view: (v) => m("",
+      {
+        style: {
+          position: "absolute",
+          top: "3.0rem",
+          left: "0",
+          background: getColor('gray_4').back,
+          border: "1px solid " + getColor('gray_2').back,
+          zIndex: 1000,
+          borderRadius: "0.3rem",
+          padding: "0.4rem 0",
+          boxShadow: "0 0.2rem 0.8rem rgba(0,0,0,0.5)"
+        }
+      },
+      v.attrs.items.map(item => item === "sep"
+        ? m("",
+          {
+            style: {
+              height: "1px",
+              background: getColor('gray_2').back,
+              margin: "0.4rem 0"
+            }
+          }
+        )
+        : m(MenuItem,
+          {
+            ...item,
+            closeMenu
+          }
+        )
+      )
+    )
   }
 
   // === Main View ===
@@ -273,6 +392,50 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, chatData, set
         proposedContent = d.proposedContent || ""
         confirmId = d.confirmId || null
       }
+
+      // 💡 动态劫持 cancel 事件做未保存状态拦截
+      const config = vnode.attrs.noticeConfig;
+      if (config) {
+        const originalCancel = config.cancel;
+        config.cancel = async (dom, closeFn, tabData, event) => {
+          if (isDirty && !readOnly) {
+            Notice.launch({
+              sign: "ask_save_prompt_" + appId,
+              tip: "提示",
+              hideBtn: 1, // 隐藏右上角确认与取消
+              useMinus: false, // 隐藏最小化
+              content: AskSaveComponent,
+              contentAttrs: {
+                onYes: async (closePrompt) => {
+                  const saved = await handleSave(true);
+                  if (saved) {
+                    closePrompt();
+                    if (originalCancel) {
+                      await originalCancel(dom, closeFn, tabData, event);
+                    } else {
+                      closeFn();
+                    }
+                  }
+                },
+                onNo: async (closePrompt) => {
+                  closePrompt();
+                  if (originalCancel) {
+                    await originalCancel(dom, closeFn, tabData, event);
+                  } else {
+                    closeFn();
+                  }
+                }
+              }
+            });
+            return true; // 不关闭编辑器窗口，返回 true 拦截默认关闭行为
+          }
+          if (originalCancel) {
+            return await originalCancel(dom, closeFn, tabData, event);
+          } else {
+            closeFn();
+          }
+        };
+      }
     },
     oncreate(vnode) {
       container = vnode.dom.querySelector(".monaco-container")
@@ -283,47 +446,85 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, chatData, set
       if (editor) editor.dispose(); if (diffEditor) diffEditor.dispose()
     },
     view(vnode) {
-      return m("div", {
-        style: { display: "flex", flexDirection: "column", width: "100%", height: "100%", background: "#1e1e1e", color: "#ccc", overflow: "hidden" },
+      // 💡 实时无缝跟随系统颜色主题
+      const isDark = (commonData.themeColor || 0) === 0
+      const activeTheme = isDark ? "vs-dark" : "vs"
+      if (activeTheme !== currentTheme) {
+        currentTheme = activeTheme
+        if (window.monaco) {
+          monaco.editor.setTheme(activeTheme)
+        }
+      }
+
+      return m("", {
+        style: {
+          display: "flex",
+          flexDirection: "column",
+          width: "100%",
+          height: "100%",
+          background: getColor('gray_3').back,
+          color: getColor('gray_3').front,
+          overflow: "hidden"
+        },
         onclick: closeMenu
       }, [
         // Menu Bar
-        m("div", { onpointerdown: (e) => e.stopPropagation(), style: { display: "flex", height: "35px", padding: "0 10px", background: "#333", alignItems: "center", fontSize: "13px", userSelect: "none" } }, [
-          m("div", { style: { position: "relative" } }, [m("div", { style: { padding: "5px 10px", cursor: "pointer", background: activeMenu === "file" ? "#444" : "transparent" }, onclick: (e) => { e.stopPropagation(); toggleMenu("file") } }, "文件"), activeMenu === "file" ? m(MenuDropdown, { items: [{ label: "新建", action: actions.newFile }, { label: "打开...", action: actions.openFile, shortcut: "Ctrl+O" }, "sep", { label: "保存", action: actions.save, shortcut: "Ctrl+S" }, { label: "另存为...", action: actions.saveAs, shortcut: "Ctrl+Shift+S" }] }) : null]),
-          m("div", { style: { position: "relative" } }, [m("div", { style: { padding: "5px 10px", cursor: "pointer", background: activeMenu === "edit" ? "#444" : "transparent" }, onclick: (e) => { e.stopPropagation(); toggleMenu("edit") } }, "编辑"), activeMenu === "edit" ? m(MenuDropdown, { items: [{ label: "撤销", action: actions.undo, shortcut: "Ctrl+Z" }, { label: "重做", action: actions.redo, shortcut: "Ctrl+Y" }, "sep", { label: "查找", action: actions.find, shortcut: "Ctrl+F" }, { label: "替换", action: actions.replace, shortcut: "Ctrl+H" }] }) : null]),
-          m("div", { style: { position: "relative" } }, [m("div", { style: { padding: "5px 10px", cursor: "pointer", background: activeMenu === "view" ? "#444" : "transparent" }, onclick: (e) => { e.stopPropagation(); toggleMenu("view") } }, "视图"), activeMenu === "view" ? m(MenuDropdown, { items: [{ label: "自动换行", action: actions.toggleWordWrap, shortcut: wordWrap ? "开启" : "关闭" }] }) : null]),
-          m("div", { style: { flex: 1, textAlign: "center", opacity: 0.6, fontSize: "12px", letterSpacing: "1px" } }, filePath ? filePath.split("/").pop() : "新文件"),
-          m("div", { style: { display: "flex", gap: "10px", alignItems: "center" } }, [
+        m("", {
+          onpointerdown: (e) => e.stopPropagation(),
+          style: {
+            display: "flex",
+            height: "3.5rem",
+            padding: "0 1.0rem",
+            background: getColor('gray_12').back,
+            color: getColor('gray_12').front,
+            alignItems: "center",
+            fontSize: "1.3rem",
+            userSelect: "none"
+          }
+        }, [
+          m("", { style: { position: "relative" } }, [m("", { style: { padding: "0.5rem 1.0rem", cursor: "pointer", borderRadius: "0.3rem", background: activeMenu === "file" ? getColor('gray_2').back : "transparent" }, onclick: (e) => { e.stopPropagation(); toggleMenu("file") } }, "文件"), activeMenu === "file" ? m(MenuDropdown, { items: [{ label: "新建", action: actions.newFile }, { label: "打开...", action: actions.openFile, shortcut: "Ctrl+O" }, "sep", { label: "保存", action: actions.save, shortcut: "Ctrl+S" }, { label: "另存为...", action: actions.saveAs, shortcut: "Ctrl+Shift+S" }] }) : null]),
+          m("", { style: { position: "relative" } }, [m("", { style: { padding: "0.5rem 1.0rem", cursor: "pointer", borderRadius: "0.3rem", background: activeMenu === "edit" ? getColor('gray_2').back : "transparent" }, onclick: (e) => { e.stopPropagation(); toggleMenu("edit") } }, "编辑"), activeMenu === "edit" ? m(MenuDropdown, { items: [{ label: "撤销", action: actions.undo, shortcut: "Ctrl+Z" }, { label: "重做", action: actions.redo, shortcut: "Ctrl+Y" }, "sep", { label: "查找", action: actions.find, shortcut: "Ctrl+F" }, { label: "替换", action: actions.replace, shortcut: "Ctrl+H" }] }) : null]),
+          m("", { style: { position: "relative" } }, [m("", { style: { padding: "0.5rem 1.0rem", cursor: "pointer", borderRadius: "0.3rem", background: activeMenu === "view" ? getColor('gray_2').back : "transparent" }, onclick: (e) => { e.stopPropagation(); toggleMenu("view") } }, "视图"), activeMenu === "view" ? m(MenuDropdown, { items: [{ label: "自动换行", action: actions.toggleWordWrap, shortcut: wordWrap ? "开启" : "关闭" }] }) : null]),
+          m("", { style: { flex: 1, textAlign: "center", opacity: 0.6, fontSize: "1.2rem", letterSpacing: "0.1rem" } }, (filePath ? filePath.split("/").pop() : "新文件") + (isDirty ? " *" : "")),
+          m("", { style: { display: "flex", gap: "1.0rem", alignItems: "center" } }, [
             isDiff ? [
-              m("input", {
-                type: "text",
+              m(Tag, {
+                tagName: "input[type=text]",
                 placeholder: "输入备注（可选）...",
-                value: localComment,
-                oninput: (e) => localComment = e.target.value,
-                style: {
-                  height: "24px",
-                  padding: "0 8px",
-                  background: "rgba(0,0,0,0.2)",
-                  border: "1px solid #444",
-                  borderRadius: "3px",
-                  color: "#ccc",
-                  fontSize: "12px",
-                  width: "200px"
+                color: "gray_2",
+                oninput: (dom, e) => localComment = dom.value,
+                ext: {
+                  value: localComment
                 }
               }),
-              m("button", { style: { padding: "4px 15px", background: "#2ea44f", color: "white", border: "none", borderRadius: "3px", cursor: "pointer", fontWeight: "bold" }, onclick: (e) => { e.stopPropagation(); handleAccept() } }, "批准修改"),
-              m("button", { style: { padding: "4px 15px", background: "#444", color: "#ccc", border: "none", borderRadius: "3px", cursor: "pointer" }, onclick: (e) => { e.stopPropagation(); handleReject() } }, "拒绝")
-            ] : m(Box, { isBtn: true, style: { padding: "4px 15px", background: "#007acc", color: "white", borderRadius: "3px", fontWeight: "bold" }, onclick: (dom, e) => { e.stopPropagation(); handleSave() } }, "保存")
+              m(Tag, {
+                isBtn: true,
+                isWide: true,
+                color: "green_1",
+                onclick: (dom, e) => { e.stopPropagation(); handleAccept() }
+              }, "批准修改"),
+              m(Tag, {
+                isBtn: true,
+                isWide: true,
+                color: "gray_2",
+                onclick: (dom, e) => { e.stopPropagation(); handleReject() }
+              }, "拒绝")
+            ] : m(Tag, {
+              isBtn: true,
+              isWide: true,
+              color: "main",
+              onclick: (dom, e) => { e.stopPropagation(); handleSave() }
+            }, "保存")
           ])
         ]),
         // Path
-        m("div", { style: { display: "flex", height: "22px", padding: "0 10px", background: "#252526", alignItems: "center", fontSize: "11px", color: readOnly ? getColor('pink_1').front : "#aaa", boxShadow: "inset 0 1px 3px rgba(0,0,0,0.2)" } }, [
-          readOnly ? m("span", { style: { fontWeight: "bold", marginRight: "8px" } }, "[只读预览]") : null,
+        m("", { style: { display: "flex", height: "2.2rem", padding: "0 1.0rem", background: getColor('gray_1').back, alignItems: "center", fontSize: "1.1rem", color: readOnly ? getColor('pink_1').front : getColor('gray_1').front, boxShadow: "inset 0 0.1rem 0.3rem rgba(0,0,0,0.2)" } }, [
+          readOnly ? m("span", { style: { fontWeight: "bold", marginRight: "0.8rem" } }, "[只读预览]") : null,
           filePath || "未选择文件"
         ]),
         // Editor
-        m("div", { style: { flex: 1, position: "relative", margin: "0", overflow: "hidden" } }, [
-          m("div", { class: "monaco-container", style: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, width: "100%", height: "100%" } })
+        m("", { style: { flex: 1, position: "relative", margin: "0", overflow: "hidden" } }, [
+          m("", { class: "monaco-container", style: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, width: "100%", height: "100%" } })
         ])
       ])
     }

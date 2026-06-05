@@ -30,11 +30,20 @@ export default {
     return new Promise((resolve, reject) => {
       aiSelectionData.pendingResolves.set(appId, {
         resolve: (result) => {
-          if (result && result.selected !== undefined) {
-            resolve(`用户选择了：${typeof result.selected === 'string' ? result.selected : JSON.stringify(result.selected)}`)
+          console.log("[aiSelect tool] resolve called with result:", result)
+          let text = ""
+          if (result && result.canceled) {
+            text = "用户取消了选择。"
+          } else if (result && result.selected !== undefined) {
+            const selStr = typeof result.selected === 'string' ? result.selected : JSON.stringify(result.selected)
+            text = `用户选择了：${selStr}。`
           } else {
-            resolve(`选择异常：${JSON.stringify(result)}`)
+            text = `选择异常：${JSON.stringify(result)}。`
           }
+          if (result && result.comment) {
+            text += `备注：${result.comment}`
+          }
+          resolve(text)
         },
         reject: (reason) => {
           resolve(`选择出错：${String(reason)}`)

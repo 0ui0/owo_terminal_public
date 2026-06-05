@@ -117,9 +117,9 @@ export default {
       session.toolCallGroupId = null
       session.deferredFns = null  // 命令执行完毕，解绑延迟队列
 
+      let commentSuffix = userConfirm.comment ? `。用户备注：${userConfirm.comment}` : ""
 
-
-      return `命令已发送，静默检测后(最大${waitSec}s)的最新20行最后1000字输出如下：<terminal>\n${lastLines}</terminal> `
+      return `命令已发送，静默检测后(最大${waitSec}s)的最新20行最后1000字输出如下：<terminal>\n${lastLines}</terminal>${commentSuffix}`
     }
     else {
       return `未找到tid为${tid}的终端`

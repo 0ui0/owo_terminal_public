@@ -21,8 +21,25 @@ export default () => {
   const submitFn = async (e) => {
     e.preventDefault()
 
+    const currentData = comData.data.get()
+    const sendMode = currentData?.sendMode
+    const targetChatListId = _forcedListId !== null ? _forcedListId : (currentData?.targetChatListId)
+
+    // 如果是非终端发送模式，且不是发给子智能体，且未选择任何有效 AI 模型，拦截并给出提示
+    if (sendMode !== "terminal" && !targetChatListId) {
+      const enabledModels = settingData.options.get("ai_aiList")?.filter(m => m.switch)
+      const hasValidModel = enabledModels.some(m => m.name === currentData?.currentModel)
+      if (!hasValidModel) {
+        Notice.launch({
+          msg: trs("输入栏/提示/请选择模型", { cn: "请在下拉菜单中选择一个模型喵！", en: "Please select a model from the dropdown menu!" }),
+          type: "info"
+        })
+        return
+      }
+    }
+
     // 时光机预警：如果指定了目录但未开启备份
-    if (comData.data.get()?.customCwd && !chatData.tmStatus.isReady) {
+    if (currentData?.customCwd && !chatData.tmStatus.isReady) {
       const goOn = await new Promise(resolve => {
         Notice.launch({
           tip: "安全警告",
@@ -40,10 +57,14 @@ export default () => {
       if (!goOn) return;
     }
 
+    const trimmedInput = chatData.inputText.trim()
+    if (trimmedInput) {
+      chatData.saveHistory(trimmedInput)
+    }
+
     chatData.preparing = true
 
     // Retrieve routing context (forcedListId 优先于全局)
-    const targetChatListId = _forcedListId !== null ? _forcedListId : comData.data.get()?.targetChatListId
 
     await comData.data.edit((data_) => {
       data_.inputText = chatData.inputText
@@ -178,6 +199,17 @@ export default () => {
             alignItems: "center"
           }
         }, [
+          m(IconTag, {
+            iconName: "Send",
+            bgColor: getColor('pink_1').back,
+            fgColor: getColor('pink_1').front,
+            styleExt: {
+              marginRight: "0.5rem",
+            },
+            ext: {
+              onclick: submitFn
+            }
+          }, trs("输入栏/按钮/发送", { cn: "发送", en: "Send" })),
 
           m(IconTag, {
             iconName: "Terminal",
@@ -1004,31 +1036,13 @@ export default () => {
               minHeight: "8rem",
               maxHeight: "20rem",
               boxSizing: "border-box",
-              marginRight: "1rem",
               background: comData.data.get()?.targetChatListId ? getColor('pink_2').back + '99' : getColor('brown_4').back + '99',
               border: `0.1rem solid ${getColor('main').back}`,
               color: getColor('gray_8').front, // 保持 getColor 修复，但使用原结构
               borderRadius: "3rem",
               padding: "1rem 2rem",
             }
-          }),
-          m("input[type=submit]", {
-            value: trs("输入栏/按钮/发送", { cn: "发送", en: "Send" }),
-            style: {
-              padding: "1rem 2rem",
-              background: getColor('pink_1').back,
-              border: "unset",
-              color: getColor('pink_1').front,
-              fontSize: "1.8rem",
-              zIndex: 1,
-              borderRadius: "3rem",
-              cursor: "pointer",
-            },
-            onclick: submitFn
-          }),
-
-
-
+          })
         ])
       ])
     }

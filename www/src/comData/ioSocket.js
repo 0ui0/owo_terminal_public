@@ -258,6 +258,12 @@ export default {
             await settingData.fnCall("appClose", [msg.appId])
             closeNative()
           },
+          confirm: async (dom, closeNative) => {
+            // 集中处理 App 关闭逻辑：通知后端销毁
+            await settingData.fnCall("appClose", [msg.appId])
+            closeNative()
+          },
+          hideBtn: 2,
           content: component,
           contentAttrs: {
             appId: msg.appId,

@@ -2,6 +2,8 @@ import data from "./chatData.js";
 import comData from "../../comData/comData.js";
 import { trs } from "../common/i18n.js";
 import getColor from "../common/getColor.js";
+import Notice from "../common/notice.js";
+import Box from "../common/box.js";
 
 /**
  * ChatInputEditor - 一个基于 contenteditable 的富文本编辑器
@@ -10,6 +12,20 @@ import getColor from "../common/getColor.js";
 export default () => {
   let editorDom = null;
   let renderMode = true; // 状态：渲染模式或原始模式
+  let showTip = false;
+  let tipText = "";
+  let tipTimeout = null;
+
+  const triggerToast = (text) => {
+    tipText = text;
+    showTip = true;
+    m.redraw();
+    if (tipTimeout) clearTimeout(tipTimeout);
+    tipTimeout = setTimeout(() => {
+      showTip = false;
+      m.redraw();
+    }, 3500); // 3.5秒后消失
+  };
 
   // 将纯文本转为 HTML (带 Chip 标签)
   const textToHtml = (text) => {
@@ -82,6 +98,196 @@ export default () => {
     }
   };
 
+  const LinkDialog = {
+    url: "https://",
+    text: "链接",
+    view() {
+      return m("div", {
+        style: {
+          padding: "1rem 2rem",
+          display: "flex",
+          flexDirection: "column",
+          gap: "0.8rem",
+          minWidth: "18rem"
+        }
+      }, [
+        m("div", [
+          m("label", { style: { display: "block", marginBottom: "0.3rem", fontSize: "0.9rem", color: getColor('gray_6').front } }, trs("输入框/弹窗/链接地址", { cn: "链接地址:", en: "Link URL:" })),
+          m(Box, {
+            tagName: "input",
+            value: LinkDialog.url,
+            ext: {
+              type: "text",
+              value: LinkDialog.url,
+              placeholder: "https://"
+            },
+            oninput: (dom) => { LinkDialog.url = dom.value; }
+          })
+        ]),
+        m("div", [
+          m("label", { style: { display: "block", marginBottom: "0.3rem", fontSize: "0.9rem", color: getColor('gray_6').front } }, trs("输入框/弹窗/链接文本", { cn: "链接文字:", en: "Link Text:" })),
+          m(Box, {
+            tagName: "input",
+            value: LinkDialog.text,
+            ext: {
+              type: "text",
+              value: LinkDialog.text,
+              placeholder: trs("输入框/占位符/链接", { cn: "链接", en: "link" })
+            },
+            oninput: (dom) => { LinkDialog.text = dom.value; }
+          })
+        ])
+      ]);
+    }
+  };
+
+  const QuoteDialog = {
+    text: "引用内容",
+    view() {
+      return m("div", {
+        style: {
+          padding: "1rem 2rem",
+          display: "flex",
+          flexDirection: "column",
+          gap: "0.8rem",
+          minWidth: "18rem"
+        }
+      }, [
+        m("div", [
+          m("label", { style: { display: "block", marginBottom: "0.3rem", fontSize: "0.9rem", color: getColor('gray_6').front } }, trs("输入框/弹窗/引用内容", { cn: "引用内容:", en: "Quote Content:" })),
+          m(Box, {
+            tagName: "input",
+            value: QuoteDialog.text,
+            ext: {
+              type: "text",
+              value: QuoteDialog.text,
+              placeholder: "请输入引用内容..."
+            },
+            oninput: (dom) => { QuoteDialog.text = dom.value; }
+          })
+        ])
+      ]);
+    }
+  };
+
+  const handleMarkdown = (prefix, suffix, defaultText, isLink = false, isQuote = false) => {
+    if (!editorDom) return;
+    editorDom.focus();
+    const selection = window.getSelection();
+    let savedRange = null;
+    if (selection.rangeCount > 0) {
+      savedRange = selection.getRangeAt(0).cloneRange();
+    }
+    const selectedText = selection.toString();
+
+    if (isLink) {
+      if (selectedText) {
+        // 有选中文本，直接包裹不弹窗
+        const newText = `[${selectedText}](https://)`;
+        if (selection.rangeCount > 0) {
+          const range = selection.getRangeAt(0);
+          range.deleteContents();
+          const textNode = document.createTextNode(newText);
+          range.insertNode(textNode);
+          const newRange = document.createRange();
+          newRange.setStartAfter(textNode);
+          newRange.setEndAfter(textNode);
+          selection.removeAllRanges();
+          selection.addRange(newRange);
+        } else {
+          data._insertAtCursor(newText);
+        }
+        editorDom.dispatchEvent(new Event('input', { bubbles: true }));
+        data.needSync = true;
+        m.redraw();
+      } else {
+        // 没有选中文本，弹出 Notice 弹窗输入
+        LinkDialog.url = "https://";
+        LinkDialog.text = trs("输入框/占位符/链接", { cn: "链接", en: "link" });
+        Notice.launch({
+          tip: trs("输入框/弹窗/插入链接", { cn: "插入链接", en: "Insert Link" }),
+          content: LinkDialog,
+          confirm: (box, closeTabFn) => {
+            const url = LinkDialog.url.trim();
+            const text = LinkDialog.text.trim();
+            if (url && text) {
+              // 恢复原有的光标选区
+              if (savedRange) {
+                const sel = window.getSelection();
+                sel.removeAllRanges();
+                sel.addRange(savedRange);
+              }
+              // 插入
+              data._insertAtCursor(`[${text}](${url})`);
+            }
+            closeTabFn();
+          }
+        });
+      }
+    } else if (isQuote) {
+      if (selectedText) {
+        // 有选中文本，直接包裹不弹窗
+        const newText = `\n> ${selectedText}\n`;
+        if (selection.rangeCount > 0) {
+          const range = selection.getRangeAt(0);
+          range.deleteContents();
+          const textNode = document.createTextNode(newText);
+          range.insertNode(textNode);
+          const newRange = document.createRange();
+          newRange.setStartAfter(textNode);
+          newRange.setEndAfter(textNode);
+          selection.removeAllRanges();
+          selection.addRange(newRange);
+        } else {
+          data._insertAtCursor(newText);
+        }
+        editorDom.dispatchEvent(new Event('input', { bubbles: true }));
+        data.needSync = true;
+        m.redraw();
+      } else {
+        // 没有选中文本，弹出 Notice 弹窗输入引用
+        QuoteDialog.text = "";
+        Notice.launch({
+          tip: trs("输入框/弹窗/插入引用", { cn: "插入引用", en: "Insert Quote" }),
+          content: QuoteDialog,
+          confirm: (box, closeTabFn) => {
+            const val = QuoteDialog.text.trim();
+            if (val) {
+              // 恢复原有的光标选区
+              if (savedRange) {
+                const sel = window.getSelection();
+                sel.removeAllRanges();
+                sel.addRange(savedRange);
+              }
+              // 插入
+              data._insertAtCursor(`\n> ${val}\n`);
+            }
+            closeTabFn();
+          }
+        });
+      }
+    } else {
+      // 普通文本包裹逻辑
+      if (selectedText) {
+        const range = selection.getRangeAt(0);
+        const newText = prefix + selectedText + suffix;
+        range.deleteContents();
+        const textNode = document.createTextNode(newText);
+        range.insertNode(textNode);
+        const newRange = document.createRange();
+        newRange.setStartAfter(textNode);
+        newRange.setEndAfter(textNode);
+        selection.removeAllRanges();
+        selection.addRange(newRange);
+      } else {
+        data._insertAtCursor(prefix + defaultText + suffix);
+      }
+      editorDom.dispatchEvent(new Event('input', { bubbles: true }));
+      data.needSync = true;
+      m.redraw();
+    }
+  };
+
   return {
     oncreate(vnode) {
       editorDom = vnode.dom.querySelector('.chat-input-editor');
@@ -94,13 +300,117 @@ export default () => {
       }
     },
     view({ attrs }) {
+      const isExpanded = data.isInputExpanded || false;
+      const charCount = data.inputText ? data.inputText.length : 0;
+
+      // 按钮 1（展开/收起）
+      const expIconColor = isExpanded ? getColor('pink_2').front : getColor('gray_3').front;
+      const expIcon = m.trust(window.iconPark.getIcon(isExpanded ? "OffScreenOne" : "FullScreenOne", { fill: expIconColor, size: "0.95rem" }));
+      const expText = isExpanded ? trs("输入框/按钮/收起", { cn: "收起", en: "Shrink" }) : trs("输入框/按钮/展开", { cn: "展开", en: "Expand" });
+
+      // 按钮 2（历史）
+      const histIconColor = getColor('gray_3').front;
+      const histIcon = m.trust(window.iconPark.getIcon("History", { fill: histIconColor, size: "0.95rem" }));
+      const histText = trs("输入框/按钮/历史", { cn: "历史", en: "History" });
+
+      // 按钮 3（富文本/源码）
+      const modeIconColor = renderMode ? getColor('pink_2').front : getColor('gray_3').front;
+      const modeIcon = m.trust(window.iconPark.getIcon(renderMode ? "MagicWand" : "FileCode", { fill: modeIconColor, size: "0.95rem" }));
+      const modeText = renderMode ? trs("输入框/按钮/富文本", { cn: "富文本", en: "RICH" }) : trs("输入框/按钮/源码", { cn: "源码", en: "RAW" });
+
+      const wrapperStyle = {
+        display: "flex",
+        flexDirection: "column",
+        position: "relative",
+        overflow: "hidden", // 裁剪底部圆角
+        ...attrs.style,
+        minHeight: isExpanded ? "25rem" : (attrs.style?.minHeight || "8rem"),
+        maxHeight: isExpanded ? "40rem" : (attrs.style?.maxHeight || "20rem"),
+        padding: "0" // 外部 padding 置为 0，由子项瓜分
+      };
+
+      // 准备 Markdown 快捷按钮的 iconPark 定义
+      const btnBoldIcon = m.trust(window.iconPark.getIcon("TextBold", { fill: "currentColor", size: "1.2rem" }));
+      const btnItalicIcon = m.trust(window.iconPark.getIcon("TextItalic", { fill: "currentColor", size: "1.2rem" }));
+      const btnStrikeIcon = m.trust(window.iconPark.getIcon("Strikethrough", { fill: "currentColor", size: "1.2rem" }));
+      const btnCodeIcon = m.trust(window.iconPark.getIcon("Code", { fill: "currentColor", size: "1.2rem" }));
+      const btnLinkIcon = m.trust(window.iconPark.getIcon("LinkOne", { fill: "currentColor", size: "1.2rem" }));
+      const btnQuoteIcon = m.trust(window.iconPark.getIcon("Quote", { fill: "currentColor", size: "1.2rem" }));
+      const btnListIcon = m.trust(window.iconPark.getIcon("ListTwo", { fill: "currentColor", size: "1.2rem" }));
+
       return [
         m(".chat-input-wrapper", {
-          style: {
-            position: "relative",
-            ...attrs.style
-          }
+          style: wrapperStyle
         }, [
+          showTip ? m(".expand-tip-toast", {
+            style: {
+              position: "absolute",
+              top: isExpanded ? "3.2rem" : "1rem",
+              left: "50%",
+              transform: "translateX(-50%)",
+              background: getColor('yellow_1').back,
+              color: getColor('yellow_1').front,
+              padding: "0.4rem 1.2rem",
+              borderRadius: "2rem",
+              boxShadow: "0 0.2rem 0.8rem rgba(0,0,0,0.15)",
+              zIndex: 100,
+              pointerEvents: "none",
+              whiteSpace: "nowrap"
+            }
+          }, tipText) : null,
+          isExpanded ? m(".markdown-toolbar", {
+            style: {
+              display: "flex",
+              gap: "0.8rem",
+              padding: "0.5rem 1.5rem",
+              borderBottom: `0.1rem solid ${getColor('main').back}22`,
+              background: getColor('gray_11').back + '1a',
+              alignItems: "center"
+            }
+          }, [
+            m("span.md-btn", {
+              style: { cursor: "pointer", display: "inline-flex", alignItems: "center", padding: "0.2rem 0.4rem", borderRadius: "0.3rem" },
+              title: "粗体 (Bold)",
+              onmousedown: (e) => e.preventDefault(),
+              onclick: () => { handleMarkdown("**", "**", "粗体文本"); }
+            }, btnBoldIcon),
+            m("span.md-btn", {
+              style: { cursor: "pointer", display: "inline-flex", alignItems: "center", padding: "0.2rem 0.4rem", borderRadius: "0.3rem" },
+              title: "斜体 (Italic)",
+              onmousedown: (e) => e.preventDefault(),
+              onclick: () => { handleMarkdown("*", "*", "斜体文本"); }
+            }, btnItalicIcon),
+            m("span.md-btn", {
+              style: { cursor: "pointer", display: "inline-flex", alignItems: "center", padding: "0.2rem 0.4rem", borderRadius: "0.3rem" },
+              title: "删除线 (Strikethrough)",
+              onmousedown: (e) => e.preventDefault(),
+              onclick: () => { handleMarkdown("~~", "~~", "删除文本"); }
+            }, btnStrikeIcon),
+            m("span.md-btn", {
+              style: { cursor: "pointer", display: "inline-flex", alignItems: "center", padding: "0.2rem 0.4rem", borderRadius: "0.3rem" },
+              title: "行内代码",
+              onmousedown: (e) => e.preventDefault(),
+              onclick: () => { handleMarkdown("`", "`", "代码"); }
+            }, btnCodeIcon),
+            m("span.md-btn", {
+              style: { cursor: "pointer", display: "inline-flex", alignItems: "center", padding: "0.2rem 0.4rem", borderRadius: "0.3rem" },
+              title: "引用 (Quote)",
+              onmousedown: (e) => e.preventDefault(),
+              onclick: () => { handleMarkdown("", "", "", false, true); }
+            }, btnQuoteIcon),
+            m("span.md-btn", {
+              style: { cursor: "pointer", display: "inline-flex", alignItems: "center", padding: "0.2rem 0.4rem", borderRadius: "0.3rem" },
+              title: "插入链接 (Link)",
+              onmousedown: (e) => e.preventDefault(),
+              onclick: () => { handleMarkdown("", "", "", true); }
+            }, btnLinkIcon),
+            m("span.md-btn", {
+              style: { cursor: "pointer", display: "inline-flex", alignItems: "center", padding: "0.2rem 0.4rem", borderRadius: "0.3rem" },
+              title: "无序列表 (List)",
+              onmousedown: (e) => e.preventDefault(),
+              onclick: () => { handleMarkdown("\n- ", "\n", "列表项"); }
+            }, btnListIcon),
+          ]) : null,
           m(".chat-input-editor", {
             onbeforeupdate() {
               // 外部修改标记（如 quoteAttachId 插入标签后），强制同步
@@ -261,6 +571,33 @@ export default () => {
               // 处理输入法组字状态，避免在选词时触发提交
               if (e.isComposing) return;
 
+              // 快捷键 ctrl/cmd + ArrowUp / ArrowDown 切换历史
+              if ((e.ctrlKey || e.metaKey) && (e.key === "ArrowUp" || e.key === "ArrowDown")) {
+                e.preventDefault();
+                data.loadHistory();
+                const history = data.inputHistory;
+                if (history && history.length > 0) {
+                  if (data.historyIndex === undefined) {
+                    data.historyIndex = 0;
+                  } else {
+                    if (e.key === "ArrowUp") {
+                      data.historyIndex = (data.historyIndex + 1) % history.length;
+                    } else {
+                      data.historyIndex = (data.historyIndex - 1 + history.length) % history.length;
+                    }
+                  }
+                  data.inputText = history[data.historyIndex];
+                  data.needSync = true;
+                  m.redraw();
+                }
+                return;
+              }
+
+              // 在其他键盘输入时重置 historyIndex
+              if (e.key !== "ArrowUp" && e.key !== "ArrowDown") {
+                data.historyIndex = undefined;
+              }
+
               if (e.key === "Backspace") {
                 const selection = window.getSelection();
                 if (selection.rangeCount > 0 && selection.isCollapsed) {
@@ -288,56 +625,178 @@ export default () => {
               }
 
               if (e.key === "Enter") {
-                // 如果有修饰键 (Cmd, Ctrl, Shift)，则允许换行（默认行为）
-                if (e.metaKey || e.ctrlKey || e.shiftKey) {
-                  e.preventDefault();
-                  document.execCommand('insertText', false, '\n');
-                  data.inputText = htmlToText(e.target.innerHTML);
-                  return;
-                }
+                if (data.isInputExpanded) {
+                  // 展开模式下：Enter 是换行，Ctrl/Cmd/Shift + Enter 是发送
+                  if (e.metaKey || e.ctrlKey || e.shiftKey) {
+                    e.preventDefault();
+                    if (attrs.onsubmit) {
+                      attrs.onsubmit(e);
+                    }
+                  } else {
+                    // 允许默认换行行为
+                  }
+                } else {
+                  // 普通模式下：Ctrl/Cmd/Shift + Enter 是换行，Enter 是发送
+                  if (e.metaKey || e.ctrlKey || e.shiftKey) {
+                    e.preventDefault();
+                    document.execCommand('insertText', false, '\n');
+                    data.inputText = htmlToText(e.target.innerHTML);
+                    return;
+                  }
 
-                // 仅纯 Enter 触发提交
-                e.preventDefault();
-                if (attrs.onsubmit) {
-                  attrs.onsubmit(e);
+                  // 仅纯 Enter 触发提交
+                  e.preventDefault();
+                  if (attrs.onsubmit) {
+                    attrs.onsubmit(e);
+                  }
                 }
               }
             },
             style: {
               width: "100%",
-              height: "100%",
-              minHeight: "4rem",
-              maxHeight: "15rem",
+              boxSizing: "border-box",
+              flex: 1, // 弹性拉伸填满
               overflowY: "auto",
               outline: "none",
               color: "inherit",
               lineHeight: "1.5",
               wordBreak: "break-all",
-              whiteSpace: "pre-wrap"
+              whiteSpace: "pre-wrap",
+              padding: "1rem 2rem 0.5rem 2rem" // 上左右继承原边距，底部微留空
             }
           }),
-          // 悬浮切换按钮
-          m("div.chat-input-mode-switch", {
+          // 底部操作与字数统计工具条
+          m(".chat-input-footer-bar", {
             style: {
-              position: "absolute",
-              bottom: "0.5rem",
-              right: "2rem",
-              fontSize: "1rem",
-              color: getColor('pink_1').front,
-              cursor: "pointer",
-              userSelect: "none",
-              background: getColor('pink_1').back,
-              padding: "0.2rem 0.5rem",
-              borderRadius: "1rem",
-              zIndex: 10
-            },
-            title: renderMode ? "当前富文本模式，点击切换为原始模式" : "当前原始模式，点击切换为富文本模式",
-            onclick: () => {
-              if (editorDom) data.inputText = htmlToText(editorDom.innerHTML);
-              renderMode = !renderMode;
-              syncToEditor();
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              padding: "0.2rem 2rem 0.8rem 2rem", // 左右对齐，底部贴合圆角
+              background: "transparent", // 融于主体大底色
+              fontSize: "0.85rem",
+              userSelect: "none"
             }
-          }, renderMode ? "✨ RICH" : "✏️ RAW")
+          }, [
+            // 左侧：字数统计
+            m(".char-counter", {
+              style: {
+                color: getColor('gray_6').front,
+                opacity: 0.8
+              }
+            }, trs("输入框/字数", { cn: `${charCount} 字`, en: `${charCount} words` })),
+            // 右侧：功能按钮区
+            m(".footer-buttons", {
+              style: {
+                display: "flex",
+                gap: "0.5rem",
+                alignItems: "center"
+              }
+            }, [
+              // 按钮 1：高度加大/文章模式
+              m("span.footer-btn", {
+                style: {
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "0.3rem",
+                  cursor: "pointer",
+                  background: isExpanded ? getColor('pink_2').back : getColor('gray_3').back,
+                  color: isExpanded ? getColor('pink_2').front : getColor('gray_3').front,
+                  padding: "0.2rem 0.6rem",
+                  borderRadius: "1rem",
+                  fontSize: "0.8rem",
+                },
+                title: isExpanded ? "收起输入框" : "展开为文章高度",
+                onclick: () => {
+                  data.isInputExpanded = !isExpanded;
+                  if (data.isInputExpanded) {
+                    triggerToast(trs("输入框/提示/展开模式", { cn: "已进入文章展开模式：Enter 键换行，Cmd/Ctrl/Shift + Enter 发送消息喵~", en: "Switched to expanded mode: Enter to new line, Cmd/Ctrl/Shift + Enter to send." }));
+                  }
+                  m.redraw();
+                }
+              }, [expIcon, expText]),
+
+              // 按钮 2：历史记录弹窗
+              m("span.footer-btn", {
+                style: {
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "0.3rem",
+                  cursor: "pointer",
+                  background: getColor('gray_3').back,
+                  color: getColor('gray_3').front,
+                  padding: "0.2rem 0.6rem",
+                  borderRadius: "1rem",
+                  fontSize: "0.8rem",
+                },
+                title: trs("输入框/按钮/提示历史", { cn: "选择历史消息", en: "Select history message" }),
+                onclick: () => {
+                  data.loadHistory();
+                  const history = data.inputHistory;
+                  if (!history || history.length === 0) {
+                    Notice.launch({ msg: trs("输入框/提示/暂无历史", { cn: "暂无输入历史记录喵", en: "No input history yet" }), type: "info" });
+                    return;
+                  }
+                  Notice.launch({
+                    title: trs("输入框/弹窗/选择历史", { cn: "选择输入历史", en: "Select Input History" }),
+                    content: {
+                      view(vnode) {
+                        return m("", {
+                          style: {
+                            display: "flex",
+                            flexDirection: "column",
+                            gap: "0.5rem",
+                            maxHeight: "20rem",
+                            overflowY: "auto",
+                            padding: "1rem"
+                          }
+                        }, history.map((h, idx) => {
+                          return m(Box, {
+                            isBtn: true,
+                            style: {
+                              margin: 0,
+                              textAlign: "left",
+                              whiteSpace: "pre-wrap",
+                              fontSize: "0.95rem"
+                            },
+                            onclick() {
+                              data.inputText = h;
+                              data.needSync = true;
+                              m.redraw();
+                              const noticeConfig = vnode.attrs.noticeConfig;
+                              if (noticeConfig) {
+                                Notice.closeTab(noticeConfig);
+                              }
+                            }
+                          }, `${idx + 1}. ${h.slice(0, 80)}${h.length > 80 ? '...' : ''}`);
+                        }));
+                      }
+                    }
+                  });
+                }
+              }, [histIcon, histText]),
+
+              // 按钮 3：RICH/RAW 切换
+              m("span.footer-btn", {
+                style: {
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "0.3rem",
+                  cursor: "pointer",
+                  background: renderMode ? getColor('pink_1').back : getColor('gray_3').back,
+                  color: renderMode ? getColor('pink_1').front : getColor('gray_3').front,
+                  padding: "0.2rem 0.6rem",
+                  borderRadius: "1rem",
+                  fontSize: "0.8rem",
+                },
+                title: renderMode ? "当前富文本模式，点击切换为原始模式" : "当前原始模式，点击切换为富文本模式",
+                onclick: () => {
+                  if (editorDom) data.inputText = htmlToText(editorDom.innerHTML);
+                  renderMode = !renderMode;
+                  syncToEditor();
+                }
+              }, [modeIcon, modeText])
+            ])
+          ])
         ]),
         m("style", `
           .chat-input-wrapper:focus-within {
@@ -381,6 +840,14 @@ export default () => {
              background: ${getColor('orange_1').back}; /* 橙色调代码引用 */
              color: ${getColor('orange_1').front};
              border-color: ${getColor('orange_1').back};
+          }
+          .md-btn {
+             color: ${getColor('gray_8').front};
+             transition: all 0.2s ease;
+          }
+          .md-btn:hover {
+             color: ${getColor('pink_1').back};
+             background: ${getColor('gray_3').back};
           }
         `)
       ];
