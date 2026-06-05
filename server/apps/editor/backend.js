@@ -50,7 +50,7 @@ export default {
           await fs.writeFile(targetPath, args.content, "utf-8")
           app.data.filePath = targetPath
           app.data.content = args.content
-          return { ok: true, data: { filePath: targetPath } } // 返回路径供 AppManager 同步
+          return { ok: true, msg: "保存成功", data: { filePath: targetPath } } // 返回路径与成功提示
         } catch (e) {
           return { ok: false, msg: `保存文件失败: ${e.message}` }
         }

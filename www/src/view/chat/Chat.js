@@ -40,7 +40,7 @@ export default () => {
         //left
         !window.Mob ? m("", {
           style: {
-            flex: 1.5,
+            flex: "0 0 25.5rem",
             //width:"20rem",
             height: "100%",
             display: "flex",

@@ -54,7 +54,7 @@ export default function (colorStr) {
       确认框按钮拒绝背景: "#eee",
       确认框按钮拒绝文字: "#333",
     }
-    return themeOverrides[colorStr] || colorObj[colorStr] || colorObj.gray_4
+    return themeOverrides[colorStr] || colorObj[colorStr] || themeOverrides.gray_4
   }
 
   if (themeId === 2) {
@@ -105,7 +105,7 @@ export default function (colorStr) {
       确认框按钮拒绝背景: "#eee",
       确认框按钮拒绝文字: "#333",
     }
-    return themeOverrides[colorStr] || colorObj[colorStr] || colorObj.gray_4
+    return themeOverrides[colorStr] || colorObj[colorStr] || themeOverrides.gray_4
   }
 
   return colorObj[colorStr] || colorObj.gray_4

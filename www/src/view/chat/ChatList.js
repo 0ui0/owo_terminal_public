@@ -60,13 +60,15 @@ export default () => {
           m(ChatTasks, { chatList }),
           // Header with Back Button logic
           m(Box, {
+            isBtn: true,
             style: {
               position: "sticky",
               top: "0",
               zIndex: 10,
               background: getColor('main').back,
               color: getColor('main').front,// Opaque background to cover scrolling content
-              marginTop: "0",
+              padding: "0.5rem",
+              margin: "1rem",
             },
             async onclick() {
               if (chatList?.id && chatList.id !== 0) {

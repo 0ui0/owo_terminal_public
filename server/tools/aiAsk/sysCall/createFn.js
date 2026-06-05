@@ -69,7 +69,8 @@ export default {
         return "函数已存在"
       }
       await fs.writeFile(filePath, fnStr)
-      return `自定义函数 ${value.name} 创建成功`
+      let commentSuffix = userConfirm.comment ? `。用户备注：${userConfirm.comment}` : ""
+      return `自定义函数 ${value.name} 创建成功${commentSuffix}`
     }
     catch (err) {
       console.log(err)

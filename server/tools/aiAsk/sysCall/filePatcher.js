@@ -36,6 +36,7 @@ export default {
       if (err.code !== 'ENOENT') throw err
     }
 
+    let comments = []
     const isInProject = resolvedPath.startsWith(cwd)
     if (!isInProject) {
       const currentListId = metaData?.listId || 0
@@ -47,6 +48,9 @@ export default {
       })
       if (!userConfirm.ok) {
         return `用户拒绝访问项目外文件：${resolvedPath}。原因：${userConfirm.comment || "未提供"}`
+      }
+      if (userConfirm.comment) {
+        comments.push(userConfirm.comment)
       }
     }
 
@@ -149,10 +153,14 @@ export default {
       if (!userConfirm.ok) {
         return `用户拒绝了对 ${path} 的修改。原因：${userConfirm.comment || "未提供"}`
       }
+      if (userConfirm.comment) {
+        comments.push(userConfirm.comment)
+      }
 
       // 5. Final Write (The tool handles the IO)
       await fs.writeFile(resolvedPath, newContent, "utf-8")
-      return `修改成功。已应用并保存到 ${path}。`
+      let commentSuffix = comments.length > 0 ? `。用户备注：${comments.join("；")}` : ""
+      return `修改成功。已应用并保存到 ${path}${commentSuffix}。`
 
     } catch (err) {
       return `修改文件失败：${err.message}`

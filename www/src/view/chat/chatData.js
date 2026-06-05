@@ -6,6 +6,27 @@ export default {
   inputText: "",
   needSync: false, // 外部修改 inputText 后置 true，通知编辑器重渲染
   tmStatus: { gitOk: false, isReady: false },
+  inputHistory: [],
+  historyIndex: undefined,
+  isInputExpanded: false,
+  loadHistory() {
+    try {
+      const saved = localStorage.getItem("owo_chat_input_history");
+      this.inputHistory = saved ? JSON.parse(saved) : [];
+    } catch (e) {
+      this.inputHistory = [];
+    }
+  },
+  saveHistory(text) {
+    if (!text || !text.trim()) return;
+    this.loadHistory();
+    this.inputHistory = this.inputHistory.filter(h => h !== text);
+    this.inputHistory.unshift(text);
+    if (this.inputHistory.length > 10) {
+      this.inputHistory = this.inputHistory.slice(0, 10);
+    }
+    localStorage.setItem("owo_chat_input_history", JSON.stringify(this.inputHistory));
+  },
   async updateTmStatus() {
     try {
       const cwd = comData.data.get()?.customCwd;

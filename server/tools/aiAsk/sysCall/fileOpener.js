@@ -33,6 +33,7 @@ export default {
       // 忽略 stat 错误，后续 readFile 会处理
     }
 
+    let commentSuffix = ""
     const isInProject = resolvedPath.startsWith(cwd)
     if (!isInProject) {
       const currentListId = metaData?.listId || 0
@@ -44,6 +45,9 @@ export default {
       })
       if (!userConfirm.ok) {
         return `用户拒绝访问项目外文件：${resolvedPath}。原因：${userConfirm.comment || "未提供"}`
+      }
+      if (userConfirm.comment) {
+        commentSuffix = `。用户备注：${userConfirm.comment}`
       }
     }
 
@@ -158,7 +162,7 @@ export default {
       }
 
       // 3. 构造输出
-      const rangeInfo = `读取 L${startIdx + 1} - L${startIdx + resultLines.length} (文件共 ${totalLines} 行 / 大小 ${kbSize})`
+      const rangeInfo = `读取 L${startIdx + 1} - L${startIdx + resultLines.length} (文件共 ${totalLines} 行 / 大小 ${kbSize})${commentSuffix}`
       const indicators = []
 
       indicators.push(`> [!TIP] 每行开头的数字是行号（格式：\`行号: 内容\`），用于定位代码位置。使用 filePatcher 替换时，target 和 replace 参数中**不要包含行号前缀**，只需提供实际的代码内容。`)

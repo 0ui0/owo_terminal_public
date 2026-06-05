@@ -6,7 +6,7 @@ import { trs } from "./i18n.js"
 export default {
   view: ({ attrs }) => {
     const { item, index, urlList, barZoomRate } = attrs
-    const navWinMode = false // 默认不启用winMode
+    const navWinMode = commonData.navWinMode // 默认不启用winMode
 
     return m(".animated.bounceIn", {
       style: {

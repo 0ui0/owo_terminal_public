@@ -57,8 +57,8 @@ let port
 
 const createWindow = () => {
   const win = new BrowserWindow({
-    width: 1152,
-    height: 864,
+    width: 1440,
+    height: 900,
     icon: pathLib.resolve("./icon.png"),
     title: "宅喵终端",
     titleBarStyle: 'hiddenInset',

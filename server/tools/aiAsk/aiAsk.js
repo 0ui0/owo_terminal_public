@@ -1774,7 +1774,7 @@ id为${fnCallCache.cacheid}
             for (i = q = 0, len3 = sysReturns.length; q < len3; i = ++q) {
               ret = sysReturns[i];
               isLast = i === sysReturns.length - 1;
-              ask = this.addAsk("系统通讯中枢", "tool", ret.output + `${isLast ? "下一轮对话这些结果将被折叠，请对关键信息记好笔记" : ""}`, {
+              ask = this.addAsk("系统通讯中枢", "tool", ret.output + `${isLast && enableToolFold ? "下一轮对话这些结果将被折叠，请对关键信息记好笔记" : ""}`, {
                 tool_call_id: ret.call_id,
                 name: ret.id,
                 group: "tip",

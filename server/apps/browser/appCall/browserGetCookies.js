@@ -37,7 +37,7 @@ export default {
     })
 
     if (!userConfirm.ok) {
-      return `错误：用户拒绝了 AI 获取浏览器 Cookie 的请求。备注：${userConfirm.comment || "无"}`
+      return `错误：用户拒绝了 AI 获取浏览器 Cookie 的请求。用户备注：${userConfirm.comment || "无"}`
     }
 
     const res = await appManager.dispatch(targetAppId, "getCookies")
@@ -47,7 +47,8 @@ export default {
         return `当前浏览器实例 (${targetAppId}) 中没有任何 Cookie。`
       }
 
-      let output = `> [!INFO] 成功获取浏览器实例 (${targetAppId}) 的 Cookies。\n\n`
+      let commentSuffix = userConfirm.comment ? `。用户备注：${userConfirm.comment}` : ""
+      let output = `> [!INFO] 成功获取浏览器实例 (${targetAppId}) 的 Cookies${commentSuffix}。\n\n`
       output += `**Cookie 字符串 (Cookie String):**\n\`\`\`\n${cookieString}\n\`\`\`\n\n`
       output += `**结构化详情 (Cookies Detail):**\n`
       output += `| 名称 (Name) | 值 (Value) | 域名 (Domain) | 路径 (Path) | HttpOnly | 安全 (Secure) |\n`

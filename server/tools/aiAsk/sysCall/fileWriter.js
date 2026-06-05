@@ -71,7 +71,8 @@ export default {
     try {
       await fs.mkdir(pathLib.dirname(resolvedPath), { recursive: true })
       await fs.writeFile(resolvedPath, content, "utf-8")
-      return `成功写入文件: ${resolvedPath}`
+      let commentSuffix = userConfirm.comment ? `。用户备注：${userConfirm.comment}` : ""
+      return `成功写入文件: ${resolvedPath}${commentSuffix}`
     } catch (e) {
       return `写入失败: ${e.message}`
     }
