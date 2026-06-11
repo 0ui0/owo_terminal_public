@@ -1,4 +1,4 @@
-import { tSession, idTool } from "./ioApi_chat.js"
+import { idTool } from "./ioApi_chat.js"
 import comData from "../../../comData/comData.js"
 import ioServer from "../../ioServer.js"
 import appManager from "../../../apps/appManager.js"
@@ -6,8 +6,9 @@ import { trs } from "../../../tools/i18n.js"
 import chats from "./chats.js"
 import options from "../../../config/options.js"
 import { parse as parseBestEffort, disableErrorLogging } from "best-effort-json-parser"
-disableErrorLogging()
 import yaml from "js-yaml"
+
+disableErrorLogging()
 
 export default function (json) {
   let {
@@ -19,6 +20,7 @@ export default function (json) {
   let io = ioServer.io
 
   return {
+    tokenCompressSwitch: comData.data.get().tokenCompressSwitch,
     toolsMode: comData.data.get().toolsMode,
     listId: listId,
     enableThinking: comData.data.get().enableThinking,
@@ -41,7 +43,7 @@ export default function (json) {
       })
     },
     onTaskChange: async (aiAskInstance, tasks) => {
-      await comData.data.edit((data) => {
+      await comData.data.edit(async (data) => {
         const chatList = data.chatLists.find(l => l.id === listId)
         if (!chatList) return
 
@@ -114,8 +116,8 @@ export default function (json) {
             timestamp: Date.now(),
             chatListId: listId
           }
-          io.emit("chat", chat)
-          chats.add(chat, listId)
+          await chats.add(chat, listId)
+          chats.refresh(listId)
 
           // 抛出错误以告知 AiAsk 触发重试喵
           throw new Error(errorMsg)
@@ -124,7 +126,6 @@ export default function (json) {
     },
     getExtraInfo: () => {
       const appList = appManager.getAppList(20)
-      const terminals = tSession.getSummary(5)
       const appDetails = appManager.getAiSummary(5, 1000)
       const { customCwd } = comData.data.get()
       const lang = options.json?.global_language?.value || 'cn'
@@ -133,7 +134,6 @@ export default function (json) {
         en: "User specified you to reply in English",
       }
 
-      // 获取当前时间和地区
       const now = new Date()
       const timeStr = now.toLocaleString('zh-CN', {
         year: 'numeric',
@@ -146,7 +146,6 @@ export default function (json) {
       })
       const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone
 
-      // 组装易读的系统信息
       const parts = []
       parts.push(`系统：${process.platform} ${process.arch}`)
       parts.push(`时间：${timeStr} (${timezone})`)
@@ -165,11 +164,6 @@ export default function (json) {
         parts.push(`Apps：[${appList.join(', ')}${moreApps}]`)
       }
 
-      if (terminals.length > 0) {
-        const termStr = terminals.map(t => `${t.tid}:${t.cwd || '?'}`).join(', ')
-        const moreTerms = Object.keys(tSession.sessions).length > 5 ? `等共${Object.keys(tSession.sessions).length}个` : ''
-        parts.push(`终端：${termStr}${moreTerms}`)
-      }
 
       if (appDetails.length > 0) {
         parts.push('活跃Apps：\n' + appDetails.join('\n---\n'))
@@ -207,7 +201,6 @@ export default function (json) {
       } else {
         taskStr += '空\n'
       }
-
 
       parts.push(langMap[lang])
       parts.push(taskStr.trim())
@@ -340,8 +333,8 @@ export default function (json) {
           content: contentJSON
         }
       }
-      io.emit("chat", chat)
       await chats.add(chat, listId)
+      chats.refresh(listId)
       /* 这里不用添加，已经aiAsk里面是先加了Ask再执行这个函数
       aiBasic.list.forEach((model)=>{
         model.addAsk(chat.name,"assistant",chat.content,{

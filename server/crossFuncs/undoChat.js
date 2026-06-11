@@ -1,38 +1,36 @@
-import comData from "../comData/comData.js"
+import archiveDb from "../db/archiveDb.js"
 import aiBasic from "../tools/aiAsk/basic.js"
-import { tSession } from "../ioServer/ioApis/chat/ioApi_chat.js"
+import appManager from "../apps/appManager.js"
 import subAgents from "../tools/aiAsk/subAgents.js"
+import ioServer from "../ioServer/ioServer.js"
+import comData from "../comData/comData.js"
 
 export default {
   name: "undoChat",
   func: async (uuid) => {
     try {
+      if (!archiveDb.tb_chat_messages) {
+        return { ok: false, msg: "数据库未准备好" };
+      }
+
       let targetTimestamp = 0;
       let targetTid = null;
       let targetListId = -1;
 
-      await comData.data.edit((data) => {
-        if (!data.chatLists) return;
-        for (const list of data.chatLists) {
-          const chat = list.data.find(c => c.uuid === uuid);
-          if (chat) {
-            targetListId = list.id;
-            targetTimestamp = chat.timestamp;
-            targetTid = chat.tid;
-            list.data = list.data.filter(c => c.uuid !== uuid);
-            break;
-          }
-        }
-      });
+      // 从数据库中查找并删除
+      const chat = await archiveDb.tb_chat_messages.findOne({ where: { uuid }, raw: true });
+      if (chat) {
+        targetListId = chat.chatListId;
+        targetTimestamp = chat.timestamp;
+        targetTid = chat.tid;
+        await archiveDb.tb_chat_messages.destroy({ where: { uuid } });
+      }
 
       // 如果有 tid，检查是否需要关闭终端
       if (targetTid) {
-        const { chatLists } = comData.data.get();
-        if (chatLists) {
-          let stillExists = chatLists.some(list => list.data.some(c => c.tid === targetTid));
-          if (!stillExists) {
-            tSession.close(targetTid);
-          }
+        const count = await archiveDb.tb_chat_messages.count({ where: { tid: targetTid } });
+        if (count === 0) {
+          appManager.close(targetTid)
         }
       }
 
@@ -66,8 +64,6 @@ export default {
             return true;
           });
         }
-
-
       };
 
       if (targetListId === 0) {
@@ -75,6 +71,11 @@ export default {
       } else if (targetListId > 0) {
         const targetAgent = subAgents.get(targetListId);
         if (targetAgent) cleanupModel(targetAgent);
+      }
+
+      // 广播刷新事件
+      if (ioServer.io && targetListId !== -1) {
+        ioServer.io.emit("chat:refresh", { listId: targetListId });
       }
 
       return { ok: true, msg: "已撤销最后一条聊天记录" };

@@ -1,49 +1,56 @@
-import comData from "../../../comData/comData.js"
+import archiveDb from "../../../db/archiveDb.js"
+import ioServer from "../../ioServer.js"
+
 export default {
-  //chats:[],
   async add(chat, listId = 0) {
-    //this.chats.push(chat)
-    await comData.data.edit((data) => {
-
-      const targetList = data.chatLists.find(l => l.id == listId);
-      if (targetList) {
-        targetList.data.push(chat);
-      } else {
-        // Fallback: 如果连 ID 0 都没有，初始化一个
-        data.chatLists.push({
-          id: 0,
-          linkid: 0,
-          data: [chat],
-          replying: false,
-          streamChunks: "",
-          streamDisplayContent: "",
-          streamReasoningChunks: "",
-          confirmCmds: [],
-          stop: false,
-          tasks: []
-        });
+    try {
+      if (!archiveDb.tb_chat_messages) {
+        console.error("[chats.js] tb_chat_messages is not defined on archiveDb")
+        return
       }
-
-    })
-  },
-  find(uuid) {
-    const data = comData.data.get();
-    for (const list of data.chatLists) {
-      const found = list.data.find(chat => chat.uuid == uuid);
-      if (found) return found;
+      await archiveDb.tb_chat_messages.create({
+        uuid: chat.uuid,
+        content: chat.content || "",
+        reasoning: chat.reasoning || null,
+        name: chat.name || "",
+        group: chat.group || "",
+        timestamp: chat.timestamp || Date.now(),
+        chatListId: listId,
+        attachments: chat.attachments || [],
+        ask: chat.ask || null,
+        tid: chat.tid || null,
+        snapshotId: chat.snapshotId || null
+      })
+    } catch (err) {
+      console.error("[chats.js] Add chat message to DB failed:", err)
     }
-    return undefined;
-
   },
-  findByTid(tid) {
-    const data = comData.data.get();
-    for (const list of data.chatLists) {
-      const found = list.data.find(chat => chat.tid == tid);
-      if (found) return found;
+
+  async find(uuid) {
+    try {
+      if (!archiveDb.tb_chat_messages) return undefined
+      const msg = await archiveDb.tb_chat_messages.findOne({ where: { uuid }, raw: true })
+      return msg || undefined
+    } catch (err) {
+      console.error("[chats.js] find chat failed:", err)
+      return undefined
     }
-    return undefined;
-
   },
 
+  async findByTid(tid) {
+    try {
+      if (!archiveDb.tb_chat_messages) return undefined
+      const msg = await archiveDb.tb_chat_messages.findOne({ where: { tid }, raw: true })
+      return msg || undefined
+    } catch (err) {
+      console.error("[chats.js] findByTid failed:", err)
+      return undefined
+    }
+  },
 
+  refresh(listId = 0) {
+    if (ioServer && ioServer.io) {
+      ioServer.io.emit("chat:refresh", { listId })
+    }
+  }
 }

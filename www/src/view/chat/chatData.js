@@ -1,5 +1,6 @@
 import comData from "../../comData/comData.js"
 import settingData from "../setting/settingData.js"
+import Rows from "../../class/rows.js"
 
 export default {
   inputDom: null,
@@ -47,23 +48,35 @@ export default {
     {
       uuid: Date.now(),
       name: "系统",
-      content: "欢迎使用",
+      content: "消息加载中...如果这条消息卡住了，说明出问题了",
       group: "system",
       timestamp: Date.now(),
     }
   ],
+  chatLists: {},
   topChat: null,
-  async pullList() {
-    try {
-      let tmp = await m.request({
-        url: `/api/comData/get`
-      })
-      this.list = tmp.data.chatLists?.find(l => l.id === 0)?.data || []
-      return this.list
+  chatRows: null,
+  getHistoryList() {
+    if (!this.chatRows) return []
+    const finalData = []
+    // 反向拼装：从最旧的一页到最新的一页（第0页），且页内部翻转为旧->新
+    for (let i = this.chatRows.click; i >= 0; i--) {
+      const pageData = this.chatRows.pages[i] || []
+      const pageCopy = [...pageData].reverse()
+      finalData.push(...pageCopy)
     }
-    catch (err) {
-      throw err
-    }
+    return finalData
+  },
+  initChatRows(listId) {
+    this.chatLists[listId] ??= new Rows({
+      apiName: "chatMessages",
+      idName: "id",
+      limit: 30,
+      order: "desc",
+      params: { listId }
+    })
+    this.chatRows = this.chatLists[listId]
+    return this.chatRows
   },
   xTerms: {},
   preparing: false,

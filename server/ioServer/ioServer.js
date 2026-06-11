@@ -3,6 +3,9 @@ import Dir from "../tools/dir.js"
 import comData from "../comData/comData.js"
 import pathLib from "path"
 import appManager from "../apps/appManager.js"
+import jsonpatch from "fast-json-patch"
+import _ from "lodash"
+const { compare, applyPatch } = jsonpatch
 
 
 let playListTimer = null
@@ -27,12 +30,31 @@ export default {
     await appManager.init(io)
 
 
+    this.last = _.cloneDeep(comData.data.get() || {})
+
     //服务端发
     comData.data.addObserver("dataSync", (data) => {
       return new Promise((res, rej) => {
+        if (!this.sockets || this.sockets.length === 0) {
+          this.last = _.cloneDeep(data)
+          return res({ ok: true, msg: "无活跃客户端，跳过同步" })
+        }
+        const patches = compare(this.last, data)
+        const fromVersion = this.last.version
+        const toVersion = data.version
+
+        this.last = _.cloneDeep(data)
+
+        if (patches.length === 0) {
+          return res({ ok: true, msg: "无数据变化，跳过同步" })
+        }
+
+        const timer = setTimeout(() => {
+          res({ ok: false, msg: "同步超时" })
+        }, 1500)
         for (let socket of this.sockets) {
-          socket.emit("comData", data, (msg) => {
-            //console.log(msg.ok,msg.msg)
+          socket.emit("comData", { patches, fromVersion, toVersion }, (msg) => {
+            clearTimeout(timer)
             res(msg)
           })
         }
@@ -46,38 +68,61 @@ export default {
         this.sockets.push(socket)
       }
       console.log("客户端连接")
-      socket.on("disconnect", (socket) => {
-        this.sockets.splice(this.sockets.indexOf(socket), 1)
-        console.log("客户端断开")
+      socket.on("disconnect", (reason) => {
+        const index = this.sockets.indexOf(socket)
+        if (index > -1) {
+          this.sockets.splice(index, 1)
+        }
+        console.log("客户端断开:", reason)
       })
 
       //服务端收
-      socket.on("comData", async (data, callback) => {
+      socket.on("comData", async (payload, callback) => {
         try {
-          if (data.version >= comData.data.get().version) {
-            comData.data.setData(data)
-            callback({
-              ok: true,
-              msg: `服务器收到并更新comData,收到数据见data
-服务端版本${comData.data.get().version}
-客户端版本${data.version}
-            `,
-              data: data
-            })
-          }
-          else {
-            callback({
+          const current = comData.data.get()
+          if (payload?.patches) {
+            const { patches, fromVersion, toVersion } = payload
+            if (fromVersion === current.version) {
+              let data = _.cloneDeep(current)
+              applyPatch(data, patches)
+              comData.data.setData(data)
+              this.last = _.cloneDeep(data)
+              return callback({
+                ok: true,
+                msg: `服务器应用 comDataPatch 成功，当前版本: ${toVersion}`,
+                data
+              })
+            }
+            return callback({
               ok: false,
-              msg: `客户端推送版本小于服务端版本，收到数据见data
-服务端版本${comData.data.get().version}
-客户端版本${data.version}
-            `,
-              data: data
+              code: "OUT_OF_SYNC",
+              msg: `版本失步，服务端版本 ${current.version} != 客户端基准 ${fromVersion}`
             })
           }
 
+          if (payload && payload.version >= current.version) {
+            comData.data.setData(payload)
+            this.last = _.cloneDeep(payload)
+            return callback({
+              ok: true,
+              msg: `服务器收到并更新comData,收到数据见data
+服务端版本${comData.data.get().version}
+客户端版本${payload.version}
+`,
+              data: payload
+            })
+          }
+          callback({
+            ok: false,
+            msg: `客户端推送版本小于服务端版本，收到数据见data
+服务端版本${comData.data.get().version}
+客户端版本${payload?.version}
+`,
+            data: payload
+          })
         } catch (error) {
           console.log(error)
+          callback({ ok: false, msg: error.message })
         }
       })
 
@@ -95,7 +140,6 @@ export default {
           {
             id: 0,
             linkid: 0,
-            data: [],
             replying: false,
             streamChunks: "",
             streamDisplayContent: "",
@@ -134,19 +178,20 @@ export default {
         data.faceAction ??= "smile"
         data.playFaces ??= {
           current: "",
-          list: ["待机状态", "腾空", "上下漂浮", "降落", "待机状态", "待机状态", "待机状态", "左右行走"],
-          //list:["待机状态"],
+          //list: ["待机状态", "腾空", "上下漂浮", "降落", "待机状态", "待机状态", "待机状态", "左右行走"],
+          list: ["待机状态"],
           index: 0,
         }
         data.currentTid ??= ""
-        data.toolsMode ??= 3 //1提示词模式 2标准工具模式 3 miao模式
+        data.toolsMode ??= 3 //1提示词模式 2标准工具模式 3 miao模式 4 嫁接模式 5编程模式
         data.targetChatListId ??= 0 //默认用户锁定的聊天列表id
         data.enableThinking ??= false //深度思考
         data.thinkControl ??= false //思考控制
         data.thinkStrength ??= "medium"
-        data.defaultPet ??= "default"
+        data.defaultPet ??= "zCatBlue"
         data.customCwd ??= ""
         data.snapshots ??= []
+        data.tokenCompressSwitch ??= true
       })
 
       /* playListTimer ??= setInterval(async () => {

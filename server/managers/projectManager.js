@@ -3,8 +3,8 @@ import path from "path"
 import comData from "../comData/comData.js"
 import aiBasic from "../tools/aiAsk/basic.js"
 import appManager from "../apps/appManager.js"
-import { tSession } from "../ioServer/ioApis/chat/ioApi_chat.js"
 import AdmZip from "adm-zip"
+import archiveDb from "../db/archiveDb.js"
 
 class ProjectManager {
   constructor() {
@@ -20,6 +20,15 @@ class ProjectManager {
   // === Save ===
   async save(filePath) {
     try {
+      // 在关闭数据库前读取所有聊天消息用于文本导出
+      let messages = []
+      if (archiveDb.tb_chat_messages) {
+        messages = await archiveDb.tb_chat_messages.findAll({ raw: true })
+      }
+
+      // 临时释放存档数据库文件锁
+      await archiveDb.close()
+
       const data = {
         meta: {
           version: "1.1.0",
@@ -43,25 +52,39 @@ class ProjectManager {
             data: app.data,
             guiLaunched: app.guiLaunched,
           }
-        }),
-
-        // 4. 终端状态
-        terminalState: tSession.getSummary()
+        })
       }
 
       // 使用 AdmZip 创建压缩包
       const zip = new AdmZip()
       zip.addFile("project.json", Buffer.from(JSON.stringify(data, null, 2), "utf-8"))
 
-      // 将本地 upload 目录中的所有相关附件打包进去
+      // 写入纯文本聊天历史导出
+      zip.addFile("chats_export.json", Buffer.from(JSON.stringify(messages, null, 2), "utf-8"))
+
+      // 打包 SQLite 数据库文件
+      const sqlitePath = path.resolve("./save/archive.sqlite")
+      if (await fs.pathExists(sqlitePath)) {
+        zip.addFile("archive.sqlite", await fs.readFile(sqlitePath))
+      }
+
+      // 将本地 upload 目录中的所有相关附件打包进去，排除数据库文件和导出历史文件本身
       const uploadDir = path.resolve("./attachment")
       if (await fs.pathExists(uploadDir)) {
-        // 只增加当前项目中被引用的附件？或者简单起见全部打包（如果 upload 目录只服务于当前项目）
-        // 根据目前的架构，upload 是会话级的，直接打包整个目录即可
-        zip.addLocalFolder(uploadDir, "media")
+        const files = await fs.readdir(uploadDir)
+        for (const file of files) {
+          const filePathFull = path.join(uploadDir, file)
+          const stat = await fs.stat(filePathFull)
+          if (stat.isFile() && file !== "archive.sqlite" && file !== "chats_export.json") {
+            zip.addFile(`media/${file}`, await fs.readFile(filePathFull))
+          }
+        }
       }
 
       zip.writeZip(filePath)
+
+      // 重新加载数据库连接
+      await archiveDb.init()
 
       this.currentProjectPath = filePath
       this.isDirty = false
@@ -69,6 +92,12 @@ class ProjectManager {
       return { ok: true }
     } catch (e) {
       console.error("[ProjectManager] Save failed:", e)
+      // 容错恢复数据库连接
+      try {
+        await archiveDb.init()
+      } catch (err) {
+        console.error("Restore DB in save fail:", err)
+      }
       throw e
     }
   }
@@ -78,6 +107,13 @@ class ProjectManager {
     try {
       const fileBuffer = await fs.readFile(filePath)
       let data = null
+
+      // 关闭当前的存档库连接
+      await archiveDb.close()
+
+      // 物理删除当前的 SQLite 文件以准备写入/覆盖
+      const sqlitePath = path.resolve("./save/archive.sqlite")
+      await fs.remove(sqlitePath)
 
       // 嗅探格式：根据文件头判定 (ZIP 的签名是 PK\x03\x04, hex: 50 4b 03 04)
       if (fileBuffer[0] === 0x50 && fileBuffer[1] === 0x4b && fileBuffer[2] === 0x03 && fileBuffer[3] === 0x04) {
@@ -89,6 +125,13 @@ class ProjectManager {
         const projectText = zip.readAsText(projectEntry)
         // 兼容旧版：将所有的 /upload/ 引用替换为 /attachment/
         data = JSON.parse(projectText.replace(/\/upload\//g, "/attachment/"))
+
+        // 解压 archive.sqlite
+        const sqliteEntry = zip.getEntry("archive.sqlite")
+        if (sqliteEntry) {
+          await fs.ensureDir(path.dirname(sqlitePath))
+          await fs.writeFile(sqlitePath, sqliteEntry.getData())
+        }
 
         // 提取附件到当前的 upload 目录
         const uploadDir = path.resolve("./attachment")
@@ -107,6 +150,36 @@ class ProjectManager {
         const projectText = fileBuffer.toString("utf-8")
         // 同样执行兼容性替换
         data = JSON.parse(projectText.replace(/\/upload\//g, "/attachment/"))
+      }
+
+      // 重启数据库服务
+      await archiveDb.init()
+
+      // 向下兼容：如果旧项目里 chatLists 的 data 数组有内容，则自动迁移并写入 sqlite 数据库，随后清空内存中的 data 数组
+      if (data.comData && data.comData.chatLists) {
+        for (const list of data.comData.chatLists) {
+          if (list.data && list.data.length > 0) {
+            for (const msg of list.data) {
+              const exists = await archiveDb.tb_chat_messages.findOne({ where: { uuid: msg.uuid } })
+              if (!exists) {
+                await archiveDb.tb_chat_messages.create({
+                  uuid: msg.uuid,
+                  content: msg.content,
+                  reasoning: msg.reasoning || null,
+                  name: msg.name,
+                  group: msg.group,
+                  timestamp: msg.timestamp || Date.now(),
+                  chatListId: list.id,
+                  attachments: msg.attachments || [],
+                  ask: msg.ask || null,
+                  tid: msg.tid || null
+                })
+              }
+            }
+            // 清空旧内存，避免内存泄漏
+            list.data = []
+          }
+        }
       }
 
       // 1. 恢复全局数据
@@ -151,6 +224,11 @@ class ProjectManager {
 
     } catch (e) {
       console.error("[ProjectManager] Load failed:", e)
+      try {
+        await archiveDb.init()
+      } catch (err) {
+        console.error("Restore DB in load fail:", err)
+      }
       throw e
     }
   }
@@ -178,7 +256,22 @@ class ProjectManager {
     this.currentProjectPath = null
     this.stopAutoSave()
 
-    // 2. 构造初始数据模板 (Capture from ioServer defaults)
+    // 2. 清空存档 SQLite 数据库文件
+    try {
+      await archiveDb.close()
+      const sqlitePath = path.resolve("./save/archive.sqlite")
+      await fs.remove(sqlitePath)
+    } catch (dbErr) {
+      console.error("[ProjectManager] Reset DB file failed:", dbErr)
+    } finally {
+      try {
+        await archiveDb.init()
+      } catch (err) {
+        console.error("Restore DB in reset fail:", err)
+      }
+    }
+
+    // 3. 构造初始数据模板 (Capture from ioServer defaults)
     const initialData = {
       currentModel: "",
       sendMode: "agent",
@@ -187,7 +280,6 @@ class ProjectManager {
       chatLists: [{
         id: 0,
         linkid: 0,
-        data: [],
         replying: false,
         streamChunks: "",
         streamDisplayContent: "",
@@ -195,7 +287,8 @@ class ProjectManager {
         confirmCmds: [],
         stop: false,
         tasks: [],
-        notes: []
+        notes: [],
+        graph: { nodes: {}, links: [] }
       }],
       quotes: [],
       darkMode: true,
@@ -234,7 +327,11 @@ class ProjectManager {
     // 5. 关闭所有活动 App
     const apps = appManager.getSummary()
     for (const app of apps) {
-      await appManager.close(app.id).catch(e => console.error(e))
+      try {
+        await appManager.close(app.id)
+      } catch (e) {
+        console.error(e)
+      }
     }
 
     // 6. 归位脏位

@@ -351,7 +351,7 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, settingData, 
                               loadFiles();
                             } else (async () => {
                               const res = await settingData.fnCall("appDispatch", [appId, "getFileContent", { hash, relPath: itemRelPath, repoPath }]);
-                              if (res?.ok && res.data?.ok) await settingData.fnCall("appLaunch", ["editor", { data: { filePath: `[快照] ${itemName}`, content: res.data.data, readOnly: true } }]);
+                              if (res?.ok) await settingData.fnCall("appLaunch", ["editor", { data: { filePath: `[快照] ${itemName}`, content: res.data, readOnly: true } }]);
                             })();
                           }
                           lastPointerTime = 0;

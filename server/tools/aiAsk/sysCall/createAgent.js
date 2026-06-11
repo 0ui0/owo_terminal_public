@@ -80,7 +80,6 @@ export default {
         data.chatLists.push({
           id: newListId,
           linkid: currentListId,
-          data: [],
           replying: false,
           streamChunks: "",
           streamDisplayContent: "",

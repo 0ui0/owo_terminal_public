@@ -36,6 +36,7 @@ export default {
       if (ioServer.io) {
         projectManager.startAutoSave() // 首次加载后自动开启定时器
         ioServer.io.emit("project:state", { path: filePath, autoSave: true })
+        ioServer.io.emit("chat:refresh", { listId: comData.data.get()?.targetChatListId || 0 })
         ioServer.io.emit("notice", trs("系统/消息/载入成功"))
 
         // --- 同步快照列表 ---

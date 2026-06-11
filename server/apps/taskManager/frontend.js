@@ -1,7 +1,7 @@
 
 import taskManagerData from "./taskManagerData.js"
 
-export default ({ appId, m, Notice, ioSocket, commonData, chatData, settingData, Box, iconPark }) => {
+export default ({ appId, m, Notice, ioSocket, commonData, chatData, settingData, Box, iconPark, getColor }) => {
   // === State ===
   let appList = []
   let isLoading = false
@@ -16,7 +16,7 @@ export default ({ appId, m, Notice, ioSocket, commonData, chatData, settingData,
     try {
       const res = await settingData.fnCall("appDispatch", [appId, "list", {}])
       if (res.ok) {
-        appList = res.data.data
+        appList = res.data
         lastRefresh = Date.now()
       }
     } catch (e) {
@@ -118,9 +118,11 @@ export default ({ appId, m, Notice, ioSocket, commonData, chatData, settingData,
       style: {
         display: "flex", alignItems: "center",
         padding: "12px 16px", marginBottom: "10px",
-        background: isHovered ? "rgba(255, 255, 255, 0.08)" : "rgba(255, 255, 255, 0.03)",
+        background: getColor('gray_3').back,
+        opacity: isHovered ? 1 : 0.85,
         borderRadius: "14px",
-        border: `1px solid ${isHovered ? "rgba(255, 255, 255, 0.12)" : "rgba(255, 255, 255, 0.05)"}`,
+        border: `1px solid ${isHovered ? getColor('gray_3').front + '33' : getColor('gray_3').front + '11'}`,
+        color: getColor('gray_3').front,
         transition: "all 0.25s ease",
         transform: isHovered ? "translateY(-1px)" : "none",
       }
@@ -129,7 +131,8 @@ export default ({ appId, m, Notice, ioSocket, commonData, chatData, settingData,
       m("div", {
         style: {
           width: "40px", height: "40px", borderRadius: "10px",
-          background: "linear-gradient(135deg, #444, #222)",
+          background: `linear-gradient(135deg, ${getColor('gray_12').back}, ${getColor('gray_12').front}22)`,
+          color: getColor('gray_12').front,
           display: "flex", alignItems: "center", justifyContent: "center",
           fontSize: "18px", marginRight: "16px",
           boxShadow: "0 4px 10px rgba(0,0,0,0.2)"
@@ -140,12 +143,12 @@ export default ({ appId, m, Notice, ioSocket, commonData, chatData, settingData,
       m("div", { style: { flex: 1, minWidth: 0 } }, [
         m("div", {
           style: {
-            fontSize: "13px", fontWeight: "600", color: "#fff",
+            fontSize: "13px", fontWeight: "600", color: getColor('gray_3').front,
             whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
           }
         }, app.id),
         m("div", { style: { display: "flex", alignItems: "center", gap: "10px", marginTop: "4px" } }, [
-          m("span", { style: { fontSize: "11px", opacity: 0.4 } }, app.type),
+          m("span", { style: { fontSize: "11px", opacity: 0.6, color: getColor('gray_3').front } }, app.type),
           StatusBadge(app.guiLaunched)
         ])
       ]),
@@ -163,9 +166,9 @@ export default ({ appId, m, Notice, ioSocket, commonData, chatData, settingData,
           isBtn: true,
           style: {
             width: "25px", height: "25px", borderRadius: "50%",
-            background: "#23D4B222", color: "#23D4B2",
+            background: "rgba(35, 212, 178, 0.15)", color: "#23D4B2",
             display: "flex", alignItems: "center", justifyContent: "center",
-            border: "1px solid #23D4B244"
+            border: "1px solid rgba(35, 212, 178, 0.3)"
           },
           onclick: () => showApp(app.id)
         }, m.trust(iconPark.getIcon("PreviewOpen", { fill: "#23D4B2", size: "14px" }))),
@@ -175,24 +178,24 @@ export default ({ appId, m, Notice, ioSocket, commonData, chatData, settingData,
           isBtn: true,
           style: {
             width: "25px", height: "25px", borderRadius: "50%",
-            background: "#5e6c79", color: "#eee",
+            background: getColor('yellow_1').back, color: getColor('yellow_1').front,
             display: "flex", alignItems: "center", justifyContent: "center",
-            border: "1px solid #393432"
+            border: `1px solid ${getColor('yellow_1').front}33`
           },
           onclick: () => quoteId(app.id)
-        }, m.trust(iconPark.getIcon("Quote", { fill: "#eee", size: "12px" }))),
+        }, m.trust(iconPark.getIcon("Quote", { fill: getColor('yellow_1').front, size: "12px" }))),
 
         // 终止进程
         m(Box, {
           isBtn: true,
           style: {
             width: "25px", height: "25px", borderRadius: "50%",
-            background: "#F06258", color: "#fff",
+            background: "rgba(240, 98, 88, 0.15)", color: "#F06258",
             display: "flex", alignItems: "center", justifyContent: "center",
-            border: "1px solid #393432"
+            border: "1px solid rgba(240, 98, 88, 0.3)"
           },
           onclick: () => killApp(app.id)
-        }, m.trust(iconPark.getIcon("Close", { fill: "#fff", size: "12px" })))
+        }, m.trust(iconPark.getIcon("Close", { fill: "#F06258", size: "12px" })))
       ])
     ])
   }
@@ -207,8 +210,8 @@ export default ({ appId, m, Notice, ioSocket, commonData, chatData, settingData,
         style: {
           display: "flex", flexDirection: "column",
           width: "100%", height: "100%",
-          background: "linear-gradient(135deg, #16161a, #0a0a0c)",
-          color: "#d1d1d6",
+          background: getColor('gray_4').back,
+          color: getColor('gray_4').front,
           fontFamily: "'Inter', system-ui, sans-serif",
           overflow: "hidden"
         }
@@ -217,16 +220,14 @@ export default ({ appId, m, Notice, ioSocket, commonData, chatData, settingData,
         m("div", {
           style: {
             padding: "18px 24px",
-            background: "rgba(255, 255, 255, 0.02)",
-            backdropFilter: "blur(25px)",
-            WebkitBackdropFilter: "blur(25px)",
-            borderBottom: "1px solid rgba(255, 255, 255, 0.06)",
+            background: getColor('gray_12').back,
+            borderBottom: `1px solid ${getColor('gray_4').front}22`,
             display: "flex", alignItems: "center", justifyContent: "space-between"
           }
         }, [
           m("div", [
-            m("div", { style: { fontSize: "16px", fontWeight: "800", color: "#fff", letterSpacing: "-0.3px" } }, "进程管理器"),
-            m("div", { style: { fontSize: "10px", opacity: 0.3, marginTop: "2px", fontWeight: "500" } }, [
+            m("div", { style: { fontSize: "16px", fontWeight: "800", color: getColor('gray_12').front, letterSpacing: "-0.3px" } }, "进程管理器"),
+            m("div", { style: { fontSize: "10px", opacity: 0.5, marginTop: "2px", fontWeight: "500", color: getColor('gray_12').front } }, [
               m("span", { style: { color: "#23D4B2" } }, "● "),
               `AUTO-POLLING · ${appList.length} ACTIVE`
             ])
@@ -236,24 +237,24 @@ export default ({ appId, m, Notice, ioSocket, commonData, chatData, settingData,
             style: {
               width: "36px", height: "36px", borderRadius: "10px",
               background: isLoading ? "rgba(255,255,255,0.05)" : "transparent",
-              border: "1px solid rgba(255,255,255,0.08)",
+              border: `1px solid ${getColor('gray_12').front}22`,
               display: "flex", alignItems: "center", justifyContent: "center",
               transition: "all 0.3s",
             },
             onclick: () => fetchList()
-          }, m.trust(iconPark.getIcon("Refresh", { fill: isLoading ? "#23D4B2" : "#666", size: "16px" })))
+          }, m.trust(iconPark.getIcon("Refresh", { fill: isLoading ? "#23D4B2" : getColor('gray_12').front, size: "16px" })))
         ]),
 
         // Viewport
         m("div", {
           style: {
             flex: 1, overflowY: "auto", padding: "20px",
-            background: "radial-gradient(circle at top, rgba(35, 212, 178, 0.03) 0%, transparent 50%)"
+            background: getColor('gray_4').back
           }
         }, [
           appList.length === 0
-            ? m("div", { style: { height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", opacity: 0.1 } }, [
-              m.trust(iconPark.getIcon("Terminal", { size: "48px", fill: "#fff" })),
+            ? m("div", { style: { height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", opacity: 0.25, color: getColor('gray_4').front } }, [
+              m.trust(iconPark.getIcon("Terminal", { size: "48px", fill: getColor('gray_4').front })),
               m("div", { style: { marginTop: "12px", fontSize: "12px" } }, "系统纯净 · 暂无第三方负载")
             ])
             : appList.map(AppCard)
@@ -263,9 +264,12 @@ export default ({ appId, m, Notice, ioSocket, commonData, chatData, settingData,
         m("div", {
           style: {
             padding: "10px 24px",
-            fontSize: "9px", letterSpacing: "1.5px", opacity: 0.25,
-            fontWeight: "300", background: "rgba(0,0,0,0.1)",
-            display: "flex", justifyContent: "space-between"
+            fontSize: "9px", letterSpacing: "1.5px",
+            color: getColor('gray_12').front,
+            opacity: 0.4,
+            background: getColor('gray_12').back,
+            display: "flex", justifyContent: "space-between",
+            borderTop: `1px solid ${getColor('gray_4').front}22`,
           }
         }, [
           m("span", "CORE.TASK_PROC.OWO"),

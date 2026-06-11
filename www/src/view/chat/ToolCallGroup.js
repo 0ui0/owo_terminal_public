@@ -17,12 +17,12 @@ export default () => {
         const prepareChat = chats.find(chat => chat.ask?.toolCallStage === "prepare")
         const sysCalls = prepareChat?.ask?.sysCalls || []
         const sysReturns = doneChat?.ask?.sysReturns || []
-        
+
         // 优先从结果里拿，如果没有结果（还在加载），从预备调用里拿
-        const names = sysReturns.length > 0 
-          ? sysReturns.map(r => r.name || r.id) 
+        const names = sysReturns.length > 0
+          ? sysReturns.map(r => r.name || r.id)
           : sysCalls.map(c => c.name || c.id)
-        
+
         return names.length > 0 ? ` (${names.join(', ')})` : ''
       }
       const toolNames = getToolNames()
@@ -32,7 +32,8 @@ export default () => {
           display: "inline-block",
           margin: '1rem',
           padding: '0.5rem 1rem',
-          borderRadius: '0.5rem',
+          borderRadius: '0.5rem 2rem 2rem 0.5rem',
+          boxShadow: "rgba(0, 0, 0, 0.3) 0.1rem 0.1rem 1rem",
           background: hasError ? getColor("工具组失败背景") : getColor("工具组成功背景"),
           borderLeft: hasError ? `0.4rem solid ${getColor("工具组失败边框")}` : `0.4rem solid ${getColor("工具组成功边框")}`,
         }

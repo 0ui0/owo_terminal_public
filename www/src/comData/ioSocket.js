@@ -10,6 +10,11 @@ import settingData from "../view/setting/settingData.js"
 import format from "../view/common/format.js"
 import { trs } from "../view/common/i18n.js"
 import getColor from "../view/common/getColor.js"
+import jsonpatch from "fast-json-patch"
+import _ from "lodash"
+import { Terminal } from "@xterm/xterm"
+import { FitAddon } from "@xterm/addon-fit"
+const { applyPatch } = jsonpatch
 
 export default {
   socket: null,
@@ -38,106 +43,92 @@ export default {
       }
     })
 
-    this.socket.on("comData", async (data, callback) => {
+    this.socket.on("comData", async (payload, callback) => {
       try {
-        if (data.version > comData.data.get().version) {
-          comData.data.setData(data)
+        let local = comData.data.get()
+        if (payload?.patches) {
+          const { patches, fromVersion, toVersion } = payload
+          if (fromVersion === local.version) {
+            let data = _.cloneDeep(local)
+            applyPatch(data, patches)
+            comData.data.setData(data)
+            m.redraw()
+            return callback({
+              ok: true,
+              msg: `应用增量更新成功，当前版本: ${toVersion}`
+            })
+          }
+          try {
+            let tmp = await m.request({
+              url: `/api/comData/get`
+            })
+            comData.data.setData(tmp.data)
+            m.redraw()
+          } catch (reqErr) {
+            console.error("拉取全量 comData 失败:", reqErr)
+          }
+          return callback({
+            ok: false,
+            code: "OUT_OF_SYNC",
+            msg: `基准版本失步 (本地 ${local.version} != 服务端 ${fromVersion})，已全量同步`
+          })
+        }
+
+        if (payload && payload.version > local.version) {
+          comData.data.setData(payload)
           m.redraw()
           callback({
             ok: true,
             msg: `客户端收到comData，更新成功，收到数据见data
-服务端版本${data.version}
-客户端版本${comData.data.get().version}
+服务端版本${payload.version}
+客户端版本${local.version}
 `,
-            data: data
+            data: payload
           })
-        }
-        else {
-          let tmp = await m.request({
-            url: `/api/comData/get`
-          })
-          comData.data.setData(tmp.data)
+        } else {
+          try {
+            let tmp = await m.request({
+              url: `/api/comData/get`
+            })
+            comData.data.setData(tmp.data)
+            m.redraw()
+          } catch (reqErr) {
+            console.error("拉取全量 comData 失败:", reqErr)
+          }
           callback({
             ok: false,
             msg: `服务端推送版本小于当前客户端版本，收到数据见data
-服务端版本${data.version}
-客户端版本${comData.data.get().version}
+服务端版本${payload?.version}
+客户端版本${local.version}
 拉取并更新服务端最新版本..
               `,
-            data: data
-
+            data: payload
           })
         }
+      } catch (err) {
+        console.error("客户端处理 comData 错误:", err)
+        callback({ ok: false, msg: err.message })
       }
-      catch (err) {
-        console.log(err)
-        throw err
-      }
-
     })
 
     this.socket.on("chat", async (msg) => {
-      //console.log("客户端收到chat消息", msg)
-      if (msg.tid) {
-        // 在所有队列中寻找对应的终端消息
-        let chat = null
-        const chatLists = comData.data.get().chatLists
-        if (chatLists) {
-          for (const list of chatLists) {
-            chat = list.data.find(item => item.tid === msg.tid)
-            if (chat) break
-          }
-        }
-
-        if (chat) {
-          chat.content += msg.content
-          chat.chunk = msg.content
-
-
-          if (chatData.xTerms[chat.tid]) {
-            chatData.xTerms[chat.tid].forEach((term) => {
-              term.write(msg.content)
-            })
-          }
-
-          //chatData.currentTalk = chat
-          // 检查是否正在回复中，如果是则不自动标记回复终端
-          if (!comData.data.get().replying) {
-            if (comData.data.get().sendMode === "terminal") {
-              await comData.data.edit((data) => { data.call = { ...chat } })
-            }
-          }
-        }
-        else {
-          chatData.list.push(msg)
-        }
-      }
-      else {
-        chatData.list.push(msg)
-      }
+      // 终端流已通过 app:dispatch 处理，这里仅处理尚未迁移的直推消息（兼容旧逻辑）
       if (msg.group !== "user") {
         chatData.preparing = false
       }
-
-      //滚动到底部
-
-      let dom = document.querySelector(`#chatList_${msg.chatListId || 0}`)
-      if (dom) {
-        setTimeout(() => {
-
-          if (!msg.tid) {
-            dom.scrollTo({
-              left: 0,
-              top: dom.scrollHeight,
-              behavior: "smooth",
-            })
-          }
-
-        }, 200)
-      }
-
       m.redraw()
     })
+
+    this.socket.on("chat:refresh", async ({ listId = 0 } = {}) => {
+      const rows = chatData.chatLists[listId]
+      if (rows) {
+        await rows.pull()
+        chatData.list = chatData.getHistoryList()
+        m.redraw()
+      }
+    })
+
+
 
     this.socket.on("notice", async (msg) => {
       Notice.launch({
@@ -155,52 +146,13 @@ export default {
     })
 
 
-    this.socket.on("openTerminal", async (msg) => {
-      await comData.data.edit(data => {
-        data.currentTid = msg.currentTid
-      })
-      let currentTid = comData.data.get().currentTid
-      let currentChat = null
-      const chatLists = comData.data.get().chatLists
-      if (chatLists) {
-        for (const list of chatLists) {
-          currentChat = list.data.find(chat => chat.tid === currentTid)
-          if (currentChat) break
-        }
-      }
-
-      if (currentChat) {
-        Notice.launch({
-          sign: currentChat.tid,
-          tip: "终端" + currentTid,
-          content: ChatTerm,
-          contentAttrs: {
-            chat: currentChat
-          },
-          show: false,
-        })
-
-      }
-
-    })
-
-
-    // App 事件监听
-    this.socket.on("app:error", (msg) => {
-      Notice.launch({
-        msg: `[App 错误] ${msg.msg}`,
-        type: "error"
-      })
-    })
-
-
     this.socket.on("app:launch", async (msg) => {
       try {
         const module = await import(msg.frontendUrl)
         let component = module.default
         if (typeof component === "function") {
           // 参数注入模式
-          component = component({ appId: msg.appId, m, Notice, ioSocket: this, comData, commonData, chatData, settingData, format, Box, Tag, iconPark: window.iconPark, getColor, trs })
+          component = component({ appId: msg.appId, m, Notice, ioSocket: this, comData, commonData, chatData, settingData, format, Box, Tag, iconPark: window.iconPark, getColor, trs, Terminal, FitAddon })
         }
         // Window Management: Resolve Geometry
         const saved = msg.data && msg.data.window
@@ -303,18 +255,21 @@ export default {
     this.socket.on("app:active", async (msg) => {
       const { appId } = msg
       const dataArr = Notice.data.dataArr
+      let tab = null
       if (dataArr) {
-        const tab = dataArr.find(t =>
+        tab = dataArr.find(t =>
           (t.sign === appId) ||
           (t.contentAttrs && t.contentAttrs.appId === appId) ||
           (typeof t.sign === 'string' && t.sign.startsWith(appId + "_"))
         )
-        if (tab && tab._winConfig) {
-          Notice.activateWindow(tab._winConfig.id)
-          // 如果该窗口是多标签，还需要确保当前标签被选中
-          tab._winConfig.activeSign = tab.sign
-          m.redraw()
-        }
+      }
+      if (tab && tab._winConfig) {
+        Notice.activateWindow(tab._winConfig.id)
+        // 如果该窗口是多标签，还需要确保当前标签被选中
+        tab._winConfig.activeSign = tab.sign
+        m.redraw()
+      } else {
+        settingData.fnCall("appGuiRestore", [appId])
       }
     })
 

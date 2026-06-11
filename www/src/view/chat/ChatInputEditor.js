@@ -24,7 +24,7 @@ export default () => {
     tipTimeout = setTimeout(() => {
       showTip = false;
       m.redraw();
-    }, 3500); // 3.5秒后消失
+    }, 1000); // 3.5秒后消失
   };
 
   // 将纯文本转为 HTML (带 Chip 标签)
@@ -345,17 +345,18 @@ export default () => {
           showTip ? m(".expand-tip-toast", {
             style: {
               position: "absolute",
-              top: isExpanded ? "3.2rem" : "1rem",
+              bottom: isExpanded ? "3.2rem" : "1rem",
               left: "50%",
+              width: "30rem",
               transform: "translateX(-50%)",
-              background: getColor('yellow_1').back,
+              background: getColor('yellow_1').back + "aa",
               color: getColor('yellow_1').front,
               padding: "0.4rem 1.2rem",
-              borderRadius: "2rem",
-              boxShadow: "0 0.2rem 0.8rem rgba(0,0,0,0.15)",
+              borderRadius: "1rem",
               zIndex: 100,
               pointerEvents: "none",
-              whiteSpace: "nowrap"
+              wordBreak: "break-all",
+              textAlign: "center"
             }
           }, tipText) : null,
           isExpanded ? m(".markdown-toolbar", {

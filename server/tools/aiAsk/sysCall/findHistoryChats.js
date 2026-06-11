@@ -1,4 +1,5 @@
-import comData from "../../../comData/comData.js"
+import archiveDb from "../../../db/archiveDb.js"
+import { Op } from "sequelize"
 import Joi from "joi"
 import yaml from "js-yaml"
 
@@ -13,44 +14,50 @@ export default {
 
     let { listId, page, pageSize, keyword, startDate, endDate, id, reverse } = value
 
-    // 获取由 comData 管理的聊天记录合并池
-    const data = comData.data.get()
-
-    // 定位指定列表
-    const targetList = data.chatLists.find(l => l.id === listId)
-    if (!targetList) {
-      return "错误：找不到指定的 listId " + listId
+    if (!archiveDb.tb_chat_messages) {
+      return "错误：存档数据库未准备好"
     }
 
-    // 复制数据防止污染源数据
-    let targetListData = [...targetList.data]
+    let pagedList = []
+    let total = 0
 
-    // 优先处理精确 ID 查询（场景：引用查找）
     if (id) {
-      const targetMsg = targetListData.find(c => c.uuid === id)
+      const targetMsg = await archiveDb.tb_chat_messages.findOne({
+        where: { chatListId: listId, uuid: id },
+        raw: true
+      })
       if (!targetMsg) {
         return `错误：即便在历史归档中也找不到 ID 为 ${id} 的消息`
       }
-      // 直接锁定数据源为单条
-      targetListData = [targetMsg]
+      pagedList = [targetMsg]
+      total = 1
     } else {
-      // --- 常规筛选阶段 (仅当没有指定 ID 时执行) ---
+      // 常规过滤
+      const where = { chatListId: listId }
 
       // 0. 基础过滤：排除被标记为忽略的消息 (如系统提示、工具调用中间态)
-      // 若按 ID 查询且 ID 对应的消息本身是 ignore 的，上面逻辑已直接返回单独消息，不受此限制（合理，因为是精确查找）
-      // 但对于列表浏览，隐藏这些干扰项这更符合人类直觉
-      targetListData = targetListData.filter(c => !c.ask || (c.ask.ignore !== 1 && c.ask.ignore !== true))
+      where[Op.and] = [
+        {
+          [Op.or]: [
+            { ask: null },
+            { "ask.ignore": null },
+            {
+              "ask.ignore": {
+                [Op.notIn]: [true, 1]
+              }
+            }
+          ]
+        }
+      ]
 
       // 1. 时间范围筛选
-      // 支持：时间戳数字、ISO字符串、普通日期字符串
       if (startDate) {
-        // 尝试转数字（时间戳）
         let t = Number(startDate)
         if (isNaN(t)) {
           t = new Date(startDate).getTime()
         }
         if (!isNaN(t)) {
-          targetListData = targetListData.filter(c => c.timestamp >= t)
+          where.timestamp = { ...where.timestamp, [Op.gte]: t }
         }
       }
       if (endDate) {
@@ -59,43 +66,58 @@ export default {
           t = new Date(endDate).getTime()
         }
         if (!isNaN(t)) {
-          targetListData = targetListData.filter(c => c.timestamp <= t)
+          where.timestamp = { ...where.timestamp, [Op.lte]: t }
         }
       }
 
-      // 2. 关键词筛选 (正则)
+      // 2. 关键词筛选
       if (keyword && keyword.trim().length > 0) {
-        try {
-          const reg = new RegExp(keyword, "mi")
-          targetListData = targetListData.filter(chat => {
-            const contentMatch = chat.content && typeof chat.content === "string" && reg.test(chat.content)
-            const titleMatch = chat.ask && chat.ask.title && typeof chat.ask.title === "string" && reg.test(chat.ask.title)
-            return contentMatch || titleMatch
-          })
-        } catch (err) {
-          return "错误：提供的 RegExp 正则表达式无效: " + err.message
-        }
+        where[Op.or] = [
+          { content: { [Op.like]: `%${keyword}%` } },
+          { ask: { [Op.like]: `%${keyword}%` } }
+        ]
       }
 
-      // --- 排序阶段 (仅常规筛选需要) ---
-      // 默认按时间正序 (旧->新)，reverse 为 true 则倒序 (新->旧)
-      targetListData.sort((a, b) => a.timestamp - b.timestamp)
-      if (reverse) {
-        targetListData.reverse()
-      }
+      const orderDirection = reverse ? "DESC" : "ASC"
+      const result = await archiveDb.tb_chat_messages.findAndCountAll({
+        where,
+        order: [["timestamp", orderDirection]],
+        limit: pageSize,
+        offset: (page - 1) * pageSize,
+        raw: true
+      })
+      pagedList = result.rows
+      total = result.count
     }
 
-    // --- 分页阶段 ---
-    // 如果是 ID 查询，targetListData 只有 1 条，分页逻辑自然兼容
-    const total = targetListData.length
-    const totalPages = Math.ceil(total / pageSize)
+    // 统一反序列化 JSON 字段
+    pagedList = pagedList.map(chat => {
+      let askObj = null
+      if (chat.ask) {
+        try {
+          askObj = typeof chat.ask === "string" ? JSON.parse(chat.ask) : chat.ask
+        } catch (e) {
+          askObj = null
+        }
+      }
+      let attachmentsObj = []
+      if (chat.attachments) {
+        try {
+          attachmentsObj = typeof chat.attachments === "string" ? JSON.parse(chat.attachments) : chat.attachments
+        } catch (e) {
+          attachmentsObj = []
+        }
+      }
+      return {
+        ...chat,
+        ask: askObj,
+        attachments: attachmentsObj
+      }
+    })
 
-    // 修正 page 范围
+    const totalPages = Math.ceil(total / pageSize)
     if (page < 1) page = 1
     if (page > totalPages && totalPages > 0) page = totalPages
-
-    const startIndex = (page - 1) * pageSize
-    const pagedList = targetListData.slice(startIndex, startIndex + pageSize)
 
     // --- 格式化输出 (转为文本) ---
     const header = `=== 历史查询结果 (第 ${page}/${totalPages} 页，共 ${total} 条) ===\n`

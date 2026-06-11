@@ -32,24 +32,28 @@ autoUpdater.setFeedURL({
 let serveDir = pathLib.dirname(fileURLToPath(import.meta.url))
 process.chdir(pathLib.join(serveDir, "/server/"))
 
-// Helper: Clean attachments directory
-const cleanAttachments = () => {
+// Helper: Clean temporary directories
+const cleanTempDirs = () => {
   try {
     const attachmentDir = pathLib.resolve("./attachment")
-    if (fs.existsSync(attachmentDir)) {
-      fs.emptyDirSync(attachmentDir)
-      console.log("[App] Cleaned attachments directory")
-    }
+    fs.ensureDirSync(attachmentDir)
+    fs.emptyDirSync(attachmentDir)
+    console.log("[App] Cleaned attachments directory")
+
+    const saveDir = pathLib.resolve("./save")
+    fs.ensureDirSync(saveDir)
+    fs.emptyDirSync(saveDir)
+    console.log("[App] Cleaned save directory")
   } catch (e) {
-    console.warn("[App] Failed to clean attachments:", e)
+    console.warn("[App] Failed to clean temp directories:", e)
   }
 }
 
 // Startup Clean
-cleanAttachments()
+cleanTempDirs()
 
 // Register Shutdown Clean
-app.on('will-quit', cleanAttachments)
+app.on('will-quit', cleanTempDirs)
 
 
 

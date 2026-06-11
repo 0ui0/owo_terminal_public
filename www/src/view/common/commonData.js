@@ -44,5 +44,5 @@ export default {
   autoSaveEnabled: false,
   autoSaveInterval: 5,
 
-  themeColor: 0,
+  themeColor: 2,
 }

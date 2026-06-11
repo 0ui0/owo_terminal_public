@@ -25,8 +25,8 @@ export default () => {
     const sendMode = currentData?.sendMode
     const targetChatListId = _forcedListId !== null ? _forcedListId : (currentData?.targetChatListId)
 
-    // 如果是非终端发送模式，且不是发给子智能体，且未选择任何有效 AI 模型，拦截并给出提示
-    if (sendMode !== "terminal" && !targetChatListId) {
+    // 如果不是发给子智能体，且未选择任何有效 AI 模型，拦截并给出提示
+    if (!targetChatListId) {
       const enabledModels = settingData.options.get("ai_aiList")?.filter(m => m.switch)
       const hasValidModel = enabledModels.some(m => m.name === currentData?.currentModel)
       if (!hasValidModel) {
@@ -212,36 +212,15 @@ export default () => {
           }, trs("输入栏/按钮/发送", { cn: "发送", en: "Send" })),
 
           m(IconTag, {
-            iconName: "Terminal",
-            bgColor: comData.data.get()?.sendMode === "terminal" ? getColor('yellow_1').back : getColor('main').back,
-            //fgColor: comData.data.get()?.sendMode === "terminal" ? getColor('yellow_1').front : getColor('main').front,
-
-            styleExt: {
-              marginRight: 0,
-              borderTopRightRadius: 0,
-              borderBottomRightRadius: 0,
-            },
-            ext: {
-              onclick: async () => {
-                /* if(!chatData.inputText.match(/^> /g) && !chatData.currentTalk){
-                  chatData.inputText = "> "+chatData.inputText
-                } */
-                await comData.data.edit((data) => data.sendMode = "terminal")
-                chatData.inputDom.focus()
-              }
-            }
-          }, trs("输入栏/按钮/终端", { cn: "终端", en: "Terminal" })),
-
-          m(IconTag, {
             bgColor: comData.data.get()?.sendMode === "agent" ? getColor('yellow_1').back : getColor('main').back,
             //fgColor: comData.data.get()?.sendMode === "agent" ? getColor('yellow_1').front : getColor('main').front,
 
             iconName: "RobotOne",
             styleExt: {
               position: "relative",
-              marginLeft: 0,
-              borderTopLeftRadius: 0,
-              borderBottomLeftRadius: 0,
+              marginRight: 0,
+              borderTopRightRadius: 0,
+              borderBottomRightRadius: 0,
             },
             ext: {
               onclick: (e) => {
@@ -330,6 +309,26 @@ export default () => {
           ]),
 
           m(IconTag, {
+            iconName: "Terminal",
+            bgColor: getColor('main').back,
+            styleExt: {
+              marginLeft: 0,
+              borderTopLeftRadius: 0,
+              borderBottomLeftRadius: 0,
+            },
+            ext: {
+              onclick: async () => {
+                settingData.fnCall("appLaunch", ["terminal"])
+              }
+            }
+          }, trs("输入栏/按钮/终端", { cn: "终端", en: "Terminal" })),
+
+
+
+
+
+
+          m(IconTag, {
             iconName: "Setting",
             bgColor: getColor('gray_2').back,
             fgColor: getColor('gray_2').front,
@@ -343,6 +342,38 @@ export default () => {
             }
 
           }, trs("输入栏/按钮/设置", { cn: "设置", en: "Settings" })),
+
+
+
+          m(Tag, {
+            color: "gray_2",
+            styleExt: {
+              marginLeft: "0",
+              justifyContent: "center",
+              alignItems: "center",
+              display: "flex"
+            }
+          }, [
+
+            m(Box, {
+              color: "main",
+              isSwitch: true,
+              value: comData.data.get()?.tokenCompressSwitch,
+              style: {
+                margin: "0",
+                marginRight: "0.5rem"
+              },
+              onclick: async () => {
+                await comData.data.edit((data) => {
+                  data.tokenCompressSwitch = !data.tokenCompressSwitch
+                })
+              }
+            }),
+
+
+            trs("输入栏/按钮/压缩", { cn: "压缩", en: "Compress" })
+          ]),
+
 
           // 单独美化复选框为小圆点，增加 flex 确保对齐
           m("div", {

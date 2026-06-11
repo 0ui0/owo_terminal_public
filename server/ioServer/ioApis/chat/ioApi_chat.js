@@ -1,5 +1,5 @@
 import { parse as parseBestEffort, disableErrorLogging } from "best-effort-json-parser"
-disableErrorLogging()
+
 import { v4 as uuidV4 } from "uuid"
 import idTool from "../../../tools/idTool.js"
 import { trs } from "../../../tools/i18n.js"
@@ -8,7 +8,6 @@ import chats from "./chats.js"
 import comData from "../../../comData/comData.js"
 import aiBasic from "../../../tools/aiAsk/basic.js"
 import AiAsk from "../../../tools/aiAsk/AiAsk.js"
-import TSession from "./TSession.js"
 import options from "../../../config/options.js"
 import subAgents from "../../../tools/aiAsk/subAgents.js"
 import appManager from "../../../apps/appManager.js"
@@ -17,10 +16,7 @@ import timeMachineEngine from "../../../apps/owoTimeMachine/timeMachineEngine.js
 import pathLib from "path"
 import getMsgProtocalConfig from "./getMsgProtocalConfig.js"
 
-
-
-
-const tSession = new TSession()
+disableErrorLogging()
 
 const socketOnChat = async (que, callback) => {
   let io = ioServer.io
@@ -54,6 +50,7 @@ const socketOnChat = async (que, callback) => {
     if (que.targetChatListId !== void 0) {
       targetChatListId = que.targetChatListId
     }
+    sendMode = "agent"
     console.log("----------------------------------------")
     console.log("|| 从聊天框或工具处输入文本", inputText)
     console.log("----------------------------------------")
@@ -77,13 +74,10 @@ const socketOnChat = async (que, callback) => {
 
     }
 
-    //前台选定终端窗口的时候（在xtrem内编辑）
+    //前台选定终端窗口的时候（在 xterm 内输入）
+    // que.tid 是终端的 appId（新架构）
     if (que?.tid) {
-      const session = tSession.find(que.tid)
-      if (session) {
-        session.shell.write(que.chunk)
-        tSession.checkCwd(que.tid)
-      }
+      await appManager.dispatch(que.tid, "write", { data: que.chunk })
       return
     }
 
@@ -98,7 +92,6 @@ const socketOnChat = async (que, callback) => {
         chatListId: listId, // 指派归属权
         attachments: que.attachments || []
       }
-      io.emit("chat", chat) // 广播到前端（由前端根据 listId 过滤）
 
       // --- 时光机：自动创建还原点 ---
       try {
@@ -114,13 +107,10 @@ const socketOnChat = async (que, callback) => {
             const res = await timeMachineEngine.snapshot({ repoPath, message: `Auto-snapshot for message: ${inputText.substring(0, 30)}...`, msgId: chat.uuid });
             if (res.ok) {
               console.log("[TimeMachine] 自动快照成功:", projectRoot, "MsgId:", chat.uuid);
-              // 同备到全局 comData
-              const history = await timeMachineEngine.getHistory({ repoPath });
-              if (history.ok) {
-                await comData.data.edit((data) => {
-                  data.snapshots = history.data;
-                });
-              }
+              chat.snapshotId = res.data.hash;
+              await comData.data.edit((data) => {
+                data.snapshots = []; // 物理清空全局 comData 中的 snapshots 冗余缓存
+              });
             } else {
               console.error("[TimeMachine] 自动快照失败:", res.msg);
             }
@@ -172,6 +162,7 @@ const socketOnChat = async (que, callback) => {
 
       chat.ask = ask
       await chats.add(chat, listId) // 存储到特定列表
+      chats.refresh(listId)
 
       // --- [精准转发] 将本地输入的消息同步给物理 QQ 群 ---
       // [HMR 重要注意事项]：
@@ -198,117 +189,75 @@ const socketOnChat = async (que, callback) => {
     }
 
 
-    //锁定回复终端
-    if (call?.tid) {
-      const session = tSession.find(call.tid)
-      if (session) {
-        const data = inputText + "\r"
-        // 分批写入，避免大数据阻塞
-        const CHUNK_SIZE = 512
-        for (let i = 0; i < data.length; i += CHUNK_SIZE) {
-          const chunk = data.slice(i, i + CHUNK_SIZE)
-          session.shell.write(chunk)
-          // 让出事件循环，允许其他任务执行
-          if (i + CHUNK_SIZE < data.length) {
-            await new Promise(r => setImmediate(r))
-          }
-        }
-      }
+    // 确定目标模型
+    let targetModel = null;
+    if (listId > 0) {
+      targetModel = subAgents.get(listId);
+    } else {
+      targetModel = aiBasic.list.find((model) => {
+        return model.name === comData.data.get().currentModel
+      });
     }
-    //否则新建终端
+
+    if (!targetModel) {
+      let chat = {
+        uuid: idTool.get("sys"),
+        content: listId > 0 ? trs("错误/找不到子智能体", { cn: `找不到子智能体 ID: ${listId}`, en: `Agent ID not found: ${listId}` }) : trs("错误/找不到模型", { cn: `找不到模型: ${comData.data.get().currentModel}`, en: `Model not found: ${comData.data.get().currentModel}` }),
+        name: trs("角色/系统"),
+        group: "user",
+        timestamp: Date.now(),
+        chatListId: listId
+      }
+      await chats.add(chat, listId)
+      chats.refresh(listId)
+      //同步错误到所有模型上下文
+      aiBasic.list.forEach((model) => {
+        model.addAsk(chat.name, "user", chat.content, {
+          id: chat.uuid
+        })
+      })
+    }
     else {
-      //记得call处理
-      if (sendMode === "terminal" || inputText.match(/^> /g)) {
-        let cmd = inputText.replace(/^> /g, "")
-        let { customCwd } = comData.data.get()
-        const session = await tSession.add(io, { listId: listId, cwd: customCwd }) // 绑定会话到列表
-        session.shell.write(cmd + "\r")
-        // Allow command to execute then check CWD
-        tSession.checkCwd(session.tid)
-      }
-      else if (sendMode === "agent") {
+      // 停止开关恢复
+      // 注意：stop/streamChunks 逻辑在 comData 中是全局的。
+      targetModel.noStopRun()
+      await comData.data.edit((data) => {
+        const list = data.chatLists.find(l => l.id === listId);
+        if (list) list.stop = false;
+      })
+      await comData.data.edit((data) => {
+        const list = data.chatLists.find(l => l.id === listId);
+        if (list) list.streamChunks = "";
+      })
 
-        // 确定目标模型
-        let targetModel = null;
-        if (listId > 0) {
-          targetModel = subAgents.get(listId);
-        } else {
-          targetModel = aiBasic.list.find((model) => {
-            return model.name === comData.data.get().currentModel
-          });
-        }
+      const aiList = await options.get("ai_aiList")
+      const currentModelName = comData.data.get().currentModel
+      const currentTokenConfig = aiList.find(m => m.name === currentModelName)
 
-        if (!targetModel) {
-          let chat = {
-            uuid: idTool.get("sys"),
-            content: listId > 0 ? trs("错误/找不到子智能体", { cn: `找不到子智能体 ID: ${listId}`, en: `Agent ID not found: ${listId}` }) : trs("错误/找不到模型", { cn: `找不到模型: ${comData.data.get().currentModel}`, en: `Model not found: ${comData.data.get().currentModel}` }),
-            name: trs("角色/系统"),
-            group: "user",
-            timestamp: Date.now(),
-            chatListId: listId
-          }
-          io.emit("chat", chat)
-          await chats.add(chat, listId)
-          //同步错误到所有模型上下文
-          aiBasic.list.forEach((model) => {
-            model.addAsk(chat.name, "user", chat.content, {
-              id: chat.uuid
-            })
-          })
-        }
-        else {
-          // 停止开关恢复
-          // 注意：stop/streamChunks 逻辑在 comData 中是全局的。
-          // 对于子智能体，我们可能需要在 'chatLists' 元数据中拥有独立状态？
-          // V13 计划保持简单，共享全局 UI 指示器，还是假设独立？
-          // 用户需求："独立记忆"。
-          // UI 状态如 'replying' 在 comData.data.replying 中是全局的。
+      // 如果 AI 已经在思考中（递归循环内），则只记录消息不重复启动新的递归任务
+      // AI 在当前任务的下一轮迭代会自动抓取到刚才 addAsk 进去的新消息
+      if (targetModel.replying) return;
 
-          // 重要：我们目前重置全局 stop，但理想情况下这应该是作用域化的。
-          // 目前保留传统的全局行为。
-          targetModel.noStopRun()
-          await comData.data.edit((data) => {
-            const list = data.chatLists.find(l => l.id === listId);
-            if (list) list.stop = false;
-          })
-          await comData.data.edit((data) => {
-            const list = data.chatLists.find(l => l.id === listId);
-            if (list) list.streamChunks = "";
-          })
+      // [精准拦截] 如果是 QQ 机器人相关的列表，且不是系统命令触发，则只同步记忆和转发，不触发 AI 自动思考
+      const qqBotApp = [...appManager.apps.values()].find(a => a.type === "qqBot");
+      const cfg = qqBotApp?.data?.config;
+      const qqListIds = [
+        ...(cfg?.["3rd_qqRobot_groups"] || []),
+        ...(cfg?.["3rd_qqRobotLocal_groups"] || []),
+        ...(cfg?.["3rd_qqRobot_channels"] || [])
+      ].map(g => g.listId);
 
-          const aiList = await options.get("ai_aiList")
-          const currentModelName = comData.data.get().currentModel
-          const currentTokenConfig = aiList.find(m => m.name === currentModelName)
-
-          // 如果 AI 已经在思考中（递归循环内），则只记录消息不重复启动新的递归任务
-          // AI 在当前任务的下一轮迭代会自动抓取到刚才 addAsk 进去的新消息
-          if (targetModel.replying) return;
-
-          // [精准拦截] 如果是 QQ 机器人相关的列表，且不是系统命令触发，则只同步记忆和转发，不触发 AI 自动思考
-          const qqBotApp = [...appManager.apps.values()].find(a => a.type === "qqBot");
-          const cfg = qqBotApp?.data?.config;
-          const qqListIds = [
-            ...(cfg?.["3rd_qqRobot_groups"] || []),
-            ...(cfg?.["3rd_qqRobotLocal_groups"] || []),
-            ...(cfg?.["3rd_qqRobot_channels"] || [])
-          ].map(g => g.listId);
-
-          // isSystemCall 为 true 时代表是系统工具、自动化脚本或游戏引擎发出的指令（非人类手动输入）。
-          // 这种情况下即使在 QQ 列表也允许 AI 自动触发思考，以维持系统逻辑（如游戏回合推进）的连贯性。
-          if (qqListIds.includes(listId) && !que.isSystemCall) {
-            return;
-          }
-
-          await targetModel.sendAskByMsgProtocol(getMsgProtocalConfig({
-            targetModel,
-            listId,
-            currentTokenConfig
-          }))
-        }
-
+      // isSystemCall 为 true 时代表是系统工具、自动化脚本或游戏引擎发出的指令（非人类手动输入）。
+      // 这种情况下即使在 QQ 列表也允许 AI 自动触发思考，以维持系统逻辑（如游戏回合推进）的连贯性。
+      if (qqListIds.includes(listId) && !que.isSystemCall) {
+        return;
       }
 
-
+      await targetModel.sendAskByMsgProtocol(getMsgProtocalConfig({
+        targetModel,
+        listId,
+        currentTokenConfig
+      }))
     }
 
 
@@ -331,8 +280,8 @@ const socketOnChat = async (que, callback) => {
       timestamp: Date.now(),
       chatListId: errorListId || 0
     }
-    io.emit("chat", chat)
     await chats.add(chat, chat.chatListId)
+    chats.refresh(chat.chatListId)
 
     // 我们应该通过 addAsk 添加到上下文吗？ 
     // 原有代码是这样做的。让我们为主逻辑复制这一点。
@@ -350,4 +299,4 @@ export default ({ socket, server, io, db, verifyCookie }) => {
   socket.on("chat", socketOnChat)
 }
 
-export { tSession, TSession, idTool, socketOnChat }
+export { idTool, socketOnChat }

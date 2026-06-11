@@ -1,39 +1,57 @@
-import comData from "../comData/comData.js"
+import archiveDb from "../db/archiveDb.js"
 import aiBasic from "../tools/aiAsk/basic.js"
-import { tSession } from "../ioServer/ioApis/chat/ioApi_chat.js"
+import appManager from "../apps/appManager.js"
 import subAgents from "../tools/aiAsk/subAgents.js"
+import ioServer from "../ioServer/ioServer.js"
+import comData from "../comData/comData.js"
+import { Op } from "sequelize"
 
 export default {
   name: "clearBeforeChat",
   func: async (uuid) => {
     try {
+      if (!archiveDb.tb_chat_messages) {
+        return { ok: false, msg: "数据库未准备好" };
+      }
+
       let targetTimestamp = 0;
       let removedTids = new Set();
       let removedUuids = new Set();
       let targetListId = -1;
 
-      await comData.data.edit((data) => {
-        if (!data.chatLists) return;
-        // Find which list contains the uuid
-        for (const list of data.chatLists) {
-          let chatIndex = list.data.findIndex(c => c.uuid === uuid);
-          if (chatIndex !== -1) {
-            targetListId = list.id;
-            targetTimestamp = list.data[chatIndex].timestamp;
+      // 查找锚点消息
+      const anchorMsg = await archiveDb.tb_chat_messages.findOne({ where: { uuid }, raw: true });
+      if (anchorMsg) {
+        targetListId = anchorMsg.chatListId;
+        targetTimestamp = anchorMsg.timestamp;
 
-            // 收集即将被删除的消息中的所有 tid 和 uuid
-            for (let i = 0; i < chatIndex; i++) {
-              if (list.data[i].tid) {
-                removedTids.add(list.data[i].tid);
-              }
-              removedUuids.add(list.data[i].uuid);
-            }
-            list.data.splice(0, chatIndex);
-            break; // Found and processed
+        // 收集在此消息之前的所有消息
+        const prevChats = await archiveDb.tb_chat_messages.findAll({
+          where: {
+            chatListId: targetListId,
+            timestamp: { [Op.lt]: targetTimestamp }
+          },
+          raw: true
+        });
+
+        for (const c of prevChats) {
+          if (c.tid) {
+            removedTids.add(c.tid);
           }
+          removedUuids.add(c.uuid);
         }
 
-        // 检查回复锁定是否失效 (Global check)
+        // 物理删除在此消息之前的所有消息
+        await archiveDb.tb_chat_messages.destroy({
+          where: {
+            chatListId: targetListId,
+            timestamp: { [Op.lt]: targetTimestamp }
+          }
+        });
+      }
+
+      // 检查回复锁定是否失效
+      await comData.data.edit((data) => {
         if (data.call) {
           if (removedUuids.has(data.call.uuid) || (data.call.tid && removedTids.has(data.call.tid))) {
             data.call = null;
@@ -43,14 +61,11 @@ export default {
 
       // 检查收集到的 tid 是否还需要保留
       if (removedTids.size > 0) {
-        const { chatLists } = comData.data.get();
-        if (chatLists) {
-          removedTids.forEach(tid => {
-            let stillExists = chatLists.some(list => list.data.some(c => c.tid === tid));
-            if (!stillExists) {
-              tSession.close(tid);
-            }
-          });
+        for (const tid of removedTids) {
+          const count = await archiveDb.tb_chat_messages.count({ where: { tid } });
+          if (count === 0) {
+            appManager.close(tid)
+          }
         }
       }
 
@@ -70,9 +85,14 @@ export default {
         if (targetListId === 0) {
           aiBasic.list.forEach(cleanupModel);
         } else if (targetListId > 0) {
-          const targetAgent = subAgents.get(targetAgent);
+          const targetAgent = subAgents.get(targetListId);
           if (targetAgent) cleanupModel(targetAgent);
         }
+      }
+
+      // 广播刷新事件
+      if (ioServer.io && targetListId !== -1) {
+        ioServer.io.emit("chat:refresh", { listId: targetListId });
       }
 
       return { ok: true, msg: "聊天历史已清空" };

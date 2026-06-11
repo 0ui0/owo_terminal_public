@@ -1389,7 +1389,9 @@ id为${fnCallCache.cacheid}
         }).map(createToolTip)
       };
       // 检查 Token 阶段限额并做提醒
-      if (this.stageTotalTokens > 1000000) {
+      console.log(config != null ? config.tokenCompressSwitch : void 0, "压缩上下文");
+      console.log("压缩上下文开关", config != null ? config.tokenCompressSwitch : void 0);
+      if (this.stageTotalTokens > 1000000 && (config != null ? config.tokenCompressSwitch : void 0)) {
         lastWarningIdx = -1;
         for (i = j = ref = this.asks.length - 1; j >= 0; i = j += -1) {
           ask = this.asks[i];
@@ -1420,6 +1422,7 @@ id为${fnCallCache.cacheid}
           }
         }
       }
+      
       //开始逻辑
       this.fnCallCachePoolTick();
       this.messages = this.prepareMessages(true, config, config.toolTipObj || toolTipObj);

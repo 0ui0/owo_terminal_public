@@ -27,10 +27,12 @@ const ReasoningBlock = () => {
 
 
       return m("", {
+        //深度思考框
         style: {
           marginTop: "0.5rem",
           marginBottom: "0.8rem",
           background: getColor('gray_9').back + '26',
+
           borderRadius: "0.4rem",
           fontSize: "0.8rem",
           borderLeft: `2px solid ${getColor('gray_8').front + '1a'}`,
@@ -221,7 +223,7 @@ export default ChatItem = () => {
 
             zIndex: 1,
             //maxHeight: "30rem",
-            maxWidth: "100%",
+            maxWidth: "calc(100% - 2rem)",
             overflow: "auto",
 
             ...(/*chat.tid === comData.data.get()?.currentTid || */fullScreen ? {
@@ -404,31 +406,32 @@ export default ChatItem = () => {
                   ]
 
                 default:
-                  return m("", [
-                    chat.group === "tip"
-                      ? [
-                        showMore
-                          ? m("", {
-                            style: {
-                              maxHeight: "20rem",
-                              overflow: "auto"
-                            }
-                          }, [
-                            m.trust(format((attrs.isChildren ? chat.content.slice(0, 30) + "..." : chat.content), "markdown", {}))
-                          ])
-                          : chat.ask.title,
-                        //标题
-                        chat.ask.joi ? m("", [
-                          m("", ["[joi]" + chat.ask.joi]),
-                        ]) : null,
-                        m(Tag, {
-                          onclick() {
-                            showMore = !showMore
+                  return m("", chat.group === "tip"
+                    ? [
+                      showMore
+                        ? m("", {
+                          style: {
+                            maxHeight: "20rem",
+                            overflow: "auto"
                           }
-                        }, showMore ? trs("通用/收起") : trs("通用/详情"))
-                      ]
-                      : m.trust(format((attrs.isChildren ? chat.content.slice(0, 21) + "..." : chat.content), "markdown", {})),
-                  ]
+                        }, [
+                          m.trust(format((attrs.isChildren ? chat.content.slice(0, 30) + "..." : chat.content), "markdown", {}))
+                        ])
+                        : chat.ask.title,
+                      //标题
+                      chat.ask.joi
+                        ? m("", [
+                          m("", ["[joi]" + chat.ask.joi]),
+                        ])
+                        : m("", ""),
+                      m(Tag, {
+                        onclick() {
+                          showMore = !showMore
+                        }
+                      }, showMore ? trs("通用/收起") : trs("通用/详情"))
+                    ]
+                    : m.trust(format((attrs.isChildren ? chat.content.slice(0, 21) + "..." : chat.content), "markdown", {})),
+
                   )
               }
             })(),
@@ -630,7 +633,7 @@ export default ChatItem = () => {
               ]),
 
               // 2. 时光机还原按钮
-              (chat.uuid && chat.group !== "preparing" && (comData.data.get()?.snapshots || []).some(s => s.msgId === chat.uuid)) ? m(Tag, {
+              (chat.uuid && chat.group !== "preparing" && chat.snapshotId) ? m(Tag, {
                 styleExt: {
                   background: getColor('green_1').back,
                   color: getColor('green_1').front,

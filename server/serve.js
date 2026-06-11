@@ -5,6 +5,7 @@ global.Joi = Joi
 import Hapi from '@hapi/hapi';
 import ioServer from "./ioServer/ioServer.js"
 import db from "./db/db.js"
+import archiveDb from "./db/archiveDb.js"
 import Dir from "./tools/dir.js"
 import inert from "@hapi/inert"
 import comData from "./comData/comData.js"
@@ -26,6 +27,7 @@ const init = async (config) => {
   await fs.ensureDir(pathLib.resolve("./tools/aiAsk/usrCall"))
   await fs.ensureDir(pathLib.resolve("./tools/aiAsk/aiCall"))
   await fs.ensureDir(pathLib.resolve("../aiWork"))
+  await fs.ensureDir(pathLib.resolve("./save"))
 
 
   const serverOpts = (usePort) => ({
@@ -93,6 +95,8 @@ const init = async (config) => {
     await ioServer.run()
     await db.init()
     server.db = db
+    await archiveDb.init()
+    server.archiveDb = archiveDb
     server.comData = comData
     await aiBasic.initList()
     return server

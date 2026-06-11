@@ -1,0 +1,14 @@
+{
+  "id": "terminal",
+  "name": "终端",
+  "icon": "🖥️",
+  "version": "1.0.0",
+  "description": "独立终端 App，支持 AI 直接操控",
+  "autoLoadTools": true,
+  "backend": "./backend.js",
+  "frontend": "./frontend.js",
+  "window": {
+    "width": 900,
+    "height": 600
+  }
+}

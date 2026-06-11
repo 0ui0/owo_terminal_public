@@ -41,6 +41,7 @@ export default {
       if (ioServer.io) {
         // 向前端同步基础状态
         ioServer.io.emit("project:state", { path: "", autoSave: false })
+        ioServer.io.emit("chat:refresh", { listId: 0 })
         ioServer.io.emit("notice", trs("系统/消息/操作成功"))
       }
 

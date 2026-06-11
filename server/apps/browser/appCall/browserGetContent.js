@@ -124,17 +124,17 @@ export default {
           searchRegExp = new RegExp(escapedQuery, "i")
         }
 
-        for (let i = startIdx; i < endIdx; i++) {
+        for (let i = 0; i < totalLines; i++) {
           if (searchRegExp.test(lines[i])) {
             matchIndices.push(i)
           }
         }
 
         if (matchIndices.length === 0) {
-          return `未在当前范围(第${startIdx + 1}行到第${endIdx}行)中找到关于 "${searchQuery}" 的内容。`
+          return `未在当前页面中找到关于 "${searchQuery}" 的内容。`
         }
 
-        outputLines.push(`> [!INFO] 搜索 "${searchQuery}" 找到 ${matchIndices.length} 个匹配项。记录范围内总计约 ${kbSize} 大小。`)
+        outputLines.push(`> [!INFO] 搜索 "${searchQuery}" 找到 ${matchIndices.length} 个匹配项。页面总计约 ${kbSize} 大小。`)
         const maxMatches = 10
         const contextLines = 3
         if (matchIndices.length > maxMatches) {
@@ -236,7 +236,7 @@ export default {
       clean: Joi.boolean().default(true).description("是否清除script/style"),
       startLine: Joi.number().min(-1).default(1).description("起始行 (-1为倒序，搜索时可省)"),
       endLine: Joi.number().min(1).default(999999).description("结束行 (或倒序行数，搜索时可省)"),
-      searchQuery: Joi.string().allow("").description("可选。提供关键字时将转为搜索模式，返回匹配行及上下文，并受到 startLine/endLine 的搜索范围限制。"),
+      searchQuery: Joi.string().allow("").description("可选。提供关键字时将转为搜索模式，默认在整个网页范围进行搜索，并返回匹配行及上下文。"),
       isRegex: Joi.boolean().default(false).description("可选。指示 searchQuery 是否为正则表达式 (支持普通字符串或 /pattern/flags 格式)。")
     })
   },

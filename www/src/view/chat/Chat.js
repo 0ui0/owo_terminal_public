@@ -110,6 +110,7 @@ export default () => {
               position: "absolute",
               width: "100%",
               height: "100%",
+              opacity: "70%",
               backgroundImage: "url(statics/face2.svg)",
               backgroundPosition: "right bottom",
               backgroundRepeat: "no-repeat",
