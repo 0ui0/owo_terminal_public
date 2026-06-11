@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>宅喵终端 - 仿真运行容器</title>
+  <style>
+    /* 铺满 iframe 窗口 */
+    html, body, #app {
+      padding: 0;
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #cce5ff; /* 契合软件底层大淡蓝色背景 */
+    }
+  </style>
+  <!-- 先注入 Mock 数据与 WebSocket 仿真器 -->
+  <script src="mock-api.js?v=20260602"></script>
+  <script src="socket.io.js"></script>
+  
+  <!-- 相对路径加载编译后的真实软件 main.js (已打补丁支持相对路径) -->
+  <script type="module" crossorigin src="assets/main.js"></script>
+</head>
+<body>
+  <div id="app"></div>
+</body>
+</html>
