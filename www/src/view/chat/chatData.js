@@ -54,20 +54,22 @@ export default {
     }
   ],
   chatLists: {},
+  computedLists: {},
   topChat: null,
-  chatRows: null,
-  getHistoryList() {
-    if (!this.chatRows) return []
+  getHistoryList(listId = 0) {
+    const rows = this.chatLists[listId]
+    if (!rows) return this.list
     const finalData = []
     // 反向拼装：从最旧的一页到最新的一页（第0页），且页内部翻转为旧->新
-    for (let i = this.chatRows.click; i >= 0; i--) {
-      const pageData = this.chatRows.pages[i] || []
+    for (let i = rows.click; i >= 0; i--) {
+      const pageData = rows.pages[i] || []
       const pageCopy = [...pageData].reverse()
       finalData.push(...pageCopy)
     }
+    this.computedLists[listId] = finalData
     return finalData
   },
-  initChatRows(listId) {
+  initChatLists(listId) {
     this.chatLists[listId] ??= new Rows({
       apiName: "chatMessages",
       idName: "id",
@@ -75,8 +77,6 @@ export default {
       order: "desc",
       params: { listId }
     })
-    this.chatRows = this.chatLists[listId]
-    return this.chatRows
   },
   xTerms: {},
   preparing: false,

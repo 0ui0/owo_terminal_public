@@ -37,7 +37,8 @@ export default () => {
 
   // 虚拟滚动区间计算器（带依赖缓存保护）
   function getVirtualScrollState(chatList, headerHeight) {
-    const listData = chatData.list || []
+    const listId = chatList?.id || 0
+    const listData = chatData.computedLists[listId] || chatData.list || []
     const dataLength = listData.length
     const heightsCount = Object.keys(heightsMap).length
 
@@ -76,7 +77,7 @@ export default () => {
 
     for (let i = 0; i < chatGroups.length; i++) {
       const group = chatGroups[i]
-      const itemId = group.toolCallGroupId || group.chats[0].uuid
+      const itemId = group.toolCallGroupId ? (group.toolCallGroupId + "_" + group.chats[0].uuid) : group.chats[0].uuid
       const itemHeight = heightsMap[itemId] || DEFAULT_HEIGHT
 
       if (accumulatedHeight + itemHeight < relativeScrollTop) {
@@ -96,14 +97,14 @@ export default () => {
     let topPadding = 0
     for (let i = 0; i < renderStartIndex; i++) {
       const group = chatGroups[i]
-      const itemId = group.toolCallGroupId || group.chats[0].uuid
+      const itemId = group.toolCallGroupId ? (group.toolCallGroupId + "_" + group.chats[0].uuid) : group.chats[0].uuid
       topPadding += heightsMap[itemId] || DEFAULT_HEIGHT
     }
 
     let bottomPadding = 0
     for (let i = renderEndIndex + 1; i < chatGroups.length; i++) {
       const group = chatGroups[i]
-      const itemId = group.toolCallGroupId || group.chats[0].uuid
+      const itemId = group.toolCallGroupId ? (group.toolCallGroupId + "_" + group.chats[0].uuid) : group.chats[0].uuid
       bottomPadding += heightsMap[itemId] || DEFAULT_HEIGHT
     }
 
@@ -138,12 +139,12 @@ export default () => {
       lastDataLength = 0
       isUserScrolledToBottom = true
       try {
-        chatData.initChatRows(listId)
-        await chatData.chatRows.pull()
-        chatData.list = chatData.getHistoryList()
+        chatData.initChatLists(listId)
+        await chatData.chatLists[listId].pull()
+        chatData.getHistoryList(listId)
         m.redraw()
       } catch (e) {
-        console.error("[ChatList] initChatRows failed:", e)
+        console.error("[ChatList] initChatLists failed:", e)
       }
     },
 
@@ -201,12 +202,13 @@ export default () => {
               const distToBottom = dom.scrollHeight - newScrollTop - dom.clientHeight
 
               // 触顶自动拉取上一页数据
-              if (newScrollTop === 0) {
-                if (chatData.chatRows && !chatData.chatRows.isToEnd()) {
+              if (newScrollTop === 0 && currentChatListId !== null) {
+                const rows = chatData.chatLists[currentChatListId]
+                if (rows && !rows.isToEnd()) {
                   const oldScrollHeight = dom.scrollHeight
-                  chatData.chatRows.clickFn()
-                  await chatData.chatRows.pull()
-                  chatData.list = chatData.getHistoryList()
+                  rows.clickFn()
+                  await rows.pull()
+                  chatData.getHistoryList(currentChatListId)
                   m.redraw()
                   // 补偿高度，保持相对浏览视口不动
                   requestAnimationFrame(() => {
@@ -244,9 +246,9 @@ export default () => {
               currentChatListId = listId
               lastDataLength = 0
               isUserScrolledToBottom = true
-              chatData.initChatRows(listId)
-              chatData.chatRows.pull().then(() => {
-                chatData.list = chatData.getHistoryList()
+              chatData.initChatLists(listId)
+              chatData.chatLists[listId].pull().then(() => {
+                chatData.getHistoryList(listId)
                 m.redraw()
                 requestAnimationFrame(() => {
                   dom.scrollTop = dom.scrollHeight
@@ -255,9 +257,10 @@ export default () => {
             }
 
             // 当列表增加新消息时
-            const currentDataLength = chatData.list.length
+            const listData = chatData.computedLists[currentChatListId] || chatData.list || []
+            const currentDataLength = listData.length
             if (currentDataLength > lastDataLength) {
-              const headUuid = chatData.list[0]?.uuid
+              const headUuid = listData[0]?.uuid
               const isHistoryPull = lastDataLength > 0 && headUuid !== lastChatListHeadUuid
               if (isHistoryPull) {
                 isUserScrolledToBottom = false
@@ -275,7 +278,7 @@ export default () => {
                 })
               }
             }
-            lastChatListHeadUuid = chatData.list[0]?.uuid
+            lastChatListHeadUuid = (chatData.computedLists[currentChatListId] || chatData.list || [])[0]?.uuid
 
             // 当 AI 开始回复时，会出现一个临时的 preparing 节点（流式输出/思考中框框）
             // 由于该节点不在 chatList.data 中，所以需要通过 replying 状态的变化来捕捉它
@@ -336,7 +339,7 @@ export default () => {
             // 虚拟滚动上方占位，维持滚动条行程与高度
             m("", { key: "top-spacer", style: { height: `${topPadding}px` } }),
             ...visibleGroups.map(chatGroup => {
-              const itemId = chatGroup.toolCallGroupId || chatGroup.chats[0].uuid
+              const itemId = chatGroup.toolCallGroupId ? (chatGroup.toolCallGroupId + "_" + chatGroup.chats[0].uuid) : chatGroup.chats[0].uuid
               return m("", {
                 key: itemId,
                 "data-id": itemId,

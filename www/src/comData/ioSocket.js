@@ -123,7 +123,7 @@ export default {
       const rows = chatData.chatLists[listId]
       if (rows) {
         await rows.pull()
-        chatData.list = chatData.getHistoryList()
+        chatData.getHistoryList(listId)
         m.redraw()
       }
     })
