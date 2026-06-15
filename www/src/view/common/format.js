@@ -9,6 +9,60 @@ import katex from "katex/dist/katex.min.js";
 
 import hljs from "highlight.js/lib/common";
 
+import mermaid from "mermaid";
+import commonData from "./commonData.js";
+import getColor from "./getColor.js";
+
+
+mermaid.initialize({
+  startOnLoad: false,
+  theme: 'dark',
+  securityLevel: 'loose',
+  fontFamily: 'monospace'
+});
+
+var renderTimeout = null;
+
+var scheduleRender = function () {
+  if (renderTimeout) {
+    return;
+  }
+  renderTimeout = setTimeout(function () {
+    var elements;
+    renderTimeout = null;
+    elements = document.querySelectorAll(".owo-mermaid-pending");
+    elements.forEach(function (elm) {
+      var code, id;
+      code = elm.getAttribute("data-code");
+      id = "mermaid_" + Math.random().toString(36).slice(2, 9);
+      elm.classList.remove("owo-mermaid-pending");
+      try {
+        var isDark = !(commonData.themeColor === 1 || commonData.themeColor === 2);
+        mermaid.initialize({
+          startOnLoad: false,
+          theme: isDark ? 'dark' : 'default',
+          securityLevel: 'loose',
+          fontFamily: 'monospace'
+        });
+        mermaid.render(id, code).then(function ({ svg }) {
+          elm.innerHTML = svg;
+          if (typeof m !== "undefined" && typeof m.redraw === "function") {
+            m.redraw();
+          }
+        }).catch(function (err) {
+          console.error("Mermaid 渲染失败:", err);
+          elm.innerHTML = `<pre style="color:#ff6b6b;font-size:0.9rem;white-space:pre-wrap;word-break:break-all;margin:0;">${err.message}</pre>`;
+          if (typeof m !== "undefined" && typeof m.redraw === "function") {
+            m.redraw();
+          }
+        });
+      } catch (e) {
+        console.error(e);
+      }
+    });
+  }, 50);
+};
+
 import dzCode from "./dzCode.js";
 
 import Notice from "../common/notice";
@@ -93,6 +147,47 @@ renderMD.image = function ({ href, title, text }) {
   onerror="this.src = './statics/imgError.svg'"
   />
 </span>`;
+};
+
+renderMD.code = function (arg) {
+  let codeText = "";
+  let lang = "";
+  if (arg && typeof arg === "object") {
+    codeText = arg.text || "";
+    lang = arg.lang || "";
+  } else {
+    codeText = arguments[0] || "";
+    lang = arguments[1] || "";
+  }
+
+  if (lang === "mermaid") {
+    const escapedCode = codeText
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
+
+    scheduleRender();
+
+    const color = getColor('gray_4');
+    const bg = color.back;
+    const border = `${color.front}33`;
+
+    return `<div class="owo-mermaid-pending" data-code="${escapedCode}" style="width: 100%; max-width: 100%; box-sizing: border-box; overflow: auto; background: ${bg}; padding: 1rem; border-radius: 0.8rem; border: 1px solid ${border}; margin: 1rem 0;">正在解析拓扑图...</div>`;
+  }
+
+  let highlighted = "";
+  try {
+    if (lang) {
+      highlighted = hljs.highlight(codeText, { language: lang }).value;
+    } else {
+      highlighted = hljs.highlightAuto(codeText).value;
+    }
+  } catch (e) {
+    highlighted = hljs.highlightAuto(codeText).value;
+  }
+  return `<pre><code class="language-${lang}">${highlighted}</code></pre>`;
 };
 
 marked.setOptions({

@@ -363,9 +363,9 @@ export default () => {
                 margin: "0",
                 marginRight: "0.5rem"
               },
-              onclick: async () => {
+              onclick: async (el, e, v, box_this) => {
                 await comData.data.edit((data) => {
-                  data.tokenCompressSwitch = !data.tokenCompressSwitch
+                  data.tokenCompressSwitch = box_this.data.value
                 })
               }
             }),
@@ -398,6 +398,8 @@ export default () => {
               m.redraw()
             }
           }),
+
+
           m(IconTag, {
             iconName: "Brain",
             bgColor: comData.data.get()?.thinkControl

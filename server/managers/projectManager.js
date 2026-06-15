@@ -1,6 +1,7 @@
 import fs from "fs-extra"
 import path from "path"
 import comData from "../comData/comData.js"
+import defaultComData from "../tools/defaultComData.js"
 import aiBasic from "../tools/aiAsk/basic.js"
 import appManager from "../apps/appManager.js"
 import AdmZip from "adm-zip"
@@ -271,48 +272,11 @@ class ProjectManager {
       }
     }
 
-    // 3. 构造初始数据模板 (Capture from ioServer defaults)
-    const initialData = {
-      currentModel: "",
-      sendMode: "agent",
-      call: null,
-      inputText: "",
-      chatLists: [{
-        id: 0,
-        linkid: 0,
-        replying: false,
-        streamChunks: "",
-        streamDisplayContent: "",
-        streamReasoningChunks: "",
-        confirmCmds: [],
-        stop: false,
-        tasks: [],
-        notes: [],
-        graph: { nodes: {}, links: [] }
-      }],
-      quotes: [],
-      darkMode: true,
-      faceAction: "smile",
-      playFaces: {
-        current: "",
-        list: ["待机状态", "腾空", "上下漂浮", "降落", "待机状态", "待机状态", "待机状态", "左右行走"],
-        index: 0,
-      },
-      currentTid: "",
-      toolsMode: 3,
-      targetChatListId: 0,
-      enableThinking: false,
-      thinkControl: false,
-      defaultPet: "default",
-      customCwd: "",
-      snapshots: []
-    }
-
     // 3. 执行物理重置 (改用 edit 以触发 dataSync 观察者，通知前端清空聊天列表)
     if (comData.data) {
       await comData.data.edit(d => {
         for (const key in d) if (key !== "version") delete d[key];
-        Object.assign(d, initialData);
+        Object.assign(d, defaultComData());
       })
     }
 

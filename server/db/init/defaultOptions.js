@@ -56,7 +56,7 @@ options["global_themeColor"] = {
   type: "number",
   key: "global_themeColor",
   name: "主题颜色",
-  value: 0,
+  value: 2,
   joi: function () {
     return Joi.number().valid(0, 1, 2).strict();
   }

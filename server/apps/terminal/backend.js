@@ -103,7 +103,9 @@ export default {
         }, 100)
       }
 
-      // 更新 AI 上下文
+      // 终端数据原本通过 updateAsk 实时同步到 AI 上下文，但这会导致高频的上下文缓存穿透。
+      // 现已将其注释禁用，AI 获取终端内容应统一使用 terminalGet/terminalSet 主动查询通道。
+      /*
       const updateAsk = (model) => {
         let ask = model.asks.find(a => a.tid === app.id)
         if (ask) {
@@ -130,6 +132,7 @@ export default {
       } else {
         aiBasic.list.forEach(updateAsk)
       }
+      */
 
       await checkCwd(app, shell, io)
     })

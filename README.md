@@ -2,6 +2,14 @@
 
 > **[English Edition](README_EN.md) | 简体中文版**
 
+QQ群:604927876 
+喵宅苑:
+https://iw-i.com
+https://o-o.zone
+https://o-o.space
+
+
+
 <p align="center">
   <img src="readmeImg/preview.png" width="800" />
 </p>

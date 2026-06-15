@@ -144,7 +144,8 @@ export default {
     await appManager.dispatch(termApp.id, "setToolContext", { toolCallGroupId: null, deferredFns: null })
 
     const commentSuffix = userConfirm.comment ? `。用户备注：${userConfirm.comment}` : ""
-    return `命令已发送，静默检测后(最大${waitSec}s)的最新20行最后1000字输出如下：<terminal>\n${lastLines}</terminal>${commentSuffix}`
+    const pagePrompt = "\n⚠️ 提示：如果输出内容过多被截断，你可以使用 terminalGet 工具传入相同的 appId，并通过 offset (偏移量) 与 limit 参数向上翻页查询历史被截断的输出内容。"
+    return `命令已发送，静默检测后(最大${waitSec}s)的最新20行最后1000字输出如下：<terminal>\n${lastLines}</terminal>${pagePrompt}${commentSuffix}`
   },
 
   joi() {
@@ -168,7 +169,7 @@ export default {
       | df | disk free | 磁盘 | 查看磁盘使用情况 |
       | -h | --human-readable | 人类可读格式 | 以易读的格式显示磁盘使用情况 |
       若结果发现终端未执行完毕，可以执行等待函数后重新读取终端内容
-      使用 terminalGet 工具配合 limit 可查询截断前的终端内容
+      使用 terminalGet 工具配合 offset (偏移量) 和 limit 参数可进行翻页查询，以恢复阅读截断前的终端历史内容。
     `
   }
 }
