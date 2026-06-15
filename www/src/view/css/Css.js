@@ -1,5 +1,6 @@
 import comData from "../../comData/comData"
 import xTermCss from '@xterm/xterm/css/xterm.css?raw'
+import abcjsAudioCss from 'abcjs/abcjs-audio.css?raw'
 import getColor from "../common/getColor.js"
 
 export default function () {
@@ -474,6 +475,12 @@ export default function () {
         }
 
         ${xTermCss}
+
+        .abcjs-note_selected {
+          fill: ${getColor('pink_1').back} !important;
+        }
+
+        ${abcjsAudioCss}
 
       `)
     }
