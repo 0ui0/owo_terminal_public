@@ -28,7 +28,11 @@ async function createShell(cwd) {
   if (!shellChoice?.trim()) {
     shellChoice = process.platform === "win32" ? "powershell.exe" : "bash"
   }
-  return spawn(shellChoice, [], {
+  const args = []
+  if (process.platform === "darwin" || process.platform === "linux") {
+    args.push("-l")
+  }
+  return spawn(shellChoice, args, {
     name: "xterm-256color",
     env: { LANG: "zh_CN.UTF-8", ...process.env },
     cwd: cwd ?? pathLib.resolve(process.cwd(), "..", "aiWork")

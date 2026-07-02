@@ -28,14 +28,10 @@ export default {
     const defaultCwd = pathLib.resolve(process.cwd(), "..", "aiWork")
     let targetCwd = customCwd || defaultCwd
 
-    if (appId && appId !== "-1") {
-      const targetApp = appManager.get(appId)
-      if (targetApp) {
-        const session = terminalBackend.getSession(targetApp.id)
-        targetCwd = session?.cwd || targetApp.data.cwd || defaultCwd
-      }
-    } else {
-      // 探测是否有属于当前会话的空闲终端
+    if (appId === "-1") {
+      // 强制新建模式，使用当前 customCwd 或 defaultCwd，不探测复用目录
+    } else if (!appId) {
+      // 智能复用模式下，探测是否有属于当前会话的空闲终端以计算 targetCwd
       const idleTerm = [...appManager.apps.values()].find((a) => {
         if (a.type !== "terminal" || a.data.listId !== currentListId) return false
         const session = terminalBackend.getSession(a.id)
@@ -46,6 +42,13 @@ export default {
       })
       if (idleTerm) {
         targetCwd = idleTerm.data.cwd || defaultCwd
+      }
+    } else {
+      // 指定 appId 模式
+      const targetApp = appManager.get(appId)
+      if (targetApp) {
+        const session = terminalBackend.getSession(targetApp.id)
+        targetCwd = session?.cwd || targetApp.data.cwd || defaultCwd
       }
     }
 
@@ -63,8 +66,21 @@ export default {
 
     let termApp = null
 
-    if (!appId || appId === "-1") {
-      // 探测是否有属于当前会话的空闲终端进行复用
+    if (appId === "-1") {
+      // 强制新建终端
+      const launchRes = await appManager.launch("terminal", {
+        data: {
+          cwd: customCwd,
+          listId: currentListId,
+          toolCallGroupId,
+          deferredFns
+        }
+      })
+      if (!launchRes?.ok) return `启动终端失败: ${launchRes?.msg || "未知错误"}`
+      termApp = launchRes.app
+      await new Promise(res => setTimeout(res, 1000))
+    } else if (!appId) {
+      // 探测是否有属于当前会话的空闲终端进行复用（智能复用）
       const idleTerm = [...appManager.apps.values()].find((a) => {
         if (a.type !== "terminal" || a.data.listId !== currentListId) return false
         const session = terminalBackend.getSession(a.id)
@@ -93,9 +109,10 @@ export default {
         await new Promise(res => setTimeout(res, 1000))
       }
     } else {
+      // 指定 appId
       termApp = appManager.get(appId)
       if (!termApp) return `未找到 appId 为 ${appId} 的终端`
-      // 只能操作属于自己列表的终端
+      // 只能操作属于自己列表 of 终端
       if (termApp.data.listId !== currentListId) {
         return "权限不足：该终端不属于当前智能体会话列表。"
       }
@@ -150,7 +167,7 @@ export default {
 
   joi() {
     return Joi.object({
-      appId: Joi.string().allow("-1", "").description("终端 appId，值为 -1 或留空则新建终端"),
+      appId: Joi.string().allow("-1", "").description("终端 appId。值为 '-1' 则强制完全新建终端；留空则优先智能复用空闲终端，找不到空闲终端才新建。"),
       command: Joi.string().required().description("执行命令"),
       waitSec: Joi.number().default(10).description("最大等待秒数，默认10（静默3秒无输出会提前返回）"),
       argsDesc: Joi.string().required().description("必填，终端命令用途和参数说明（Markdown表格格式）")

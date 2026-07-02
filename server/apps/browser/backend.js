@@ -40,6 +40,26 @@ export default {
   // 后端可以处理某些 dispatch（主要是状态同步）
   async dispatch({ app, action, args, appManager, io }) {
     switch (action) {
+      case "toggleDevTools":
+        const { mainWebContentsId } = args
+        try {
+          if (mainWebContentsId) {
+            const mainContents = electron.webContents.fromId(mainWebContentsId)
+            if (!mainContents) return { ok: false, msg: "未找到对应的 WebContents 实例" }
+            
+            if (mainContents.isDevToolsOpened()) {
+              mainContents.closeDevTools()
+              return { ok: true, msg: "DevTools 已关闭" }
+            } else {
+              mainContents.openDevTools({ mode: 'detach' })
+              return { ok: true, msg: "DevTools 开启成功" }
+            }
+          }
+          return { ok: false, msg: "缺少 mainWebContentsId" }
+        } catch (err) {
+          return { ok: false, msg: `DevTools 操作失败: ${err.message}` }
+        }
+
       case "updateState":
         // 前端同步状态到后端
         if (args.url) app.data.url = args.url

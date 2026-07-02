@@ -144,6 +144,6 @@ export default {
   },
 
   getDoc() {
-    return `检索并阅读学习技能。建议先阅读`.trim()
+    return `检索并学习项目中 owo_skills 目录下的内置专家技能规约 (Skills)。`.trim()
   }
 }

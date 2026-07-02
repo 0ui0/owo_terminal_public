@@ -400,6 +400,34 @@ export default ({ appId, m, Notice, ioSocket, settingData, comData, commonData, 
             }
           }, m.trust(iconPark.getIcon("Refresh", { fill: getColor("gray_3").front, size: "18px" }))),
 
+          // 开发者工具按钮 (原生弹窗模式)
+          m("button", {
+            type: "button",
+            style: {
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              width: "30px",
+              height: "30px",
+              padding: "0",
+              background: "transparent",
+              border: "none",
+              cursor: "pointer"
+            },
+            onclick() {
+              if (webview) {
+                try {
+                  const mainId = webview.getWebContentsId()
+                  settingData.fnCall("appDispatch", [appId, "toggleDevTools", {
+                    mainWebContentsId: mainId
+                  }])
+                } catch (err) {
+                  console.error("[DevTools] 操作控制台失败:", err)
+                }
+              }
+            }
+          }, m.trust(iconPark.getIcon("Code", { fill: getColor("gray_3").front, size: "18px" }))),
+
           m("input", {
             style: {
               flex: 1,
