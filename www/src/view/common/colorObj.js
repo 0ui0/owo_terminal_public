@@ -1,11 +1,11 @@
 export default {
-  main: { back: "#755d5c", front: "#333333" },
+  main: { back: "#836766ff", front: "#340101ff" },
 
   pink_1: { back: "#a75e5e", front: "#463838" },
   pink_2: { back: "#8e6c8e", front: "#eee" },
 
   gray_1: { back: "#393432", front: "#eee" },
-  gray_2: { back: "#636363", front: "#333333" },
+  gray_2: { back: "#7a7a7a", front: "#333333" },
   gray_3: { back: "#2d2d2d", front: "#eee" },
   gray_4: { back: "#47464f", front: "#999" }, //菜单背景色等
   gray_5: { back: "#4f4f5a", front: "#eee" },
@@ -21,7 +21,7 @@ export default {
   brown_1: { back: "#332f2c", front: "#999" },
   brown_2: { back: "#5e5653", front: "#eee" },
   brown_3: { back: "#47413c", front: "#eee" },
-  brown_4: { back: "#393431", front: "#eee" },
+  brown_4: { back: "#6b615b", front: "#eee" },
 
   brown_5: { back: "#3a3535", front: "#999" },
 
@@ -45,6 +45,9 @@ export default {
   工具组成功边框: "#50815b",
   工具组失败边框: "#ff6b6b",
   工具组文字颜色: "#999",
+
+  右上角按钮背景: "#5c4746",
+  右上角按钮文字: "#ffebe8",
 
   确认框背景: "#2b292aee",
   确认框文字: "#eeeeee55",

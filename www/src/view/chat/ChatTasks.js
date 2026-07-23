@@ -2,6 +2,7 @@ import { trs } from "../common/i18n.js"
 import getColor from "../common/getColor.js"
 import Notice from "../common/notice.js"
 import ChatNote from "./ChatNote.js"
+import Tag from "../common/tag.js"
 
 export default () => {
   let expanded = false;
@@ -103,14 +104,14 @@ export default () => {
           style: {
             padding: "0.25rem 0.6rem 0.25rem 0.4rem",
             borderRadius: "2rem",
-            background: getColor('main').back + 'dd',
+            background: getColor('右上角按钮背景') + 'dd',
             backdropFilter: "blur(12px)",
             boxShadow: "0 4px 15px rgba(0,0,0,0.2)",
             cursor: "pointer",
             display: "flex",
             alignItems: "center",
             gap: "0.5rem",
-            border: `0.1rem solid ${getColor('main').front + '33'}`,
+            border: `0.1rem solid ${getColor('右上角按钮文字') + '33'}`,
             width: "fit-content",
             maxWidth: "100%",
           },
@@ -120,14 +121,14 @@ export default () => {
           }
         }, [
           m.trust(window.iconPark.getIcon(expanded ? "DocDetail" : "LoadingThree", {
-            fill: getColor('main').front,
+            fill: getColor('右上角按钮文字'),
             size: "1.1rem",
             spin: !expanded
           })),
           m("span", {
             style: {
               fontSize: "0.85rem",
-              color: getColor('main').front,
+              color: getColor('右上角按钮文字'),
               fontWeight: "600",
               maxWidth: "8rem",
               overflow: "hidden",
@@ -138,8 +139,8 @@ export default () => {
           m(".progress-pill", {
             style: {
               padding: "0.1rem 0.5rem",
-              background: getColor('main').front,
-              color: getColor('main').back,
+              background: getColor('右上角按钮文字'),
+              color: getColor('右上角按钮背景'),
               borderRadius: "1rem",
               fontSize: "0.75rem",
               fontWeight: "900",
@@ -149,39 +150,35 @@ export default () => {
         ]) : null,
 
         // 笔记按钮 (当有笔记历史或有网点图时显示)
-        (notes.length > 0 || hasGraph) ? m(".note-capsule", {
-          style: {
+        (notes.length > 0 || hasGraph) ? m(Tag, {
+          isBtn: true,
+          styleExt: {
+            background: getColor('右上角按钮背景'),
+            color: getColor('右上角按钮文字'),
             marginTop: "0.4rem",
-            padding: "0.25rem 0.6rem 0.25rem 0.4rem", // Match task-capsule padding
-            borderRadius: "2rem",
-            background: getColor('main').back + 'dd',
-            backdropFilter: "blur(12px)",
-            boxShadow: "0 4px 15px rgba(0,0,0,0.2)",
-            cursor: "pointer",
-            display: "flex",
-            alignItems: "center",
-            gap: "0.5rem",
-            border: `0.1rem solid ${getColor('main').front + '33'}`,
             width: "fit-content",
             animation: "fadeIn 0.5s ease",
-            color: getColor('main').front
+            display: "inline-flex",
+            alignItems: "center"
           },
-          onclick: (e) => {
-            e.stopPropagation();
-            Notice.launch({
-              title: trs("组件/笔记/标题", { cn: "结构化笔记", en: "Structured Note" }),
-              content: {
-                view: () => m(ChatNote, { notes, graph: chatList.graph })
-              }
-            });
+          ext: {
+            onclick: (e) => {
+              e.stopPropagation();
+              Notice.launch({
+                title: trs("组件/笔记/标题", { cn: "结构化笔记", en: "Structured Note" }),
+                content: {
+                  view: () => m(ChatNote, { notes, graph: chatList.graph })
+                }
+              });
+            }
           }
         }, [
-          m.trust(window.iconPark.getIcon("Notes", { size: "1.1rem", fill: getColor('main').front })),
+          m.trust(window.iconPark.getIcon("Notes", { size: "1.1rem", fill: "currentColor" })),
           m("span", {
             style: {
               fontSize: "0.85rem",
-              color: getColor('main').front,
-              fontWeight: "600"
+              fontWeight: "600",
+              marginLeft: "0.3rem"
             }
           }, trs("组件/笔记/查看", { cn: "查看笔记", en: "View Note" }))
         ]) : null,

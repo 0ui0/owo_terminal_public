@@ -296,6 +296,24 @@ export default {
     })
   },
 
+  oncreate: function () {
+    this.pointerdownHandler = (e) => {
+      if (this.data.activeWindowId !== null) {
+        if (!e.target.closest(".owo-notice-box") && !e.target.closest(".window-box")) {
+          this.data.activeWindowId = null
+          m.redraw()
+        }
+      }
+    }
+    document.addEventListener("pointerdown", this.pointerdownHandler)
+  },
+
+  onremove: function () {
+    if (this.pointerdownHandler) {
+      document.removeEventListener("pointerdown", this.pointerdownHandler)
+    }
+  },
+
   view: function () {
     // 动态聚合：将扁平的 dataArr 按照 _winConfig 聚合成虚拟窗口进行渲染
 
@@ -327,6 +345,7 @@ export default {
         key: config.id,
         windowData: config,
         tabs: tabs, // 将 tabs 传递给 NBox
+        isActiveWindow: config.id === this.data.activeWindowId,
 
         onActivate: () => this.activateWindow(config.id),
         onCloseWindow: () => {

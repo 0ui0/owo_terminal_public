@@ -59,13 +59,54 @@ export default {
   getHistoryList(listId = 0) {
     const rows = this.chatLists[listId]
     if (!rows) return this.list
-    const finalData = []
-    // 反向拼装：从最旧的一页到最新的一页（第0页），且页内部翻转为旧->新
-    for (let i = rows.click; i >= 0; i--) {
-      const pageData = rows.pages[i] || []
-      const pageCopy = [...pageData].reverse()
-      finalData.push(...pageCopy)
+    // 如果尚未获取过总数，回退到普通拼接逻辑
+    if (rows.allCount === null) {
+      const finalData = []
+      for (let i = rows.click; i >= 0; i--) {
+        const pageData = rows.pages[i] || []
+        const pageCopy = [...pageData].reverse()
+        finalData.push(...pageCopy)
+      }
+      this.computedLists[listId] = finalData
+      return finalData
     }
+
+    // 全量占位数组构建
+    const allCount = rows.allCount
+    const limit = rows.limit
+    const finalData = new Array(allCount)
+
+    // 把已经加载的页填入指定位置
+    for (const pageIndexStr in rows.pages) {
+      const pageIndex = Number(pageIndexStr)
+      const pageData = rows.pages[pageIndex]
+      if (!pageData || pageData.length === 0) continue
+
+      const offset = pageIndex * limit
+      const pageCopy = [...pageData].reverse()
+      const startIndex = allCount - offset - pageCopy.length
+      
+      if (startIndex >= 0 && startIndex + pageCopy.length <= allCount) {
+        for (let j = 0; j < pageCopy.length; j++) {
+          finalData[startIndex + j] = pageCopy[j]
+        }
+      }
+    }
+
+    // 将未填充的插槽补上占位符
+    for (let i = 0; i < allCount; i++) {
+      if (finalData[i] === undefined) {
+        const reverseIndex = allCount - 1 - i
+        const pageIndex = Math.floor(reverseIndex / limit)
+        finalData[i] = {
+          uuid: 'placeholder_' + listId + '_' + i,
+          isPlaceholder: true,
+          pageIndex: pageIndex,
+          group: "placeholder"
+        }
+      }
+    }
+
     this.computedLists[listId] = finalData
     return finalData
   },

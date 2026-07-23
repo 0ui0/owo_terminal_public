@@ -13,7 +13,7 @@ export default {
     if (error) {
       return "错误：" + error.details[0].message
     }
-    let { filePath, content, overwrite } = value
+    let { filePath, content, overwrite, reason } = value
 
     // 1. Resolve Path
     const comData = (await import("../../../comData/comData.js")).default
@@ -58,7 +58,7 @@ export default {
       id: confirmId,
       type: "tip",
       title: title,
-      content: exists ? "检测到文件已存在，请在编辑器中核对差异并批准覆盖。" : "即将创建新文件，请在编辑器中核对预览内容并批准。",
+      content: `${reason}\n\n${exists ? "检测到文件已存在，请在编辑器中核对差异并批准覆盖。" : "即将创建新文件，请在编辑器中核对预览内容并批准。"}`,
       listId: argObj.listId || 0
     })
 
@@ -81,6 +81,7 @@ export default {
   joi() {
     return Joi.object({
       filePath: Joi.string().required().description("文件路径（支持相对当前工作目录的路径）"),
+      reason: Joi.string().required().description("编辑理由，格式为：我将编辑___来为了___（写理由）"),
       content: Joi.string().required().description("要写入的完整文件内容"),
       overwrite: Joi.boolean().default(false).description("如果文件存在，是否允许覆盖")
     })

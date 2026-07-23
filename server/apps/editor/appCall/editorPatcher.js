@@ -14,7 +14,7 @@ export default {
       return "错误：" + error.details[0].message
     }
 
-    const { appId, action, content, target, replace } = value
+    const { appId, action, content, target, replace, reason } = value
 
     // 1. 获取当前内容
     const appRes = await appManager.dispatch(appId, "getContent")
@@ -40,7 +40,7 @@ export default {
       id: confirmId,
       type: "tip",
       title: trs("editorPatcher/核对内容变更标题", { cn: "核对内容变更", en: "Check Content Change" }),
-      content: trs("editorPatcher/核对内容变更正文", { cn: "请核对 AI 提议的修改并在编辑器中批准/拒绝", en: "Please check the AI proposed changes and approve/reject in the editor" }),
+      content: `${reason}\n\n` + trs("editorPatcher/核对内容变更正文", { cn: "请核对 AI 提议的修改并在编辑器中批准/拒绝", en: "Please check the AI proposed changes and approve/reject in the editor" }),
       listId: argObj.listId || 0
     })
 
@@ -68,6 +68,7 @@ export default {
   joi() {
     return Joi.object({
       appId: Joi.string().required().description("编辑器实例 ID"),
+      reason: Joi.string().required().description("编辑理由，格式为：我将编辑___来为了___（写理由）"),
       action: Joi.string().valid("write", "patch").required().description("操作类型: write(全量) 或 patch(增量)"),
       content: Joi.string().when("action", { is: "write", then: Joi.required() }).description("全量写入的内容"),
       target: Joi.string().when("action", { is: "patch", then: Joi.required() }).description("要被替换的片段"),

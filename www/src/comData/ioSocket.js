@@ -10,10 +10,13 @@ import settingData from "../view/setting/settingData.js"
 import format from "../view/common/format.js"
 import { trs } from "../view/common/i18n.js"
 import getColor from "../view/common/getColor.js"
+import Menu from "../view/common/menu.js"
+import Tip from "../view/common/tip.js"
 import jsonpatch from "fast-json-patch"
 import _ from "lodash"
 import { Terminal } from "@xterm/xterm"
 import { FitAddon } from "@xterm/addon-fit"
+import { v4 as uuidv4 } from "uuid"
 const { applyPatch } = jsonpatch
 
 export default {
@@ -152,7 +155,7 @@ export default {
         let component = module.default
         if (typeof component === "function") {
           // 参数注入模式
-          component = component({ appId: msg.appId, m, Notice, ioSocket: this, comData, commonData, chatData, settingData, format, Box, Tag, iconPark: window.iconPark, getColor, trs, Terminal, FitAddon })
+          component = component({ appId: msg.appId, m, Notice, ioSocket: this, comData, commonData, chatData, settingData, format, Box, Tag, iconPark: window.iconPark, getColor, trs, Terminal, FitAddon, Menu, Tip, uuid: uuidv4 })
         }
         // Window Management: Resolve Geometry
         const saved = msg.data && msg.data.window

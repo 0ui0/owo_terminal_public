@@ -14,7 +14,7 @@ export default function (colorStr) {
       pink_1: { back: "#ff8585", front: "#FFFFFF" },  // 活力珊瑚红 (发送按钮)
       pink_2: { back: "#FFCE54", front: "#333" },     // [raw] 标签 (正黄色)
       gray_1: { back: "#fff3dd", front: "#000000" },   // 全局背景 (浅蓝) / 文字调至纯黑补偿 + '55'
-      gray_2: { back: "#BDC3C7", front: "#333" },
+      gray_2: { back: "#D2D2CA", front: "#333" },
       gray_3: { back: "#f5f3dc", front: "#2C3E50" },   // 侧边栏 (海洋浅蓝)
       gray_4: { back: "#f5f2e1", front: "#2C3E50" },   // 容器背景 (浅蓝灰)
       gray_5: { back: "#6C99C6", front: "#FFFFFF" },   // 列表页眉
@@ -41,6 +41,8 @@ export default function (colorStr) {
       工具组成功边框: "#5bb15a",
       工具组失败背景: "#ece1e1",
       工具组文字颜色: "#555555",
+      右上角按钮背景: "#fbe598",
+      右上角按钮文字: "#4a3d13",
       确认框背景: "#fffcffee",
       确认框文字: "#33333355",
       确认框标题: "#333",
@@ -63,7 +65,7 @@ export default function (colorStr) {
       pink_1: { back: "#ff8585", front: "#FFFFFF" },  // 活力珊瑚红 (发送按钮)
       pink_2: { back: "#FFCE54", front: "#333" },     // [raw] 标签 (正黄色)
       gray_1: { back: "#DDEEFF", front: "#000000" },   // 全局背景 (浅蓝) / 文字调至纯黑补偿 + '55'
-      gray_2: { back: "#BDC3C7", front: "#333" },
+      gray_2: { back: "#CAD5E2", front: "#333" },
       gray_3: { back: "#DCE9F5", front: "#2C3E50" },   // 侧边栏 (海洋浅蓝)
       gray_4: { back: "#ffffff", front: "#2C3E50" },   // 容器背景 (浅蓝灰)
       gray_5: { back: "#6C99C6", front: "#FFFFFF" },   // 列表页眉
@@ -92,6 +94,8 @@ export default function (colorStr) {
       工具组成功边框: "#5bb15a",
       工具组失败背景: "#ece1e1",
       工具组文字颜色: "#555555",
+      右上角按钮背景: "#cde3fc",
+      右上角按钮文字: "#1d5791",
       确认框背景: "#fffcffee",
       确认框文字: "#33333355",
       确认框标题: "#333",

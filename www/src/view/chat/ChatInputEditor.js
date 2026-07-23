@@ -681,8 +681,7 @@ export default () => {
             // 左侧：字数统计
             m(".char-counter", {
               style: {
-                color: getColor('gray_6').front,
-                opacity: 0.8
+                color: getColor('pink_2').front,
               }
             }, trs("输入框/字数", { cn: `${charCount} 字`, en: `${charCount} words` })),
             // 右侧：功能按钮区
@@ -805,7 +804,7 @@ export default () => {
           }
           .chat-input-editor:empty:before {
             content: attr(placeholder);
-            color: ${getColor('gray_6').front};
+            color: ${getColor('pink_2').front};
             cursor: text;
           }
           .editor-tag {

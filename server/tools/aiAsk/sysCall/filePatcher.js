@@ -14,7 +14,7 @@ export default {
     if (error) {
       return "错误：" + error.details[0].message
     }
-    let { path, target, replace, allowMultiple, startLine, endLine } = value
+    let { path, target, replace, allowMultiple, startLine, endLine, reason } = value
 
     const comData = (await import("../../../comData/comData.js")).default
     const cwd = comData.data.get()?.customCwd || process.cwd()
@@ -143,7 +143,7 @@ export default {
         id: confirmId,
         type: "tip",
         title: `核对代码变更: ${pathLib.basename(path)}`,
-        content: trs("工具/提示/请在编辑器中核核对代码", { cn: "请在编辑器中核对代码并批准/拒绝修改", en: "Please review the code in the editor and approve/reject changes" }),
+        content: `${reason}\n\n` + trs("工具/提示/请在编辑器中核核对代码", { cn: "请在编辑器中核对代码并批准/拒绝修改", en: "Please review the code in the editor and approve/reject changes" }),
         listId: metaData?.listId || 0
       })
 
@@ -169,6 +169,7 @@ export default {
   joi() {
     return Joi.object({
       path: Joi.string().required().description("文件绝对路径或相对项目根目录的路径"),
+      reason: Joi.string().required().description("编辑理由，格式为：我将编辑___来为了___（写理由）"),
       target: Joi.string().description("【精准匹配】需要被替换的源代码片段。如果不提供 startLine/endLine，则必须提供此参数。"),
       startLine: Joi.number().description("需要替换的起始行号(包含)。如果要进行大段代码编辑或遭遇文件物理截断，强烈建议使用基于行号范围的替换机制而非target文本匹配。"),
       endLine: Joi.number().description("需要替换的结束行号(包含)。如果提供，将配合 startLine 替换整段行。"),

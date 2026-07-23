@@ -13,7 +13,15 @@ import ChatTasks from "./ChatTasks.js"
 export default () => {
   // 实例闭包私有变量
   const heightsMap = {}
-  const DEFAULT_HEIGHT = 150
+  const fetchingPages = new Set() // 追踪正在获取的页面
+
+  // 动态平均高度估算（Dynamic Average Height Estimator）
+  let totalMeasuredHeight = 0
+  let measuredCount = 0
+  function getEstimatedHeight() {
+    return measuredCount > 0 ? Math.max(50, Math.floor(totalMeasuredHeight / measuredCount)) : 50
+  }
+
   const BUFFER_ITEMS = 5
 
   let scrollTop = 0
@@ -28,6 +36,7 @@ export default () => {
   let lastReplyingState = false
   let listDom = null
   let isHovered = false
+  let isHoveredTop = false
   let lastProgrammaticScrollTime = 0
   let lastChatListHeadUuid = null
 
@@ -78,7 +87,7 @@ export default () => {
     for (let i = 0; i < chatGroups.length; i++) {
       const group = chatGroups[i]
       const itemId = group.toolCallGroupId ? (group.toolCallGroupId + "_" + group.chats[0].uuid) : group.chats[0].uuid
-      const itemHeight = heightsMap[itemId] || DEFAULT_HEIGHT
+      const itemHeight = heightsMap[itemId] || getEstimatedHeight()
 
       if (accumulatedHeight + itemHeight < relativeScrollTop) {
         startIndex = i + 1
@@ -98,17 +107,47 @@ export default () => {
     for (let i = 0; i < renderStartIndex; i++) {
       const group = chatGroups[i]
       const itemId = group.toolCallGroupId ? (group.toolCallGroupId + "_" + group.chats[0].uuid) : group.chats[0].uuid
-      topPadding += heightsMap[itemId] || DEFAULT_HEIGHT
+      topPadding += heightsMap[itemId] || getEstimatedHeight()
     }
 
     let bottomPadding = 0
     for (let i = renderEndIndex + 1; i < chatGroups.length; i++) {
       const group = chatGroups[i]
       const itemId = group.toolCallGroupId ? (group.toolCallGroupId + "_" + group.chats[0].uuid) : group.chats[0].uuid
-      bottomPadding += heightsMap[itemId] || DEFAULT_HEIGHT
+      bottomPadding += heightsMap[itemId] || getEstimatedHeight()
     }
 
     const visibleGroups = chatGroups.slice(renderStartIndex, renderEndIndex + 1)
+
+    // 5. 自动嗅探需要拉取的页面占位符
+    const pagesToLoad = new Set()
+    visibleGroups.forEach(group => {
+      const chat = group.chats[0]
+      if (chat.isPlaceholder && chat.pageIndex !== undefined) {
+        pagesToLoad.add(chat.pageIndex)
+      }
+    })
+
+    pagesToLoad.forEach(pageIndex => {
+      if (!fetchingPages.has(pageIndex)) {
+        fetchingPages.add(pageIndex)
+        // 使用 setTimeout 避免在渲染循环中直接发请求阻塞UI
+        setTimeout(async () => {
+          try {
+            const rows = chatData.chatLists[listId]
+            if (rows) {
+              await rows.pull(pageIndex)
+              chatData.getHistoryList(listId)
+              m.redraw()
+            }
+          } catch (err) {
+            console.error("Failed to fetch page", pageIndex, err)
+          } finally {
+            fetchingPages.delete(pageIndex)
+          }
+        }, 0)
+      }
+    })
 
     // 写入缓存
     lastCacheKey = cacheKey
@@ -125,6 +164,13 @@ export default () => {
           const id = entry.target.getAttribute("data-id")
           const newHeight = entry.target.offsetHeight
           if (newHeight > 0 && heightsMap[id] !== newHeight) {
+            const oldHeight = heightsMap[id]
+            if (oldHeight !== undefined) {
+              totalMeasuredHeight += (newHeight - oldHeight)
+            } else {
+              totalMeasuredHeight += newHeight
+              measuredCount++
+            }
             heightsMap[id] = newHeight
             changed = true
           }
@@ -170,19 +216,22 @@ export default () => {
           borderRadius: "3rem",
           background: getColor('gray_4').back + '99',
           border: `0.1rem solid ${getColor('main').back}`,
+          position: "relative",
           height: "100%",
           width: "100%",
-          display: "grid",
-          gridTemplateColumns: "1fr",
           overflow: "hidden",
-          position: "relative",
         }
       }, [
-        m(`#chatList_${chatList?.id || 0}.chatList`, {
+        m("style", `
+          .chatList::-webkit-scrollbar-thumb {
+            min-height: 24px;
+          }
+        `),
+        m(".chatList", {
           style: {
             height: "100%",
+            width: "100%",
             overflowY: "auto",
-            position: "relative",
           },
           oncreate(scrollVnode) {
             listDom = scrollVnode.dom
@@ -218,13 +267,11 @@ export default () => {
               }
 
               // 判断滚动方向：
-              // 只要向上滚动，立即解除置底锁定，避免用户被吸附在底部（摆脱 250px 的引力井）
               if (newScrollTop < scrollTop - 1) {
                 if (Date.now() - lastProgrammaticScrollTime > 300) {
                   isUserScrolledToBottom = false
                 }
               }
-              // 如果向下滚动，只要触底就恢复 true；如果没触底（可能是由于程序强制置底但由于高度再次突增导致没贴到底），则保持原状态
               else if (newScrollTop > scrollTop + 1) {
                 if (distToBottom < 250) {
                   isUserScrolledToBottom = true
@@ -271,7 +318,6 @@ export default () => {
             } else if (currentDataLength < lastDataLength) {
               lastDataLength = currentDataLength
               if (isUserScrolledToBottom) {
-                // 撤销导致消息变少时，且用户本来就在底部，则强锁时间戳并异步重新置底，防止浏览器自动回弹触发滚动事件误判
                 lastProgrammaticScrollTime = Date.now()
                 requestAnimationFrame(() => {
                   if (dom) dom.scrollTop = dom.scrollHeight
@@ -280,8 +326,6 @@ export default () => {
             }
             lastChatListHeadUuid = (chatData.computedLists[currentChatListId] || chatData.list || [])[0]?.uuid
 
-            // 当 AI 开始回复时，会出现一个临时的 preparing 节点（流式输出/思考中框框）
-            // 由于该节点不在 chatList.data 中，所以需要通过 replying 状态的变化来捕捉它
             const isReplying = chatList?.replying || false
             if (isReplying && !lastReplyingState) {
               isUserScrolledToBottom = true
@@ -325,7 +369,6 @@ export default () => {
               } else {
                 await comData.data.edit(() => { })
                 await comData.pullData()
-                console.log("chatLists", comData.data.get().chatLists)
               }
             },
           }, [
@@ -336,7 +379,7 @@ export default () => {
 
           // 核心消息流（应用虚拟滚动）
           m("", [
-            // 虚拟滚动上方占位，维持滚动条行程与高度
+            // 虚拟滚动上方占位
             m("", { key: "top-spacer", style: { height: `${topPadding}px` } }),
             ...visibleGroups.map(chatGroup => {
               const itemId = chatGroup.toolCallGroupId ? (chatGroup.toolCallGroupId + "_" + chatGroup.chats[0].uuid) : chatGroup.chats[0].uuid
@@ -352,13 +395,27 @@ export default () => {
               }, [
                 chatGroup.toolCallGroupId ?
                   m(ToolCallGroup, { key: chatGroup.toolCallGroupId, chats: chatGroup.chats }) :
-                  m(ChatItem, {
-                    key: chatGroup.chats[0].uuid,
-                    chat: chatGroup.chats[0],
-                  })
+                  chatGroup.chats[0].isPlaceholder ?
+                    m(".placeholder-skeleton", {
+                      style: {
+                        height: getEstimatedHeight() + "px",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        color: getColor('main').front + '55',
+                        fontSize: "0.8rem",
+                        animation: "pulse 1.5s infinite"
+                      }
+                    }, "Loading...") :
+                    chatGroup.chats.map((chat) =>
+                      chat.tool_calls ? null : m(ChatItem, {
+                        key: chat.uuid,
+                        chat,
+                      })
+                    )
               ])
             }),
-            // 虚拟滚动下方占位，维持滚动条行程与高度
+            // 虚拟滚动下方占位
             m("", { key: "bottom-spacer", style: { height: `${bottomPadding}px` } }),
           ]),
 
@@ -382,7 +439,7 @@ export default () => {
           })
         ]),
 
-        // 回到底部按钮（当用户向上滚动脱离置底状态时显示）
+        // 回到底部按钮
         !isUserScrolledToBottom ? m(".back-to-bottom", {
           style: {
             position: "absolute",
@@ -392,8 +449,8 @@ export default () => {
             height: "2.4rem",
             borderRadius: "50%",
             zIndex: 100,
-            background: isHovered ? getColor('main').back + "b0" : getColor('main').back + "80",
-            color: getColor('main').front,
+            background: isHovered ? getColor('右上角按钮背景') + "ee" : getColor('右上角按钮背景') + "cc",
+            color: getColor('右上角按钮文字'),
             cursor: "pointer",
             display: "flex",
             alignItems: "center",
@@ -401,15 +458,11 @@ export default () => {
             boxShadow: "0 4px 10px rgba(0,0,0,0.15)",
             animation: "fadeIn 0.2s ease",
             backdropFilter: "blur(8px)",
-            border: `0.1rem solid ${getColor('main').front + '22'}`,
+            border: `0.1rem solid ${getColor('右上角按钮文字') + '22'}`,
             transition: "all 0.2s ease",
           },
-          onmouseenter() {
-            isHovered = true
-          },
-          onmouseleave() {
-            isHovered = false
-          },
+          onmouseenter() { isHovered = true },
+          onmouseleave() { isHovered = false },
           onclick() {
             isUserScrolledToBottom = true
             isHovered = false
@@ -419,7 +472,41 @@ export default () => {
             }
           }
         }, [
-          m.trust(window.iconPark.getIcon("Down", { size: "1.2rem", fill: getColor('main').front }))
+          m.trust(window.iconPark.getIcon("Down", { size: "1.2rem", fill: getColor('右上角按钮文字') }))
+        ]) : null,
+
+        // 回到顶部按钮
+        scrollTop > 200 ? m(".back-to-top", {
+          style: {
+            position: "absolute",
+            bottom: "4.5rem",
+            right: "1.7rem",
+            width: "2.0rem",
+            height: "2.0rem",
+            borderRadius: "50%",
+            zIndex: 100,
+            background: isHoveredTop ? getColor('右上角按钮背景') + "ee" : getColor('右上角按钮背景') + "cc",
+            color: getColor('右上角按钮文字'),
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            boxShadow: "0 4px 10px rgba(0,0,0,0.15)",
+            animation: "fadeIn 0.2s ease",
+            backdropFilter: "blur(8px)",
+            border: `0.1rem solid ${getColor('右上角按钮文字') + '22'}`,
+            transition: "all 0.2s ease",
+          },
+          onmouseenter: () => { isHoveredTop = true },
+          onmouseleave: () => { isHoveredTop = false },
+          onclick: async (e) => {
+            e.stopPropagation()
+            if (listDom) {
+              listDom.scrollTop = 0
+            }
+          }
+        }, [
+          m.trust(window.iconPark.getIcon("Up", { size: "1.0rem", fill: getColor('右上角按钮文字') }))
         ]) : null,
 
 

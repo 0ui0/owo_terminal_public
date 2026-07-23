@@ -384,7 +384,7 @@ export default () => {
               width: "1.2rem",
               height: "1.2rem",
               borderRadius: "50%",
-              background: comData.data.get()?.thinkControl ? getColor('yellow_1').back : getColor('gray_4').back,
+              background: comData.data.get()?.thinkControl ? getColor('yellow_1').back : getColor('gray_8').back,
               marginRight: "0.5rem",
               cursor: "pointer",
               transition: "all 0.3s ease",
@@ -404,10 +404,10 @@ export default () => {
             iconName: "Brain",
             bgColor: comData.data.get()?.thinkControl
               ? (comData.data.get()?.enableThinking ? getColor('yellow_1').back : getColor('gray_2').back)
-              : getColor('gray_2').back,
+              : getColor('gray_4').back,
             fgColor: comData.data.get()?.thinkControl
               ? (comData.data.get()?.enableThinking ? getColor('yellow_1').front : getColor('gray_2').front)
-              : getColor('gray_2').front,
+              : getColor('gray_4').front,
             styleExt: {
               opacity: comData.data.get()?.thinkControl ? 1 : 0.5,
               cursor: comData.data.get()?.thinkControl ? "pointer" : "not-allowed",
@@ -1071,7 +1071,7 @@ export default () => {
               boxSizing: "border-box",
               background: comData.data.get()?.targetChatListId ? getColor('pink_2').back + '99' : getColor('brown_4').back + '99',
               border: `0.1rem solid ${getColor('main').back}`,
-              color: getColor('gray_8').front, // 保持 getColor 修复，但使用原结构
+              color: comData.data.get()?.targetChatListId ? getColor('pink_2').front : getColor('brown_4').front,
               borderRadius: "3rem",
               padding: "1rem 2rem",
             }

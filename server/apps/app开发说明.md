@@ -114,7 +114,7 @@ export default ({ appId, m, Notice, ioSocket, commonData, iconPark }) => {
       if (msg.action === "update") {
         count = msg.args.count; m.redraw()
       }
-      // AI 调试接口
+      // AI 调试接口 范例名：getHTML
       if (msg.action === "getHTML") {
         // 返回当前 DOM HTML
       }

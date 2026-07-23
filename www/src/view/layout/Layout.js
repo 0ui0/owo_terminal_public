@@ -3,6 +3,7 @@ import Notice from "../common/notice.js"
 import Nav from "../common/nav.js"
 import TitleBar from "../common/TitleBar.js"
 import getColor from "../common/getColor.js"
+import Tip from "../common/tip.js"
 
 export default () => {
   return {
@@ -35,7 +36,8 @@ export default () => {
         }, children),
 
         m(Nav),
-        m(Notice)
+        m(Notice),
+        m(Tip)
       ])
     }
   }

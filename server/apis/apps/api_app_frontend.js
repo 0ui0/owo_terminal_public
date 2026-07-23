@@ -21,8 +21,10 @@ export default async () => {
       try {
         if (filename.endsWith('.js')) {
           let content = await fs.readFile(filePath, 'utf-8')
-          const timestamp = Date.now()
-          // 核心：动态拦截所有相对路径 import，强行注入时间戳，彻底粉碎浏览器 ESM 缓存
+          // 核心修复：时间戳继承！如果请求带了 ?t=，就复用它；否则生成新的
+          const timestamp = req.query.t || Date.now()
+          
+          // 核心：动态拦截所有相对路径 import，注入统一时间戳，粉碎缓存的同时支持浏览器自行解决循环依赖
           content = content.replace(/(import\s+.*?from\s+['"]|import\s*\(\s*['"]|from\s+['"]|import\s+['"])(\.\/|\.\.\/)(.*?)(['"])/g, (match, p1, p2, p3, p4) => {
             if (p3.includes('?')) return match
             return `${p1}${p2}${p3}?t=${timestamp}${p4}`

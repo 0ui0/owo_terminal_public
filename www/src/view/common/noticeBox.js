@@ -373,6 +373,7 @@ export default function () {
       const resizeHandles = !win.isMaximized ? ["n", "s", "w", "e", "nw", "ne", "sw", "se"].map(dir => {
         return m("", {
           style: {
+            touchAction: "none",
             position: "absolute", zIndex: 10, cursor: dir + "-resize",
             ...(dir === "n" ? { top: "-10px", left: "10px", right: "10px", height: "20px" } : {}),
             ...(dir === "s" ? { bottom: "-10px", left: "10px", right: "10px", height: "20px" } : {}),
@@ -421,6 +422,8 @@ export default function () {
           style: {
             touchAction: "none",
             background: getColor('main').back,
+            opacity: attrs.isActiveWindow === false ? 0.6 : 1,
+            transition: "opacity 0.3s",
             display: "flex",
             alignItems: "center",
             flexShrink: 0,
@@ -596,7 +599,8 @@ export default function () {
               fontSize: "12px", color: isActive ? getColor('gray_8').front : getColor('gray_7').front,
               background: isActive ? getColor('gray_3').back : "transparent",
               borderRight: `1px solid ${getColor('gray_6').back}`,
-              userSelect: "none", touchAction: "none",
+              userSelect: "none",
+              touchAction: "none",
 
               flex: "0 1 180px",   // 允许压缩，最大 180px
               minWidth: "60px",   // 最小宽度
