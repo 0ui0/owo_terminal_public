@@ -8,28 +8,28 @@ import PropertyPanel from "../svgEditor_propPanel.js";
 import tools from "../../tools.js";
 
 export default function(e, preDiv) {
-  var fallbackHeight, itemsCount, left, menuHeight, menuWidth, mouseX, mouseY, rect, ref, ref1, top;
+  var Box, Notice, itemsCount, menuHeight, menuWidth, posX, posY;
   if (e) {
     e.preventDefault();
   }
-  console.log(e);
-  data.RightMenu.data.show = true;
-  data.RightMenu.data.items = [
+  ({Notice, Box} = tools);
+  // 构建菜单项
+  data.rightMenuItems = [
     {
       name: "撤销",
-      click: function() {
+      click: function(closeMenu) {
         return data.undo();
       }
     },
     {
       name: "重做",
-      click: function() {
+      click: function(closeMenu) {
         return data.redo();
       }
     },
     {
       name: "添加控制点",
-      click: function() {
+      click: function(closeMenu) {
         var ref,
     ref1;
         return (ref = data.elPaper.getChoisedElements()) != null ? (ref1 = ref[0]) != null ? ref1.addAutoControlPoint() : void 0 : void 0;
@@ -37,7 +37,7 @@ export default function(e, preDiv) {
     },
     {
       name: "删除控制点",
-      click: function() {
+      click: function(closeMenu) {
         var ctrP,
     el,
     ref;
@@ -50,86 +50,86 @@ export default function(e, preDiv) {
     },
     {
       name: "复制",
-      click: function() {
+      click: function(closeMenu) {
         data.elPaper.copyChoisedElements();
-        return data.RightMenu.data.show = false;
+        return typeof closeMenu === "function" ? closeMenu() : void 0;
       }
     },
     {
       name: "粘贴",
-      click: function() {
+      click: function(closeMenu) {
         data.elPaper.pasteChoisedElements();
-        return data.RightMenu.data.show = false;
+        return typeof closeMenu === "function" ? closeMenu() : void 0;
       }
     },
     {
       name: "剪切",
-      click: function() {
+      click: function(closeMenu) {
         data.elPaper.cutChoisedElements();
-        return data.RightMenu.data.show = false;
+        return typeof closeMenu === "function" ? closeMenu() : void 0;
       }
     },
     {
       name: "删除",
-      click: function() {
+      click: function(closeMenu) {
         data.elPaper.removeChosiedElements();
         data.record("菜单:删除");
-        return data.RightMenu.data.show = false;
+        return typeof closeMenu === "function" ? closeMenu() : void 0;
       }
     },
     {
       name: "上移一层",
-      click: function() {
+      click: function(closeMenu) {
         data.elPaper.layerUpChoisedElements();
         return data.record("菜单:上移一层");
       }
     },
     {
       name: "下移一层",
-      click: function() {
+      click: function(closeMenu) {
         data.elPaper.layerDownChoisedElements();
         return data.record("菜单:下移一层");
       }
     },
     {
       name: "编组",
-      click: function() {
+      click: function(closeMenu) {
         data.elPaper.becomeGroup();
         data.record("菜单:编组");
-        return data.RightMenu.data.show = false;
+        return typeof closeMenu === "function" ? closeMenu() : void 0;
       }
     },
     {
       name: "全拆散",
-      click: function() {
+      click: function(closeMenu) {
         data.elPaper.exitGroup();
         data.record("菜单:全拆散");
-        return data.RightMenu.data.show = false;
+        return typeof closeMenu === "function" ? closeMenu() : void 0;
       }
     },
     {
       name: "拆散一层",
-      click: function() {
+      click: function(closeMenu) {
         data.elPaper.exitPresentGroup();
         data.record("菜单:拆散一层");
-        return data.RightMenu.data.show = false;
+        return typeof closeMenu === "function" ? closeMenu() : void 0;
       }
     },
     {
       name: "隐藏/显示",
-      click: function() {
+      click: function(closeMenu) {
         return data.divList.hideOrShow();
       }
     },
     {
       name: "锁定/解锁",
-      click: function() {
+      click: function(closeMenu) {
         return data.divList.lockOrUnlock();
       }
     },
     {
       name: "进入组",
-      click: function() {
+      click: function(closeMenu) {
         var selectedGroups;
         selectedGroups = data.elPaper.getChoisedElements().filter((el) => {
           return el.type === "group";
@@ -141,22 +141,22 @@ export default function(e, preDiv) {
           });
           m.redraw();
         }
-        return data.RightMenu.data.show = false;
+        return typeof closeMenu === "function" ? closeMenu() : void 0;
       }
     },
     {
       name: "属性",
-      click: function() {
+      click: function(closeMenu) {
         tools.Notice.launch({
           content: PropertyPanel,
           tip: "元件属性调节"
         });
-        return data.RightMenu.data.show = false;
+        return typeof closeMenu === "function" ? closeMenu() : void 0;
       }
     },
     {
       name: "调试",
-      click: function() {
+      click: function(closeMenu) {
         /*  window.debugElements = data.elPaper.getChoisedElements()
               if window.debugElements.length is 0
                 window.debugElements = data.elPaper.getLines()
@@ -168,42 +168,137 @@ export default function(e, preDiv) {
           content: DebugWindow,
           tip: "Elements 调试窗口"
         });
-        return data.RightMenu.data.show = false;
+        return typeof closeMenu === "function" ? closeMenu() : void 0;
+      }
+    },
+    {
+      name: "引用聊天",
+      click: function(closeMenu) {
+        var arr,
+    choised,
+    ref,
+    ref1,
+    ref2,
+    ref3;
+        choised = data.elPaper.getChoisedElements();
+        if (choised.length > 0) {
+          arr = choised.map(function(el) {
+            return {
+              key: "elementId",
+              value: el.id
+            };
+          });
+          if ((ref = tools.chatData) != null ? ref.quoteToChatInputText : void 0) {
+            tools.chatData.quoteToChatInputText(tools.appId,
+    arr);
+            if ((ref1 = tools.Notice) != null) {
+              if (typeof ref1.launch === "function") {
+                ref1.launch({
+                  msg: "已将选中元素 ID 引用到聊天框"
+                });
+              }
+            }
+          } else {
+            if ((ref2 = tools.Notice) != null) {
+              if (typeof ref2.launch === "function") {
+                ref2.launch({
+                  msg: "未找到聊天框实例"
+                });
+              }
+            }
+          }
+        } else {
+          if ((ref3 = tools.Notice) != null) {
+            if (typeof ref3.launch === "function") {
+              ref3.launch({
+                msg: "请先选中要引用的元素"
+              });
+            }
+          }
+        }
+        return typeof closeMenu === "function" ? closeMenu() : void 0;
       }
     }
   ];
-  rect = document.getElementById("svg-paper") ? document.getElementById("svg-paper").getBoundingClientRect() : {
-    left: 0,
-    top: 0,
-    width: window.innerWidth,
-    height: window.innerHeight
-  };
-  mouseX = e.clientX - rect.left;
-  mouseY = e.clientY - rect.top;
-  itemsCount = data.RightMenu.data.items.length;
-  fallbackHeight = 24 + Math.ceil(itemsCount / 2) * 48;
-  menuHeight = ((ref = data.RightMenu.dom) != null ? ref.offsetHeight : void 0) || fallbackHeight;
-  menuWidth = ((ref1 = data.RightMenu.dom) != null ? ref1.offsetWidth : void 0) || 250;
-  top = mouseY + 20;
-  left = mouseX + 20;
-  if (left + menuWidth > rect.width) {
-    left = rect.width - menuWidth - 20;
-  }
-  if (top + menuHeight > rect.height) {
-    top = rect.height - menuHeight - 20;
-  }
-  if (top < 20) {
-    top = 20;
-  }
-  if (left < 20) {
-    left = 20;
-  }
-  data.rightMenuTop = top;
-  data.rightMenuLeft = left;
+  data.RightMenu.data.items = data.rightMenuItems;
+  /*
+  containerEl = data.RightMenu.dom?.parentElement or document.getElementById("svg-paper")?.parentElement or document.body
+  rect = containerEl.getBoundingClientRect()
+  mouseX = e.clientX - rect.left
+  mouseY = e.clientY - rect.top
+
+  itemsCount = data.RightMenu.data.items.length
+  fallbackHeight = 24 + Math.ceil(itemsCount / 2) * 48 + 48
+  menuHeight = data.RightMenu.dom?.offsetHeight or fallbackHeight
+  menuWidth = data.RightMenu.dom?.offsetWidth or 250
+
+  top = mouseY
+  left = mouseX
+
+  if left + menuWidth > rect.width
+    left = rect.width - menuWidth - 10
+  if top + menuHeight > rect.height
+    top = rect.height - menuHeight - 10
+
+  top = 10 if top < 10
+  left = 10 if left < 10
+
+  data.rightMenuTop = top
+  data.rightMenuLeft = left
+  */
   /*   if data.cBox.active
    if not data.RightMenu.data.items.find (item)=>item.name is "从选区创建路径"
      data.RightMenu.data.items.push
        name:"从选区创建路径"
-       click:-> */
-  return m.redraw();
+       click:(closeMenu)-> */
+  // 计算菜单实际宽高（沿用原 fallback 公式）
+  itemsCount = data.rightMenuItems.length;
+  menuWidth = 250; // 2列固定宽
+  menuHeight = 24 + Math.ceil(itemsCount / 2) * 48 + 48;
+  posX = e.clientX;
+  posY = e.clientY;
+  if (posX + menuWidth > window.innerWidth) {
+    posX = window.innerWidth - menuWidth - 10;
+  }
+  if (posY + menuHeight > window.innerHeight) {
+    posY = window.innerHeight - menuHeight - 10;
+  }
+  posX = Math.max(posX, 10);
+  posY = Math.max(posY, 10);
+  return Notice.launch({
+    group: "svgContextMenu",
+    x: posX,
+    y: posY,
+    content: {
+      view: function(vnode) {
+        var closeMenu;
+        closeMenu = function() {
+          return vnode.attrs.delete();
+        };
+        return m(Box, {
+          style: {
+            display: "grid",
+            gridTemplateColumns: "1fr 1fr",
+            padding: "0.3rem",
+            minWidth: "8rem",
+            maxHeight: "60vh",
+            overflowY: "auto"
+          }
+        }, data.rightMenuItems.map((item) => {
+          return m(Box, {
+            isBtn: true,
+            style: {
+              padding: "0.5rem 0.8rem",
+              textAlign: "left",
+              margin: "0",
+              whiteSpace: "nowrap"
+            },
+            onclick: function() {
+              return item.click(closeMenu);
+            }
+          }, item.name);
+        }));
+      }
+    }
+  });
 };

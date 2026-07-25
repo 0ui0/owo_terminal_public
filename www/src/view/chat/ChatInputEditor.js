@@ -39,25 +39,31 @@ export default () => {
     if (renderMode) {
       // 渲染附件标签 [attachid:xxx]
       html = html.replace(/\[attachid:([^\]]+)\]/g, (match, id) => {
-        return `<span contenteditable="false" class="editor-tag tag-attach" data-id="${id}">📎 ${id}</span>`;
+        return `<span contenteditable="false" class="editor-tag tag-attach" data-id="${id}">📎 ${id}</span>&nbsp;`;
       });
 
       // 渲染文件路径标签 [filePath:xxx]
       html = html.replace(/\[filePath:([^\]]+)\]/g, (match, path) => {
         const fileName = path.split(/[/\\]/).pop();
-        return `<span contenteditable="false" class="editor-tag tag-file" data-id="${path}" title="${path}">📄 ${fileName}</span>`;
+        return `<span contenteditable="false" class="editor-tag tag-file" data-id="${path}" title="${path}">📄 ${fileName}</span>&nbsp;`;
       });
 
-      // 渲染应用标签 [appid:xxx]
-      html = html.replace(/\[appid:([^\]]+)\]/g, (match, id) => {
-        return `<span contenteditable="false" class="editor-tag tag-app" data-id="${id}">🚀 ${id}</span>`;
+      // 渲染应用标签 [refAppid:xxx] 或兼容 [appid:xxx]
+      html = html.replace(/\[(?:refAppid|appid):([^\]]+)\]/gi, (match, id) => {
+        return `<span contenteditable="false" class="editor-tag tag-app" data-id="${id}">🚀 ${id}</span>&nbsp;`;
       });
 
       // 渲染代码引用标签 [codeQuote:path:range]
       html = html.replace(/\[codeQuote:([^:\]]+)(?::([^\]]+))?\]/g, (match, path, range) => {
         const fileName = path.split(/[/\\]/).pop();
         const display = range ? `${fileName} (${range})` : fileName;
-        return `<span contenteditable="false" class="editor-tag tag-code" data-id="${path}${range ? ':' + range : ''}" title="${path}${range ? ' @ ' + range : ''}">📝 ${display}</span>`;
+        return `<span contenteditable="false" class="editor-tag tag-code" data-id="${path}${range ? ':' + range : ''}" title="${path}${range ? ' @ ' + range : ''}">📝 ${display}</span>&nbsp;`;
+      });
+
+      // 渲染图元/元素标签 [elementId:xxx] 或 [elementid:xxx]
+      html = html.replace(/\[elementId:([^\]]+)\]/gi, (match, id) => {
+        const displayId = id.length > 10 ? (id.includes('-') ? id.split('-')[0] : id.slice(0, 8) + '…') : id;
+        return `<span contenteditable="false" class="editor-tag tag-element" data-id="${id}" title="${id}">🎨 ${displayId}</span>&nbsp;`;
       });
     }
 
@@ -87,14 +93,55 @@ export default () => {
 
     return tempDiv.textContent || tempDiv.innerText || "";
   };
+  // 根据文本偏移量恢复光标（遍历 TEXT_NODE，跳过 contenteditable=false 的 Chip）
+  const restoreCursorByOffset = (root, offset) => {
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null, false);
+    let node, cur = 0;
+    while ((node = walker.nextNode())) {
+      const len = node.textContent.length;
+      if (cur + len >= offset) {
+        const r = document.createRange();
+        r.setStart(node, offset - cur);
+        r.collapse(true);
+        const s = window.getSelection();
+        s.removeAllRanges();
+        s.addRange(r);
+        return;
+      }
+      cur += len;
+    }
+    // fallback: 末尾
+    const s = window.getSelection();
+    s.removeAllRanges();
+    s.selectNodeContents(root);
+    s.collapseToEnd();
+  };
 
   // 同步外部数据到编辑器 (用于初次加载或外部修改)
   const syncToEditor = () => {
-    if (editorDom) {
-      const newHtml = textToHtml(data.inputText);
-      if (editorDom.innerHTML !== newHtml) {
-        editorDom.innerHTML = newHtml;
+    if (!editorDom) return;
+
+    // 保存光标在纯文本中的偏移
+    let savedOffset = -1;
+    const sel = window.getSelection();
+    if (sel.rangeCount > 0) {
+      const range = sel.getRangeAt(0);
+      if (editorDom.contains(range.commonAncestorContainer)) {
+        const pre = document.createRange();
+        pre.selectNodeContents(editorDom);
+        pre.setEnd(range.endContainer, range.endOffset);
+        savedOffset = pre.toString().length;
       }
+    }
+
+    const newHtml = textToHtml(data.inputText);
+    if (editorDom.innerHTML !== newHtml) {
+      editorDom.innerHTML = newHtml;
+    }
+
+    // 恢复光标
+    if (savedOffset >= 0) {
+      restoreCursorByOffset(editorDom, savedOffset);
     }
   };
 
@@ -434,6 +481,13 @@ export default () => {
             },
             contenteditable: true,
             placeholder: attrs.placeholder || "",
+            onblur: () => {
+              // 失焦时克隆保存当前光标 Range，用于 Notice 弹窗等场景恢复
+              const sel = window.getSelection();
+              if (sel.rangeCount > 0) {
+                data._savedRange = sel.getRangeAt(0).cloneRange();
+              }
+            },
             oninput: (e) => {
               data.inputText = htmlToText(e.target.innerHTML);
             },
@@ -799,6 +853,8 @@ export default () => {
           ])
         ]),
         m("style", `
+          
+
           .chat-input-wrapper:focus-within {
             outline: 0.1rem solid ${getColor('main').back};
           }
@@ -817,29 +873,33 @@ export default () => {
             border-radius: 0.3rem;
             font-size: 0.9rem;
             user-select: none;
-            border: 1px solid ${getColor('gray_6').front};
+            border: none;
             vertical-align: middle;
             height: 1.4rem;
           }
           .tag-attach {
              background: ${getColor('green_1').back}; /* 绿色调附件 */
              color: ${getColor('green_1').front};
-             border-color: ${getColor('green_1').back};
           }
           .tag-app {
-             background: ${getColor('pink_2').back}; /* 紫色调应用 */
+             background: ${getColor('pink_1').back}; /* 粉红调应用 */
              color: ${getColor('pink_1').front};
-             border-color: ${getColor('pink_1').back};
           }
           .tag-file {
              background: ${getColor('blue_1').back}; /* 蓝色调文件路径 */
-             color: ${getColor('gray_8').front};
-             border-color: ${getColor('blue_1').back};
+             color: ${getColor('blue_1').front};
           }
           .tag-code {
              background: ${getColor('orange_1').back}; /* 橙色调代码引用 */
              color: ${getColor('orange_1').front};
-             border-color: ${getColor('orange_1').back};
+          }
+          .tag-ref {
+             background: ${getColor('yellow_1').back}; /* 琥珀黄引用前缀 */
+             color: ${getColor('yellow_1').front};
+          }
+          .tag-element {
+             background: ${getColor('cyan_1').back}; /* 青色/水蓝调图元 */
+             color: ${getColor('cyan_1').front};
           }
           .md-btn {
              color: ${getColor('gray_8').front};

@@ -323,14 +323,41 @@ export default function() {
                             cursor: "pointer"
                           },
                           onclick: function() {
-                            var newElements,
-                      snapshot;
+                            var i,
+                      j,
+                      k,
+                      newElements,
+                      presentGroupId,
+                      ref,
+                      ref1,
+                      ref2,
+                      ref3,
+                      ref4;
+                            if (index === data.historyCursor) {
+                              return;
+                            }
+                            if (index < data.historyCursor) {
+                              for (i = j = ref = data.historyCursor, ref1 = index + 1; j >= ref1; i = j += -1) {
+                                tools.jsonpatch.applyPatch(data.lastSnapshot,
+                      JSON.parse(JSON.stringify(data.historyDatas[i].reverse)));
+                              }
+                            } else {
+                              for (i = k = ref2 = data.historyCursor + 1, ref3 = index; (ref2 <= ref3 ? k <= ref3 : k >= ref3); i = ref2 <= ref3 ? ++k : --k) {
+                                tools.jsonpatch.applyPatch(data.lastSnapshot,
+                      JSON.parse(JSON.stringify(data.historyDatas[i].forward)));
+                              }
+                            }
                             data.historyCursor = index;
-                            snapshot = data.historyDatas[index].state;
-                            newElements = SvgSerializer.deserializeElements(snapshot);
+                            newElements = SvgSerializer.deserializeElements(data.lastSnapshot);
+                            presentGroupId = (ref4 = data.presentGroup) != null ? ref4.id : void 0;
                             data.elPaper.elements.splice(0,
                       data.elPaper.elements.length,
                       ...newElements);
+                            if (presentGroupId) {
+                              data.presentGroup = data.elPaper.elements.find(function(el) {
+                                return el.type === "group" && el.id === presentGroupId;
+                              }) || null;
+                            }
                             return m.redraw();
                           }
                         },

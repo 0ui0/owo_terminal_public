@@ -1,6 +1,38 @@
 import Joi from "joi"
 import appManager from "../../../apps/appManager.js"
 
+function validateSvgForAi(svgString) {
+  if (!svgString || typeof svgString !== "string") {
+    throw new Error("传入的 svgString 必须为非空字符串。")
+  }
+
+  const trimmed = svgString.trim()
+  if (!trimmed.toLowerCase().includes("<svg") || !trimmed.toLowerCase().includes("</svg>")) {
+    throw new Error("传入的 SVG 代码必须包含完整的 <svg>...</svg> 标签结构。")
+  }
+
+  const allowedTags = ["svg", "g", "path", "rect", "circle", "ellipse", "line", "polyline", "polygon", "text", "tspan", "title"]
+  const disallowedTags = ["defs", "clippath", "mask", "use", "image", "filter", "lineargradient", "radialgradient", "pattern", "foreignobject", "symbol"]
+
+  const tagMatches = [...trimmed.matchAll(/<([a-zA-Z0-9:-]+)/g)]
+  for (const match of tagMatches) {
+    const rawTag = match[1].toLowerCase()
+    const tagName = rawTag.includes(":") ? rawTag.split(":")[1] : rawTag
+
+    if (disallowedTags.includes(tagName)) {
+      throw new Error(`传入的 SVG 包含不受支持的高级标签 <${tagName}>。系统仅支持基本矢量图形，请勿使用剪切、蒙版、渐变、外部引用或滤镜等高级特性。受支持的标签白名单：<${allowedTags.join(">, <")}>。`)
+    }
+  }
+
+  const dMatches = [...trimmed.matchAll(/d\s*=\s*["']([^"']+)["']/gi)]
+  for (const match of dMatches) {
+    const dVal = match[1]
+    if (/[Aa]\s*[-+]?\d+/.test(dVal)) {
+      throw new Error(`传入的 <path> 路径指令 "d" 中包含暂不支持的弧线指令 'A' (椭圆弧)。请使用标准贝塞尔曲线指令 (C 或 Q) 或线段指令 (L/H/V/M) 来构造曲线与形状。`)
+    }
+  }
+}
+
 export default {
   name: "通过SVG代码画图",
   id: "svgEditorDrawSvg",
@@ -11,7 +43,10 @@ export default {
       throw new Error(error.details[0].message)
     }
 
-    let { appId, svgString } = value
+    let { appId, svgString, targetGroupId } = value
+
+    // 针对 AI 工具调用的前置校验
+    validateSvgForAi(svgString)
 
     if (!appId) {
       const activeApps = appManager.getSummary().filter(a => a.type === "svgEditor")
@@ -27,7 +62,7 @@ export default {
 
     await appManager.launch("svgEditor", { appId })
 
-    const res = await appManager.dispatch(appId, "drawSvg", { svgString })
+    const res = await appManager.dispatch(appId, "drawSvg", { svgString, targetGroupId })
     if (res && res.ok) {
       return res.msg || "成功将SVG代码转化为图纸元件"
     }
@@ -37,6 +72,7 @@ export default {
   joi() {
     return Joi.object({
       appId: Joi.string().description("svgEditor 实例 ID。若留空则自动选择当前活跃的实例。"),
+      targetGroupId: Joi.string().description("目标编组 ID。若留空则默认绘制在主画布根层级。"),
       svgString: Joi.string().required().description("包含完整 <svg>...</svg> 结构的字符串代码。")
     })
   },
@@ -51,6 +87,7 @@ export default {
 4. 仅支持的变换属性：transform (如 translate, scale, rotate, matrix 等，解析器会将其扁平化计算到物理坐标中)。
 5. 元素名称与图层标签：请在 <g> 或 <path> 等节点内部编写 <title>名称</title> 子标签，系统解析时会自动将其提取并转存为编辑器元素的 name 属性！
 6. 文本标签 <text> 支持以下属性：x, y（基线位置，系统会自动补偿为视觉顶部）, font-size, font-family, fill（文字颜色）。多行文本请使用多个 <tspan> 子标签，每个 tspan 代表一行，系统会自动合并为换行内容。
+7. 闭合标记规范：若绘制的是填充多边形/闭合图形（带有 fill 颜色），请务必在 <path d="..."> 末尾包含 Z/z 闭合标记（或使用 <polygon>），确保图形几何闭合；若绘制线条/开放路径，不写 fill 属性即可，系统会自动默认 fill="none"。
 生成 SVG 时，请尽量保持结构扁平，绝对不要使用上述白名单以外的任何特性。`
   }
 }

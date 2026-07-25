@@ -11,7 +11,7 @@ export default {
       throw new Error(error.details[0].message)
     }
 
-    let { appId, elements } = value
+    let { appId, elements, targetGroupId } = value
 
     for (const el of elements) {
       if (el.type === "line" && el.points) {
@@ -36,7 +36,7 @@ export default {
 
     await appManager.launch("svgEditor", { appId })
 
-    const res = await appManager.dispatch(appId, "draw", { elements })
+    const res = await appManager.dispatch(appId, "draw", { elements, targetGroupId })
     if (res && res.ok) {
       if (res.elementIds && res.elementIds.length > 0) {
         return `${res.msg || "成功批量绘制图元"}。绘制的元素 ID 列表为: ${JSON.stringify(res.elementIds)}`
@@ -49,6 +49,7 @@ export default {
   joi() {
     return Joi.object({
       appId: Joi.string().description("svgEditor 实例 ID。若留空则自动选择当前活跃的实例。"),
+      targetGroupId: Joi.string().description("目标编组 ID。若留空则默认绘制在主画布根层级。"),
       elements: Joi.array().items(Joi.object({
         type: Joi.string().valid("line", "rect", "ellipse").required().description("图元类型：line(直线/贝塞尔曲线), rect(矩形), ellipse(椭圆)"),
         points: Joi.array().items(Joi.object({

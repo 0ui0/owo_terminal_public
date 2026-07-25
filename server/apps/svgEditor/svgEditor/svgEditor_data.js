@@ -314,43 +314,63 @@ export default data = {
   clipboardSnapshot: null,
   
   // ==============================
-  // PS 风格历史记录 (游标队列)
+  // PS 风格历史记录 (游标队列 + 纯补丁增量)
   // ==============================
   historyDatas: [],
   historyCursor: -1,
+  lastSnapshot: [], // 内存中永远只保留唯一一份最新快照作为比对基准
   record: function(actionName = "未命名操作") {
-    var snapshot;
+    var forward, newSnapshot, reverse;
     if (this.historyDatas.length !== this.historyCursor + 1) {
       this.historyDatas.length = this.historyCursor + 1;
     }
-    snapshot = SvgSerializer.serializeElements(this.elPaper.elements);
+    newSnapshot = SvgSerializer.serializeElements(this.elPaper.elements);
+    forward = tools.jsonpatch.compare(this.lastSnapshot, newSnapshot);
+    if (forward.length === 0) { // 物理状态无变化，极简防抖拦截
+      return;
+    }
+    reverse = tools.jsonpatch.compare(newSnapshot, this.lastSnapshot);
     this.historyDatas.push({
       name: actionName,
-      state: snapshot
+      forward: forward,
+      reverse: reverse
     });
     if (this.historyDatas.length > 50) {
-      return this.historyDatas.shift();
+      this.historyDatas.shift();
     } else {
-      return this.historyCursor++;
+      this.historyCursor++;
     }
+    return this.lastSnapshot = newSnapshot;
   },
   dumpHistory: function() {
-    var added, changes, currMap, currentState, el, elCount, i, id, j, k, l, len, len1, len2, logLines, modified, newIdx, newPg, newPts, oldIdx, oldPg, oldPts, prevMap, prevState, pts, ref, ref1, ref2, ref3, ref4, ref5, removed, res, step;
-    logLines = [`\n===== 深度操作轨迹录像 (共 ${this.historyDatas.length} 步) =====`];
-    prevState = [];
-    ref = this.historyDatas;
-    for (i = j = 0, len = ref.length; j < len; i = ++j) {
-      step = ref[i];
-      currentState = step.state || [];
+    var added, changes, currMap, currentState, el, elCount, i, id, j, k, l, len, len1, len2, logLines, modified, n, newIdx, newPg, newPts, oldIdx, oldPg, oldPts, prevMap, prevState, pts, ref, ref1, ref2, ref3, ref4, ref5, ref6, removed, res, step, tempSnapshot;
+    logLines = [`\n===== 深度纯补丁推演录像 (共 ${this.historyDatas.length} 步) =====`];
+    
+    // 为不污染环境，用深拷贝创建演算用的影子画板
+    tempSnapshot = JSON.parse(JSON.stringify(this.lastSnapshot));
+
+    // 沿着 reverse 链条时光倒流到最早的一步
+    for (i = j = ref = this.historyCursor; j >= 0; i = j += -1) {
+      if (i > -1 && this.historyDatas[i]) {
+        tools.jsonpatch.applyPatch(tempSnapshot, this.historyDatas[i].reverse);
+      }
+    }
+    prevState = JSON.parse(JSON.stringify(tempSnapshot));
+    ref1 = this.historyDatas;
+    for (i = k = 0, len = ref1.length; k < len; i = ++k) {
+      step = ref1[i];
+      // 沿着 forward 链条顺流而下，推演出当前步的全量快照
+      tools.jsonpatch.applyPatch(tempSnapshot, step.forward);
+      currentState = JSON.parse(JSON.stringify(tempSnapshot));
       elCount = currentState.length;
       prevMap = {};
-      for (k = 0, len1 = prevState.length; k < len1; k++) {
-        el = prevState[k];
+      for (l = 0, len1 = prevState.length; l < len1; l++) {
+        el = prevState[l];
         prevMap[el.id] = el;
       }
       currMap = {};
-      for (l = 0, len2 = currentState.length; l < len2; l++) {
-        el = currentState[l];
+      for (n = 0, len2 = currentState.length; n < len2; n++) {
+        el = currentState[n];
         currMap[el.id] = el;
       }
       
@@ -361,13 +381,13 @@ export default data = {
       for (id in currMap) {
         el = currMap[id];
         if (!prevMap[id]) {
-          pts = ((ref1 = el.prop) != null ? ref1.points : void 0) ? JSON.stringify(el.prop.points) : "";
+          pts = ((ref2 = el.prop) != null ? ref2.points : void 0) ? JSON.stringify(el.prop.points) : "";
           added.push(`      [+] 新增: ${el.type} (ID:${id}) 坐标: ${pts}`);
         } else {
-          oldPts = JSON.stringify((ref2 = prevMap[id].prop) != null ? ref2.points : void 0);
-          newPts = JSON.stringify((ref3 = el.prop) != null ? ref3.points : void 0);
-          oldPg = (ref4 = prevMap[id].prop) != null ? ref4.parentGroup : void 0;
-          newPg = (ref5 = el.prop) != null ? ref5.parentGroup : void 0;
+          oldPts = JSON.stringify((ref3 = prevMap[id].prop) != null ? ref3.points : void 0);
+          newPts = JSON.stringify((ref4 = el.prop) != null ? ref4.points : void 0);
+          oldPg = (ref5 = prevMap[id].prop) != null ? ref5.parentGroup : void 0;
+          newPg = (ref6 = el.prop) != null ? ref6.parentGroup : void 0;
           changes = [];
           if (oldPts !== newPts) {
             changes.push(`坐标从 ${oldPts} 变为 ${newPts}`);
@@ -415,26 +435,36 @@ export default data = {
     return res;
   },
   undo: function() {
-    var newElements, snapshot;
-    if (this.historyCursor - 1 > -1) {
+    var newElements, presentGroupId, ref, step;
+    if (this.historyCursor > -1) {
+      step = this.historyDatas[this.historyCursor];
       this.historyCursor--;
-      snapshot = this.historyDatas[this.historyCursor].state;
-      newElements = SvgSerializer.deserializeElements(snapshot);
+      tools.jsonpatch.applyPatch(this.lastSnapshot, JSON.parse(JSON.stringify(step.reverse)));
+      newElements = SvgSerializer.deserializeElements(this.lastSnapshot);
+      presentGroupId = (ref = this.presentGroup) != null ? ref.id : void 0;
       this.elPaper.elements.splice(0, this.elPaper.elements.length, ...newElements);
-      return m.redraw();
-    } else {
-      this.elPaper.elements.splice(0, this.elPaper.elements.length);
-      this.historyCursor = -1;
+      if (presentGroupId) {
+        this.presentGroup = this.elPaper.elements.find(function(el) {
+          return el.type === "group" && el.id === presentGroupId;
+        }) || null;
+      }
       return m.redraw();
     }
   },
   redo: function() {
-    var newElements, snapshot;
+    var newElements, presentGroupId, ref, step;
     if (this.historyCursor + 1 <= this.historyDatas.length - 1) {
       this.historyCursor++;
-      snapshot = this.historyDatas[this.historyCursor].state;
-      newElements = SvgSerializer.deserializeElements(snapshot);
+      step = this.historyDatas[this.historyCursor];
+      tools.jsonpatch.applyPatch(this.lastSnapshot, JSON.parse(JSON.stringify(step.forward)));
+      newElements = SvgSerializer.deserializeElements(this.lastSnapshot);
+      presentGroupId = (ref = this.presentGroup) != null ? ref.id : void 0;
       this.elPaper.elements.splice(0, this.elPaper.elements.length, ...newElements);
+      if (presentGroupId) {
+        this.presentGroup = this.elPaper.elements.find(function(el) {
+          return el.type === "group" && el.id === presentGroupId;
+        }) || null;
+      }
       return m.redraw();
     }
   },

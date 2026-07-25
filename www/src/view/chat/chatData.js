@@ -85,7 +85,7 @@ export default {
       const offset = pageIndex * limit
       const pageCopy = [...pageData].reverse()
       const startIndex = allCount - offset - pageCopy.length
-      
+
       if (startIndex >= 0 && startIndex + pageCopy.length <= allCount) {
         for (let j = 0; j < pageCopy.length; j++) {
           finalData[startIndex + j] = pageCopy[j]
@@ -122,45 +122,105 @@ export default {
   xTerms: {},
   preparing: false,
   attachmentsMap: {}, // Keyed by listId to support per-session attachments
+  quoteToChatInputText(appId, arr, ext) {
+    let txt = ""
+    if (appId && appId !== "system") {
+      txt += `[refAppid:${appId}]`
+    }
+    if (Array.isArray(arr)) {
+      arr.forEach(item => {
+        if (item && item.key && item.value !== undefined) {
+          txt += `[${item.key}:${item.value}]`
+        }
+      })
+    }
+    if (txt) {
+      this._insertAtCursor(` ${txt} `)
+    }
+  },
   quoteAppId(appId) {
-    const quoteTxt = ` [appid:${appId}] `
-    this._insertAtCursor(quoteTxt)
+    this.quoteToChatInputText(appId, null)
   },
   quoteAttachId(attachId) {
-    const quoteTxt = ` [attachid:${attachId}] `
-    this._insertAtCursor(quoteTxt)
+    this.quoteToChatInputText("system", [{ key: "attachid", value: attachId }])
   },
-  quoteCode(path, lineRange) {
-    const quoteTxt = ` [codeQuote:${path}${lineRange ? ':' + lineRange : ''}] `
-    this._insertAtCursor(quoteTxt)
+  quoteCode(path, lineRange, appId = null) {
+    const val = lineRange ? `${path}:${lineRange}` : path
+    this.quoteToChatInputText(appId, [{ key: "codeQuote", value: val }])
   },
-  // 在光标处插入文本，然后同步数据并触发重渲染
+  // 在 contentEditable 失焦时保存的光标位置（克隆的 Range），解决 Notice 弹窗等场景光标丢失
+  _savedRange: null,
+  // 将纯文本中的 [xxx:yyy] 标签转为 Chip HTML 片段
+  _textToChipHtml(text) {
+    let html = text
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/\n/g, "<br>");
+
+    html = html.replace(/\[attachid:([^\]]+)\]/g, (_, id) =>
+      `<span contenteditable="false" class="editor-tag tag-attach" data-id="${id}">📎 ${id}</span>&nbsp;`);
+    html = html.replace(/\[filePath:([^\]]+)\]/g, (_, path) => {
+      const fileName = path.split(/[/\\]/).pop();
+      return `<span contenteditable="false" class="editor-tag tag-file" data-id="${path}" title="${path}">📄 ${fileName}</span>&nbsp;`;
+    });
+    html = html.replace(/\[(?:refAppid|appid):([^\]]+)\]/gi, (_, id) =>
+      `<span contenteditable="false" class="editor-tag tag-app" data-id="${id}">🚀 ${id}</span>&nbsp;`);
+    html = html.replace(/\[codeQuote:([^:\]]+)(?::([^\]]+))?\]/g, (_, path, range) => {
+      const fileName = path.split(/[/\\]/).pop();
+      const display = range ? `${fileName} (${range})` : fileName;
+      return `<span contenteditable="false" class="editor-tag tag-code" data-id="${path}${range ? ':' + range : ''}" title="${path}${range ? ' @ ' + range : ''}">📝 ${display}</span>&nbsp;`;
+    });
+    html = html.replace(/\[elementId:([^\]]+)\]/gi, (_, id) => {
+      const displayId = id.length > 10 ? (id.includes('-') ? id.split('-')[0] : id.slice(0, 8) + '…') : id;
+      return `<span contenteditable="false" class="editor-tag tag-element" data-id="${id}" title="${id}">🎨 ${displayId}</span>&nbsp;`;
+    });
+
+    return html;
+  },
+
+  // 在光标处插入文本（直接渲染 Chip HTML），然后同步数据
   _insertAtCursor(text) {
     const dom = this.inputDom
     if (dom && dom.contentEditable === "true") {
       dom.focus()
       const selection = window.getSelection()
+
+      // 恢复 blur 时保存的光标位置（解决 focus() 后光标跑到开头的问题）
+      if (this._savedRange) {
+        try {
+          selection.removeAllRanges()
+          selection.addRange(this._savedRange)
+        } catch (_) { /* 克隆的 range 已失效则忽略 */ }
+        this._savedRange = null
+      }
+
       if (selection.rangeCount > 0) {
         const range = selection.getRangeAt(0)
         range.deleteContents()
-        const textNode = document.createTextNode(text)
-        range.insertNode(textNode)
 
-        // 移动光标到插入文本之后
-        const newRange = document.createRange()
-        newRange.setStartAfter(textNode)
-        newRange.setEndAfter(textNode)
+        // 构建 Chip HTML，通过临时容器逐个移动子节点以追踪光标位置
+        const chipHtml = this._textToChipHtml(text)
+        const temp = document.createElement('span')
+        temp.innerHTML = chipHtml
+
+        while (temp.firstChild) {
+          const child = temp.firstChild
+          range.insertNode(child)
+          range.collapse(false) // 折叠到刚插入节点之后
+        }
+
+        // range 现在在插入内容末尾，设为光标位置
         selection.removeAllRanges()
-        selection.addRange(newRange)
+        selection.addRange(range)
       } else {
         // 无光标位置，追加到末尾
-        dom.appendChild(document.createTextNode(text))
+        dom.insertAdjacentHTML('beforeend', this._textToChipHtml(text))
       }
 
       // 从 DOM 反解回纯文本，同步到 inputText
       dom.dispatchEvent(new Event('input', { bubbles: true }))
-      // 标记需要重渲染（将 [attachid:xxx] 等渲染为 Chip，或保持原始文本）
-      this.needSync = true
+      // 不设 needSync，Chip 已在 DOM 中渲染好，避免 syncToEditor→innerHTML 导致光标丢失
       m.redraw()
     } else {
       this.inputText += text

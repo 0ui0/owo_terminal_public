@@ -432,7 +432,16 @@ export default {
               prop: {
                 name: nodeName,
                 parentGroup: shapeGroup,
-                points: [endPt, startPt],
+                points: [
+                  {
+                    x: endPt.x,
+                    y: endPt.y
+                  },
+                  {
+                    x: startPt.x,
+                    y: startPt.y
+                  }
+                ],
                 stroke: stroke,
                 strokeWidth: strokeWidth,
                 strokeLinecap: strokeLinecap,
@@ -462,7 +471,7 @@ export default {
               childRegions: []
             }
           });
-          data.elPaper.add(pureFillEl);
+          data.elPaper.elements.unshift(pureFillEl);
           data.elPaper.add(fillGroupEl);
           if (stroke === "none" || !node.hasAttribute("stroke")) {
             return generatedLines.forEach(function(l) {

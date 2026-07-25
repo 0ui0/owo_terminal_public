@@ -155,7 +155,7 @@ export default {
         let component = module.default
         if (typeof component === "function") {
           // 参数注入模式
-          component = component({ appId: msg.appId, m, Notice, ioSocket: this, comData, commonData, chatData, settingData, format, Box, Tag, iconPark: window.iconPark, getColor, trs, Terminal, FitAddon, Menu, Tip, uuid: uuidv4 })
+          component = component({ appId: msg.appId, m, Notice, ioSocket: this, comData, commonData, chatData, settingData, format, Box, Tag, iconPark: window.iconPark, getColor, trs, Terminal, FitAddon, Menu, Tip, uuid: uuidv4, jsonpatch })
         }
         // Window Management: Resolve Geometry
         const saved = msg.data && msg.data.window

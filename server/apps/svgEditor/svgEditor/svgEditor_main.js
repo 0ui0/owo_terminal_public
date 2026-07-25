@@ -36,38 +36,32 @@ export default function() {
 }`),
         m(TopBar),
         m(ToolBar),
-        m(Paper),
-        //右键菜单
-        m(data.RightMenu,
-        {
-          atcreate: function(dom) {
-            return data.RightMenu.dom = dom;
-          },
-          show: false,
-          style: {
-            position: "fixed",
-            top: data.rightMenuTop - 20 + "px",
-            left: data.rightMenuLeft - 20 + "px",
-            zIndex: 99999,
-            transition: "all 0.5s ease"
-          }
-        },
-        [
-          data.RightMenu.data.items.map((item) => {
-            return m(Box,
-          {
-              isBtn: true,
-              ext: {
-                onclick: function(e) {
-                  item.click(e);
-                  return m.redraw();
-                }
-              }
-            },
-          item.name);
-          })
-        ])
+        m(Paper)
       ]);
     }
   };
 };
+
+/*
+#右键菜单（已改用系统 Notice.launch 弹出，见 menuDown.coffee）
+m data.RightMenu,
+  atcreate:(dom)->
+    data.RightMenu.dom = dom
+  show:false
+  style:
+    position:"fixed"
+    top:data.rightMenuTop-20+"px"
+    left:data.rightMenuLeft-20+"px"
+    zIndex:99999
+    transition:"all 0.5s ease"
+,[
+  data.rightMenuItems.map (item)=>
+    m Box,
+      isBtn:true
+      ext:
+        onclick:(e)->
+          item.click(e)
+          m.redraw()
+    ,item.name
+]
+ */

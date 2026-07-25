@@ -11,7 +11,7 @@ export default {
       throw new Error(error.details[0].message)
     }
 
-    let { appId, texts } = value
+    let { appId, texts, targetGroupId } = value
 
     if (!appId) {
       const activeApps = appManager.getSummary().filter(a => a.type === "svgEditor")
@@ -27,7 +27,7 @@ export default {
 
     await appManager.launch("svgEditor", { appId })
 
-    const res = await appManager.dispatch(appId, "drawText", { texts })
+    const res = await appManager.dispatch(appId, "drawText", { texts, targetGroupId })
     if (res && res.ok) {
       if (res.elementIds && res.elementIds.length > 0) {
         return `${res.msg || "成功添加文本"}。添加的文本元素 ID 列表为: ${JSON.stringify(res.elementIds)}`
@@ -40,6 +40,7 @@ export default {
   joi() {
     return Joi.object({
       appId: Joi.string().description("svgEditor 实例 ID。若留空则自动选择当前活跃的实例。"),
+      targetGroupId: Joi.string().description("目标编组 ID。若留空则默认绘制在主画布根层级。"),
       texts: Joi.array().items(Joi.object({
         text: Joi.string().required().description("文本内容（Markdown模式下可包含 Markdown 语法、LaTeX 公式及甘特图代码）"),
         x: Joi.number().default(0).description("文本起点X坐标"),

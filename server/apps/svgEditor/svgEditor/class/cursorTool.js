@@ -137,9 +137,10 @@ export default MoveTool = class MoveTool {
             } else {
               element.isChoised = true;
             }
-            
+            data.record("移动填充区域");
             //切割
             splitBezier.splitPaper();
+            data.record("自动交叉切割");
             m.redraw();
             this.pathPointermove = document.removeEventListener("pointermove", this.pathPointermove);
             return this.pathPointerup = document.removeEventListener("pointerup", this.pathPointerup);
@@ -638,8 +639,13 @@ export default MoveTool = class MoveTool {
                 return fillGroup.break();
               });
             }
+            if (isDragEnd) {
+              data.record("移动或变形");
+            } else {
+              data.record("光标操作");
+            }
             splitBezier.splitPaper();
-            data.record("移动或变形");
+            data.record("自动交叉切割");
             x0 = x2;
             y0 = y2;
             m.redraw();

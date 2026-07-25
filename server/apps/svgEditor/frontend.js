@@ -15,11 +15,22 @@ import svgGroup from "./svgEditor/svgEditor_group.js"
 import svgParser from "./svgEditor/tools/svgEditor_svgParser.js"
 import SvgSerializer from "./svgEditor/svgEditor_serialize.js"
 
-export default ({ appId, m, Notice, Box, Tag, getColor, Tip, Menu, commonData, trs, settingData, uuid, format }) => {
+export default ({ appId, m, Notice, Box, Tag, getColor, Tip, Menu, commonData, chatData, trs, settingData, uuid, format, jsonpatch }) => {
 
-  Object.assign(tools, { appId, m, Notice, Box, Tag, getColor, Tip, Menu, commonData, trs, settingData, uuid, format });
+  Object.assign(tools, { appId, m, Notice, Box, Tag, getColor, Tip, Menu, commonData, chatData, trs, settingData, uuid, format, jsonpatch });
 
   data.initRightMenu(Menu);
+
+  const resolveTargetGroup = (targetGroupId) => {
+    if (targetGroupId) {
+      const targetGroup = data.elPaper.elements.find(el => el.id === targetGroupId && el.type === "group");
+      if (!targetGroup) {
+        throw new Error(`指定的目标编组 ID "${targetGroupId}" 不存在`);
+      }
+      return targetGroup;
+    }
+    return null;
+  };
 
   const instanceInterface = {
     onDispatch(msg, callback) {
@@ -223,6 +234,7 @@ export default ({ appId, m, Notice, Box, Tag, getColor, Tip, Menu, commonData, t
           }
         } else if (msg.action === "draw") {
           try {
+            const targetGroup = resolveTargetGroup(msg.args.targetGroupId);
             const elements = msg.args.elements || [];
             const newElements = [];
 
@@ -235,9 +247,10 @@ export default ({ appId, m, Notice, Box, Tag, getColor, Tip, Menu, commonData, t
                     points: el.points || [],
                     fillGroups: [],
                     fillGroupInners: [],
-                    parentGroup: data.presentGroup || null
+                    parentGroup: targetGroup
                   }
                 });
+                if (targetGroup) targetGroup.addElement(newEl);
                 data.elPaper.add(newEl);
                 newElements.push(newEl);
               } else if (el.type === "rect") {
@@ -249,6 +262,8 @@ export default ({ appId, m, Notice, Box, Tag, getColor, Tip, Menu, commonData, t
                   h: el.h || 0
                 });
                 rectInstance.getElements().forEach(subEl => {
+                  subEl.prop.parentGroup = targetGroup;
+                  if (targetGroup) targetGroup.addElement(subEl);
                   data.elPaper.add(subEl);
                   newElements.push(subEl);
                 });
@@ -261,6 +276,8 @@ export default ({ appId, m, Notice, Box, Tag, getColor, Tip, Menu, commonData, t
                   ry: el.ry || 0
                 });
                 ellipseInstance.getElements().forEach(subEl => {
+                  subEl.prop.parentGroup = targetGroup;
+                  if (targetGroup) targetGroup.addElement(subEl);
                   data.elPaper.add(subEl);
                   newElements.push(subEl);
                 });
@@ -280,6 +297,7 @@ export default ({ appId, m, Notice, Box, Tag, getColor, Tip, Menu, commonData, t
           }
         } else if (msg.action === "drawText") {
           try {
+            const targetGroup = resolveTargetGroup(msg.args.targetGroupId);
             const texts = msg.args.texts || [];
             const newElements = [];
 
@@ -287,10 +305,11 @@ export default ({ appId, m, Notice, Box, Tag, getColor, Tip, Menu, commonData, t
               const textGroup = new svgGroup({
                 prop: {
                   name: item.name || "",
-                  parentGroup: data.presentGroup || null,
+                  parentGroup: targetGroup,
                   elements: []
                 }
               });
+              if (targetGroup) targetGroup.addElement(textGroup);
               data.elPaper.add(textGroup);
 
               const newEl = new svgText({
@@ -322,13 +341,14 @@ export default ({ appId, m, Notice, Box, Tag, getColor, Tip, Menu, commonData, t
           }
         } else if (msg.action === "drawSvg") {
           try {
+            const targetGroup = resolveTargetGroup(msg.args.targetGroupId);
             const svgString = msg.args.svgString;
             if (!svgString) throw new Error("缺少 svgString 参数");
 
             // 先清空之前的选中状态
             data.elPaper.elements.forEach(el => { el.isChoised = false; });
-            // 调用解析器，它会自动把新产生的根 Group 设为 isChoised
-            svgParser.parse(svgString, data.presentGroup);
+            // 调用解析器，将 targetGroup 传入
+            svgParser.parse(svgString, targetGroup);
 
             m.redraw();
             done({ ok: true, msg: "成功解析并导入 SVG" });
@@ -598,10 +618,10 @@ export default ({ appId, m, Notice, Box, Tag, getColor, Tip, Menu, commonData, t
                 show: false,
                 style: {
                   position: "absolute",
-                  top: data.rightMenuTop - 20 + "px",
-                  left: data.rightMenuLeft - 20 + "px",
+                  top: data.rightMenuTop + "px",
+                  left: data.rightMenuLeft + "px",
                   zIndex: 99999,
-                  transition: "all 0.5s ease"
+                  transition: "all 0.2s ease"
                 }
               },
               [

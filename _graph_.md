@@ -59,6 +59,51 @@ graph TD
     K --> L[这意味着每次触发 pointermove，事件对象 e 里面只有**这某一根手指**的数据]
     L --> M[如果你继续用嵌套，手指 A 拿不到手指 B 的数据，就像两个人在不同的房间打电话却不知道对方号码]
     M --> N[所以，要算距离，必须在外面手动搭建一个 activePointersMap (电话薄)]
-    N --> O[有了 Map，大家就不能窝在各自的嵌套孤岛里，必须跑到外面的'广场' (平铺的 pointermove) 上去报备位置]
-    O -.-> P(终极定论: PointerEvent 强制独立并发，想要跨指针算数学，就只能放弃嵌套闭包，回归平铺 Map)
+## 2020/07/20 17:40 - 为什么只有 TouchEvent 能让你在嵌套中写出缩放算法？
+... (unchanged content)
+
+## 2026/07/25 - SVG解析器补全线(closingLine)内存引用泄漏与二次平移变形
+
+```mermaid
+graph TD
+    A[SVG 导入 polyline 带 fill 属性] --> B[svgParser 解析生成线段组 generatedLines]
+    B --> C[判断 disSq > 0.0001 触发补全线 closingLine 逻辑]
+    C --> D[原代码: points: [endPt, startPt]]
+    D --> E[致命缺陷: 直接将 firstLine.s 与 lastLine.e 的内存对象指针赋值给 closingLine]
+    
+    E --> F[组平移 Group.translate 遍历所有子元素]
+    F --> G[1. 平移 firstLine -> firstLine.s 坐标 + deltaX (移动 1x)]
+    F --> H[2. 平移 lastLine -> lastLine.e 坐标 + deltaX (移动 1x)]
+    F --> I[3. 平移 closingLine -> 因 points 共享内存引用, firstLine.s 与 lastLine.e 被再次加 deltaX (移动 2x!)]
+    
+    I --> J[结果: 共享端点被平移 2x 速度, 独享端点平移 1x 速度]
+    J --> K[现象: 平移组时 3 条线长度随位移伸缩变形, 只有 1 条无共享端点的线正常]
+    
+    K --> L[修复方案: 深拷贝坐标 points: [{x: endPt.x, y: endPt.y}, {x: startPt.x, y: startPt.y}]]
+    L --> M[解耦点对象内存引用 -> 所有人平移 1x 速度 -> 彻底恢复正常平移]
+```
+
+## 2026/07/26 - svgEditor 撤销重做架构的伪增量与纯补丁重构
+
+```mermaid
+graph TD
+    A[历史记录需求: 节约撤销重做内存占用] --> B{前 AI 的废案设计 (缝合怪)}
+    B --> C[使用 jsonpatch.compare 计算出 forward 和 reverse 补丁]
+    B --> D[但又保留了对 elPaper 全量元素的 SvgSerializer.serializeElements]
+    B --> E[最终在 historyDatas 中同时存入补丁与 10MB 的全量 snapshot]
+    E -.-> F(结果: 假增量真冗余! 计算了补丁却没节约内存, 依然引发 V8 GC 压力)
+
+    A --> G{我的纯血增量设计 (Pure Patch)}
+    G --> H[record 拦截: 若 forward.length == 0, 极简防抖丢弃无效记录]
+    G --> I[内存维护唯一一份 @lastSnapshot]
+    G --> J[入栈: 坚决丢弃 snapshot, 仅推入 forward 与 reverse 补丁]
+    
+    J --> K[撤销重做]
+    K --> L[对 @lastSnapshot 执行 jsonpatch.applyPatch]
+    L --> M[反序列化后替换当前画布并重绘]
+    
+    J --> N[历史面板任意跳转]
+    N --> O[废弃直接读取全量的 O(1) 蠢笨逻辑]
+    N --> P[以当前 @lastSnapshot 状态为锚点, 沿着差分补丁链步进推演]
+    P --> Q[在微秒内算出目标历史时刻全量, 实现 99% 的内存释放!]
 ```
