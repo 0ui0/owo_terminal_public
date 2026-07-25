@@ -51,7 +51,7 @@ export default ({ appId, m, Notice, Box, Tag, getColor, Tip, Menu, commonData, c
           let gridGroup = null
           let svgDom = null
           try {
-            svgDom = document.getElementById("svg-paper")
+            svgDom = document.getElementById("svg-paper-" + appId)
             if (!svgDom) {
               done({ ok: false, msg: "未找到画板 svg 节点" })
               return

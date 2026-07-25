@@ -222,7 +222,7 @@ export default function(e, preDiv) {
   ];
   data.RightMenu.data.items = data.rightMenuItems;
   /*
-  containerEl = data.RightMenu.dom?.parentElement or document.getElementById("svg-paper")?.parentElement or document.body
+  containerEl = data.RightMenu.dom?.parentElement or document.getElementById("svg-paper-#{tools.appId}")?.parentElement or document.body
   rect = containerEl.getBoundingClientRect()
   mouseX = e.clientX - rect.left
   mouseY = e.clientY - rect.top

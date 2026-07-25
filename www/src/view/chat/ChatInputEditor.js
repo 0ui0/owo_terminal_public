@@ -113,7 +113,7 @@ export default () => {
     // fallback: 末尾
     const s = window.getSelection();
     s.removeAllRanges();
-    s.selectNodeContents(root);
+    s.selectAllChildren(root);
     s.collapseToEnd();
   };
 

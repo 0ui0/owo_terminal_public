@@ -348,7 +348,7 @@ ${this.e().x} ${this.e().y}`;
             dummySvgNode.setAttribute("transform", current.prop.transform);
             svgMatrix = (ref = dummySvgNode.transform.baseVal.consolidate()) != null ? ref.matrix : void 0;
             if (svgMatrix) {
-              matrix.preMultiplySelf(new DOMMatrix(svgMatrix));
+              matrix.preMultiplySelf(new DOMMatrix([svgMatrix.a, svgMatrix.b, svgMatrix.c, svgMatrix.d, svgMatrix.e, svgMatrix.f]));
             }
           } catch (error) {
             err = error;

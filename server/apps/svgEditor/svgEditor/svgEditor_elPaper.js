@@ -111,7 +111,7 @@ export default ElPaper = class ElPaper {
   }
 
   copyChoisedElements() {
-    var choisedEls, snapshotList;
+    var choisedEls, e, snapshotList;
     choisedEls = this.getChoisedElements();
     if (choisedEls.length === 0) {
       return;
@@ -121,6 +121,12 @@ export default ElPaper = class ElPaper {
     // 注意: SvgSerializer 内部可能也会收集递归依赖，但为了确保，直接传最外层选中的元素给它即可。
     snapshotList = SvgSerializer.serializeElements(choisedEls);
     data.clipboardSnapshot = snapshotList;
+    try {
+      navigator.clipboard.writeText(JSON.stringify(snapshotList));
+    } catch (error) {
+      e = error;
+      console.warn("写入系统剪贴板失败", e);
+    }
     return choisedEls.forEach(function(el) {
       return el.isChoised = false;
     });
@@ -131,8 +137,20 @@ export default ElPaper = class ElPaper {
     return this.removeChosiedElements();
   }
 
-  pasteChoisedElements() {
-    var el, elements, j, len, results, topLevelElements;
+  async pasteChoisedElements() {
+    var clipText, e, el, elements, i, insertIndex, j, len, others, parsed, pureFills, ref, topLevelElements;
+    try {
+      clipText = (await navigator.clipboard.readText());
+      if (clipText) {
+        parsed = JSON.parse(clipText);
+        if (Array.isArray(parsed)) {
+          data.clipboardSnapshot = parsed;
+        }
+      }
+    } catch (error) {
+      e = error;
+      console.warn("系统剪贴板读取失败或数据不合法, 降级使用内存剪贴板", e);
+    }
     if (!data.clipboardSnapshot || data.clipboardSnapshot.length === 0) {
       return;
     }
@@ -163,17 +181,26 @@ export default ElPaper = class ElPaper {
         return topEl.prop.parentGroup = null;
       }
     });
-// 遵从系统原生规则：纯填充使用 unshift（沉入底层），线条/组/其他图元使用 push（置于顶层）
-    results = [];
-    for (j = 0, len = elements.length; j < len; j++) {
-      el = elements[j];
+    // 分离纯填充和其他图元，保持粘贴对象原有的内部相对层级
+    pureFills = elements.filter(function(el) {
+      return el.type === "pureFill";
+    });
+    others = elements.filter(function(el) {
+      return el.type !== "pureFill";
+    });
+    // 将新粘贴的 pureFill 插入到画板已有 pureFill 的上方（末尾），其他元素追加到总末尾
+    insertIndex = 0;
+    ref = this.elements;
+    for (i = j = 0, len = ref.length; j < len; i = ++j) {
+      el = ref[i];
       if (el.type === "pureFill") {
-        results.push(this.elements.unshift(el));
-      } else {
-        results.push(this.elements.push(el));
+        insertIndex = i + 1;
       }
     }
-    return results;
+    this.elements.splice(insertIndex, 0, ...pureFills);
+    this.elements.push(...others);
+    data.record("粘贴元素");
+    return m.redraw();
   }
 
   layerUpChoisedElements() {
@@ -674,7 +701,7 @@ export default ElPaper = class ElPaper {
 
   exportSvg() {
     var choisedElements, clone, firstRect, jsonString, metaScript, oldDebug, pureData, ref, ref1, serializer, svgElement, viewport;
-    svgElement = document.getElementById("svg-paper");
+    svgElement = document.getElementById(`svg-paper-${tools.appId}`);
     if (!svgElement) {
       return "";
     }
@@ -710,7 +737,7 @@ export default ElPaper = class ElPaper {
     clone.setAttribute("viewBox", `0 0 ${data.svgPaper.width} ${data.svgPaper.height}`);
     
     // 2. 获取并处理 viewport 场景容器
-    viewport = clone.querySelector("#viewport");
+    viewport = clone.querySelector(`#viewport-${tools.appId}`);
     if (viewport) {
       // 移去 viewport 上的平移与缩放矩阵变换，使其回归原始的绝对物理坐标系
       viewport.removeAttribute("transform");

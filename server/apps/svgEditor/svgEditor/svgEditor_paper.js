@@ -134,8 +134,8 @@ Element = function() {
             {
               style: {
                 pointerEvents: "none",
-                fill: element.type === "fillGroup" || element.type === "pureFill" ? "url(#choisedFill)" : "none",
-                stroke: element.type === "line" ? "url(#choisedFill)" : "none",
+                fill: element.type === "fillGroup" || element.type === "pureFill" ? `url(#choisedFill-${tools.appId})` : "none",
+                stroke: element.type === "line" ? `url(#choisedFill-${tools.appId})` : "none",
                 strokeWidth: element.prop.strokeWidth,
                 strokeLinecap: element.prop.strokeLinecap
               },
@@ -311,7 +311,7 @@ export default {
       // 铺满全屏，重新夺回事件处理权的 SVG
       m("svg",
       {
-        id: "svg-paper",
+        id: `svg-paper-${tools.appId}`,
         oncreate: paperOncreate,
         style: {
           position: "absolute",
@@ -328,7 +328,7 @@ export default {
         // 主场景容器 (恢复独立缩放)
         m("g",
         {
-          id: "viewport",
+          id: `viewport-${tools.appId}`,
           transform: `translate(${data.offsetX}, ${data.offsetY}) scale(${data.globalZoom})`
         },
         [

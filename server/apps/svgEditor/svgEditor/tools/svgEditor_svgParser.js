@@ -275,7 +275,7 @@ getNameFromNode = function(node) {
 
 export default {
   parse: function(svgString, targetParentGroup = null) {
-    var doc, parser, root, rootGroup, rootName, traverse;
+    var allLines, allPureFills, clearTransform, collectLines, doc, parser, root, rootGroup, rootName, traverse;
     parser = new DOMParser();
     doc = parser.parseFromString(svgString, "image/svg+xml");
     root = doc.querySelector("svg");
@@ -292,6 +292,7 @@ export default {
       isChoised: true
     });
     data.elPaper.add(rootGroup);
+    allPureFills = [];
     traverse = function(node, parentGroup) {
       var closingLine, content, d, disSq, endPt, fill, fillGroupEl, firstLine, fontSize, generatedLines, group, lastLine, nodeName, pureFillEl, segments, shapeGroup, startPt, stroke, strokeLinecap, strokeWidth, strokeWidthVal, tag, textEl, textGroup, transform, tspans, x, y, yBaseline;
       if (node.nodeType !== 1) {
@@ -473,6 +474,7 @@ export default {
           });
           data.elPaper.elements.unshift(pureFillEl);
           data.elPaper.add(fillGroupEl);
+          allPureFills.push(pureFillEl);
           if (stroke === "none" || !node.hasAttribute("stroke")) {
             return generatedLines.forEach(function(l) {
               return l.isActive = false;
@@ -484,6 +486,48 @@ export default {
     Array.from(root.children).forEach(function(child) {
       return traverse(child, rootGroup);
     });
+    
+    // 统一烘焙 Transform（Bake）以解决平移时的“流星锤”错位问题
+    allLines = [];
+    collectLines = function(g) {
+      return g.prop.elements.forEach(function(el) {
+        if (el.type === "line") {
+          return allLines.push(el);
+        } else if (el.type === "group") {
+          return collectLines(el);
+        }
+      });
+    };
+    collectLines(rootGroup);
+    
+    // 将所有的点按全局矩阵换算为绝对坐标
+    allLines.forEach(function(line) {
+      return line.prop.points = line.getGlobalPoints();
+    });
+    
+    // 同时将 PureFill 中深拷贝的局部点也按外层容器的全局矩阵转换为绝对坐标
+    allPureFills.forEach(function(pureFill) {
+      var matrix;
+      matrix = pureFill.getGlobalMatrix();
+      return pureFill.prop.elements.forEach(function(subLine) {
+        return subLine.prop.points = subLine.prop.points.map(function(p) {
+          return pureFill.localToGlobal(p, matrix);
+        });
+      });
+    });
+    
+    // 剥离除文字外的所有 transform 包装
+    clearTransform = function(g) {
+      g.prop.transform = null;
+      return g.prop.elements.forEach(function(el) {
+        if (el.type === "group") {
+          return clearTransform(el);
+        } else if (el.type !== "text") {
+          return el.prop.transform = null;
+        }
+      });
+    };
+    clearTransform(rootGroup);
     
     // 解析完毕后，由于 getBoundingBox 的天然计算附带写缓存效果，这一句就相当于顺便把整个组树全部刷新了
     rootGroup.update();
