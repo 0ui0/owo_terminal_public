@@ -75,6 +75,11 @@ import {
   FileEditing,
   Plus,
   SignalStrength,
+  ExpandDown,
+  ExpandUp,
+  ExpandRight,
+  CopyOne,
+  Redo,
 } from '@icon-park/svg';
 
 let iconPark = {
@@ -153,7 +158,12 @@ let iconPark = {
   FilePdf,
   FileEditing,
   Plus,
-  SignalStrength
+  SignalStrength,
+  ExpandDown,
+  ExpandUp,
+  ExpandRight,
+  CopyOne,
+  Redo
 };
 
 export default {

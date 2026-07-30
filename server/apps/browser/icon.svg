@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <defs>
+    <linearGradient id="bg-browser" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#00C6FF"/>
+      <stop offset="100%" stop-color="#0072FF"/>
+    </linearGradient>
+    <filter id="sh" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="4" stdDeviation="3" flood-opacity="0.3"/>
+    </filter>
+  </defs>
+  <rect width="128" height="128" fill="url(#bg-browser)"/>
+  <g filter="url(#sh)" transform="translate(32, 32)">
+    <circle cx="32" cy="32" r="28" stroke="#FFFFFF" stroke-width="4" fill="none"/>
+    <ellipse cx="32" cy="32" rx="14" ry="28" stroke="#FFFFFF" stroke-width="3" fill="none"/>
+    <line x1="4" y1="32" x2="60" y2="32" stroke="#FFFFFF" stroke-width="3"/>
+    <line x1="32" y1="4" x2="32" y2="60" stroke="#FFFFFF" stroke-width="3"/>
+  </g>
+</svg>

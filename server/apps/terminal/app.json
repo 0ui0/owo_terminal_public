@@ -1,7 +1,7 @@
 {
   "id": "terminal",
   "name": "终端",
-  "icon": "🖥️",
+  "icon": "icon.svg",
   "version": "1.0.0",
   "description": "独立终端 App，支持 AI 直接操控",
   "autoLoadTools": true,

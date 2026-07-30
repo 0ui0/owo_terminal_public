@@ -1,0 +1,10 @@
+{
+  "id": "imageViewer",
+  "name": "图片查看器",
+  "description": "查看和预览本地图片，支持放大缩小、旋转及自选图片",
+  "icon": "icon.svg",
+  "version": "1.0.0",
+  "autoLoadTools": true,
+  "backend": "backend.js",
+  "frontend": "frontend.js"
+}

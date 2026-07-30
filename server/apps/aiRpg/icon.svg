@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <defs>
+    <linearGradient id="bg-airpg" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#FF416C"/>
+      <stop offset="100%" stop-color="#8A2387"/>
+    </linearGradient>
+    <filter id="sh" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="4" stdDeviation="3" flood-opacity="0.3"/>
+    </filter>
+  </defs>
+  <rect width="128" height="128" fill="url(#bg-airpg)"/>
+  <g filter="url(#sh)" transform="translate(32, 28)">
+    <!-- 蘑菇顶盖 -->
+    <path d="M32 8 C14 8 2 24 2 36 C2 38 4 40 8 40 L56 40 C60 40 62 38 62 36 C62 24 50 8 32 8 Z" fill="#FFFFFF"/>
+    <!-- 蘑菇圆点 -->
+    <circle cx="20" cy="22" r="5" fill="#FF416C"/>
+    <circle cx="44" cy="22" r="5" fill="#FF416C"/>
+    <circle cx="32" cy="30" r="4" fill="#FF416C"/>
+    <!-- 蘑菇柄 -->
+    <path d="M22 40 L24 60 C24 64 28 66 32 66 C36 66 40 64 40 60 L42 40 Z" fill="#FFF3E0"/>
+    <ellipse cx="27" cy="48" rx="2" ry="3" fill="#8A2387" opacity="0.6"/>
+    <ellipse cx="37" cy="48" rx="2" ry="3" fill="#8A2387" opacity="0.6"/>
+  </g>
+</svg>

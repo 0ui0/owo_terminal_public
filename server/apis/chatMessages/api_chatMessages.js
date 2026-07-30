@@ -19,6 +19,14 @@ export default async () => {
         where.chatListId = Number(listId)
       }
       return where
+    },
+    getAllCountWhere: (sendParams) => {
+      const { listId } = sendParams.que
+      const where = {}
+      if (listId !== undefined) {
+        where.chatListId = Number(listId)
+      }
+      return where
     }
   })
   return [

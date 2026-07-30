@@ -49,14 +49,26 @@
 
 ## 3. App 开发规范
 
-### 3.1 目录结构
+### 3.1 目录结构与图标规范
 ```text
 server/apps/[myApp]/
-  ├── app.json          # 元数据 (id, name, icon)
+  ├── app.json          # 元数据 (id, name, description)
+  ├── icon.svg          # 应用图标 (SVG 矢量图，遵循 iOS 图标制作规范)
   ├── backend.js        # 后端逻辑 (Node.js)
   ├── frontend.js       # 前端界面 (Closure Component)
   └── myAppData.js      # 数据管理器 (Singleton)
 ```
+
+#### 图标设计与加载规范 (iOS 图标规格)：
+1. **统一复用 `icon` 字段**:
+   - `app.json` 中配置 `icon` 字段，默认值为 `"icon.svg"`（相对当前 App 目录）；
+   - 开发者可自由指定相对路径或文件名（如 `"icon": "assets/my_icon.svg"` 或 `"icon": "icon.png"`）；
+   - 前端动态映射组装图片响应接口。若找不到指定路径文件，自动优雅降级回退至系统内置兜底图标 `/statics/navbar/program.svg`。
+2. **图标设计标准**:
+   - 必须遵循 **iOS App 图标设计规范**，采用 1:1 正方形比例 (`viewBox="0 0 128 128"` 或 `512 512`)；
+   - **必须提供一个直角矩形底色（绝对不要在 SVG 内部切出圆角）**，例如 `<rect width="128" height="128" fill="url(#gradient)"/>`；
+   - 圆角剪切（iOS 22.5% Squircle 连续曲率圆角）统一由系统的前端 CSS Mask (`border-radius: 11px` / `0.35rem` 及 `overflow: hidden`) 实现，保证系统全局所有图标视觉圆角弧度完全统一。
+3. **自动兜底保障**: 若未配置 `icon` 字段且 App 目录下缺失 `icon.svg`，系统全自动使用全局默认兜底图标 `/statics/navbar/program.svg`。
 
 ### 3.2 Singleton Data Manager (`myAppData.js`)
 **职责**: 全局唯一的“路由器”，负责管理活跃实例并转发消息。必须是 **对象单例**，而非工厂函数。
@@ -248,6 +260,8 @@ oninit(vnode) {
 > 减少临时变量和中间变量的使用。直接使用嵌入式写法。例如，let a = 12 ; let b = 5; let c = a+b;console.log(c)这还是错误的写的，你应该直接console.log(a+b)
 > 前端组件注意：1 每个模块必须是合法的mitrhil函数组件，不能仿照入口点frontend.js的写法。参数传递使用mithril的组件传参方式传递 所有尺寸单位统一使用rem 1rem 约等于 10px
 > 所有的异步处理必须用try catch包裹并输出错误，不能省略任何错误的输出
+> 所有的前端模块必须提供【移动端】支持（实际上只要使用系统组件默认就支持，如果自己div布局，要写好自适应app窗口尺寸的css）
+【移动端事件优先使用pointer事件，并记得做好事件清理】
 
 ### 6.1 极致垂直化格式 (Vertical Formatting)
 - **对象属性换行**：对象（尤其是 `style` 和配置对象）的每一个属性必须独占一行。

@@ -131,6 +131,7 @@ class AppManager {
 
           this.appDefs.set(appJson.id, { // 此时内存中的 appDef 已正式替换为新代码
             ...appJson,
+            icon: appJson.icon || "icon.svg",
             backend,
             frontendPath: path.join(appDirPath, appJson.frontend || "frontend.js")
           })
@@ -223,7 +224,7 @@ class AppManager {
           appId,
           type,
           name: appDef.name,
-          icon: appDef.icon,
+          icon: appDef.icon || "icon.svg",
           frontendUrl: `/api/apps/${type}/frontend.js?t=${Date.now()}`,
           window: appDef.window,
           data: app.data
@@ -295,13 +296,17 @@ class AppManager {
 
   // 获取所有 App 概要（供 AI 查询 & 前端同步）
   getSummary() {
-    return [...this.apps.values()].map(app => ({
-      id: app.id,
-      type: app.type,
-      state: app.state,
-      guiLaunched: app.guiLaunched,
-      data: app.data
-    }))
+    return [...this.apps.values()].map(app => {
+      const appDef = this.appDefs.get(app.type)
+      return {
+        id: app.id,
+        type: app.type,
+        state: app.state,
+        guiLaunched: app.guiLaunched,
+        icon: appDef?.icon || "icon.svg",
+        data: app.data
+      }
+    })
   }
 
   // 获取 App 简单列表（用于 AI 上下文）
@@ -358,6 +363,7 @@ class AppManager {
       let windowState = '正常'
       if (win.isMaximized) windowState = '最大化'
       if (win.minimized) windowState = '最小化'
+      if (win.isPinned) windowState += ' (已置顶📌) '
 
       // 活跃状态描述
       const activityState = isFocused ? '聚焦中' : (isActiveTab ? '活跃' : '后台')

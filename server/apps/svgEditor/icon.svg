@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <defs>
+    <linearGradient id="bg-svg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#F857A6"/>
+      <stop offset="100%" stop-color="#FF5858"/>
+    </linearGradient>
+    <filter id="sh" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="4" stdDeviation="3" flood-opacity="0.3"/>
+    </filter>
+  </defs>
+  <rect width="128" height="128" fill="url(#bg-svg)"/>
+  <g filter="url(#sh)" transform="translate(32, 28)">
+    <path d="M12 52 L44 20 L52 28 L20 60 Z" fill="#FFFFFF"/>
+    <polygon points="12,52 8,60 16,56" fill="#FFE082"/>
+    <polygon points="44,20 52,28 58,22 50,14" fill="#E040FB"/>
+  </g>
+</svg>

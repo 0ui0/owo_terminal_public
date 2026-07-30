@@ -92,7 +92,7 @@ Element = function() {
               style: {
                 //filter: if element.isChoised
                 //  "drop-shadow(0 0 10px #ffdb66)"
-                stroke: element.isClosed ? "#46c6fb" : element.isActive ? element.prop.stroke : "#00000033",
+                stroke: element.isClosed ? "#46c6fb" : element.isActive ? element.prop.stroke : element.isChoised ? "#00000033" : "none",
                 //stroke:element.prop.stroke
                 //stroke:element.prop.stroke
                 "stroke-width": element.prop.strokeWidth,

@@ -18,6 +18,7 @@ export default {
         chatListId: listId,
         attachments: chat.attachments || [],
         ask: chat.ask || null,
+        ext: chat.ext || null,
         tid: chat.tid || null,
         snapshotId: chat.snapshotId || null
       })

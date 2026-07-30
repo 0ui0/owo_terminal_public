@@ -1,6 +1,8 @@
 import Box from "./box.js";
 import Tag from "./tag.js";
-import getColor from "./getColor.js"
+import getColor from "./getColor.js";
+import Notice from "./notice.js";
+import getAppIconUrl from "./getAppIconUrl.js";
 
 export default function () {
   let isResizing = false
@@ -448,8 +450,55 @@ export default function () {
               textOverflow: "ellipsis",
               whiteSpace: "nowrap",
               padding: "unset",
+              display: "flex",
+              alignItems: "center"
             }
-          }, activeTab.tip || "提示"),
+          }, [
+            (activeTab.icon || activeTab.appType) ? m("img", {
+              src: getAppIconUrl(activeTab.appType, activeTab.icon),
+              onerror: (e) => { e.target.src = "/statics/navbar/program.svg" },
+              style: {
+                width: "1.6rem",
+                height: "1.6rem",
+                borderRadius: "0.35rem", // iOS rounded corner mask
+                objectFit: "cover",
+                marginRight: "0.5rem",
+                verticalAlign: "middle"
+              }
+            }) : null,
+            activeTab.tip || "提示"
+          ]),
+
+          // Pin / 置顶按钮 (跟随在 Tip 标题右侧)
+          m(Box, {
+            class: "win-btn",
+            isBtn: true,
+            title: win.isPinned ? "取消置顶" : "窗口置顶",
+            style: {
+              background: win.isPinned ? getColor('yellow_1').back : getColor('gray_2').back,
+              color: win.isPinned ? getColor('yellow_1').front : getColor('gray_6').front,
+              border: `0.1rem solid ${getColor('gray_1').back}`,
+              borderRadius: "50%",
+              display: "inline-flex",
+              justifyContent: "center",
+              alignItems: "center",
+              padding: "0",
+              width: "2.2rem", height: "2.2rem",
+              marginLeft: "0.5rem"
+            },
+            onclick: function (e) {
+              if (e && e.stopPropagation) e.stopPropagation()
+              win.isPinned = !win.isPinned
+              if (Notice && Notice.handleWindowUpdate) {
+                Notice.handleWindowUpdate(win)
+              }
+              m.redraw()
+            }
+          }, [
+            m("", { style: { pointerEvents: "none", display: "inline-flex", alignItems: "center", justifyContent: "center" } }, [
+              m.trust(iconPark.getIcon("Pin", { fill: win.isPinned ? getColor('yellow_1').front : getColor('gray_6').front, size: "12px" }))
+            ])
+          ]),
 
           m("", { style: { marginLeft: "auto" } }),
 
@@ -474,9 +523,11 @@ export default function () {
               btn.onclick(e);
             }
           }, [
-            typeof btn.icon === 'string' && btn.icon.startsWith("<")
-              ? m.trust(btn.icon)
-              : (btn.icon || "⚓")
+            m("", { style: { pointerEvents: "none", display: "inline-flex", alignItems: "center", justifyContent: "center" } }, [
+              typeof btn.icon === 'string' && btn.icon.startsWith("<")
+                ? m.trust(btn.icon)
+                : (btn.icon || "⚓")
+            ])
           ])),
 
           // Confirm Check
@@ -498,7 +549,9 @@ export default function () {
             // 确认按钮
             onclick: function (e) { handleConfirm(this, e, win, activeTab, attrs.onCloseTab) }
           }, [
-            activeTab.confirmWords ? activeTab.confirmWords : m.trust(iconPark.getIcon("Check", { fill: getColor('pink_1').front, size: "12px" }))
+            m("", { style: { pointerEvents: "none", display: "inline-flex", alignItems: "center", justifyContent: "center" } }, [
+              activeTab.confirmWords ? activeTab.confirmWords : m.trust(iconPark.getIcon("Check", { fill: getColor('pink_1').front, size: "12px" }))
+            ])
           ]) : null,
 
           // Close / Cancel
@@ -520,7 +573,9 @@ export default function () {
             // 关闭/取消按钮
             onclick: function (e) { handleCancel(this, e, win, activeTab, attrs.onCloseTab) }
           }, [
-            activeTab.cancelWords ? activeTab.cancelWords : m.trust(iconPark.getIcon("Close", { fill: getColor('gray_6').front, size: "12px" }))
+            m("", { style: { pointerEvents: "none", display: "inline-flex", alignItems: "center", justifyContent: "center" } }, [
+              activeTab.cancelWords ? activeTab.cancelWords : m.trust(iconPark.getIcon("Close", { fill: getColor('gray_6').front, size: "12px" }))
+            ])
           ]) : null,
 
           // Minimize
@@ -540,7 +595,9 @@ export default function () {
             },
             onclick: function (e) { handleMinimize(this, e, win) }
           }, [
-            m.trust(iconPark.getIcon("Minus", { fill: getColor('gray_6').front, size: "12px" }))
+            m("", { style: { pointerEvents: "none", display: "inline-flex", alignItems: "center", justifyContent: "center" } }, [
+              m.trust(iconPark.getIcon("Minus", { fill: getColor('gray_6').front, size: "12px" }))
+            ])
           ]) : null
 
         ]),

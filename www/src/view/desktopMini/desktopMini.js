@@ -2,6 +2,7 @@
 import Notice from "../common/notice.js"
 import settingData from "../setting/settingData.js"
 import { trs } from "../common/i18n.js"
+import getAppIconUrl from "../common/getAppIconUrl.js"
 
 export default {
   oninit(vnode) {
@@ -19,8 +20,7 @@ export default {
     return m("div", {
       style: {
         padding: "20px",
-        minWidth: "300px",
-        maxWidth: "500px"
+        minWidth: "420px"
       }
     }, [
       m("div", { style: { fontSize: "18px", fontWeight: "bold", marginBottom: "20px", textAlign: "center" } }, trs("聊天界面/词汇/应用")),
@@ -32,7 +32,7 @@ export default {
           : m("div", {
             style: {
               display: "grid",
-              gridTemplateColumns: "repeat(3, 1fr)",
+              gridTemplateColumns: "repeat(auto-fill, minmax(100px, 1fr))",
               gap: "15px"
             }
           }, vnode.state.appDefs.map(app =>
@@ -58,7 +58,25 @@ export default {
                 settingData.fnCall("appLaunch", [app.id])
               }
             }, [
-              m("div", { style: { fontSize: "32px", marginBottom: "8px" } }, app.icon || "📦"),
+              m("div", {
+                style: {
+                  width: "48px", height: "48px",
+                  borderRadius: "11px",
+                  overflow: "hidden",
+                  marginBottom: "8px",
+                  boxShadow: "0 4px 10px rgba(0,0,0,0.15)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  background: "#ffffff"
+                }
+              }, [
+                m("img", {
+                  src: getAppIconUrl(app.id, app.icon),
+                  onerror: (e) => { e.target.src = "/statics/navbar/program.svg" },
+                  style: { width: "100%", height: "100%", objectFit: "cover" }
+                })
+              ]),
               m("div", { style: { fontSize: "12px", textAlign: "center" } }, app.name)
             ])
           ))

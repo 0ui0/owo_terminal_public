@@ -13,6 +13,7 @@ export default {
         title: title || trs("对话框/标题/保存文件"),
         defaultPath: filePath || "",
         buttonLabel: buttonLabel || trs("对话框/按钮/保存"),
+        showOverwriteConfirmation: true,
         filters: filters || [
           { name: trs("对话框/过滤器/全部文件"), extensions: ["*"] }
         ]

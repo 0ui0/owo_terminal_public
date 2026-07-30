@@ -107,3 +107,25 @@ graph TD
     N --> P[以当前 @lastSnapshot 状态为锚点, 沿着差分补丁链步进推演]
     P --> Q[在微秒内算出目标历史时刻全量, 实现 99% 的内存释放!]
 ```
+
+## 2026/07/27 21:36 - 右键 Notice 菜单引起的松手取消选中与双菜单 Bug 溯源
+
+```mermaid
+graph TD
+    A[现象1: 手机长按弹出两个右键菜单] --> B{移动端事件触发机理}
+    B --> C[1. 长按 500ms 触发 pointerdown 定时器调用 menuDown]
+    B --> D[2. 移动端原生触发 contextmenu 事件调用 menuDown]
+    C & D --> E[Notice.launch 独立创建两个 Tab 实例]
+    E --> F[解决: 在 contextmenu 监听中加入 if not window.Mob 限制 PC 专属]
+
+    G[现象2: 长按松手时取消画布上已选定元素] --> H{状态追踪失效}
+    H --> I[新版菜单改用系统 Notice, 删除了 data.RightMenu.data.show = true 赋值]
+    I --> J[松手触发 cursorTool.pointerup 时 RightMenu.show 永远为 false]
+    J --> K[触发 if not data.RightMenu.data.show 条件分支]
+    K --> L[执行 elements.forEach.isChoised = false 清空选择]
+    
+    M[重构方案: 注释旧组件逻辑, 解耦 tools 依赖]
+    M --> N[在 data 中维护 hasContextMenu 状态并在 menuDown 周期内流转]
+    N --> O[将 paperOncreate 中的 data.RightMenu.show 属性检测和全局关闭监听注释保留]
+    O --> P[在 cursorTool 中用 data.hasContextMenu 替换旧判定, 解耦 tools 并修复 Bug]
+```

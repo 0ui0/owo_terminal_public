@@ -2,6 +2,7 @@ import Joi from "joi"
 import fs from "fs/promises"
 import pathLib from "path"
 import { pathToFileURL } from 'url'
+import waitConfirm from "../../waitConfirm.js"
 import lspManager from "../../lsp/LspServerManager.js"
 
 export default {
@@ -15,8 +16,26 @@ export default {
     let { filePath, operation, line, character } = value
 
     const comData = (await import("../../../comData/comData.js")).default
-    const cwd = comData.data.get()?.customCwd || process.cwd()
+    const customCwd = comData.data.get()?.customCwd
+    if (!customCwd && (!filePath || !pathLib.isAbsolute(filePath))) {
+      return "错误：当前未设置工作目录。请先要求用户配置工作目录，或者在使用工具时提供绝对路径。"
+    }
+    const cwd = customCwd || process.cwd()
     const resolvedPath = pathLib.resolve(cwd, filePath)
+
+    let commentSuffix = ""
+    const isInProject = resolvedPath.startsWith(cwd)
+    if (!isInProject) {
+      const currentListId = metaData?.listId || 0
+      const userConfirm = await waitConfirm({
+        type: "tip",
+        content: `路径：${resolvedPath}`,
+        title: "是否允许在工作目录外执行 lspTool 工具？",
+        listId: currentListId
+      })
+      if (!userConfirm.ok) return `用户拒绝访问项目外文件：${resolvedPath}。原因：${userConfirm.comment || "未提供"}`
+      if (userConfirm.comment) commentSuffix = `用户备注：${userConfirm.comment}\n\n`
+    }
 
     try {
       // 0. 处理安装请求
@@ -58,7 +77,8 @@ export default {
       const result = await client.sendRequest(method, params)
 
       // 4. 格式化结果
-      return this.formatResult(operation, result, cwd)
+      const finalOutput = this.formatResult(operation, result, cwd)
+      return commentSuffix ? commentSuffix + finalOutput : finalOutput
 
     } catch (err) {
       return `LSP 操作失败：${err.message}`

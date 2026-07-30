@@ -1,7 +1,7 @@
 {
   "id": "taskManager",
   "name": "任务管理器",
-  "icon": "📊",
+  "icon": "icon.svg",
   "description": "管理后台运行的应用进程",
   "version": "1.0.0",
   "window": {

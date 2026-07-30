@@ -3,6 +3,7 @@ import { execFile } from "child_process"
 import util from "util"
 import pathLib from "path"
 import { createRequire } from "module"
+import waitConfirm from "../../waitConfirm.js"
 
 // 获取 vscode-ripgrep 二进制路径
 const require = createRequire(import.meta.url)
@@ -25,7 +26,7 @@ const execFileAsync = util.promisify(execFile)
 export default {
   name: "全局代码搜索",
   id: "codeSearch",
-  async fn(argObj) {
+  async fn(argObj, metaData) {
     let { value, error } = this.joi().validate(argObj)
     if (error) {
       return "错误：" + error.details[0].message
@@ -33,8 +34,26 @@ export default {
     let { query, includes, searchDir } = value
 
     const comData = (await import("../../../comData/comData.js")).default
-    const cwd = comData.data.get()?.customCwd || process.cwd()
+    const customCwd = comData.data.get()?.customCwd
+    if (!customCwd && (!searchDir || !pathLib.isAbsolute(searchDir))) {
+      return "错误：当前未设置工作目录。请先要求用户配置工作目录，或者在使用工具时提供绝对路径。"
+    }
+    const cwd = customCwd || process.cwd()
     const targetDir = searchDir ? pathLib.resolve(cwd, searchDir) : cwd
+
+    let commentSuffix = ""
+    const isInProject = targetDir.startsWith(cwd)
+    if (!isInProject) {
+      const currentListId = metaData?.listId || 0
+      const userConfirm = await waitConfirm({
+        type: "tip",
+        content: `路径：${targetDir}`,
+        title: "是否允许在工作目录外执行 codeSearch 工具？",
+        listId: currentListId
+      })
+      if (!userConfirm.ok) return `用户拒绝在项目外搜索：${targetDir}。原因：${userConfirm.comment || "未提供"}`
+      if (userConfirm.comment) commentSuffix = `用户备注：${userConfirm.comment}\n\n`
+    }
 
     // 构建参数数组
     // 相比 exec，execFile 更安全，因为参数不经过 shell 解析
@@ -103,13 +122,13 @@ export default {
         }
       }
 
-      if (results.length === 0) return "未找到匹配内容。"
+      if (results.length === 0) return commentSuffix + "未找到匹配内容。"
 
       let output = JSON.stringify(results, null, 2)
       if (matchCount >= MAX_TOTAL) {
         output += `\n\n(注意：仅显示前 ${MAX_TOTAL} 条结果)`
       }
-      return output
+      return commentSuffix ? commentSuffix + output : output
 
     } catch (err) {
       // ripgrep return 1 if no matches found

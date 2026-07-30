@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <defs>
+    <linearGradient id="bg-aisel" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#7F00FF"/>
+      <stop offset="100%" stop-color="#E100FF"/>
+    </linearGradient>
+    <filter id="sh" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="4" stdDeviation="3" flood-opacity="0.3"/>
+    </filter>
+  </defs>
+  <rect width="128" height="128" fill="url(#bg-aisel)"/>
+  <g filter="url(#sh)" transform="translate(30, 32)">
+    <path d="M12 8 C5.4 8 0 13.4 0 20 L0 44 C0 50.6 5.4 56 12 56 L44 56 C50.6 56 56 50.6 56 44 L56 20 C56 13.4 50.6 8 44 8 Z" fill="#FFFFFF"/>
+    <path d="M16 56 L8 68 L24 56 Z" fill="#FFFFFF"/>
+    <circle cx="18" cy="32" r="4" fill="#7F00FF"/>
+    <circle cx="34" cy="32" r="4" fill="#E100FF"/>
+    <circle cx="50" cy="32" r="4" fill="#7F00FF"/>
+  </g>
+</svg>

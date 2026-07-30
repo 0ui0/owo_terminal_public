@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <defs>
+    <linearGradient id="bg-explorer" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#3A7BD5"/>
+      <stop offset="100%" stop-color="#3A6073"/>
+    </linearGradient>
+    <filter id="sh" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="4" stdDeviation="3" flood-opacity="0.3"/>
+    </filter>
+  </defs>
+  <rect width="128" height="128" fill="url(#bg-explorer)"/>
+  <g filter="url(#sh)" transform="translate(28, 34)">
+    <path d="M4 12 L20 12 L26 18 L56 18 C58.2 18 60 19.8 60 22 L60 52 C60 54.2 58.2 56 56 56 L4 56 C1.8 56 0 54.2 0 52 L0 16 C0 13.8 1.8 12 4 12 Z" fill="#FFFFFF"/>
+    <path d="M0 24 L60 24 L60 52 C60 54.2 58.2 56 56 56 L4 56 C1.8 56 0 54.2 0 52 Z" fill="#E3F2FD"/>
+  </g>
+</svg>

@@ -1,3 +1,5 @@
+import Notice from "./notice.js"
+
 export default {
   // 导航列表，默认包含/chat路径
   navList: [
@@ -7,7 +9,13 @@ export default {
       icon: "chat",
       sizeRate: 1,
       power: 1,
-      onBar: true
+      onBar: true,
+      onClick: (e) => {
+        Notice.toggleMinimizeAll()
+        if (m.route.get() !== "/chat") {
+          ROUTE.set("/chat")
+        }
+      }
     },
 
   ],

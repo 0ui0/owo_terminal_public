@@ -82,6 +82,12 @@ export default data = {
     return this.RightMenu != null ? this.RightMenu : this.RightMenu = Menu(true);
   },
   rightMenuTimer: null,
+  hasContextMenu: function() {
+    var ref, ref1, ref2;
+    return (ref = tools.Notice) != null ? (ref1 = ref.data) != null ? (ref2 = ref1.dataArr) != null ? ref2.some(function(item) {
+      return item.group === "svgContextMenu";
+    }) : void 0 : void 0 : void 0;
+  },
   lineTool: null,
   initLineTool: function() {
     return this.lineTool != null ? this.lineTool : this.lineTool = new LineTool();

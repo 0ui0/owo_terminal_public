@@ -6,6 +6,8 @@ import ChatTerm from "../view/chat/ChatTerm.js"
 import m from "mithril"
 import Box from "../view/common/box.js"
 import Tag from "../view/common/tag.js"
+import AutoForm from "../view/common/autoForm.js"
+import FormItem from "../view/common/FormItem.js"
 import settingData from "../view/setting/settingData.js"
 import format from "../view/common/format.js"
 import { trs } from "../view/common/i18n.js"
@@ -155,7 +157,7 @@ export default {
         let component = module.default
         if (typeof component === "function") {
           // 参数注入模式
-          component = component({ appId: msg.appId, m, Notice, ioSocket: this, comData, commonData, chatData, settingData, format, Box, Tag, iconPark: window.iconPark, getColor, trs, Terminal, FitAddon, Menu, Tip, uuid: uuidv4, jsonpatch })
+          component = component({ appId: msg.appId, m, Notice, ioSocket: this, comData, commonData, chatData, settingData, format, Box, Tag, iconPark: window.iconPark, getColor, trs, Terminal, FitAddon, Menu, Tip, uuid: uuidv4, jsonpatch, AutoForm, FormItem })
         }
         // Window Management: Resolve Geometry
         const saved = msg.data && msg.data.window
@@ -184,7 +186,9 @@ export default {
         const noticeObj = {
           sign: msg.appId,
           group: msg.type,
-          tip: (msg.icon || "📦") + " " + msg.name,
+          appType: msg.type,
+          icon: msg.icon,
+          tip: msg.name,
           headerButtons: [
             {
               icon: window.iconPark ? window.iconPark.getIcon("Quote", { fill: "#eee", size: "12px" }) : '"',
@@ -253,6 +257,12 @@ export default {
         }
       }
       m.redraw()
+    })
+
+    this.socket.on("app:error", async (msg) => {
+      Notice.launch({
+        msg: `[App 错误] ${msg.msg}`
+      })
     })
 
     this.socket.on("app:active", async (msg) => {

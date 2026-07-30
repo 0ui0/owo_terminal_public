@@ -101,7 +101,8 @@ export default {
         height: win.height !== undefined ? win.height : (obj.height || 0),
         isMaximized: false,
         minimized: obj.minimized || false,
-        zIndex: this.data.zIndexBase + 1, // 初始层级
+        isPinned: win.isPinned !== undefined ? win.isPinned : (obj.isPinned || false),
+        zIndex: (obj.isPinned || win.isPinned ? 900000 : 0) + this.data.zIndexBase + 1, // 初始层级
         activeSign: obj.sign, // 默认激活当前新增的 tab
         isInit: true
       }
@@ -149,7 +150,7 @@ export default {
       }
 
       this.data.zIndexBase++
-      config.zIndex = this.data.zIndexBase
+      config.zIndex = (config.isPinned ? 900000 : 0) + this.data.zIndexBase
       this.data.activeWindowId = winId
       m.redraw()
     }
@@ -228,6 +229,31 @@ export default {
     }
   },
 
+  // 切换所有窗口的最小化与还原状态（并同步后端）
+  toggleMinimizeAll: function () {
+    const configs = new Set()
+    this.data.dataArr.forEach(item => {
+      if (item._winConfig) configs.add(item._winConfig)
+    })
+
+    if (configs.size === 0) return
+
+    // 检查是否至少有一个窗口当前可见（未最小化）
+    const hasVisible = Array.from(configs).some(config => !config.minimized)
+
+    configs.forEach(config => {
+      config.minimized = hasVisible
+      this.handleWindowUpdate(config)
+    })
+
+    if (!hasVisible) {
+      this.activateTopWindow()
+    } else {
+      this.data.activeWindowId = null
+      m.redraw()
+    }
+  },
+
   // 重新排序 Tab
   reorderTab: function (fromSign, toSign) {
     const fromIndex = this.data.dataArr.findIndex(i => i.sign === fromSign)
@@ -299,7 +325,7 @@ export default {
   oncreate: function () {
     this.pointerdownHandler = (e) => {
       if (this.data.activeWindowId !== null) {
-        if (!e.target.closest(".owo-notice-box") && !e.target.closest(".window-box")) {
+        if (!e.target.closest(".owo-notice-box") && !e.target.closest(".window-box") && !e.target.closest(".owo-nav-bar")) {
           this.data.activeWindowId = null
           m.redraw()
         }

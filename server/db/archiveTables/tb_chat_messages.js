@@ -48,6 +48,10 @@ export default async (db) => {
       type: DataTypes.JSON,
       allowNull: true,
     },
+    ext: {
+      type: DataTypes.JSON,
+      allowNull: true,
+    },
     snapshotId: {
       type: DataTypes.STRING,
       allowNull: true,

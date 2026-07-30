@@ -17,7 +17,11 @@ export default {
     let { path, target, replace, allowMultiple, startLine, endLine, reason } = value
 
     const comData = (await import("../../../comData/comData.js")).default
-    const cwd = comData.data.get()?.customCwd || process.cwd()
+    const customCwd = comData.data.get()?.customCwd
+    if (!customCwd && (!path || !pathLib.isAbsolute(path))) {
+      return "错误：当前未设置工作目录。请先要求用户配置工作目录，或者在使用工具时提供绝对路径。"
+    }
+    const cwd = customCwd || process.cwd()
     const resolvedPath = pathLib.resolve(cwd, path)
     const fileState = (await import("../../fileState.js")).default
     const stringUtils = (await import("../../stringUtils.js")).default
@@ -43,7 +47,7 @@ export default {
       const userConfirm = await waitConfirm({
         type: "tip",
         content: `路径：${resolvedPath}`,
-        title: "AI 请求修改项目外文件，是否允许？",
+        title: "是否允许在工作目录外执行 filePatcher 工具？",
         listId: currentListId
       })
       if (!userConfirm.ok) {

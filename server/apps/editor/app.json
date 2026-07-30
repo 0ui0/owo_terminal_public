@@ -1,7 +1,7 @@
 {
   "id": "editor",
   "name": "编辑器",
-  "icon": "📝",
+  "icon": "icon.svg",
   "description": "代码编辑器，支持 AI 协同编辑",
   "autoLoadTools": true,
   "backend": "backend.js",

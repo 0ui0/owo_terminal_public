@@ -606,7 +606,7 @@ export default MoveTool = class MoveTool {
               this.lastClickTime = now;
               this.lastClickId = selectable != null ? selectable.id : void 0;
               if (!isDoubleClick) {
-                if (!data.RightMenu.data.show) {
+                if (!data.hasContextMenu()) {
                   data.elPaper.elements.forEach((element) => {
                     element.isChoised = false;
                     return element.isClosed = false;

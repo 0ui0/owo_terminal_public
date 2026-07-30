@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <defs>
+    <linearGradient id="bg-task" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0052D4"/>
+      <stop offset="50%" stop-color="#4364F7"/>
+      <stop offset="100%" stop-color="#6FB1FC"/>
+    </linearGradient>
+    <filter id="sh" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="4" stdDeviation="3" flood-opacity="0.3"/>
+    </filter>
+  </defs>
+  <rect width="128" height="128" fill="url(#bg-task)"/>
+  <g filter="url(#sh)" transform="translate(30, 32)">
+    <rect x="4" y="32" width="12" height="24" rx="2" fill="#4CAF50"/>
+    <rect x="24" y="16" width="12" height="40" rx="2" fill="#FF5722"/>
+    <rect x="44" y="24" width="12" height="32" rx="2" fill="#FFEB3B"/>
+  </g>
+</svg>

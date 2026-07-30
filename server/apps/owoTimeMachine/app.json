@@ -1,7 +1,7 @@
 {
   "id": "owoTimeMachine",
   "name": "时光机",
-  "icon": "🕒",
+  "icon": "icon.svg",
   "description": "Mac 风格的项目快照与恢复工具",
   "type": "utility",
   "window": {

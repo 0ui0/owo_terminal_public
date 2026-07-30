@@ -17,7 +17,11 @@ export default {
 
     // 1. Resolve Path
     const comData = (await import("../../../comData/comData.js")).default
-    const cwd = comData.data.get()?.customCwd || process.cwd()
+    const customCwd = comData.data.get()?.customCwd
+    if (!customCwd && (!filePath || !pathLib.isAbsolute(filePath))) {
+      return "错误：当前未设置工作目录。请先要求用户配置工作目录，或者在使用工具时提供绝对路径。"
+    }
+    const cwd = customCwd || process.cwd()
     const resolvedPath = pathLib.resolve(cwd, filePath)
 
     // 2. Check existence

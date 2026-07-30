@@ -1,7 +1,7 @@
 {
   "id": "svgEditor",
   "name": "矢量图编辑器",
-  "icon": "🪄",
+  "icon": "icon.svg",
   "window": {
     "width": 800,
     "height": 600

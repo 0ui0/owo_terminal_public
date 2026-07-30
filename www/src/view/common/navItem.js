@@ -2,6 +2,7 @@ import getColor from "./getColor"
 import commonData from "./commonData"
 import Notice from "./notice"
 import { trs } from "./i18n.js"
+import getAppIconUrl from "./getAppIconUrl.js"
 
 export default {
   view: ({ attrs }) => {
@@ -61,13 +62,17 @@ export default {
           margin: !Mob ? `0 ${2 ** barZoomRate}rem` : ""
         }
       }, [
-        m(`img[src=./statics/navbar/${item.icon}.svg]`, {
+        m("img", {
+          src: item.type === "program" ? getAppIconUrl(item.appType, item.icon) : `./statics/navbar/${item.icon}.svg`,
+          onerror: (e) => { e.target.src = "/statics/navbar/program.svg" },
           title: item.name,
           style: {
             "user-select": "none",
             "-webkit-user-select": "none",
             display: "relative",
             margin: "0 0.5rem",
+            borderRadius: item.type === "program" ? "0.6rem" : "0",
+            objectFit: item.type === "program" ? "cover" : "initial",
             width: Mob
               ? `${(3.5 * item.sizeRate * barZoomRate).toFixed(2)}rem`
               : `${(3 * item.sizeRate * barZoomRate).toFixed(2)}rem`,

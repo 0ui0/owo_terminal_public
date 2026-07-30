@@ -1,9 +1,9 @@
 {
   "id": "gomoku",
   "name": "五子棋",
-  "description": "一个简单的五子棋游戏",
-  "version": "1.0.0",
-  "icon": "⚪",
+  "description": "增强版五子棋：悔棋、AI对战、历史记录、精致UI",
+  "version": "2.0.0",
+  "icon": "icon.svg",
   "backend": "backend.js",
   "frontend": "frontend.js"
 }

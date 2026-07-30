@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <defs>
+    <linearGradient id="bg-avatar" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FF4B2B"/>
+      <stop offset="100%" stop-color="#FF416C"/>
+    </linearGradient>
+    <filter id="sh" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="4" stdDeviation="3" flood-opacity="0.3"/>
+    </filter>
+  </defs>
+  <rect width="128" height="128" fill="url(#bg-avatar)"/>
+  <g filter="url(#sh)" transform="translate(32, 28)">
+    <!-- 欢笑面具 -->
+    <path d="M4 12 C4 4 28 4 28 12 C28 36 4 36 4 12 Z" fill="#FFF8E1"/>
+    <ellipse cx="12" cy="16" rx="3" ry="4" fill="#333333"/>
+    <ellipse cx="20" cy="16" rx="3" ry="4" fill="#333333"/>
+    <path d="M10 24 Q16 30 22 24" stroke="#D32F2F" stroke-width="2.5" fill="none"/>
+    <!-- 哭泣面具 -->
+    <path d="M36 24 C36 16 60 16 60 24 C60 48 36 48 36 24 Z" fill="#E0F7FA"/>
+    <ellipse cx="44" cy="28" rx="3" ry="4" fill="#333333"/>
+    <ellipse cx="52" cy="28" rx="3" ry="4" fill="#333333"/>
+    <path d="M42 38 Q48 32 54 38" stroke="#1976D2" stroke-width="2.5" fill="none"/>
+  </g>
+</svg>

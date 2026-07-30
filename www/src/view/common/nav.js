@@ -29,7 +29,7 @@ export default {
     const fullLength = urlList.length + winCount
     const barZoomRate = fullLength > 8 ? 8 / fullLength : 1
 
-    return m("", {
+    return m(".owo-nav-bar", {
       style: {
         "user-select": "none",
         "-webkit-user-select": "none",
@@ -190,7 +190,8 @@ export default {
                     type: "program",
                     tip: activeTab.tip,
                     url: "/program_",
-                    icon: "program",
+                    icon: activeTab.icon || "icon.svg",
+                    appType: activeTab.appType || activeTab.group,
                     sizeRate: 1,
                     power: 1,
                     onBar: false,

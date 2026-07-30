@@ -1,0 +1,7 @@
+{
+  "id": "avatarMaker",
+  "name": "角色包制作",
+  "icon": "icon.svg",
+  "version": "1.0.0",
+  "description": "提供给主控AI制作角色表情和动作视频的后台服务"
+}

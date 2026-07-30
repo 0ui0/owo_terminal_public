@@ -1,11 +1,12 @@
 import Joi from "joi"
 import fs from "fs/promises"
 import pathLib from "path"
+import waitConfirm from "../../waitConfirm.js"
 
 export default {
   name: "列出目录内容",
   id: "dirList",
-  async fn(argObj) {
+  async fn(argObj, metaData) {
     let { value, error } = this.joi().validate(argObj)
     if (error) {
       return "错误：" + error.details[0].message
@@ -14,8 +15,26 @@ export default {
 
     // Resolve Path
     const comData = (await import("../../../comData/comData.js")).default
-    const cwd = comData.data.get()?.customCwd || process.cwd()
+    const customCwd = comData.data.get()?.customCwd
+    if (!customCwd && (!dirPath || !pathLib.isAbsolute(dirPath))) {
+      return "错误：当前未设置工作目录。请先要求用户配置工作目录，或者在使用工具时提供绝对路径。"
+    }
+    const cwd = customCwd || process.cwd()
     const resolvedPath = dirPath ? pathLib.resolve(cwd, dirPath) : cwd
+
+    let commentSuffix = ""
+    const isInProject = resolvedPath.startsWith(cwd)
+    if (!isInProject) {
+      const currentListId = metaData?.listId || 0
+      const userConfirm = await waitConfirm({
+        type: "tip",
+        content: `路径：${resolvedPath}`,
+        title: "是否允许在工作目录外执行 dirList 工具？",
+        listId: currentListId
+      })
+      if (!userConfirm.ok) return `用户拒绝访问项目外目录：${resolvedPath}。原因：${userConfirm.comment || "未提供"}`
+      if (userConfirm.comment) commentSuffix = userConfirm.comment
+    }
 
     const MAX_ITEMS = 1000
     const items = []
@@ -92,6 +111,7 @@ export default {
         items
       }
       if (items.length >= MAX_ITEMS) response.note = `输出限制为 ${MAX_ITEMS} 项。`
+      if (commentSuffix) response._userComment = commentSuffix
 
       let resultStr = "列目录：" + JSON.stringify(response)
       if (resultStr.length > 10000) {

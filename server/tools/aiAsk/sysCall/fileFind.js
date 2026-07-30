@@ -1,11 +1,12 @@
 import Joi from "joi"
 import fs from "fs/promises"
 import pathLib from "path"
+import waitConfirm from "../../waitConfirm.js"
 
 export default {
   name: "查找文件",
   id: "fileFind",
-  async fn(argObj) {
+  async fn(argObj, metaData) {
     let { value, error } = this.joi().validate(argObj)
     if (error) {
       return "错误：" + error.details[0].message
@@ -14,8 +15,26 @@ export default {
 
     // Resolve Path
     const comData = (await import("../../../comData/comData.js")).default
-    const cwd = comData.data.get()?.customCwd || process.cwd()
+    const customCwd = comData.data.get()?.customCwd
+    if (!customCwd && (!searchPath || !pathLib.isAbsolute(searchPath))) {
+      return "错误：当前未设置工作目录。请先要求用户配置工作目录，或者在使用工具时提供绝对路径。"
+    }
+    const cwd = customCwd || process.cwd()
     const startPath = searchPath ? pathLib.resolve(cwd, searchPath) : cwd
+
+    let commentSuffix = ""
+    const isInProject = startPath.startsWith(cwd)
+    if (!isInProject) {
+      const currentListId = metaData?.listId || 0
+      const userConfirm = await waitConfirm({
+        type: "tip",
+        content: `路径：${startPath}`,
+        title: "是否允许在工作目录外执行 fileFind 工具？",
+        listId: currentListId
+      })
+      if (!userConfirm.ok) return `用户拒绝访问项目外目录：${startPath}。原因：${userConfirm.comment || "未提供"}`
+      if (userConfirm.comment) commentSuffix = `用户备注：${userConfirm.comment}\n\n`
+    }
 
     const results = []
     const limit = 50 // Avoid huge output
@@ -65,12 +84,12 @@ export default {
 
     try {
       await walk(startPath, 1)
-      if (results.length === 0) return "未找到匹配的文件。"
+      if (results.length === 0) return commentSuffix + "未找到匹配的文件。"
       let resultStr = `找到以下文件 (前 ${limit} 个):\n` + results.join("\n")
       if (resultStr.length > 5000) {
         resultStr = resultStr.slice(0, 5000) + "\n...(已截断)"
       }
-      return resultStr
+      return commentSuffix + resultStr
     } catch (e) {
       return `搜索出错: ${e.message}`
     }

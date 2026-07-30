@@ -322,7 +322,7 @@ export default function (json) {
 
       let chat = {
         uuid: reply.id,
-        content: msg,
+        content: msg, //格式化后的用于展示的消息
         reasoning: reply.reasoning, // 保存推理思维链
         name: reply.user,
         group: reply.group,
@@ -330,7 +330,8 @@ export default function (json) {
         chatListId: listId, // 指派归属权
         ask: {
           ...reply,
-          content: contentJSON
+          content: contentJSON,  //编程模式有替换content，因为ai发送的是非对象格式，所以存一份原始的
+          rawContent: reply.content
         }
       }
       await chats.add(chat, listId)

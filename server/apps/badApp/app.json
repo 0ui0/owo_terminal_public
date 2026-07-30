@@ -1,6 +1,7 @@
 {
   "id": "badApp",
   "name": "报错测试应用",
+  "icon": "icon.svg",
   "backend": "backend.js",
   "frontend": "frontend.js"
 }

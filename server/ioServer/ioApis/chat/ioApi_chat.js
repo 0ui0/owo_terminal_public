@@ -202,7 +202,7 @@ const socketOnChat = async (que, callback) => {
     if (!targetModel) {
       let chat = {
         uuid: idTool.get("sys"),
-        content: listId > 0 ? trs("错误/找不到子智能体", { cn: `找不到子智能体 ID: ${listId}`, en: `Agent ID not found: ${listId}` }) : trs("错误/找不到模型", { cn: `找不到模型: ${comData.data.get().currentModel}`, en: `Model not found: ${comData.data.get().currentModel}` }),
+        content: listId > 0 ? trs("错误/找不到子智能体", { cn: `找不到子智能体 ID: ${listId}`, en: `Agent ID not found: ${listId}` }) : trs("错误/找不到模型", { cn: `找不到模型: ${comData.data.get().currentModel}请检查模型配置`, en: `Model not found: ${comData.data.get().currentModel}` }),
         name: trs("角色/系统"),
         group: "user",
         timestamp: Date.now(),

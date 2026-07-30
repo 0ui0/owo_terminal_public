@@ -2,7 +2,7 @@
   "id": "explorer",
   "name": "资源管理器",
   "description": "管理文件和目录，支持拖拽路径",
-  "icon": "📂",
+  "icon": "icon.svg",
   "version": "1.0.0",
   "autoLoadTools": true,
   "backend": "backend.js",

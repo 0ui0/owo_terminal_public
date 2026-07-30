@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#4A00E0"/>
+      <stop offset="100%" stop-color="#8E2DE2"/>
+    </linearGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="4" stdDeviation="4" flood-opacity="0.3"/>
+    </filter>
+  </defs>
+  <!-- 直角矩形底色（符合 iOS 图标标准，无圆角） -->
+  <rect width="128" height="128" fill="url(#bg)"/>
+  <!-- 中央图案 -->
+  <g filter="url(#shadow)" transform="translate(32, 32)">
+    <path d="M32 6 L58 19 L58 45 L32 58 L6 45 L6 19 Z" fill="#FFFFFF" opacity="0.95"/>
+    <path d="M32 6 L58 19 L32 32 L6 19 Z" fill="#FFFFFF"/>
+    <path d="M32 32 L58 19 L58 45 L32 58 Z" fill="#E2E8F0" opacity="0.8"/>
+  </g>
+</svg>

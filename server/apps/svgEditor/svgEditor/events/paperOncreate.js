@@ -164,7 +164,9 @@ export default function({dom}) {
   if (!fnContextMenu) {
     dom.addEventListener("contextmenu", fnContextMenu = function(e) {
       e.preventDefault();
-      return menuDown(e);
+      if (!window.Mob) {
+        return menuDown(e);
+      }
     });
   }
   if (!fnLongPressDown) {
@@ -173,11 +175,11 @@ export default function({dom}) {
       x0 = e.clientX;
       y0 = e.clientY;
       clearTimeout(data.rightMenuTimer);
-      if (data.RightMenu.data.show === false) {
-        data.rightMenuTimer = setTimeout(() => {
-          return menuDown(e);
-        }, 500);
-      }
+      
+      // if data.RightMenu.data.show is false
+      data.rightMenuTimer = setTimeout(() => {
+        return menuDown(e);
+      }, 500);
       fnLongPressMove = fnLongPressUp = null;
       document.addEventListener("pointermove", fnLongPressMove = (e2) => {
         var x2, y2;
@@ -195,21 +197,17 @@ export default function({dom}) {
         }
         if (fnLongPressUp) {
           document.removeEventListener("pointerup", fnLongPressUp);
-          fnLongPressUp = null;
-        }
-        // 挂载一个全局点击关闭菜单的监听 (仅在菜单显示时需要)
-        if (data.RightMenu.data.show) {
-          if (!fnCloseMenuDown) {
-            return document.addEventListener("pointerdown", fnCloseMenuDown = (e3) => {
-              data.RightMenu.data.show = false;
-              if (fnCloseMenuDown) {
-                document.removeEventListener("pointerdown", fnCloseMenuDown);
-                return fnCloseMenuDown = null;
-              }
-            });
-          }
+          return fnLongPressUp = null;
         }
       });
     });
   }
 };
+
+// if data.RightMenu.data.show
+//   if not fnCloseMenuDown
+//     document.addEventListener "pointerdown", fnCloseMenuDown = (e3)=>
+//       data.RightMenu.data.show = false
+//       if fnCloseMenuDown
+//         document.removeEventListener "pointerdown", fnCloseMenuDown
+//         fnCloseMenuDown = null

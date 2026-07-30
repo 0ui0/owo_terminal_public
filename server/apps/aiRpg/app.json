@@ -2,7 +2,7 @@
   "id": "aiRpg",
   "name": "aiRpg",
   "version": "1.0.0",
-  "icon": "🍄",
+  "icon": "icon.svg",
   "frontend": "frontend.js",
   "backend": "backend.js",
   "layout": {
