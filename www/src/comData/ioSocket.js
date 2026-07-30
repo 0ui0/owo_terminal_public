@@ -127,9 +127,23 @@ export default {
     this.socket.on("chat:refresh", async ({ listId = 0 } = {}) => {
       const rows = chatData.chatLists[listId]
       if (rows) {
+        const wasAtBottom = chatData.chatListScrollAtBottom()
+
+        // 脏缓存清理：防止 allCount 变化后偏移量错乱导致 uuid 重复
+        // 清空之前所有缓存的页，接下来的 rows.pull() 会重新拉取真正需要的页
+        rows.pages = [] 
+
         await rows.pull()
-        chatData.getHistoryList(listId)
+        const listData = chatData.getHistoryList(listId)
+        const latestChat = listData[listData.length - 1]
         m.redraw()
+
+        if (latestChat?.group === "user" || wasAtBottom) {
+          chatData.scrollChatListTobottom()
+          chatData.chatListUnreadCount = 0
+        } else {
+          chatData.chatListUnreadCount++
+        }
       }
     })
 

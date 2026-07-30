@@ -155,14 +155,26 @@ export default {
 
     // 读取最新输出
     const contentRes = await appManager.dispatch(termApp.id, "getContent", { limit: 20 })
-    const lastLines = contentRes?.data?.content || ""
+    const rawContent = contentRes?.data?.content || ""
+    const totalLines = contentRes?.data?.totalLines || 0
+    const isTruncated = contentRes?.data?.isTruncated ?? false
+
+    // 加上行号，格式与 terminalGet 一致
+    const lines = rawContent ? rawContent.split("\n") : []
+    const startLine = Math.max(1, totalLines - lines.length + 1)
+    const numberedContent = lines.map((line, i) => `${startLine + i}: ${line}`).join("\n")
 
     // 清理工具上下文
     await appManager.dispatch(termApp.id, "setToolContext", { toolCallGroupId: null, deferredFns: null })
 
     const commentSuffix = userConfirm.comment ? `。用户备注：${userConfirm.comment}` : ""
-    const pagePrompt = "\n⚠️ 提示：如果输出内容过多被截断，你可以使用 terminalGet 工具传入相同的 appId，并通过 offset (偏移量) 与 limit 参数向上翻页查询历史被截断的输出内容。"
-    return `命令已发送，静默检测后(最大${waitSec}s)的最新20行最后1000字输出如下：<terminal>\n${lastLines}</terminal>${pagePrompt}${commentSuffix}`
+    const pagePrompt = isTruncated
+      ? `\n⚠️ 终端输出共${totalLines}行，当前仅显示最后${lines.length}行。可使用 terminalGet 工具传入 appId="${termApp.id}" 配合 offset 与 limit 参数向上翻页查看完整历史输出。`
+      : ""
+
+    let returnStr = `命令已发送，静默检测后(最大${waitSec}s)的终端输出如下：<terminal>\n${numberedContent || "(无输出)"}\n</terminal>${pagePrompt}${commentSuffix}`
+    console.log("【returnStr】", returnStr)
+    return returnStr
   },
 
   joi() {

@@ -15,14 +15,14 @@ export default () => {
   const heightsMap = {}
   const fetchingPages = new Set() // 追踪正在获取的页面
 
-  // 动态平均高度估算（Dynamic Average Height Estimator）
-  let totalMeasuredHeight = 0
+  // 动态平均高度估算
+  let totalHeight = 0
   let measuredCount = 0
   function getEstimatedHeight() {
-    return measuredCount > 0 ? Math.max(50, Math.floor(totalMeasuredHeight / measuredCount)) : 50
+    return measuredCount > 0 ? Math.max(50, Math.floor(totalHeight / measuredCount)) : 50
   }
 
-  const BUFFER_ITEMS = 5
+  const BUFFER_ITEMS = 8
 
   let scrollTop = 0
   let viewportHeight = 800
@@ -30,19 +30,22 @@ export default () => {
   let tasksEl = null
   let boxEl = null
   let resizeObserver = null
-  let isUserScrolledToBottom = true
+  let atBottom = true
   let lastDataLength = 0
   let currentChatListId = null
-  let lastReplyingState = false
   let listDom = null
   let isHovered = false
   let isHoveredTop = false
-  let lastProgrammaticScrollTime = 0
-  let lastChatListHeadUuid = null
+  let lastScrollTime = 0
+  let lastHeadId = null
 
-  // 缓存缓存 Key 与计算产物
+  // 缓存依赖 Key 与计算产物
   let lastCacheKey = ""
   let cachedScrollState = { visibleGroups: [], topPadding: 0, bottomPadding: 0 }
+
+  // 节点监听解耦辅助函数
+  const observeItem = ({ dom }) => resizeObserver?.observe(dom)
+  const unobserveItem = ({ dom }) => resizeObserver?.unobserve(dom)
 
   // 虚拟滚动区间计算器（带依赖缓存保护）
   function getVirtualScrollState(chatList, headerHeight) {
@@ -51,10 +54,10 @@ export default () => {
     const dataLength = listData.length
     const heightsCount = Object.keys(heightsMap).length
 
-    // 组装缓存依赖 Key (加入列表首尾消息的 uuid，防止内容更替但长度不变时错误命中缓存)
+    // 组装缓存依赖 Key (加入列表首尾消息的 uuid 和 totalMeasuredHeight，防止尺寸变更误命中缓存)
     const headUuid = listData[0]?.uuid || ""
     const tailUuid = listData[listData.length - 1]?.uuid || ""
-    const cacheKey = `${dataLength}_${scrollTop}_${viewportHeight}_${headerHeight}_${heightsCount}_${headUuid}_${tailUuid}`
+    const cacheKey = `${dataLength}_${scrollTop}_${viewportHeight}_${headerHeight}_${heightsCount}_${totalHeight}_${headUuid}_${tailUuid}`
 
     if (cacheKey === lastCacheKey) {
       return cachedScrollState
@@ -119,6 +122,18 @@ export default () => {
 
     const visibleGroups = chatGroups.slice(renderStartIndex, renderEndIndex + 1)
 
+    // Debug 重复 Key 嗅探
+    const debugSeenKeys = new Set()
+    visibleGroups.forEach(group => {
+      const itemId = group.toolCallGroupId
+        ? (group.toolCallGroupId + "_" + group.chats[0].uuid)
+        : group.chats[0].uuid
+      if (debugSeenKeys.has(itemId)) {
+        console.error("[Debug 警告] 重复 Key 组内容:", group)
+      }
+      debugSeenKeys.add(itemId)
+    })
+
     // 5. 自动嗅探需要拉取的页面占位符
     const pagesToLoad = new Set()
     visibleGroups.forEach(group => {
@@ -149,9 +164,29 @@ export default () => {
       }
     })
 
+    // 6. 查找当前处于吸顶状态的我方消息
+    let activeUserChat = null
+    let activeUserChatOffset = 0
+    let currentHeight = 0
+    for (let i = 0; i < chatGroups.length; i++) {
+      const group = chatGroups[i]
+      const itemId = group.toolCallGroupId ? (group.toolCallGroupId + "_" + group.chats[0].uuid) : group.chats[0].uuid
+      const itemHeight = heightsMap[itemId] || getEstimatedHeight()
+
+      if (currentHeight <= relativeScrollTop) {
+        if (group.chats[0].group === "user") {
+          activeUserChat = group.chats[0]
+          activeUserChatOffset = currentHeight
+        }
+      } else {
+        break
+      }
+      currentHeight += itemHeight
+    }
+
     // 写入缓存
     lastCacheKey = cacheKey
-    cachedScrollState = { visibleGroups, topPadding, bottomPadding }
+    cachedScrollState = { visibleGroups, topPadding, bottomPadding, activeUserChat, activeUserChatOffset }
     return cachedScrollState
   }
 
@@ -165,10 +200,24 @@ export default () => {
           const newHeight = entry.target.offsetHeight
           if (newHeight > 0 && heightsMap[id] !== newHeight) {
             const oldHeight = heightsMap[id]
+            const delta = oldHeight !== undefined ? (newHeight - oldHeight) : 0
+
+            // 滚动锚定与高度差物理补偿：
+            // 当卡片在非贴底（上翻历史）状态下变高（展开）或变矮（折叠）时，
+            // 自动补偿 scrollTop，消解高度跳变，保持当前视口视效稳定且卡片不出界
+            if (!atBottom && listDom && delta > 0) {
+              const itemRect = entry.target.getBoundingClientRect()
+              const listRect = listDom.getBoundingClientRect()
+              if (itemRect.top < listRect.top) {
+                listDom.scrollTop += delta
+                scrollTop = listDom.scrollTop
+              }
+            }
+
             if (oldHeight !== undefined) {
-              totalMeasuredHeight += (newHeight - oldHeight)
+              totalHeight += (newHeight - oldHeight)
             } else {
-              totalMeasuredHeight += newHeight
+              totalHeight += newHeight
               measuredCount++
             }
             heightsMap[id] = newHeight
@@ -183,7 +232,7 @@ export default () => {
       const listId = vnode.attrs.chatList?.id || 0
       currentChatListId = listId
       lastDataLength = 0
-      isUserScrolledToBottom = true
+      atBottom = true
       try {
         chatData.initChatLists(listId)
         await chatData.chatLists[listId].pull()
@@ -207,7 +256,7 @@ export default () => {
       const headerHeight = (tasksEl ? tasksEl.offsetHeight : 0) + (boxEl ? boxEl.offsetHeight : 0)
 
       // 从缓存获取计算状态，高频重绘下 O(1) 瞬间返回
-      const { visibleGroups, topPadding, bottomPadding } = getVirtualScrollState(chatList, headerHeight)
+      const { visibleGroups, topPadding, bottomPadding, activeUserChat, activeUserChatOffset } = getVirtualScrollState(chatList, headerHeight)
 
       return m("", {
         style: {
@@ -240,7 +289,7 @@ export default () => {
             const dom = scrollVnode.dom
 
             // 初始判定是否在底部
-            isUserScrolledToBottom = dom.scrollHeight - dom.scrollTop - dom.clientHeight < 250
+            atBottom = chatData.chatListScrollAtBottom()
 
             requestAnimationFrame(() => {
               dom.scrollTop = dom.scrollHeight
@@ -259,22 +308,17 @@ export default () => {
                   await rows.pull()
                   chatData.getHistoryList(currentChatListId)
                   m.redraw()
-                  // 补偿高度，保持相对浏览视口不动
                   requestAnimationFrame(() => {
                     dom.scrollTop = dom.scrollHeight - oldScrollHeight
                   })
                 }
               }
 
-              // 判断滚动方向：
-              if (newScrollTop < scrollTop - 1) {
-                if (Date.now() - lastProgrammaticScrollTime > 300) {
-                  isUserScrolledToBottom = false
-                }
-              }
-              else if (newScrollTop > scrollTop + 1) {
-                if (distToBottom < 250) {
-                  isUserScrolledToBottom = true
+              const isNowAtBottom = chatData.chatListScrollAtBottom()
+              if (isNowAtBottom !== atBottom) {
+                atBottom = isNowAtBottom
+                if (atBottom) {
+                  chatData.chatListUnreadCount = 0
                 }
               }
 
@@ -292,7 +336,8 @@ export default () => {
             if (currentChatListId !== listId) {
               currentChatListId = listId
               lastDataLength = 0
-              isUserScrolledToBottom = true
+              atBottom = true
+              chatData.chatListUnreadCount = 0
               chatData.initChatLists(listId)
               chatData.chatLists[listId].pull().then(() => {
                 chatData.getHistoryList(listId)
@@ -301,45 +346,6 @@ export default () => {
                   dom.scrollTop = dom.scrollHeight
                 })
               })
-            }
-
-            // 当列表增加新消息时
-            const listData = chatData.computedLists[currentChatListId] || chatData.list || []
-            const currentDataLength = listData.length
-            if (currentDataLength > lastDataLength) {
-              const headUuid = listData[0]?.uuid
-              const isHistoryPull = lastDataLength > 0 && headUuid !== lastChatListHeadUuid
-              if (isHistoryPull) {
-                isUserScrolledToBottom = false
-              } else {
-                isUserScrolledToBottom = true
-              }
-              lastDataLength = currentDataLength
-            } else if (currentDataLength < lastDataLength) {
-              lastDataLength = currentDataLength
-              if (isUserScrolledToBottom) {
-                lastProgrammaticScrollTime = Date.now()
-                requestAnimationFrame(() => {
-                  if (dom) dom.scrollTop = dom.scrollHeight
-                })
-              }
-            }
-            lastChatListHeadUuid = (chatData.computedLists[currentChatListId] || chatData.list || [])[0]?.uuid
-
-            const isReplying = chatList?.replying || false
-            if (isReplying && !lastReplyingState) {
-              isUserScrolledToBottom = true
-            }
-            lastReplyingState = isReplying
-
-            if (lastScrollHeight !== dom.scrollHeight) {
-              if (isUserScrolledToBottom) {
-                lastProgrammaticScrollTime = Date.now()
-                requestAnimationFrame(() => {
-                  if (dom) dom.scrollTop = dom.scrollHeight
-                })
-              }
-              lastScrollHeight = dom.scrollHeight
             }
           }
         }, [
@@ -377,25 +383,88 @@ export default () => {
               : `${trs("通用/返回上一级", { cn: "返回上一级", en: "Back to Parent" })}(${trs("通用/子会话", { cn: "子会话", en: "Sub Session" })} ${chatList?.id})`
           ]),
 
+          // 悬浮提问指示条（精简气泡版）
+          activeUserChat ? m("", {
+            style: {
+              position: "absolute",
+              top: "0",
+              left: "50%",
+              transform: "translateX(-50%)",
+              zIndex: 100,
+              width: "fit-content",       // 短文本自适应收缩，长文本服从 maxWidth
+              maxWidth: "20rem",          // 严格限制最大宽度，防止撑破容器
+              boxSizing: "border-box",
+              padding: "0.4rem 0.8rem",
+              margin: "1rem",
+              background: getColor('brown_1').back + 'ee',
+              borderRadius: "1rem",       // 胶囊形圆角
+              color: getColor('brown_1').front,
+              fontSize: "0.8rem",
+              display: "flex",
+              alignItems: "center",
+              cursor: "pointer",
+              boxShadow: "0 4px 10px rgba(0,0,0,0.1)",
+              textAlign: "left"           // 保证内部文本左对齐
+            },
+            title: trs("通用/点击跳转", { cn: "点击跳转至该消息", en: "Click to jump to this message" }),
+            onclick: () => {
+              if (listDom) {
+                // 统一使用精确的绝对坐标跳转，不再使用行为难测的 scrollIntoView
+                // 扣减 50px 裕量，使其定位在气泡下方舒适的阅读区域
+                listDom.scrollTo({
+                  top: activeUserChatOffset + (headerHeight || 0) - 50,
+                  behavior: "auto"
+                });
+              }
+            }
+          }, [
+            m("span", { style: { display: "flex", alignItems: "center", marginRight: "0.5rem", flexShrink: 0 } },
+              m.trust(window.iconPark.getIcon("Message", { fill: getColor('main').back }))
+            ),
+            m("span", {
+              style: {
+                whiteSpace: "nowrap",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                flex: 1,
+                color: getColor('gray_8').front,
+                minWidth: 0 // 核心修复：防止被超长文本撑破 flex 容器导致 maxWidth 失效
+              }
+            }, activeUserChat.content)
+          ]) : null,
+
           // 核心消息流（应用虚拟滚动）
           m("", [
-            // 虚拟滚动上方占位
-            m("", { key: "top-spacer", style: { height: `${topPadding}px` } }),
-            ...visibleGroups.map(chatGroup => {
-              const itemId = chatGroup.toolCallGroupId ? (chatGroup.toolCallGroupId + "_" + chatGroup.chats[0].uuid) : chatGroup.chats[0].uuid
-              return m("", {
-                key: itemId,
-                "data-id": itemId,
-                oncreate(itemVnode) {
-                  resizeObserver.observe(itemVnode.dom)
-                },
-                onbeforeremove(itemVnode) {
-                  resizeObserver.unobserve(itemVnode.dom)
+            // 1. 顶部占位（外层节点全不带 key，遵循 none have keys 规范）
+            m("", { style: { height: `${topPadding}px` } }),
+
+            // 2. 独立的核心消息组容器（内层节点全带 key，遵循 all have keys 规范）
+            m("",
+              visibleGroups.map(chatGroup => {
+                const itemId = chatGroup.toolCallGroupId
+                  ? (chatGroup.toolCallGroupId + "_" + chatGroup.chats[0].uuid)
+                  : chatGroup.chats[0].uuid
+
+                // 分支 1：工具调用组
+                if (chatGroup.toolCallGroupId) {
+                  return m("", {
+                    key: itemId,
+                    "data-id": itemId,
+                    oncreate: observeItem,
+                    onbeforeremove: unobserveItem
+                  }, [
+                    m(ToolCallGroup, { key: chatGroup.toolCallGroupId, chats: chatGroup.chats })
+                  ])
                 }
-              }, [
-                chatGroup.toolCallGroupId ?
-                  m(ToolCallGroup, { key: chatGroup.toolCallGroupId, chats: chatGroup.chats }) :
-                  chatGroup.chats[0].isPlaceholder ?
+
+                // 分支 2：骨架屏占位
+                if (chatGroup.chats[0].isPlaceholder) {
+                  return m("", {
+                    key: itemId,
+                    "data-id": itemId,
+                    oncreate: observeItem,
+                    onbeforeremove: unobserveItem
+                  }, [
                     m(".placeholder-skeleton", {
                       style: {
                         height: getEstimatedHeight() + "px",
@@ -406,17 +475,29 @@ export default () => {
                         fontSize: "0.8rem",
                         animation: "pulse 1.5s infinite"
                       }
-                    }, "Loading...") :
-                    chatGroup.chats.map((chat) =>
-                      chat.tool_calls ? null : m(ChatItem, {
-                        key: chat.uuid,
-                        chat,
-                      })
-                    )
-              ])
-            }),
-            // 虚拟滚动下方占位
-            m("", { key: "bottom-spacer", style: { height: `${bottomPadding}px` } }),
+                    }, "Loading...")
+                  ])
+                }
+
+                // 分支 3：标准消息卡片列表
+                return m("", {
+                  key: itemId,
+                  "data-id": itemId,
+                  oncreate: observeItem,
+                  onbeforeremove: unobserveItem
+                }, [
+                  chatGroup.chats.map((chat) => {
+                    return m(ChatItem, {
+                      key: chat.uuid,
+                      chat
+                    })
+                  })
+                ])
+              })
+            ),
+
+            // 3. 底部占位（外层节点全不带 key，遵循 none have keys 规范）
+            m("", { style: { height: `${bottomPadding}px` } })
           ]),
 
           // AI 正在打字状态
@@ -440,7 +521,7 @@ export default () => {
         ]),
 
         // 回到底部按钮
-        !isUserScrolledToBottom ? m(".back-to-bottom", {
+        !atBottom ? m(".back-to-bottom", {
           style: {
             position: "absolute",
             bottom: "1.5rem",
@@ -449,7 +530,9 @@ export default () => {
             height: "2.4rem",
             borderRadius: "50%",
             zIndex: 100,
-            background: isHovered ? getColor('右上角按钮背景') + "ee" : getColor('右上角按钮背景') + "cc",
+            background: chatData.chatListUnreadCount > 0
+              ? (isHovered ? "#FFC107ee" : "#FFC107cc")
+              : (isHovered ? getColor('右上角按钮背景') + "ee" : getColor('右上角按钮背景') + "cc"),
             color: getColor('右上角按钮文字'),
             cursor: "pointer",
             display: "flex",
@@ -464,15 +547,34 @@ export default () => {
           onmouseenter() { isHovered = true },
           onmouseleave() { isHovered = false },
           onclick() {
-            isUserScrolledToBottom = true
+            atBottom = true
+            chatData.chatListUnreadCount = 0
             isHovered = false
-            lastProgrammaticScrollTime = Date.now()
+            lastScrollTime = Date.now()
             if (listDom) {
               listDom.scrollTop = listDom.scrollHeight
             }
           }
         }, [
-          m.trust(window.iconPark.getIcon("Down", { size: "1.2rem", fill: getColor('右上角按钮文字') }))
+          m.trust(window.iconPark.getIcon("Down", { size: "1.2rem", fill: chatData.chatListUnreadCount > 0 ? "#555" : getColor('右上角按钮文字') })),
+          chatData.chatListUnreadCount > 0 ? m(".unread-badge", {
+            style: {
+              position: "absolute",
+              top: "-4px",
+              right: "-4px",
+              background: "#FF4D4F",
+              color: "#FFF",
+              fontSize: "0.6rem",
+              fontWeight: "bold",
+              padding: "0 0.3rem",
+              height: "1rem",
+              lineHeight: "1rem",
+              borderRadius: "0.5rem",
+              boxShadow: "0 2px 4px rgba(0,0,0,0.2)",
+              minWidth: "1rem",
+              textAlign: "center"
+            }
+          }, chatData.chatListUnreadCount > 99 ? "99+" : chatData.chatListUnreadCount) : null
         ]) : null,
 
         // 回到顶部按钮

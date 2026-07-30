@@ -89,6 +89,9 @@ export default {
     shell.onData(async (data) => {
       session.lastOutputTime = Date.now()
       const output = String(data)
+      // DEBUG: hex dump 追踪退格符来源
+      const hex = Buffer.from(data).toString("hex").match(/.{1,2}/g).join(" ")
+      console.log(`[PTY-DEBUG] appId=${app.id} len=${data.length} hex=${hex}`)
       session.content += output
       app.data.content = session.content
 
@@ -184,13 +187,24 @@ export default {
       case "getContent": {
         if (!session) return { ok: false, msg: "终端 session 不存在" }
         const limit = args.limit || 20
+        const rawStripped = stripAnsi(session.content)
+        // DEBUG: 检查 stripAnsi 后 \x08 是否还在
+        const hexAfter = Buffer.from(rawStripped).toString("hex")
+        const hasBackspace = hexAfter.includes("08")
+        console.log(`[PTY-DEBUG-getContent] appId=${app.id} strippedLen=${rawStripped.length} hasBackspace=${hasBackspace} hexPreview=${hexAfter.slice(0, 200)}`)
+        const allLines = rawStripped.split(/\r?\n/)
+        const totalLines = allLines.length
+        const content = allLines.slice(-limit).join("\n")
+        const isTruncated = totalLines > limit
         return {
           ok: true,
           msg: "获取成功",
           data: {
             appId: app.id,
-            content: stripAnsi(session.content).split(/\r?\n/).slice(-limit).join("\n"),
-            cwd: session.cwd
+            content,
+            cwd: session.cwd,
+            totalLines,
+            isTruncated
           }
         }
       }

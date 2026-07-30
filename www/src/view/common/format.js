@@ -334,6 +334,7 @@ export default format = function (content, type, opt) {
       });
     }
     //content = content.replace(/<[^<>\W]+>/g, " *HTML标签不可以使用噢* ");
+    content = content.replace(/\x08/g, '<span style="display:inline-block;background:#ff6b6b22;color:#ff6b6b;border:1px solid #ff6b6b;border-radius:3px;padding:0 3px;margin:0 2px;font-size:0.75em;line-height:1.2;vertical-align:middle;font-family:monospace;font-weight:bold;">⌫ BS</span>');
     content = formatHide(content);
     content = content.replace(/\[i(=s){0,1}\]|\[\/i\]/g, "*");
     content = content.replace(/([a-zA-Z0-9_]+)@([a-zA-Z0-9_\.]+)\.([a-zA-Z]+)/g, "$1#$2.$3"); // 替换邮箱at符号

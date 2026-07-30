@@ -59,6 +59,10 @@ export default async (db) => {
   }, {
     indexes: [
       {
+        unique: true,
+        fields: ["uuid"]
+      },
+      {
         fields: ["chatListId", "timestamp"]
       },
       {

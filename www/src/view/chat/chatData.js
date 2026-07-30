@@ -55,6 +55,23 @@ export default {
   ],
   chatLists: {},
   computedLists: {},
+  chatListUnreadCount: 0,
+  chatListScrollAtBottom() {
+    const el = document.querySelector(".chatList")
+    if (!el) return true
+    return Math.abs(el.scrollHeight - el.scrollTop - el.clientHeight) < 30
+  },
+  scrollChatListTobottom() {
+    requestAnimationFrame(() => {
+      const el = document.querySelector(".chatList")
+      if (el) {
+        el.scrollTo({
+          top: el.scrollHeight,
+          behavior: "smooth"
+        })
+      }
+    })
+  },
   topChat: null,
   getHistoryList(listId = 0) {
     const rows = this.chatLists[listId]
@@ -75,6 +92,7 @@ export default {
     const allCount = rows.allCount
     const limit = rows.limit
     const finalData = new Array(allCount)
+    const seenUuids = new Set() // 提前声明，拦截重影数据
 
     // 把已经加载的页填入指定位置
     for (const pageIndexStr in rows.pages) {
@@ -88,7 +106,12 @@ export default {
 
       if (startIndex >= 0 && startIndex + pageCopy.length <= allCount) {
         for (let j = 0; j < pageCopy.length; j++) {
-          finalData[startIndex + j] = pageCopy[j]
+          const item = pageCopy[j]
+          if (item && item.uuid) {
+            if (seenUuids.has(item.uuid)) continue
+            seenUuids.add(item.uuid)
+          }
+          finalData[startIndex + j] = item
         }
       }
     }
