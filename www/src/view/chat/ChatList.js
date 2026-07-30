@@ -31,6 +31,8 @@ export default () => {
   let boxEl = null
   let resizeObserver = null
   let atBottom = true
+  let userHasScrolledUp = false
+  let lastScrollTopVal = 0
   let lastDataLength = 0
   let currentChatListId = null
   let listDom = null
@@ -322,6 +324,15 @@ export default () => {
                 }
               }
 
+              // 物理判定：只要 scrollTop 减小（用户向上划），立刻标记用户主动上划
+              if (newScrollTop < lastScrollTopVal) {
+                userHasScrolledUp = true
+              }
+              if (isNowAtBottom) {
+                userHasScrolledUp = false
+              }
+              lastScrollTopVal = newScrollTop
+
               scrollTop = newScrollTop
               viewportHeight = scrollVnode.dom.clientHeight
               m.redraw()
@@ -508,6 +519,12 @@ export default () => {
                 content: chatList?.streamDisplayContent || chatList?.streamChunks,
                 reasoning: chatList?.streamReasoningChunks,
                 timestamp: Date.now(),
+              },
+              onupdate() {
+                // 思考流/打字流持续推进：只要用户没有主动向上划，持续保持吸底
+                if (!userHasScrolledUp) {
+                  chatData.scrollChatListTobottom()
+                }
               }
             }) : null,
 

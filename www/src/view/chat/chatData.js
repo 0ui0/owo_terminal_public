@@ -67,7 +67,7 @@ export default {
       if (el) {
         el.scrollTo({
           top: el.scrollHeight,
-          behavior: "smooth"
+          behavior: "instant"
         })
       }
     })

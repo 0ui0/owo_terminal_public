@@ -484,7 +484,8 @@ export default function () {
               alignItems: "center",
               padding: "0",
               width: "2.2rem", height: "2.2rem",
-              marginLeft: "0.5rem"
+              marginLeft: "0.5rem",
+              flexShrink: 0
             },
             onclick: function (e) {
               if (e && e.stopPropagation) e.stopPropagation()
@@ -516,7 +517,8 @@ export default function () {
               alignItems: "center",
               padding: "0",
               width: "2.5rem", height: "2.5rem",
-              marginRight: "0.5rem"
+              marginRight: "0.5rem",
+              flexShrink: 0
             },
             onclick: (dom, e) => {
               if (e && e.stopPropagation) e.stopPropagation();
@@ -544,7 +546,8 @@ export default function () {
               alignItems: "center",
               padding: "0",
               width: "2.5rem", height: "2.5rem",
-              marginRight: "0.5rem"
+              marginRight: "0.5rem",
+              flexShrink: 0
             },
             // 确认按钮
             onclick: function (e) { handleConfirm(this, e, win, activeTab, attrs.onCloseTab) }
@@ -568,7 +571,8 @@ export default function () {
               alignItems: "center",
               padding: "0",
               width: "2.5rem", height: "2.5rem",
-              marginRight: "0.5rem"
+              marginRight: "0.5rem",
+              flexShrink: 0
             },
             // 关闭/取消按钮
             onclick: function (e) { handleCancel(this, e, win, activeTab, attrs.onCloseTab) }
@@ -591,7 +595,8 @@ export default function () {
               justifyContent: "center",
               alignItems: "center",
               padding: "0",
-              width: "2.5rem", height: "2.5rem"
+              width: "2.5rem", height: "2.5rem",
+              flexShrink: 0
             },
             onclick: function (e) { handleMinimize(this, e, win) }
           }, [
