@@ -233,10 +233,11 @@ export default ChatItem = () => {
               margin: "1rem",
               padding: "1rem",
               boxSizing: "border-box", // Fix typo
-              boxShadow: "0.1rem 0.1rem 1rem rgba(0,0,0,0.3)",
+              boxShadow: `0rem 0rem 3rem ${chat.group === "user" ? getColor("我方气泡高亮边框色") + "55" : getColor("对方气泡高亮边框色") + "55"}`,
               alignSelf: chat.group === "user" ? "flex-end" : "unset",
               background: getColor('我方气泡背景色') + '80',
               color: getColor('gray_8').front + '55',
+              border: `0.1rem solid ${chat.group === "user" ? getColor("我方气泡高亮边框色") + "80" : getColor("对方气泡高亮边框色") + "80"}`,
 
               zIndex: 1,
               //maxHeight: "30rem",

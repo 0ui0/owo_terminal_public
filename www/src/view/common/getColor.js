@@ -97,7 +97,7 @@ export default function (colorStr) {
       terminal_front: "#ECF0F1",
 
       工具组成功背景: "#f1f1f1",
-      工具组成功边框: "#5bb15a",
+      工具组成功边框: "#ea9d9dff",
       工具组失败背景: "#ece1e1",
       工具组文字颜色: "#555555",
       右上角按钮背景: "#cde3fc",

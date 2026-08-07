@@ -5,7 +5,7 @@ export default () => {
   return {
     view({ attrs }) {
       const { chat } = attrs;
-
+      console.log(chat)
       const petFace = chat.ask?.content?.placeFace || "smile";
 
 
