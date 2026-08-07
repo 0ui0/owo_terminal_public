@@ -1,5 +1,6 @@
 import ChatItem from "./ChatItem.js"
 import getColor from "../common/getColor.js"
+import Avatar from "./Avatar.js"
 
 export default () => {
   let expanded = false
@@ -27,51 +28,70 @@ export default () => {
       }
       const toolNames = getToolNames()
 
-      return m('', {
+      return m("", {
         style: {
-          display: "inline-block",
-          margin: '1rem',
-          padding: '0.5rem 1rem',
-          borderRadius: '0.5rem 2rem 2rem 0.5rem',
-          boxShadow: "rgba(0, 0, 0, 0.3) 0.1rem 0.1rem 1rem",
-          background: hasError ? getColor("工具组失败背景") : getColor("工具组成功背景"),
-          borderLeft: hasError ? `0.4rem solid ${getColor("工具组失败边框")}` : `0.4rem solid ${getColor("工具组成功边框")}`,
+          display: "flex",
+          alignItems: "center",
+          width: "100%",
+          maxWidth: "100%",
+          boxSizing: "border-box"
         }
       }, [
-        // 标题栏
-        m('', {
-          style: { cursor: 'pointer', display: 'flex', alignItems: 'center', color: getColor("工具组文字颜色") },
-          onclick: () => { expanded = !expanded }
-        }, [
-          m('span', expanded ? '▼ ' : '▶ '),
-          // 加载动画
-          isLoading ? m('span', {
-            style: {
-              display: 'inline-block',
-              width: '1rem',
-              height: '1rem',
-              border: '0.15rem solid #aaa',
-              borderTopColor: 'transparent',
-              borderRadius: '50%',
-              animation: 'spin 1s linear infinite',
-              marginRight: '0.5rem',
-            }
-          }) : null,
-          (hasError ? '⚠ 工具调用失败' : (isLoading ? '工具调用中...' : '工具调用')) + toolNames,
-          m('span', { style: { marginLeft: '0.5rem', opacity: 0.7 } },
-            `(${chats.length})${duration ? ` · ${(duration / 1000).toFixed(1)}s` : ''}`
-          )
+
+        m("", {}, [
+          m(Avatar, { chat: chats.find(c => c.group !== "user") })
         ]),
-        // 展开详情 - 使用 isGroupChild 而不是 isChildren，避免显示【转到】按钮
-        expanded ? m('', { style: { marginTop: '0.5rem' } },
-          chats.map(chat => m(ChatItem, { key: chat.uuid, chat, isGroupChild: true }))
-        ) : null,
-        // CSS 动画
-        m('style', `
+
+        m('', {
+          style: {
+            display: "flex",
+            flexDirection: "column",
+            margin: '1rem',
+            padding: '0.5rem 1rem',
+            borderRadius: '0.5rem 2rem 2rem 0.5rem',
+            boxShadow: "rgba(0, 0, 0, 0.3) 0.1rem 0.1rem 1rem",
+            background: (hasError ? getColor("工具组失败背景") : getColor("工具组成功背景")) + "80",
+            borderLeft: hasError ? `0.4rem solid ${getColor("工具组失败边框")}` : `0.4rem solid ${getColor("工具组成功边框")}`,
+            maxWidth: window.Mob ? "calc(100% - 5rem)" : "calc(100% - 9rem)",
+            boxSizing: "border-box"
+          }
+        }, [
+          // 标题栏
+          m('', {
+            style: { cursor: 'pointer', display: 'flex', alignItems: 'center', color: getColor("工具组文字颜色") },
+            onclick: () => { expanded = !expanded }
+          }, [
+            m('span', expanded ? '▼ ' : '▶ '),
+            // 加载动画
+            isLoading ? m('span', {
+              style: {
+                display: 'inline-block',
+                width: '1rem',
+                height: '1rem',
+                border: '0.15rem solid #aaa',
+                borderTopColor: 'transparent',
+                borderRadius: '50%',
+                animation: 'spin 1s linear infinite',
+                marginRight: '0.5rem',
+              }
+            }) : null,
+            (hasError ? '⚠ 工具调用失败' : (isLoading ? '工具调用中...' : '工具调用')) + toolNames,
+            m('span', { style: { marginLeft: '0.5rem', opacity: 0.7 } },
+              `(${chats.length})${duration ? ` · ${(duration / 1000).toFixed(1)}s` : ''}`
+            )
+          ]),
+          // 展开详情 - 使用 isGroupChild 而不是 isChildren，避免显示【转到】按钮
+          expanded ? m('', { style: { marginTop: '0.5rem' } },
+            chats.map(chat => m(ChatItem, { key: chat.uuid, chat, isGroupChild: true }))
+          ) : null,
+          // CSS 动画
+          m('style', `
           @keyframes spin {
             to { transform: rotate(360deg); }
           }
         `)
+        ])
+
       ])
     }
   }

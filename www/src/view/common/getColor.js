@@ -55,6 +55,12 @@ export default function (colorStr) {
       确认框按钮执行文字: "#fff",
       确认框按钮拒绝背景: "#eee",
       确认框按钮拒绝文字: "#333",
+      我方气泡背景色: "#f0f0ea",
+      我方气泡高亮边框色: "#F5C71A",
+      对方气泡背景色: "#f0efea",
+      对方气泡高亮边框色: "#ff8585",
+      思考中气泡背景色: "#e5e8ee",
+      思考中气泡高亮边框色: "#1A4A8E",
     }
     return themeOverrides[colorStr] || colorObj[colorStr] || themeOverrides.gray_4
   }
@@ -108,6 +114,12 @@ export default function (colorStr) {
       确认框按钮执行文字: "#fff",
       确认框按钮拒绝背景: "#eee",
       确认框按钮拒绝文字: "#333",
+      我方气泡背景色: "#eaeff0",
+      我方气泡高亮边框色: "#F5C71A",
+      对方气泡背景色: "#f0efea",
+      对方气泡高亮边框色: "#80adff",
+      思考中气泡背景色: "#e5e8ee",
+      思考中气泡高亮边框色: "#1A4A8E",
     }
     return themeOverrides[colorStr] || colorObj[colorStr] || themeOverrides.gray_4
   }
