@@ -700,6 +700,7 @@ export default () => {
             fgColor: getColor('gray_2').front,
             ext: {
               onclick: async () => {
+                /*
                 Notice.launch({
                   tip: "喵宅苑",
                   content() {
@@ -718,6 +719,8 @@ export default () => {
                     }
                   }
                 })
+                */
+                settingData.fnCall("appLaunch", ["browser", { data: { url: "https://iw-i.com" } }])
               }
             }
           }, trs("聊天界面/词汇/反馈")),

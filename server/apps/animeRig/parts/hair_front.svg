@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" viewBox="-35 -70 70 50">
+  <g id="hair_front">
+    <path d="M -30 -32 Q -33 -55 0 -65 Q 33 -55 30 -32 Q 22 -25 15 -30 Q 10 -20 0 -22 Q -10 -20 -15 -30 Q -22 -25 -30 -32 Z" fill="#222222" stroke="#2c3e50" stroke-width="1.5"/>
+    <path d="M -15 -25 Q -10 -18 -5 -22" fill="#55b4e6" opacity="0.9"/>
+    <path d="M 5 -22 Q 10 -18 15 -25" fill="#55b4e6" opacity="0.9"/>
+  </g>
+</svg>

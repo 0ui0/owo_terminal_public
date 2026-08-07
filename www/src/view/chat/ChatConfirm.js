@@ -44,7 +44,9 @@ export default () => {
             background: getColor("确认框内容背景"),
             overflowWrap: "break-word",
             wordBreak: "break-all",
-            whiteSpace: "wrap",
+            whiteSpace: "pre-wrap",
+            display: "flex",
+            flexDirection: "column"
           }
         }, [
 
@@ -91,14 +93,15 @@ export default () => {
             style: {
               width: "100%",
               padding: "0.5rem",
-              marginTop: "1rem",
+              margin: "1rem 0.5rem 0.5rem",
               background: getColor("确认框输入背景"),
               border: `1px solid ${getColor("确认框输入边框")}`,
-              borderRadius: "0.3rem",
+              borderRadius: "0.5rem",
               color: getColor("确认框输入文字"),
               outline: "none",
-              minHeight: "4rem",
-              resize: "vertical"
+              minHeight: "6rem",
+              resize: "vertical",
+              width: "auto"
             }
           })
         ]),

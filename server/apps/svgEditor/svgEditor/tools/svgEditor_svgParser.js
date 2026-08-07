@@ -275,7 +275,7 @@ getNameFromNode = function(node) {
 
 export default {
   parse: function(svgString, targetParentGroup = null) {
-    var allLines, allPureFills, clearTransform, collectLines, doc, parser, root, rootGroup, rootName, traverse;
+    var allLines, allPureFills, clearTransform, collectLines, doc, parser, parts, ref, ref1, root, rootGroup, rootName, targetX, targetY, transX, transY, traverse, vHeight, vMinX, vMinY, vWidth, viewBoxStr;
     parser = new DOMParser();
     doc = parser.parseFromString(svgString, "image/svg+xml");
     root = doc.querySelector("svg");
@@ -292,6 +292,27 @@ export default {
       isChoised: true
     });
     data.elPaper.add(rootGroup);
+    viewBoxStr = root.getAttribute("viewBox");
+    if (viewBoxStr) {
+      parts = viewBoxStr.split(/[\s,]+/).filter(function(s) {
+        return s;
+      });
+      if (parts.length >= 4) {
+        vMinX = parseFloat(parts[0]);
+        vMinY = parseFloat(parts[1]);
+        vWidth = parseFloat(parts[2]);
+        vHeight = parseFloat(parts[3]);
+        targetX = 0;
+        targetY = 0;
+        if (((ref = data.svgPaper) != null ? ref.width : void 0) && ((ref1 = data.svgPaper) != null ? ref1.height : void 0)) {
+          targetX = (data.svgPaper.width - vWidth) / 2;
+          targetY = (data.svgPaper.height - vHeight) / 2;
+        }
+        transX = targetX - vMinX;
+        transY = targetY - vMinY;
+        rootGroup.prop.transform = `translate(${transX}, ${transY})`;
+      }
+    }
     allPureFills = [];
     traverse = function(node, parentGroup) {
       var closingLine, content, d, disSq, endPt, fill, fillGroupEl, firstLine, fontSize, generatedLines, group, lastLine, nodeName, pureFillEl, segments, shapeGroup, startPt, stroke, strokeLinecap, strokeWidth, strokeWidthVal, tag, textEl, textGroup, transform, tspans, x, y, yBaseline;

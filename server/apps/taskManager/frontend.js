@@ -1,13 +1,14 @@
-
 import taskManagerData from "./taskManagerData.js"
 
-export default ({ appId, m, Notice, ioSocket, commonData, chatData, settingData, Box, iconPark, getColor }) => {
+export default ({ appId, m, Notice, ioSocket, commonData, chatData, settingData, Box, Tag, iconPark, getColor }) => {
   // === State ===
   let appList = []
   let isLoading = false
   let lastRefresh = Date.now()
   let hoverId = null
   let pollTimer = null
+  let containerWidth = window.innerWidth
+  let observer = null
 
   // === Actions ===
   const fetchList = async (silent = false) => {
@@ -31,7 +32,7 @@ export default ({ appId, m, Notice, ioSocket, commonData, chatData, settingData,
     try {
       const res = await settingData.fnCall("appDispatch", [appId, "kill", { targetId }])
       if (res.ok) {
-        Notice.launch({ msg:res.msg, color: "green" })
+        Notice.launch({ msg: res.msg, color: "green" })
         await fetchList(true)
       } else {
         Notice.launch({ msg: res.msg, color: "red" })
@@ -85,196 +86,216 @@ export default ({ appId, m, Notice, ioSocket, commonData, chatData, settingData,
 
   // === Render Helpers ===
   const StatusBadge = (isVisible) => {
-    return m("div", {
-      style: {
-        display: "inline-flex", alignItems: "center", gap: "6px",
-        padding: "3px 10px", borderRadius: "12px",
-        fontSize: "10px", fontWeight: "600",
-        background: isVisible
-          ? "rgba(35, 212, 178, 0.15)"
-          : "rgba(240, 98, 88, 0.1)",
-        color: isVisible ? "#23D4B2" : "#F06258",
-        border: `1px solid ${isVisible ? "rgba(35, 212, 178, 0.2)" : "rgba(240, 98, 88, 0.2)"}`,
+    const successColor = "green_1"
+    const failColor = "pink_1"
+    const badgeColor = isVisible ? successColor : failColor
+
+    return m(Tag, {
+      color: badgeColor,
+      styleExt: {
+        display: "inline-flex",
+        alignItems: "center",
+        gap: "0.4rem",
+        fontSize: "1.0rem",
+        margin: "0"
       }
     }, [
-      m("div", {
+      m("", {
         style: {
-          width: "5px", height: "5px", borderRadius: "50%",
-          background: isVisible ? "#23D4B2" : "#F06258",
-          boxShadow: isVisible ? "0 0 6px #23D4B2" : "none"
+          width: "0.5rem",
+          height: "0.5rem",
+          borderRadius: "50%",
+          background: getColor(badgeColor).front,
+          boxShadow: isVisible ? `0 0 0.4rem ${getColor(badgeColor).front}` : "none"
         }
       }),
       isVisible ? "活跃窗口" : "后台存活"
     ])
   }
 
-  const AppCard = (app) => {
+  const AppCard = (app, isMob) => {
     const isHovered = hoverId === app.id
 
-    return m("div", {
-      key: app.id,
-      onmouseenter: () => { hoverId = app.id; m.redraw() },
-      onmouseleave: () => { hoverId = null; m.redraw() },
+    const contentArea = m("", {
       style: {
-        display: "flex", alignItems: "center",
-        padding: "12px 16px", marginBottom: "10px",
-        background: getColor('gray_3').back,
-        opacity: isHovered ? 1 : 0.85,
-        borderRadius: "14px",
-        border: `1px solid ${isHovered ? getColor('gray_3').front + '33' : getColor('gray_3').front + '11'}`,
-        color: getColor('gray_3').front,
-        transition: "all 0.25s ease",
-        transform: isHovered ? "translateY(-1px)" : "none",
+        display: "flex",
+        alignItems: "center",
+        flex: 1,
+        minWidth: 0,
+        marginBottom: isMob ? "1.0rem" : "0rem"
       }
     }, [
-      // App Type Graphic
-      m("div", {
+      // Graphic (App Icon)
+      m("", {
         style: {
-          width: "40px", height: "40px", borderRadius: "10px",
-          background: `linear-gradient(135deg, ${getColor('gray_12').back}, ${getColor('gray_12').front}22)`,
-          color: getColor('gray_12').front,
-          display: "flex", alignItems: "center", justifyContent: "center",
-          fontSize: "18px", marginRight: "16px",
-          boxShadow: "0 4px 10px rgba(0,0,0,0.2)"
+          width: "4.0rem",
+          height: "4.0rem",
+          borderRadius: "1.0rem",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          marginRight: "1.2rem",
+          boxShadow: "0 0.4rem 1.0rem rgba(0,0,0,0.2)",
+          overflow: "hidden"
         }
-      }, app.type.charAt(0).toUpperCase()),
-
+      }, m("img", {
+        src: `/api/apps/${app.type}/${app.icon || "icon.svg"}`,
+        style: {
+          width: "100%",
+          height: "100%",
+          objectFit: "contain"
+        },
+        onerror: (e) => {
+          e.target.style.display = "none"
+          e.target.parentNode.style.background = `linear-gradient(135deg, ${getColor("gray_12").back}, ${getColor("gray_12").front}22)`
+          e.target.parentNode.style.color = getColor("gray_12").front
+          const fallback = document.createElement("span")
+          fallback.innerText = app.type.charAt(0).toUpperCase()
+          fallback.style.fontSize = "1.8rem"
+          fallback.style.fontWeight = "bold"
+          e.target.parentNode.appendChild(fallback)
+        }
+      })),
       // Identity
-      m("div", { style: { flex: 1, minWidth: 0 } }, [
-        m("div", {
+      m("", { style: { flex: 1, minWidth: 0 } }, [
+        m("", {
           style: {
-            fontSize: "13px", fontWeight: "600", color: getColor('gray_3').front,
-            whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+            fontSize: "1.3rem",
+            fontWeight: "600",
+            whiteSpace: "nowrap",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
           }
         }, app.id),
-        m("div", { style: { display: "flex", alignItems: "center", gap: "10px", marginTop: "4px" } }, [
-          m("span", { style: { fontSize: "11px", opacity: 0.6, color: getColor('gray_3').front } }, app.type),
+        m("", {
+          style: {
+            display: "flex",
+            alignItems: "center",
+            gap: "1.0rem",
+            marginTop: "0.4rem"
+          }
+        }, [
+          m("span", {
+            style: {
+              fontSize: "1.1rem",
+              opacity: 0.6
+            }
+          }, app.type),
           StatusBadge(app.guiLaunched)
         ])
-      ]),
-
-      // Toolset
-      m("div", {
-        style: {
-          display: "flex", gap: "10px",
-          opacity: isHovered ? 1 : 0.6,
-          transition: "opacity 0.2s"
-        }
-      }, [
-        // 唤醒 / 唤醒界面
-        m(Box, {
-          isBtn: true,
-          style: {
-            width: "25px", height: "25px", borderRadius: "50%",
-            background: "rgba(35, 212, 178, 0.15)", color: "#23D4B2",
-            display: "flex", alignItems: "center", justifyContent: "center",
-            border: "1px solid rgba(35, 212, 178, 0.3)"
-          },
-          onclick: () => showApp(app.id)
-        }, m.trust(iconPark.getIcon("PreviewOpen", { fill: "#23D4B2", size: "14px" }))),
-
-        // 引用 AppID (同窗口引用按钮同款风格)
-        m(Box, {
-          isBtn: true,
-          style: {
-            width: "25px", height: "25px", borderRadius: "50%",
-            background: getColor('yellow_1').back, color: getColor('yellow_1').front,
-            display: "flex", alignItems: "center", justifyContent: "center",
-            border: `1px solid ${getColor('yellow_1').front}33`
-          },
-          onclick: () => quoteId(app.id)
-        }, m.trust(iconPark.getIcon("Quote", { fill: getColor('yellow_1').front, size: "12px" }))),
-
-        // 终止进程
-        m(Box, {
-          isBtn: true,
-          style: {
-            width: "25px", height: "25px", borderRadius: "50%",
-            background: "rgba(240, 98, 88, 0.15)", color: "#F06258",
-            display: "flex", alignItems: "center", justifyContent: "center",
-            border: "1px solid rgba(240, 98, 88, 0.3)"
-          },
-          onclick: () => killApp(app.id)
-        }, m.trust(iconPark.getIcon("Close", { fill: "#F06258", size: "12px" })))
       ])
     ])
+
+    const toolsetArea = m("", {
+      style: {
+        display: "flex",
+        justifyContent: isMob ? "flex-end" : "flex-start",
+        gap: "1.0rem"
+      }
+    }, [
+      // 唤醒 / 唤醒界面
+      m(Tag, {
+        isBtn: true,
+        color: "green_1",
+        onclick: () => showApp(app.id)
+      }, m.trust(iconPark.getIcon("PreviewOpen", { fill: getColor("green_1").front, size: "1.2rem" }))),
+
+      // 引用 AppID (同窗口引用按钮同款风格)
+      m(Tag, {
+        isBtn: true,
+        color: "yellow_1",
+        onclick: () => quoteId(app.id)
+      }, m.trust(iconPark.getIcon("Quote", { fill: getColor("yellow_1").front, size: "1.2rem" }))),
+
+      // 终止进程
+      m(Tag, {
+        isBtn: true,
+        color: "pink_1",
+        onclick: () => killApp(app.id)
+      }, m.trust(iconPark.getIcon("Close", { fill: getColor("pink_1").front, size: "1.2rem" })))
+    ])
+
+    return m(Box, {
+      key: app.id,
+      color: "gray_3",
+      isBlock: true,
+      style: {
+        display: "flex",
+        flexDirection: isMob ? "column" : "row",
+        alignItems: isMob ? "stretch" : "center",
+        opacity: isHovered ? 1 : 0.85,
+        transition: "all 0.25s ease",
+        transform: isHovered ? "translateY(-0.1rem)" : "none",
+      }
+    }, [contentArea, toolsetArea])
   }
 
   return {
+    oninit(vnode) {
+      // 动态向窗口标题栏追加刷新按钮
+      const config = vnode.attrs.noticeConfig
+      if (config) {
+        if (!config.headerButtons) config.headerButtons = []
+        const hasRefresh = config.headerButtons.some(b => b.id === "task_manager_refresh")
+        if (!hasRefresh) {
+          config.headerButtons.push({
+            id: "task_manager_refresh",
+            icon: m.trust(iconPark.getIcon("Refresh", { fill: getColor("gray_8").front, size: "1.2rem" })),
+            color: getColor("green_1").back,
+            onclick: (e) => {
+              if (e && e.stopPropagation) e.stopPropagation()
+              fetchList()
+            }
+          })
+        }
+      }
+    },
+    oncreate(vnode) {
+      const dom = vnode.dom
+      containerWidth = dom.offsetWidth
+      observer = new ResizeObserver(entries => {
+        for (let entry of entries) {
+          const newWidth = entry.contentRect.width
+          if (Math.abs(newWidth - containerWidth) > 5) {
+            containerWidth = newWidth
+            m.redraw()
+          }
+        }
+      })
+      observer.observe(dom)
+      m.redraw()
+    },
     onremove() {
       taskManagerData.unregisterInstances(appId, commonData)
       if (pollTimer) clearInterval(pollTimer)
+      if (observer) observer.disconnect()
     },
     view() {
-      return m("div", {
+      const isMob = window.Mob || (containerWidth < 500)
+
+      return m("", {
         style: {
-          display: "flex", flexDirection: "column",
-          width: "100%", height: "100%",
-          background: getColor('gray_4').back,
-          color: getColor('gray_4').front,
-          fontFamily: "'Inter', system-ui, sans-serif",
-          overflow: "hidden"
+          flex: 1,
+          overflowY: "auto",
+          padding: "1.0rem"
         }
       }, [
-        // Glassy Navigation
-        m("div", {
-          style: {
-            padding: "18px 24px",
-            background: getColor('gray_12').back,
-            borderBottom: `1px solid ${getColor('gray_4').front}22`,
-            display: "flex", alignItems: "center", justifyContent: "space-between"
-          }
-        }, [
-          m("div", [
-            m("div", { style: { fontSize: "16px", fontWeight: "800", color: getColor('gray_12').front, letterSpacing: "-0.3px" } }, "进程管理器"),
-            m("div", { style: { fontSize: "10px", opacity: 0.5, marginTop: "2px", fontWeight: "500", color: getColor('gray_12').front } }, [
-              m("span", { style: { color: "#23D4B2" } }, "● "),
-              `AUTO-POLLING · ${appList.length} ACTIVE`
+        appList.length === 0
+          ? m("", {
+              style: {
+                height: "100%",
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                justifyContent: "center",
+                opacity: 0.25,
+                color: getColor("gray_4").front
+              }
+            }, [
+              m.trust(iconPark.getIcon("Terminal", { size: "4.8rem", fill: getColor("gray_4").front })),
+              m("", { style: { marginTop: "1.2rem", fontSize: "1.2rem" } }, "系统纯净 · 暂无第三方负载")
             ])
-          ]),
-          m(Box, {
-            isBtn: true,
-            style: {
-              width: "36px", height: "36px", borderRadius: "10px",
-              background: isLoading ? "rgba(255,255,255,0.05)" : "transparent",
-              border: `1px solid ${getColor('gray_12').front}22`,
-              display: "flex", alignItems: "center", justifyContent: "center",
-              transition: "all 0.3s",
-            },
-            onclick: () => fetchList()
-          }, m.trust(iconPark.getIcon("Refresh", { fill: isLoading ? "#23D4B2" : getColor('gray_12').front, size: "16px" })))
-        ]),
-
-        // Viewport
-        m("div", {
-          style: {
-            flex: 1, overflowY: "auto", padding: "20px",
-            background: getColor('gray_4').back
-          }
-        }, [
-          appList.length === 0
-            ? m("div", { style: { height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", opacity: 0.25, color: getColor('gray_4').front } }, [
-              m.trust(iconPark.getIcon("Terminal", { size: "48px", fill: getColor('gray_4').front })),
-              m("div", { style: { marginTop: "12px", fontSize: "12px" } }, "系统纯净 · 暂无第三方负载")
-            ])
-            : appList.map(AppCard)
-        ]),
-
-        // Cyber Bottom Bar
-        m("div", {
-          style: {
-            padding: "10px 24px",
-            fontSize: "9px", letterSpacing: "1.5px",
-            color: getColor('gray_12').front,
-            opacity: 0.4,
-            background: getColor('gray_12').back,
-            display: "flex", justifyContent: "space-between",
-            borderTop: `1px solid ${getColor('gray_4').front}22`,
-          }
-        }, [
-          m("span", "CORE.TASK_PROC.OWO"),
-          m("span", `UPTIME_SYNC: ${new Date(lastRefresh).toLocaleTimeString()}`)
-        ])
+          : appList.map(app => AppCard(app, isMob))
       ])
     }
   }

@@ -113,7 +113,13 @@ export default {
               return { ok: true, msg: "已用浏览器打开" }
             }
 
-            // 3. 默认系统打开
+            // 3. 图片文件 -> imageViewer
+            if ([".png", ".jpg", ".jpeg", ".gif", ".bmp", ".webp", ".svg", ".ico"].includes(ext)) {
+              await appManager.launch("imageViewer", { data: { currentImagePath: filePath } })
+              return { ok: true, msg: "已用图片查看器打开" }
+            }
+
+            // 4. 默认系统打开
             await shell.openPath(filePath)
             return { ok: true, msg: "已调用系统打开" }
           }

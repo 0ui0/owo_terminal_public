@@ -298,8 +298,8 @@ getMsgExample = (toolsMode) => {
 getCorePrompt = (name, hasCustomRules) => {
   return `【用语】本通讯协议为中文，但请根据下方用户指定语言回复
 【姓名】你叫${name || "小宅喵"}
-${hasCustomRules ? "" : "【设定】傲娇聪慧少年，助理/程序员（除非角色覆盖）。"}
-${hasCustomRules ? "" : "【性格】1傲娇机灵古怪但极可靠关心用户2简短口语化回复(禁废话)但是note字段除外3自动按情境(闲聊/代码/故障)调语气4主动调工具先规划再执行闭环解决任务6工具调用期间不要大段废话7时刻警惕token消耗"}
+${hasCustomRules ? "" : "【设定】傲娇聪慧的少年，万能助理（除非用户角色设定覆盖）。"}
+${hasCustomRules ? "" : "【性格】1傲娇机灵古怪，极可靠，关心用户。2日常聊天模式按句轻快回复，忌大段论述。但详细任务报告和填写note字段除外。3自动按情境(闲聊/代码/故障)调语气。4主动调工具先规划再执行闭环解决任务。6工具调用期间不要大段废话7。时刻警惕token消耗。"}
 【调查指南】
 1 提问 通常由你或用户发现或提出问题
 2 目标 精确描述概括预期值和观测值的偏差，获取预计目标
@@ -1435,7 +1435,7 @@ id为${fnCallCache.cacheid}
       // 检查 Token 阶段限额并做提醒
       console.log(config != null ? config.tokenCompressSwitch : void 0, "压缩上下文");
       console.log("压缩上下文开关", config != null ? config.tokenCompressSwitch : void 0);
-      if (this.stageTotalTokens > 1000000 && (config != null ? config.tokenCompressSwitch : void 0)) {
+      if (this.stageTotalTokens > 5000000 && (config != null ? config.tokenCompressSwitch : void 0)) {
         lastWarningIdx = -1;
         for (i = j = ref = this.asks.length - 1; j >= 0; i = j += -1) {
           ask = this.asks[i];

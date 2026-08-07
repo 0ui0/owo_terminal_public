@@ -3,6 +3,14 @@ import editorData from "./editorData.js"
 
 // Editor App 前端组件 (Closure Version)
 export default ({ appId, m, Notice, ioSocket, comData, commonData, chatData, settingData, Box, Tag, getColor }) => {
+  // 💡 跨窗口内存持久化：在全局共享单例上挂载并初始化 sendDiff 与 openFileAfterAccept 状态
+  if (editorData.sendDiff === undefined) {
+    editorData.sendDiff = true
+  }
+  if (editorData.openFileAfterAccept === undefined) {
+    editorData.openFileAfterAccept = true
+  }
+
   // === Private State ===
   let isDiff = false
   let readOnly = false
@@ -13,6 +21,11 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, chatData, set
   let proposedContent = ""
   let confirmId = null
   let localComment = ""
+  let isConflictDiff = false
+  let annotations = []
+  let diffChanges = []
+  let currentDiffIndex = 0
+  let reason = ""
 
   let activeMenu = null
   let wordWrap = false
@@ -37,28 +50,218 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, chatData, set
     })
   }
 
-  const handleSave = async (forceDialog = false) => {
-    if (!editor) return false
-    let currentPath = filePath
-    if (!currentPath || forceDialog) {
-      const dialogRes = await settingData.fnCall("appSaveDialog", [{
-        title: "另存为", filePath: currentPath,
-        filters: [{ name: "文本文件", extensions: ["txt", "js", "py", "md", "html", "css", "json"] }, { name: "所有文件", extensions: ["*"] }]
-      }])
-      if (!dialogRes.ok || dialogRes.canceled) return false
-      currentPath = dialogRes.filePath
+  // 💡 自定义保存冲突确认弹窗
+  const ConflictResolveComponent = {
+    view: (vnode) => m("",
+      {
+        style: {
+          display: "flex",
+          flexDirection: "column",
+          padding: "1.5rem"
+        }
+      },
+      [
+        m(Box,
+          {
+            isBlock: true,
+            style: {
+              marginBottom: "1rem"
+            }
+          },
+          "该文件在外部已被修改，直接保存将覆盖外部的修改！是否强行覆盖，或重新加载最新内容？"
+        ),
+        m("",
+          {
+            style: {
+              display: "flex",
+              justifyContent: "flex-end",
+              gap: "0.5rem"
+            }
+          },
+          [
+            m(Box,
+              {
+                isBtn: true,
+                color: "main",
+                onclick: async () => {
+                  try {
+                    vnode.attrs.delete()
+                    const readRes = await settingData.fnCall("appDispatch", [
+                      appId,
+                      "readDiskContent",
+                      {
+                        filePath: filePath
+                      }
+                    ])
+                    if (readRes.ok) {
+                      originalContent = readRes.data.content
+                      proposedContent = content
+                      isDiff = true
+                      isConflictDiff = true
+                      updateEditor()
+                    } else {
+                      Notice.launch({
+                        msg: readRes.msg
+                      })
+                    }
+                  } catch (err) {
+                    console.error(err)
+                    Notice.launch({
+                      msg: err.message
+                    })
+                  }
+                }
+              },
+              "对比差异"
+            ),
+            m(Box,
+              {
+                isBtn: true,
+                color: "pink_1",
+                onclick: async () => {
+                  try {
+                    vnode.attrs.delete()
+                    await handleSave(false, true)
+                  } catch (err) {
+                    console.error(err)
+                    Notice.launch({
+                      msg: err.message
+                    })
+                  }
+                }
+              },
+              "强行覆盖"
+            ),
+            m(Box,
+              {
+                isBtn: true,
+                color: "main",
+                onclick: async () => {
+                  try {
+                    vnode.attrs.delete()
+                    const openRes = await settingData.fnCall("appDispatch", [
+                      appId,
+                      "open",
+                      {
+                        filePath: filePath
+                      }
+                    ])
+                    if (openRes.ok) {
+                      content = openRes.data.content
+                      if (editor) {
+                        editor.setValue(content)
+                      }
+                      isDirty = false
+                      redraw()
+                      Notice.launch({
+                        msg: "文件内容已重新加载喵！"
+                      })
+                    } else {
+                      Notice.launch({
+                        msg: openRes.msg
+                      })
+                    }
+                  } catch (err) {
+                    console.error(err)
+                    Notice.launch({
+                      msg: err.message
+                    })
+                  }
+                }
+              },
+              "重新加载"
+            ),
+            m(Box,
+              {
+                isBtn: true,
+                color: "gray_2",
+                onclick: () => vnode.attrs.delete()
+              },
+              "取消"
+            )
+          ]
+        )
+      ]
+    )
+  }
+
+  const handleSave = async (forceDialog = false, forceWrite = false) => {
+    if (!editor) {
+      return false
     }
-    const txt = editor.getValue()
-    const res = await settingData.fnCall("appDispatch", [appId, "save", { content: txt, filePath: currentPath }])
-    if (res.ok) {
-      filePath = res.data.filePath
-      content = txt
-      isDirty = false
-      redraw()
-      Notice.launch({ msg: res.msg })
-      return true
-    } else {
-      Notice.launch({ msg: res.msg })
+    let currentPath = filePath
+    try {
+      if (!currentPath || forceDialog) {
+        const dialogRes = await settingData.fnCall("appSaveDialog", [
+          {
+            title: "另存为",
+            filePath: currentPath,
+            filters: [
+              {
+                name: "文本文件",
+                extensions: [
+                  "txt",
+                  "js",
+                  "py",
+                  "md",
+                  "html",
+                  "css",
+                  "json"
+                ]
+              },
+              {
+                name: "所有文件",
+                extensions: [
+                  "*"
+                ]
+              }
+            ]
+          }
+        ])
+        if (!dialogRes.ok || dialogRes.canceled) {
+          return false
+        }
+        currentPath = dialogRes.filePath
+      }
+      const txt = editor.getValue()
+      const res = await settingData.fnCall("appDispatch", [
+        appId,
+        "save",
+        {
+          content: txt,
+          filePath: currentPath,
+          force: forceWrite
+        }
+      ])
+      if (res.ok) {
+        filePath = res.data.filePath
+        content = txt
+        isDirty = false
+        redraw()
+        Notice.launch({
+          msg: res.msg
+        })
+        return true
+      } else if (res.code === "MODIFIED_EXTERNALLY") {
+        Notice.launch({
+          sign: "conflict_save_prompt_" + appId,
+          tip: "保存冲突",
+          hideBtn: 1,
+          useMinus: false,
+          content: ConflictResolveComponent
+        })
+        return false
+      } else {
+        Notice.launch({
+          msg: res.msg
+        })
+        return false
+      }
+    } catch (err) {
+      console.error(err)
+      Notice.launch({
+        msg: `保存发生异常: ${err.message}`
+      })
       return false
     }
   }
@@ -107,6 +310,8 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, chatData, set
     if (editor) { editor.dispose(); editor = null }
     if (diffEditor) { diffEditor.dispose(); diffEditor = null }
     container.innerHTML = ""
+    diffChanges = []
+    currentDiffIndex = 0
 
     const extension = (filePath || "").split(".").pop()
     const langMap = { js: "javascript", py: "python", md: "markdown", html: "html", css: "css", json: "json", coffee: "coffeescript" }
@@ -121,6 +326,16 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, chatData, set
       diffEditor.setModel({
         original: monaco.editor.createModel(originalContent, language),
         modified: monaco.editor.createModel(proposedContent, language)
+      })
+
+      diffEditor.onDidUpdateDiff(() => {
+        const changes = diffEditor.getLineChanges()
+        if (changes && changes.length > 0) {
+          diffChanges = changes
+          const firstChange = changes[0]
+          diffEditor.getModifiedEditor().revealLineInCenter(firstChange.modifiedStartLineNumber)
+          redraw()
+        }
       })
 
       const addQuoteAction = (ed, labelPrefix = "") => {
@@ -147,6 +362,68 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, chatData, set
 
       addQuoteAction(diffEditor.getOriginalEditor(), "从原始文件")
       addQuoteAction(diffEditor.getModifiedEditor(), "从修改方案")
+
+      // Add Annotation Action to Modified Editor (where user reviews AI changes)
+      diffEditor.getModifiedEditor().addAction({
+        id: 'add-annotation',
+        label: '添加行批注',
+        contextMenuGroupId: 'navigation',
+        contextMenuOrder: 2,
+        run: (innerEd) => {
+          const selection = innerEd.getSelection()
+          if (!selection || selection.isEmpty()) {
+            return Notice.launch({
+              msg: "请先选择需要批注的行范围喵！"
+            })
+          }
+          const startLine = selection.startLineNumber
+          const endLine = selection.endLineNumber
+
+          let tempComment = ""
+          const InputComponent = {
+            view: () => m(Box,
+              {
+                tagName: "textarea",
+                oninput: (dom, e) => {
+                  tempComment = e.target.value
+                },
+                ext: {
+                  placeholder: "输入批注内容..."
+                },
+              }
+            )
+          }
+
+          Notice.launch({
+            tip: `添加第 ${startLine} - ${endLine} 行的批注`,
+            hideBtn: 0,
+            useMinus: false,
+            content: InputComponent,
+            confirm: async (dom, closeFn) => {
+              try {
+                if (!tempComment.trim()) {
+                  Notice.launch({
+                    msg: "批注内容不能为空喵！"
+                  })
+                  return true
+                }
+                annotations.push({
+                  startLine: startLine,
+                  endLine: endLine,
+                  comment: tempComment.trim()
+                })
+                redraw()
+                closeFn()
+              } catch (err) {
+                console.error(err)
+                Notice.launch({
+                  msg: err.message
+                })
+              }
+            }
+          })
+        }
+      })
     } else {
       editor = monaco.editor.create(container, {
         value: content, language: language, theme: monacoTheme, automaticLayout: true, fontSize: 14, lineHeight: 20, wordWrap: wordWrap ? "on" : "off",
@@ -199,17 +476,58 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, chatData, set
       isDiff = false
       isDirty = false
       if (confirmId) {
+        let parts = []
+
+        if (editorData.sendDiff && diffChanges.length > 0) {
+          const originalLines = originalContent.split("\n")
+          const modifiedLines = proposedContent.split("\n")
+          let diffText = ""
+          diffChanges.forEach(change => {
+            diffText += `@@ -${change.originalStartLineNumber},${change.originalEndLineNumber - change.originalStartLineNumber + 1} +${change.modifiedStartLineNumber},${change.modifiedEndLineNumber - change.modifiedStartLineNumber + 1} @@\n`
+            if (change.originalEndLineNumber >= change.originalStartLineNumber) {
+              for (let l = change.originalStartLineNumber; l <= change.originalEndLineNumber; l++) {
+                diffText += `-${originalLines[l - 1]}\n`
+              }
+            }
+            if (change.modifiedEndLineNumber >= change.modifiedStartLineNumber) {
+              for (let l = change.modifiedStartLineNumber; l <= change.modifiedEndLineNumber; l++) {
+                diffText += `+${modifiedLines[l - 1]}\n`
+              }
+            }
+          })
+
+          if (diffText) {
+            const diffBlock = `\`\`\`diff\n${diffText}\`\`\``
+            parts.push(`批准修改的 Diff 变动详情如下：\n${diffBlock}`)
+          }
+        }
+
+        if (annotations.length > 0) {
+          const notes = annotations.map(a => `- 行 L${a.startLine}-L${a.endLine}: ${a.comment}`).join("\n")
+          parts.push(`具体行批注反馈如下：\n${notes}`)
+        }
+
+        if (localComment && localComment.trim()) {
+          parts.push(localComment.trim())
+        }
+
+        let finalComment = parts.join("\n\n")
+
         await comData.data.edit(data => {
           data.chatLists.forEach(list => {
             const cmd = list.confirmCmds.find(c => c.id === confirmId);
             if (cmd) {
-              cmd.comment = localComment
+              cmd.comment = finalComment
               cmd.confirm = "yes"
             }
           })
         })
         confirmId = null
         localComment = ""
+        annotations = []
+      }
+      if (editorData.openFileAfterAccept && filePath) {
+        settingData.fnCall("appLaunch", ["editor", { data: { filePath: filePath, singleInstance: true } }])
       }
       updateEditor()
     } else {
@@ -219,17 +537,27 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, chatData, set
 
   const handleReject = async () => {
     if (confirmId) {
+      let parts = []
+      if (annotations.length > 0) {
+        const notes = annotations.map(a => `- 行 L${a.startLine}-L${a.endLine}: ${a.comment}`).join("\n")
+        parts.push(`具体行批注反馈如下：\n${notes}`)
+      }
+      if (localComment && localComment.trim()) {
+        parts.push(localComment.trim())
+      }
+      let finalComment = parts.join("\n\n")
       await comData.data.edit(data => {
         data.chatLists.forEach(list => {
           const cmd = list.confirmCmds.find(c => c.id === confirmId);
           if (cmd) {
-            cmd.comment = localComment
+            cmd.comment = finalComment
             cmd.confirm = "no"
           }
         })
       })
       confirmId = null
       localComment = ""
+      annotations = []
     }
     isDiff = false
     updateEditor()
@@ -262,6 +590,8 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, chatData, set
 
   // === Instance Interface ===
   const instanceInterface = {
+    get filePath() { return filePath },
+    get isDirty() { return isDirty },
     onDispatch: (msg, callback) => {
       const done = (res) => { if (callback) callback(res) }
       if (msg.action === "getHTML") return done({ ok: true, data: container ? container.parentNode.innerHTML : "" })
@@ -272,11 +602,17 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, chatData, set
       if (msg.action === "open") {
         filePath = msg.args.filePath; content = msg.args.content;
         isDiff = false; readOnly = !!msg.args.readOnly; isDirty = false;
+        isConflictDiff = false;
+        annotations = [];
+        reason = "";
         updateEditor()
         done({ ok: true })
       } else if (msg.action === "showDiff") {
         filePath = msg.args.filePath; originalContent = msg.args.originalContent
         proposedContent = msg.args.proposedContent; isDiff = true; confirmId = msg.args.confirmId
+        isConflictDiff = false;
+        annotations = [];
+        reason = msg.args.reason || "";
         updateEditor()
         done({ ok: true })
       } else if (msg.action === "acceptDiff") {
@@ -391,6 +727,65 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, chatData, set
         originalContent = d.originalContent || ""
         proposedContent = d.proposedContent || ""
         confirmId = d.confirmId || null
+        isConflictDiff = d.isConflictDiff || false
+        annotations = d.annotations || []
+        reason = d.reason || ""
+      }
+
+      // 💡 运行时重复检测与静默置顶销毁逻辑 (如果指定了 singleInstance)
+      if (filePath && !isDiff && vnode.attrs.data?.singleInstance) {
+        const resolvedPath = filePath.toLowerCase()
+        let existingAppId = null
+
+        // 🚀 通过 Notice 窗口管理器的全局 Tab 数组进行查重（即使标签被 unmount 隐藏也依然存在于 dataArr 中）
+        const dataArr = Notice.data?.dataArr || []
+        for (const tab of dataArr) {
+          if (tab.group === "editor" && tab.contentAttrs && tab.contentAttrs.appId !== appId) {
+            // 排除临时的 Diff 对比窗口（批准/拒绝后会自动关闭，不算"已打开"）
+            if (tab.contentAttrs.data?.isDiff) continue
+            const otherPath = tab.contentAttrs.data?.filePath
+            if (otherPath && otherPath.toLowerCase() === resolvedPath) {
+              existingAppId = tab.contentAttrs.appId
+              break
+            }
+          }
+        }
+
+        if (existingAppId) {
+          // 💡 用 appActive 轻量激活（只 emit app:active 激活窗口，不重建组件），
+          // 避免 appGuiRestore 的 app:launch 重新 import frontend.js 执行组件工厂，
+          // 覆盖 commonData.appsData 注册表为未挂载的新实例（container=null），导致 open 刷新静默失败
+          // 🔄 并配合 await sleep 确保警告窗口在置顶后弹出，避免被原窗口遮住
+          ;(async () => {
+            await settingData.fnCall("appActive", [existingAppId])
+            await new Promise(resolve => setTimeout(resolve, 100))
+
+            // 🔄 单例命中：旧窗口可能未感知磁盘最新内容（如批准 Diff 后文件已变更）
+            // 标准软件行为：无未保存修改 → 静默重新加载；有未保存修改 → 弹窗询问，避免静默覆盖丢失数据
+            // 💡 关键：editorData 因前端子模块缓存穿透(时间戳重写)是每Tab独立实例，必须通过共享的 commonData.appsData 访问其他窗口实例
+            const existingEditorData = commonData?.appsData?.[existingAppId]
+            const existingInstance = existingEditorData?.instances?.get(existingAppId)
+            if (existingInstance && existingInstance.isDirty) {
+              Notice.launch({
+                sign: "ask_reload_" + existingAppId,
+                tip: "文件已在外部被修改",
+                msg: "当前窗口存在未保存的修改，且该文件在磁盘上已被外部更新（如 AI 批准修改）。重新加载将丢失未保存的修改，是否继续？",
+                confirm: async () => {
+                  await settingData.fnCall("appDispatch", [existingAppId, "open", { filePath: filePath }])
+                  return undefined
+                }
+              })
+            } else {
+              settingData.fnCall("appDispatch", [existingAppId, "open", { filePath: filePath }])
+            }
+          })()
+
+          setTimeout(() => {
+            if (vnode.attrs.delete) vnode.attrs.delete()
+            settingData.fnCall("appClose", [appId])
+          }, 0)
+          return
+        }
       }
 
       // 💡 动态劫持 cancel 事件做未保存状态拦截
@@ -443,7 +838,12 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, chatData, set
     },
     onremove() {
       editorData.unregisterInstances(appId, commonData)
-      if (editor) editor.dispose(); if (diffEditor) diffEditor.dispose()
+      if (editor) {
+        editor.dispose()
+      }
+      if (diffEditor) {
+        diffEditor.dispose()
+      }
     },
     view(vnode) {
       // 💡 实时无缝跟随系统颜色主题
@@ -479,53 +879,433 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, chatData, set
             color: getColor('gray_12').front,
             alignItems: "center",
             fontSize: "1.3rem",
-            userSelect: "none"
+            userSelect: "none",
+            borderBottom: "1px solid " + getColor('gray_3').back
           }
         }, [
           m("", { style: { position: "relative" } }, [m("", { style: { padding: "0.5rem 1.0rem", cursor: "pointer", borderRadius: "0.3rem", background: activeMenu === "file" ? getColor('gray_2').back : "transparent" }, onclick: (e) => { e.stopPropagation(); toggleMenu("file") } }, "文件"), activeMenu === "file" ? m(MenuDropdown, { items: [{ label: "新建", action: actions.newFile }, { label: "打开...", action: actions.openFile, shortcut: "Ctrl+O" }, "sep", { label: "保存", action: actions.save, shortcut: "Ctrl+S" }, { label: "另存为...", action: actions.saveAs, shortcut: "Ctrl+Shift+S" }] }) : null]),
           m("", { style: { position: "relative" } }, [m("", { style: { padding: "0.5rem 1.0rem", cursor: "pointer", borderRadius: "0.3rem", background: activeMenu === "edit" ? getColor('gray_2').back : "transparent" }, onclick: (e) => { e.stopPropagation(); toggleMenu("edit") } }, "编辑"), activeMenu === "edit" ? m(MenuDropdown, { items: [{ label: "撤销", action: actions.undo, shortcut: "Ctrl+Z" }, { label: "重做", action: actions.redo, shortcut: "Ctrl+Y" }, "sep", { label: "查找", action: actions.find, shortcut: "Ctrl+F" }, { label: "替换", action: actions.replace, shortcut: "Ctrl+H" }] }) : null]),
           m("", { style: { position: "relative" } }, [m("", { style: { padding: "0.5rem 1.0rem", cursor: "pointer", borderRadius: "0.3rem", background: activeMenu === "view" ? getColor('gray_2').back : "transparent" }, onclick: (e) => { e.stopPropagation(); toggleMenu("view") } }, "视图"), activeMenu === "view" ? m(MenuDropdown, { items: [{ label: "自动换行", action: actions.toggleWordWrap, shortcut: wordWrap ? "开启" : "关闭" }] }) : null]),
-          m("", { style: { flex: 1, textAlign: "center", opacity: 0.6, fontSize: "1.2rem", letterSpacing: "0.1rem" } }, (filePath ? filePath.split("/").pop() : "新文件") + (isDirty ? " *" : "")),
-          m("", { style: { display: "flex", gap: "1.0rem", alignItems: "center" } }, [
-            isDiff ? [
-              m(Tag, {
-                tagName: "input[type=text]",
-                placeholder: "输入备注（可选）...",
-                color: "gray_2",
-                oninput: (dom, e) => localComment = dom.value,
-                ext: {
-                  value: localComment
-                }
-              }),
-              m(Tag, {
-                isBtn: true,
-                isWide: true,
-                color: "green_1",
-                onclick: (dom, e) => { e.stopPropagation(); handleAccept() }
-              }, "批准修改"),
-              m(Tag, {
-                isBtn: true,
-                isWide: true,
-                color: "gray_2",
-                onclick: (dom, e) => { e.stopPropagation(); handleReject() }
-              }, "拒绝")
-            ] : m(Tag, {
-              isBtn: true,
-              isWide: true,
-              color: "main",
-              onclick: (dom, e) => { e.stopPropagation(); handleSave() }
-            }, "保存")
-          ])
+          m("", { style: { flex: 1, textAlign: "center", opacity: 0.6, fontSize: "1.2rem", letterSpacing: "0.1rem" } }, (filePath ? filePath.split("/").pop() : "新文件") + (isDirty ? " *" : ""))
         ]),
+
+        // Row 2: Action Bar (Always visible to keep layout consistent and give space to save/approve buttons)
+        m("", {
+          style: {
+            display: "flex",
+            height: "3.5rem",
+            padding: "0 1.0rem",
+            background: getColor('gray_12').back,
+            color: getColor('gray_12').front,
+            alignItems: "center",
+            gap: "1.0rem",
+            borderBottom: "1px solid " + getColor('gray_3').back,
+            flexShrink: 0
+          }
+        }, [
+          isConflictDiff
+            ? [
+              m(Tag,
+                {
+                  isBtn: true,
+                  isWide: true,
+                  color: "pink_1",
+                  onclick: async (dom, e) => {
+                    e.stopPropagation()
+                    const saved = await handleSave(false, true)
+                    if (saved) {
+                      isConflictDiff = false
+                      isDiff = false
+                      updateEditor()
+                    }
+                  }
+                },
+                "保留我的修改"
+              ),
+              m(Tag,
+                {
+                  isBtn: true,
+                  isWide: true,
+                  color: "main",
+                  onclick: async (dom, e) => {
+                    e.stopPropagation()
+                    try {
+                      const openRes = await settingData.fnCall("appDispatch", [
+                        appId,
+                        "open",
+                        {
+                          filePath: filePath
+                        }
+                      ])
+                      if (openRes.ok) {
+                        content = openRes.data.content
+                        isConflictDiff = false
+                        isDiff = false
+                        isDirty = false
+                        updateEditor()
+                        Notice.launch({
+                          msg: "已放弃本地修改，加载外部内容"
+                        })
+                      } else {
+                        Notice.launch({
+                          msg: openRes.msg
+                        })
+                      }
+                    } catch (err) {
+                      console.error(err)
+                      Notice.launch({
+                        msg: err.message
+                      })
+                    }
+                  }
+                },
+                "加载外部修改"
+              ),
+              m(Tag,
+                {
+                  isBtn: true,
+                  isWide: true,
+                  color: "gray_2",
+                  onclick: (dom, e) => {
+                    e.stopPropagation()
+                    isConflictDiff = false
+                    isDiff = false
+                    updateEditor()
+                  }
+                },
+                "返回编辑"
+              )
+            ]
+            : (isDiff
+              ? [
+                m(Tag,
+                  {
+                    color: "gray_2",
+                    styleExt: {
+                      display: "inline-flex",
+                      alignItems: "center",
+                      height: "2.5rem",
+                      padding: "0 0.8rem",
+                      borderRadius: "3.0rem"
+                    }
+                  },
+                  [
+                    m(
+                      Box,
+                      {
+                        color: "pink_1",
+                        isSwitch: true,
+                        value: editorData.sendDiff,
+                        style: {
+                          margin: "0",
+                          marginRight: "0.5rem"
+                        },
+                        onclick: (el, e, v, box_this) => {
+                          editorData.sendDiff = box_this.data.value
+                          redraw()
+                        }
+                      }
+                    ),
+                    "发送 Diff"
+                  ]
+                ),
+                m(Tag,
+                  {
+                    color: "gray_2",
+                    styleExt: {
+                      display: "inline-flex",
+                      alignItems: "center",
+                      height: "2.5rem",
+                      padding: "0 0.8rem",
+                      borderRadius: "3.0rem"
+                    }
+                  },
+                  [
+                    m(
+                      Box,
+                      {
+                        color: "pink_1",
+                        isSwitch: true,
+                        value: editorData.openFileAfterAccept,
+                        style: {
+                          margin: "0",
+                          marginRight: "0.5rem"
+                        },
+                        onclick: (el, e, v, box_this) => {
+                          editorData.openFileAfterAccept = box_this.data.value
+                          redraw()
+                        }
+                      }
+                    ),
+                    "同时打开"
+                  ]
+                ),
+                m(Tag,
+                  {
+                    tagName: "input[type=text]",
+                    placeholder: "输入备注（可选）...",
+                    color: "gray_2",
+                    oninput: (dom, e) => {
+                      localComment = dom.value
+                    },
+                    ext: {
+                      value: localComment
+                    },
+                    styleExt: {
+                      flex: 1,
+                      maxWidth: "30rem"
+                    }
+                  }
+                ),
+                m(Tag,
+                  {
+                    isBtn: true,
+                    isWide: true,
+                    color: "green_1",
+                    onclick: (dom, e) => {
+                      e.stopPropagation()
+                      handleAccept()
+                    }
+                  },
+                  "批准修改"
+                ),
+                m(Tag,
+                  {
+                    isBtn: true,
+                    isWide: true,
+                    color: "gray_2",
+                    onclick: (dom, e) => {
+                      e.stopPropagation()
+                      handleReject()
+                    }
+                  },
+                  "拒绝"
+                )
+              ]
+              : m(Tag,
+                {
+                  isBtn: true,
+                  isWide: true,
+                  color: "main",
+                  onclick: (dom, e) => {
+                    e.stopPropagation()
+                    handleSave()
+                  }
+                },
+                "保存"
+              )
+            )
+        ]),
+        // Reason Bar
+        (isDiff && reason)
+          ? m("",
+            {
+              style: {
+                display: "flex",
+                padding: "0.8rem 1.2rem",
+                background: getColor('gray_12').back,
+                borderBottom: "1px solid " + getColor('gray_3').back,
+                fontSize: "1.2rem",
+                alignItems: "flex-start",
+                gap: "0.5rem",
+                maxHeight: "6.0rem",
+                overflowY: "auto"
+              }
+            },
+            [
+              m("span", { style: { fontWeight: "bold", color: getColor('main').back } }, "💡 修改理由："),
+              m("span", { style: { flex: 1, color: getColor('gray_4').front } }, reason)
+            ]
+          )
+          : null,
         // Path
         m("", { style: { display: "flex", height: "2.2rem", padding: "0 1.0rem", background: getColor('gray_1').back, alignItems: "center", fontSize: "1.1rem", color: readOnly ? getColor('pink_1').front : getColor('gray_1').front, boxShadow: "inset 0 0.1rem 0.3rem rgba(0,0,0,0.2)" } }, [
           readOnly ? m("span", { style: { fontWeight: "bold", marginRight: "0.8rem" } }, "[只读预览]") : null,
           filePath || "未选择文件"
         ]),
         // Editor
-        m("", { style: { flex: 1, position: "relative", margin: "0", overflow: "hidden" } }, [
-          m("", { class: "monaco-container", style: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, width: "100%", height: "100%" } })
-        ])
+        m("",
+          {
+            style: {
+              flex: 1,
+              position: "relative",
+              margin: "0",
+              overflow: "hidden"
+            }
+          },
+          [
+            m("",
+              {
+                class: "monaco-container",
+                style: {
+                  position: "absolute",
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  width: "100%",
+                  height: "100%"
+                }
+              }
+            ),
+            (isDiff && diffChanges.length > 0)
+              ? m("",
+                {
+                  style: {
+                    position: "absolute",
+                    bottom: "2.0rem",
+                    right: "2.0rem",
+                    zIndex: 100,
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "0.5rem",
+                    background: getColor('gray_1').back,
+                    color: getColor('gray_1').front,
+                    border: "1px solid " + getColor('gray_3').back,
+                    padding: "0.5rem 1.0rem",
+                    borderRadius: "2.0rem",
+                    boxShadow: "0 0.4rem 1.2rem rgba(0,0,0,0.3)"
+                  }
+                },
+                [
+                  m("span",
+                    {
+                      style: {
+                        fontSize: "1.1rem",
+                        opacity: 0.8,
+                        userSelect: "none"
+                      }
+                    },
+                    `差异: ${currentDiffIndex + 1} / ${diffChanges.length}`
+                  ),
+                  m(Box,
+                    {
+                      isBtn: true,
+                      color: "gray_3",
+                      style: {
+                        margin: "0",
+                        padding: "0.3rem 0.6rem",
+                        borderRadius: "1.0rem",
+                        fontSize: "1.1rem",
+                        display: "inline-flex",
+                        alignItems: "center"
+                      },
+                      onclick: (dom, e) => {
+                        e.stopPropagation()
+                        if (currentDiffIndex > 0) {
+                          currentDiffIndex--
+                        } else {
+                          currentDiffIndex = diffChanges.length - 1
+                        }
+                        const change = diffChanges[currentDiffIndex]
+                        diffEditor.getModifiedEditor().revealLineInCenter(change.modifiedStartLineNumber)
+                        redraw()
+                      }
+                    },
+                    "◀"
+                  ),
+                  m(Box,
+                    {
+                      isBtn: true,
+                      color: "gray_3",
+                      style: {
+                        margin: "0",
+                        padding: "0.3rem 0.6rem",
+                        borderRadius: "1.0rem",
+                        fontSize: "1.1rem",
+                        display: "inline-flex",
+                        alignItems: "center"
+                      },
+                      onclick: (dom, e) => {
+                        e.stopPropagation()
+                        if (currentDiffIndex < diffChanges.length - 1) {
+                          currentDiffIndex++
+                        } else {
+                          currentDiffIndex = 0
+                        }
+                        const change = diffChanges[currentDiffIndex]
+                        diffEditor.getModifiedEditor().revealLineInCenter(change.modifiedStartLineNumber)
+                        redraw()
+                      }
+                    },
+                    "▶"
+                  )
+                ]
+              )
+              : null
+          ]
+        ),
+        // Bottom Annotations Bar
+        (isDiff && !isConflictDiff && annotations.length > 0)
+          ? m("",
+            {
+              style: {
+                display: "flex",
+                flexWrap: "wrap",
+                gap: "0.5rem",
+                padding: "0.5rem 1.0rem",
+                background: getColor('gray_2').back,
+                borderTop: "1px solid " + getColor('gray_3').back,
+                maxHeight: "8.0rem",
+                overflowY: "auto",
+                alignItems: "center"
+              }
+            },
+            [
+              m("span",
+                {
+                  style: {
+                    fontSize: "1.1rem",
+                    opacity: 0.6,
+                    marginRight: "0.5rem"
+                  }
+                },
+                "已添加批注:"
+              ),
+              annotations.map((item, idx) => m(Tag,
+                {
+                  styleExt: {
+                    padding: "0.2rem 0.6rem",
+                    fontSize: "1.1rem",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "0.4rem",
+                    background: getColor('gray_4').back,
+                    color: getColor('gray_4').front,
+                    borderRadius: "0.3rem"
+                  }
+                },
+                [
+                  m("span",
+                    {
+                      title: item.comment,
+                      style: {
+                        cursor: "help"
+                      }
+                    },
+                    `L${item.startLine}-L${item.endLine}: ${item.comment.length > 15 ? item.comment.slice(0, 15) + "..." : item.comment}`
+                  ),
+                  m("span",
+                    {
+                      style: {
+                        cursor: "pointer",
+                        fontWeight: "bold",
+                        marginLeft: "0.2rem",
+                        color: getColor('pink_1').back
+                      },
+                      onclick: (e) => {
+                        e.stopPropagation()
+                        annotations.splice(idx, 1)
+                        redraw()
+                      }
+                    },
+                    "×"
+                  )
+                ]
+              ))
+            ]
+          )
+          : null
       ])
     }
   }

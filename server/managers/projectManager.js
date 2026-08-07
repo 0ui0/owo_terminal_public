@@ -283,6 +283,7 @@ class ProjectManager {
     // 4. 重置 AI 运行环境
     aiBasic.list.forEach(model => {
       model.clearAsks()
+      model.initPrompt()
       model.clearMemorys()
       model.clearFnCallCache()
       model.clearUsage()

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" viewBox="-10 0 20 60">
+  <g id="leg_lower">
+    <circle cx="0" cy="0" r="6" fill="#333333" stroke="#2c3e50" stroke-width="1.5"/>
+    <rect x="-6" y="0" width="12" height="50" rx="6" fill="#FFDFC4" stroke="#2c3e50" stroke-width="2"/>
+  </g>
+</svg>

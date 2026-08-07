@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" viewBox="-8.5 0 17 50">
+  <g id="leg_upper">
+    <!-- 腿部大腿肌肤 -->
+    <rect x="-7" y="0" width="14" height="50" rx="7" fill="#FFDFC4" stroke="#2c3e50" stroke-width="2"/>
+    <!-- 休闲短裤 (覆盖上大腿 y:0 ~ 32，裤脚露出大腿肤色) -->
+    <g id="shorts">
+      <rect x="-8.5" y="0" width="17" height="32" rx="6" fill="#333333" stroke="#2c3e50" stroke-width="2"/>
+      <line x1="-7.5" y1="2" x2="-7.5" y2="30" stroke="#ffffff" stroke-width="1.5"/>
+      <path d="M -8.5 32 L 8.5 32" stroke="#2c3e50" stroke-width="2"/>
+    </g>
+  </g>
+</svg>

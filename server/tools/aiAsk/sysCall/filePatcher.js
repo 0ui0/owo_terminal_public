@@ -137,7 +137,8 @@ export default {
           originalContent: content,
           proposedContent: newContent,
           isDiff: true,
-          confirmId: confirmId
+          confirmId: confirmId,
+          reason: reason
         }
       })
       if (!launchRes.ok) return `启动编辑器失败: ${launchRes.msg}`

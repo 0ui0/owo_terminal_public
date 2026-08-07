@@ -405,6 +405,7 @@ export default function () {
           overflow: "hidden",
           border: win.isMaximized ? "none" : `0.1rem solid ${getColor('main').back}`,
           transition: isResizing || isMoving ? "none" : "display 0.3s, opacity 0.3s",
+          minWidth: "20rem",
 
           ...(win.isMaximized ? {
             left: "0px", top: "38px", width: "100%", height: "calc(100% - 38px)"
@@ -451,7 +452,9 @@ export default function () {
               whiteSpace: "nowrap",
               padding: "unset",
               display: "flex",
-              alignItems: "center"
+              alignItems: "center",
+              flexShrink: 0,
+              minWidth: "4rem"
             }
           }, [
             (activeTab.icon || activeTab.appType) ? m("img", {

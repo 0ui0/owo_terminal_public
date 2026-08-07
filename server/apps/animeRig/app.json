@@ -1,0 +1,11 @@
+{
+  "id": "animeRig",
+  "name": "2D骨骼小人",
+  "description": "SVG 二次元骨骼绑定与动作渲染器",
+  "icon": "icon.svg",
+  "version": "1.0.0",
+  "window": {
+    "width": 380,
+    "height": 600
+  }
+}

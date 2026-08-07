@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" viewBox="-10 -10 20 20">
+  <g id="hand">
+      <!-- 手腕节点与手掌 -->
+      <circle cx="0" cy="0" r="4" fill="#FFDFC4" stroke="#2c3e50" stroke-width="1.5"/>
+      <circle cx="0" cy="4" r="5.5" fill="#FFDFC4" stroke="#2c3e50" stroke-width="1.5"/>
+      
+      <!-- 4 根手指 (食指、中指、无名指、小指) -->
+      <rect x="-5" y="4" width="2.5" height="6.5" rx="1.25" fill="#FFDFC4" stroke="#2c3e50" stroke-width="1.2"/>
+      <rect x="-2.2" y="5" width="2.5" height="7.5" rx="1.25" fill="#FFDFC4" stroke="#2c3e50" stroke-width="1.2"/>
+      <rect x="0.6" y="4.5" width="2.5" height="7" rx="1.25" fill="#FFDFC4" stroke="#2c3e50" stroke-width="1.2"/>
+      <rect x="3.4" y="3" width="2.2" height="5.5" rx="1.1" fill="#FFDFC4" stroke="#2c3e50" stroke-width="1.2"/>
+      
+      <!-- 侧向大拇指 -->
+      <g transform="translate(-4.5, 2) rotate(-30)">
+        <rect x="-1.5" y="0" width="3" height="6" rx="1.5" fill="#FFDFC4" stroke="#2c3e50" stroke-width="1.2"/>
+      </g>
+  </g>
+</svg>

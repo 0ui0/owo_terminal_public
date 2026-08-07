@@ -5,6 +5,7 @@ import chats from "../../../ioServer/ioApis/chat/chats.js"
 import idTool from "../../../tools/idTool.js"
 import { trs } from "../../../tools/i18n.js"
 import archiveDb from "../../../db/archiveDb.js"
+import waitConfirm from "../../waitConfirm.js"
 
 export default {
   name: "阶段清理并压缩上下文",
@@ -58,6 +59,17 @@ export default {
 
     if (isDeadLoop) {
       return "拒绝执行：当前会话历史已经是压缩后的极净状态。为了防止陷入死循环，严禁在没有产生新的用户交互前重复调用 compressContext 整理工具！请立即转向执行用户的实际任务"
+    }
+
+    // 压缩前用户确认：参考 filePatcher 的 waitConfirm 模式，破坏性操作前必须先征得用户同意
+    const userConfirm = await waitConfirm({
+      type: "tip",
+      title: "⚠️ 确认上下文压缩",
+      content: "即将执行上下文压缩，此操作会【物理清空】当前会话的全部历史记录与工具调用细节！是否确认执行？",
+      listId: metaData?.listId || 0
+    })
+    if (!userConfirm.ok) {
+      return `已取消上下文压缩，会话历史保持不变。原因：${userConfirm.comment || "未提供"}`
     }
 
     try {
@@ -213,7 +225,8 @@ ${summaryText}
         }
       }, 500)
 
-      return `【系统通知】：当前阶段的冗余会话历史已整理并清空，Token 阶段计数器已重置为 0。`
+      const remark = userConfirm && userConfirm.comment ? ` 用户备注：${userConfirm.comment}` : ""
+      return `【系统通知】：当前阶段的冗余会话历史已整理并清空，Token 阶段计数器已重置为 0。${remark}`
     } catch (e) {
       return "整理历史消息失败：" + e.message
     }

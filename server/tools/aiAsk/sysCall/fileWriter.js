@@ -51,7 +51,8 @@ export default {
         originalContent: exists ? originalContent : "",
         proposedContent: content,
         isDiff: true,
-        confirmId: confirmId
+        confirmId: confirmId,
+        reason: reason
       }
     })
     if (!launchRes.ok) return `启动编辑器失败: ${launchRes.msg}`
@@ -75,8 +76,15 @@ export default {
     try {
       await fs.mkdir(pathLib.dirname(resolvedPath), { recursive: true })
       await fs.writeFile(resolvedPath, content, "utf-8")
-      let commentSuffix = userConfirm.comment ? `。用户备注：${userConfirm.comment}` : ""
-      return `成功写入文件: ${resolvedPath}${commentSuffix}`
+      let finalMsg = `成功写入文件: ${resolvedPath}。`
+      if (userConfirm.comment) {
+        if (userConfirm.comment.includes("批准修改的 Diff") || userConfirm.comment.includes("具体行批注")) {
+          finalMsg += `\n\n${userConfirm.comment}`
+        } else {
+          finalMsg += `用户备注：${userConfirm.comment}`
+        }
+      }
+      return finalMsg
     } catch (e) {
       return `写入失败: ${e.message}`
     }

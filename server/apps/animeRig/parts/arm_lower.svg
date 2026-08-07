@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" viewBox="-10 0 20 60">
+  <g id="arm_lower">
+    <!-- 肘关节 -->
+    <circle cx="0" cy="0" r="5" fill="#FFDFC4" stroke="#2c3e50" stroke-width="1.5"/>
+    <!-- 前臂骨骼 -->
+    <rect x="-5" y="0" width="10" height="40" rx="5" fill="#FFDFC4" stroke="#2c3e50" stroke-width="2"/>
+  </g>
+</svg>

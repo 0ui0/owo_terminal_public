@@ -15,11 +15,11 @@ export default () => {
   const heightsMap = {}
   const fetchingPages = new Set() // 追踪正在获取的页面
 
-  // 动态平均高度估算
+  // 估算高度采用固定常数，防止单个卡片尺寸抖动（如展开详情）通过平均值乘数效应放大，引起虚拟列表布局塌陷与强制卸载
   let totalHeight = 0
   let measuredCount = 0
   function getEstimatedHeight() {
-    return measuredCount > 0 ? Math.max(50, Math.floor(totalHeight / measuredCount)) : 50
+    return 100
   }
 
   const BUFFER_ITEMS = 8
@@ -39,6 +39,7 @@ export default () => {
   let isHovered = false
   let isHoveredTop = false
   let lastScrollTime = 0
+  let lastAutoScrollTime = 0
   let lastHeadId = null
 
   // 缓存依赖 Key 与计算产物
@@ -283,6 +284,7 @@ export default () => {
             height: "100%",
             width: "100%",
             overflowY: "auto",
+            overflowAnchor: "none",
           },
           oncreate(scrollVnode) {
             listDom = scrollVnode.dom
@@ -523,7 +525,12 @@ export default () => {
               onupdate() {
                 // 思考流/打字流持续推进：只要用户没有主动向上划，持续保持吸底
                 if (!userHasScrolledUp) {
-                  chatData.scrollChatListTobottom()
+                  const now = Date.now()
+                  // 1秒节流（只触发第一次），给用户充足的向上滚动的操作窗口期
+                  if (now - lastAutoScrollTime > 1000) {
+                    lastAutoScrollTime = now
+                    chatData.scrollChatListTobottom()
+                  }
                 }
               }
             }) : null,
