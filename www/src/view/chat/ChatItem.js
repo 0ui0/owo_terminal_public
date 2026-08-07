@@ -14,6 +14,7 @@ import ChatList from "./ChatList.js"
 import AgentWindow from "./AgentWindow.js"
 import { trs } from "../common/i18n.js"
 import getColor from "../common/getColor.js"
+import getBlurBg from "../common/getBlurBg.js"
 import { override } from "joi"
 import Avatar from "./Avatar.js"
 
@@ -233,11 +234,9 @@ export default ChatItem = () => {
               margin: "1rem",
               padding: "1rem",
               boxSizing: "border-box", // Fix typo
-              boxShadow: `0rem 0rem 3rem ${chat.group === "user" ? getColor("我方气泡高亮边框色") + "55" : getColor("对方气泡高亮边框色") + "55"}`,
               alignSelf: chat.group === "user" ? "flex-end" : "unset",
-              background: getColor('我方气泡背景色') + '80',
               color: getColor('gray_8').front + '55',
-              border: `0.1rem solid ${chat.group === "user" ? getColor("我方气泡高亮边框色") + "80" : getColor("对方气泡高亮边框色") + "80"}`,
+
 
               zIndex: 1,
               //maxHeight: "30rem",
@@ -259,25 +258,42 @@ export default ChatItem = () => {
 
               } : {}),
 
+              boxShadow: "0 0 1rem rgba(0,0,0,0.05)",
+
               ...(chat.group === "user" ? {
+                border: `0.1rem solid ${getColor("我方气泡高亮边框色")}30`,
                 borderRight: `0.4rem solid ${getColor('我方气泡高亮边框色')}`,
                 borderRadius: "2rem 0.5rem 0.5rem 2rem",
+                background: getBlurBg("我方气泡高亮边框色", "我方气泡背景色"),
+                //boxShadow: `0rem 0rem 2rem ${getColor("我方气泡高亮边框色") + "33"}`,
+
               } : {
+                border: `0.1rem solid ${getColor("对方气泡高亮边框色")}30`,
                 borderLeft: `0.4rem solid ${getColor('对方气泡高亮边框色')}`,
+
                 borderRadius: "0.5rem 2rem 2rem 0.5rem",
-                background: getColor('对方气泡背景色') + "80",
+                background: getBlurBg("对方气泡高亮边框色", "对方气泡背景色"),
+                //boxShadow: `0rem 0rem 2rem ${getColor("对方气泡高亮边框色") + "33"}`,
               }),
 
 
               ...(chat.group === "preparing" ? {
-                background: getColor('思考中气泡背景色') + "80",
-                borderLeft: `0.4rem solid ${getColor('思考中气泡高亮边框色')}`
+                border: `0.1rem solid ${getColor('思考中气泡高亮边框色')}30`,
+                borderLeft: `0.4rem solid ${getColor('思考中气泡高亮边框色')}`,
+
+                background: getBlurBg("思考中气泡高亮边框色", "思考中气泡背景色"),
+                //boxShadow: `0rem 0rem 2rem ${getColor('思考中气泡高亮边框色') + '33'}`,
+
               } : {}),
 
 
               ...(chat.group === "tip" ? {
-                background: getColor('工具组成功背景') + "80",
-                borderLeft: `0.4rem solid ${getColor('工具组成功边框')}`
+                border: `0.1rem solid ${getColor('工具组成功边框')}30`,
+                borderLeft: `0.4rem solid ${getColor('工具组成功边框')}`,
+
+                background: getBlurBg("工具组成功边框", "工具组成功背景"),
+                //boxShadow: `0rem 0rem 2rem ${getColor('工具组成功边框') + '33'}`,
+
               } : {}),
 
 

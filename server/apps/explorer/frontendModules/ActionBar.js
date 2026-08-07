@@ -5,7 +5,9 @@ export default {
       Box,
       iconPark,
       getColor,
+      trs,
       inputPath,
+      currentPath,
       searchMode,
       searchKeyword,
       sortField,
@@ -20,15 +22,15 @@ export default {
       onSearchKeywordChange,
       onSortFieldChange,
       onSortOrderToggle,
-      onViewModeToggle
+      onViewModeToggle,
+      onOpenSearchConfig
     } = vnode.attrs;
 
     return m("",
       {
         style: {
           display: "flex",
-          flexDirection: "column",
-          background: getColor('gray_12').back
+          flexDirection: "column"
         }
       },
       [
@@ -131,7 +133,13 @@ export default {
                   height: "2rem"
                 },
                 title: "刷新",
-                onclick: () => onLoadDir()
+                onclick: () => {
+                  if (inputPath && inputPath !== currentPath) {
+                    onNavigate(inputPath);
+                  } else {
+                    onLoadDir();
+                  }
+                }
               },
               m.trust(iconPark.getIcon("Refresh", {
                 size: "1.2rem",
@@ -149,7 +157,6 @@ export default {
               padding: "0.6rem 1.5rem",
               gap: "1.5rem",
               alignItems: "center",
-              fontSize: "1.2rem",
               borderBottom: `1px solid ${getColor('gray_2').back}`
             }
           },
@@ -180,8 +187,7 @@ export default {
                       border: "none",
                       outline: "none",
                       color: getColor('gray_12').front,
-                      cursor: "pointer",
-                      fontWeight: "bold"
+                      cursor: "pointer"
                     },
                     onchange: (e) => onSortFieldChange(e.target.value)
                   },
@@ -268,9 +274,8 @@ export default {
                       outline: "none",
                       color: getColor('gray_12').front,
                       cursor: "pointer",
-                      fontSize: "1.1rem",
                       marginRight: "0.5rem",
-                      width: "7rem",
+                      width: "8.5rem",
                       opacity: 0.7
                     },
                     onchange: (e) => onSearchModeChange(e.target.value)
@@ -298,20 +303,53 @@ export default {
                 ),
                 m("input",
                   {
-                    placeholder: searchMode === 'project' ? "输入搜索..." : "本页过滤...",
+                    placeholder: searchMode === 'project'
+                      ? trs("资源管理器/搜索/输入搜索",
+                          {
+                            cn: "输入整个项目搜索...",
+                            en: "Search whole project..."
+                          }
+                        )
+                      : trs("资源管理器/搜索/本页过滤",
+                          {
+                            cn: "本页过滤...",
+                            en: "Filter current page..."
+                          }
+                        ),
                     value: searchKeyword,
-                    oninput: (e) => onSearchKeywordChange(e.target.value),
+                    oninput: (e) => {
+                      e.redraw = false; // 输入字符不重绘全局，解决卡死
+                      onSearchKeywordChange(e.target.value);
+                    },
                     style: {
                       border: "none",
                       background: "transparent",
                       outline: "none",
                       marginLeft: "0.8rem",
                       width: "100%",
-                      fontSize: "1.2rem",
                       color: getColor('gray_12').front
                     }
                   }
-                )
+                ),
+                searchMode === 'project'
+                  ? m("div",
+                      {
+                        style: {
+                          cursor: "pointer",
+                          display: "flex",
+                          alignItems: "center",
+                          marginLeft: "0.5rem"
+                        },
+                        onclick: () => {
+                          onOpenSearchConfig();
+                        }
+                      },
+                      m.trust(iconPark.getIcon("Setting", {
+                        size: "1.4rem",
+                        fill: getColor('gray_12').front
+                      }))
+                    )
+                  : null
               ]
             )
           ]

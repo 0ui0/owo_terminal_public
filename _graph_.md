@@ -368,4 +368,43 @@ graph TD
 
 
 
+## 2026/08/08 01:36 - 资源管理器配置工作目录后项目搜索结果为空Bug修复
 
+```mermaid
+graph TD
+    A["现象: 配置工作目录后切换到项目搜索chatItem结果为空"] --> B{"搜索范围解析: projectSearch 传参缺失"}
+    B --> C["前端 doProjectSearch 仅传递 searchKeyword 关键词"]
+    C --> D["后端 projectSearch 接收 query 与 baseDir 两个参数"]
+    D --> E["由于 baseDir 未传, 后端 fallback 到了默认的 process.cwd()"]
+    E --> F["在 Electron 中 process.cwd() 指向后台启动位置而非项目工作目录"]
+    F --> G["Ripgrep 搜索范围产生偏差 -> 导致搜索结果为空"]
+    
+    H["修复方案: 显式传递项目工作目录"] --> I["前端 doProjectSearch 调整为传递 customCwd 或 currentPath 作为第二个参数"]
+    I --> J["后端获得正确的 baseDir 从而使用当前项目根路径搜索 -> 完美检索出 ChatItem.js"]
+
+## 2026/08/08 02:35 - 资源管理器搜索配置弹窗、双向持久化与极致 UI 贴边重构
+
+```mermaid
+graph TD
+    A[需求1: 检索特性对齐与大小写/正则/排除配置] --> B[后端 projectSearch.js]
+    B --> C[Ripgrep 接入 --case-sensitive / --smart-case / --fixed-strings / --glob "!pattern" 参数]
+    B --> D[文件名检索: 相对路径分量包含性提取与字面量/正则匹配]
+    B --> E[最外层统一封装大 try-catch 拦截返回 { ok: false, msg }]
+    
+    A --> F[前端 frontend.js 配置层]
+    F --> G[appUpdateData 内存库持久化同步, 加载时基于 data.searchConfig 双向还原]
+    F --> H[齿轮按钮绑定 onOpenSearchConfig 并引入四个独立 Box 开关与输入实例]
+    H --> I[取消 input 重绘: e.redraw = false 规避敲击输入卡死]
+    
+    J[需求2: 弹窗与 UI 布局重构符合 app开发指南.md 规范] --> K[1. 弹窗完全对齐]
+    K --> L[askConfirm 废弃手写 content -> 直接使用 Notice.launch 托管 msg/confirm/cancel]
+    K --> M[askName 废弃 px 布局 -> 实例化 InputBox = new Box 且零 style 覆盖并统一 rem]
+    K --> N[将所有警告/移动/提示的 Alert 字符串包裹在 trs 翻译中以彻底杜绝中文硬编码]
+    
+    J --> O[2. 消除双重圆角框与直角贴边]
+    O --> P[主容器 frontend.js & ActionBar.js 最外层 style 移除 background]
+    P --> Q[视觉收益: 工具栏直接透出 Notice 自带的半透明磨砂高级亮灰/棕底色]
+    O --> R[FileArea.js 容器 style 添加 background: getColor'gray_4'.back]
+    R --> S[视觉收益: 文件区呈现清爽的高档亮白底板并全贴边裁剪]
+```
+```

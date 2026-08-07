@@ -266,7 +266,7 @@ export default () => {
           flex: 1,
           marginBottom: "1rem",
           borderRadius: "3rem",
-          background: getColor('gray_4').back + '99',
+          background: getColor('消息列表背景') + "99",
           border: `0.1rem solid ${getColor('main').back}`,
           position: "relative",
           height: "100%",

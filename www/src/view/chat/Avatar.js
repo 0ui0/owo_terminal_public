@@ -14,11 +14,16 @@ export default () => {
           width: window.Mob ? "3rem" : "6rem",
           height: window.Mob ? "3rem" : "6rem",
           borderRadius: "50%",
-          backgroundImage: chat.group !== "user" ? `url('./statics/petPkgs/${comData.data.get()?.defaultPet || "default"}/pet/${petFace}.png')` : null,
+          backgroundImage: chat.group == "agent"
+            ? `url('./statics/petPkgs/${comData.data.get()?.defaultPet || "default"}/pet/${petFace}.png')`
+            : chat.group == "user"
+              ? "url(./statics/avatar.svg)"
+              : null
+          ,
           backgroundSize: "cover",
           backgroundPosition: "center",
           backgroundRepeat: "no-repeat",
-          backgroundColor: chat.group === "user" ? getColor('我方气泡背景色') : getColor('对方气泡背景色'),
+          backgroundColor: `${chat.group === "user" ? getColor('我方气泡背景色') : getColor('对方气泡背景色')}33`,
           border: `0.15rem solid ${chat.group === "user" ? getColor('我方气泡高亮边框色') : getColor('对方气泡高亮边框色')}`,
           boxShadow: "0.1rem 0.1rem 0.6rem rgba(0,0,0,0.2)",
           margin: chat.group === "user" ? "1rem 1rem 1rem 0" : "1rem 0 1rem 1rem",

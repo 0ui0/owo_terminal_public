@@ -7,7 +7,7 @@ import tmRestoreModule from "./frontendModules/tmRestoreModule.js"
 import FormatUtils from "./frontendModules/FormatUtils.js"
 
 // Explorer 前端组件 (Closure Component)
-export default ({ appId, m, Notice, ioSocket, comData, commonData, settingData, Box, iconPark, getColor }) => {
+export default ({ appId, m, Notice, ioSocket, comData, commonData, settingData, Box, iconPark, getColor, trs, data }) => {
   // === 私有状态 (Private State) ===
   let currentPath = ""
   let inputPath = ""
@@ -19,6 +19,13 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, settingData, 
   let viewMode = "grid"
   let searchMode = "current"
   let projectSearchResults = []
+  let searchConfig = {
+    useRegex: false,
+    caseSensitive: false,
+    wholeWord: false,
+    excludePatterns: "node_modules, .git, dist, build",
+    ...(data?.searchConfig || {})
+  }
   let searchVersion = 0
   let isProjectSearching = false
   let clipboard = { files: [], mode: null }
@@ -42,6 +49,228 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, settingData, 
 
   const redraw = () => m.redraw()
 
+  // 项目搜索（"整个项目"模式）：带版本号防竞态，空关键字时清空结果
+  const doProjectSearch = async () => {
+    if (!searchKeyword) {
+      projectSearchResults = []
+      isProjectSearching = false
+      redraw()
+      return
+    }
+    isProjectSearching = true
+    redraw()
+    searchVersion++
+    const currentVersion = searchVersion
+    try {
+      const res = await settingData.fnCall("projectSearch", [searchKeyword, comData.data.get()?.customCwd || currentPath, searchConfig])
+      if (currentVersion !== searchVersion) return
+      if (res.ok) {
+        projectSearchResults = res.data
+        viewMode = "list"
+      } else {
+        Notice.launch({ msg: trs("资源管理器/搜索/搜索失败", { cn: "搜索失败: ", en: "Search failed: " }) + res.msg })
+      }
+    } catch (err) {
+      if (currentVersion === searchVersion) {
+        Notice.launch({ msg: trs("资源管理器/搜索/搜索异常", { cn: "搜索异常: ", en: "Search error: " }) + (err.message || err) })
+      }
+    } finally {
+      isProjectSearching = false
+      redraw()
+    }
+  }
+
+  const onOpenSearchConfig = () => {
+    // 实例化 Box，利用其双向数据绑定
+    let RegexSwitch = new Box()
+    let CaseSwitch = new Box()
+    let WordSwitch = new Box()
+    let ExcludeInput = new Box()
+
+    // 载入初始配置值
+    RegexSwitch.data.value = searchConfig.useRegex
+    CaseSwitch.data.value = searchConfig.caseSensitive
+    WordSwitch.data.value = searchConfig.wholeWord
+    ExcludeInput.data.value = searchConfig.excludePatterns
+
+    Notice.launch({
+      sign: "search_config_" + appId,
+      width: 400,
+      tip: trs("资源管理器/搜索配置/标题",
+        {
+          cn: "🔍 搜索参数配置",
+          en: "🔍 Search Configuration"
+        }
+      ),
+      content: {
+        view: (v) => {
+          return m("",
+            [
+              m(Box,
+                {
+                  color: "gray_12",
+                  isBlock: true,
+                  style: {
+                    padding: "1.5rem"
+                  }
+                },
+                [
+                  m("",
+                    {
+                      style: {
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        marginBottom: "1.2rem"
+                      }
+                    },
+                    [
+                      m("span",
+                        trs("资源管理器/搜索配置/正则",
+                          {
+                            cn: "启用正则表达式匹配 (Regex)",
+                            en: "Enable Regular Expression (Regex)"
+                          }
+                        )
+                      ),
+                      m(RegexSwitch,
+                        {
+                          isSwitch: true,
+                          color: "main"
+                        }
+                      )
+                    ]
+                  ),
+                  m("",
+                    {
+                      style: {
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        marginBottom: "1.2rem"
+                      }
+                    },
+                    [
+                      m("span",
+                        trs("资源管理器/搜索配置/大小写",
+                          {
+                            cn: "区分大小写 (Case Sensitive)",
+                            en: "Case Sensitive"
+                          }
+                        )
+                      ),
+                      m(CaseSwitch,
+                        {
+                          isSwitch: true,
+                          color: "main"
+                        }
+                      )
+                    ]
+                  ),
+                  m("",
+                    {
+                      style: {
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        marginBottom: "1.2rem"
+                      }
+                    },
+                    [
+                      m("span",
+                        trs("资源管理器/搜索配置/全字",
+                          {
+                            cn: "全字匹配 (Whole Word)",
+                            en: "Whole Word"
+                          }
+                        )
+                      ),
+                      m(WordSwitch,
+                        {
+                          isSwitch: true,
+                          color: "main"
+                        }
+                      )
+                    ]
+                  ),
+                  m("",
+                    {
+                      style: {
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: "0.6rem",
+                        marginBottom: "1.2rem"
+                      }
+                    },
+                    [
+                      m("span",
+                        {
+                          style: {
+                            fontWeight: "bold"
+                          }
+                        },
+                        trs("资源管理器/搜索配置/排除名单",
+                          {
+                            cn: "排除名单 (Glob 模式，以逗号分隔):",
+                            en: "Exclude Patterns (Glob patterns, comma separated):"
+                          }
+                        )
+                      ),
+                      m(ExcludeInput,
+                        {
+                          tagName: "input[type=text]"
+                        }
+                      )
+                    ]
+                  ),
+                  m("",
+                    {
+                      style: {
+                        display: "flex",
+                        justifyContent: "flex-end"
+                      }
+                    },
+                    [
+                      m(Box,
+                        {
+                          isBtn: true,
+                          color: "main",
+                          onclick: () => {
+                            // 从 Box 实例中读取输入值并应用
+                            searchConfig.useRegex = RegexSwitch.data.value;
+                            searchConfig.caseSensitive = CaseSwitch.data.value;
+                            searchConfig.wholeWord = WordSwitch.data.value;
+                            searchConfig.excludePatterns = ExcludeInput.data.value;
+
+                            // 同步到后端进行持久化保存
+                            settingData.fnCall("appUpdateData", [appId, {
+                              searchConfig: searchConfig
+                            }]);
+
+                            v.attrs.delete();
+                            if (searchMode === 'project') {
+                              doProjectSearch();
+                            }
+                          }
+                        },
+                        trs("资源管理器/搜索配置/确认",
+                          {
+                            cn: "应用配置",
+                            en: "Apply Config"
+                          }
+                        )
+                      )
+                    ]
+                  )
+                ]
+              )
+            ]
+          );
+        }
+      }
+    });
+  }
+
   const resolveItemPath = (item) => {
     if (!item) return null
     return item.isSearchResult ? item.path : (currentPath + (currentPath.endsWith("/") ? "" : "/") + item.name)
@@ -55,7 +284,7 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, settingData, 
   }
 
   const navigate = async (path) => {
-    if (isRestoring) return Notice.launch({ msg: "操作被拦截：还原期间禁止切换目录，防止状态撕裂喵！", type: "warning" });
+    if (isRestoring) return Notice.launch({ msg: trs("资源管理器/警告/还原切换限制", { cn: "操作被拦截：还原期间禁止切换目录，防止状态撕裂喵！", en: "Action blocked: Changing directories is forbidden during restoration!" }), type: "warning" });
     await settingData.fnCall("appDispatch", [appId, "navigate", { path }])
   }
 
@@ -66,7 +295,7 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, settingData, 
       console.log(`[Explorer] Loaded ${files.length} files from ${path || currentPath}`);
       redraw();
     } else {
-      Notice.launch({ msg: rawRes.msg || "获取列表失败" })
+      Notice.launch({ msg: rawRes.msg || trs("资源管理器/提示/列表获取失败", { cn: "获取列表失败", en: "Failed to fetch file list" }) })
     }
   }
 
@@ -79,7 +308,7 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, settingData, 
   }
 
   const goHistory = async (delta) => {
-    if (isRestoring) return Notice.launch({ msg: "操作被拦截：还原期间禁止切换目录，防止状态撕裂喵！", type: "warning" });
+    if (isRestoring) return Notice.launch({ msg: trs("资源管理器/警告/还原切换限制", { cn: "操作被拦截：还原期间禁止切换目录，防止状态撕裂喵！", en: "Action blocked: Changing directories is forbidden during restoration!" }), type: "warning" });
     await settingData.fnCall("appDispatch", [appId, "history", { delta }])
   }
 
@@ -102,12 +331,12 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, settingData, 
   }
 
   const doPaste = async (targetPath, noNavigate = false) => {
-    if (!clipboard || !clipboard.files.length) return Notice.launch({ msg: "剪贴板为空" })
+    if (!clipboard || !clipboard.files.length) return Notice.launch({ msg: trs("资源管理器/提示/剪贴板空", { cn: "剪贴板为空", en: "Clipboard is empty" }) })
     const performPaste = async (decisions = {}) => {
       try {
         const rawRes = await settingData.fnCall("appDispatch", [appId, "paste", { mode: clipboard.mode, files: clipboard.files, targetPath, decisions, noNavigate }])
 
-        if (!rawRes.ok) return Notice.launch({ msg: rawRes.msg || "请求失败" })
+        if (!rawRes.ok) return Notice.launch({ msg: rawRes.msg || trs("资源管理器/提示/请求失败", { cn: "请求失败", en: "Request failed" }) })
 
         if (rawRes.status === "conflict") {
           resolveConflictsUI(rawRes.files, 0, decisions, performPaste)
@@ -116,10 +345,10 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, settingData, 
           if (noNavigate) loadDir()
           redraw()
         } else {
-          Notice.launch({ msg: rawRes.msg || "操作失败" })
+          Notice.launch({ msg: rawRes.msg || trs("资源管理器/提示/操作失败", { cn: "操作失败", en: "Operation failed" }) })
         }
       } catch (e) {
-        Notice.launch({ msg: "操作异常: " + e.message })
+        Notice.launch({ msg: trs("资源管理器/提示/操作异常", { cn: "操作异常: ", en: "Operation error: " }) + e.message })
       }
     }
     performPaste({})
@@ -127,7 +356,7 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, settingData, 
 
   // --- 时光机还原逻辑 (已迁移至模块) ---
   const tmRestoreProcess = async (items, targetFolder = null) => {
-    if (isRestoring) return Notice.launch({ msg: "已有还原任务正在进行中，请耐心等待喵！", type: "warning" });
+    if (isRestoring) return Notice.launch({ msg: trs("资源管理器/警告/还原进行中", { cn: "已有还原任务正在进行中，请耐心等待喵！", en: "Restoration is already in progress, please wait!" }), type: "warning" });
     isRestoring = true;
     try {
       await tmRestoreModule.run({
@@ -187,20 +416,19 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, settingData, 
   }
   init()
 
-  const askConfirm = (msg, title = "确认") => {
+  const askConfirm = (msg, title = trs("资源管理器/确认/标题", { cn: "确认", en: "Confirm" })) => {
     return new Promise((resolve) => {
       const sign = "confirm_" + Date.now()
       Notice.launch({
-        sign, width: 350,
-        content: {
-          view: (v) => m(Box, { style: { display: "flex", flexDirection: "column", padding: "10px" } }, [
-            m("", { style: { marginBottom: "15px", fontWeight: "bold" } }, title),
-            m("", { style: { marginBottom: "20px" } }, msg),
-            m("", { style: { display: "flex", gap: "10px", justifyContent: "flex-end" } }, [
-              m(Box, { isBtn: true, color: "pink_1", onclick: () => { resolve(false); v.attrs.delete() } }, "取消"),
-              m(Box, { isBtn: true, onclick: () => { resolve(true); v.attrs.delete() } }, "确定")
-            ])
-          ])
+        sign,
+        width: 350,
+        tip: title,
+        msg: msg,
+        confirm: () => {
+          resolve(true);
+        },
+        cancel: () => {
+          resolve(false);
         }
       })
     })
@@ -208,35 +436,145 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, settingData, 
 
   // === Helpers ===
   const getIcon = (item) => {
-    if (item.isDirectory) return "📁"
+    const size = viewMode === "grid" ? "3.5rem" : "2rem"
+    const imgStyle = {
+      width: size,
+      height: size,
+      objectFit: "contain",
+      display: "block"
+    }
+
+    if (item.isDirectory) {
+      return m("img", {
+        src: "/api/apps/explorer/icons/folder.svg",
+        style: imgStyle
+      })
+    }
+
     const ext = item.name.split(".").pop().toLowerCase()
-    const map = { "js": "📜", "json": "⚙️", "md": "📝", "txt": "📄", "html": "🌐", "css": "🎨", "png": "🖼️", "jpg": "🖼️", "mp4": "🎬", "mp3": "🎵" }
-    return map[ext] || "📃"
+
+    if (["js", "json", "css", "html", "coffee"].includes(ext)) {
+      return m("img", {
+        src: "/api/apps/explorer/icons/file_code.svg",
+        style: imgStyle
+      })
+    }
+
+    if (["md", "txt", "log"].includes(ext)) {
+      return m("img", {
+        src: "/api/apps/explorer/icons/file_text.svg",
+        style: imgStyle
+      })
+    }
+
+    if (["png", "jpg", "jpeg", "gif", "svg", "ico", "icns", "webp"].includes(ext)) {
+      return m("img", {
+        src: "/api/apps/explorer/icons/file_image.svg",
+        style: imgStyle
+      })
+    }
+
+    if (["mp4", "mp3", "wav", "avi", "mov", "flac"].includes(ext)) {
+      return m("img", {
+        src: "/api/apps/explorer/icons/file_media.svg",
+        style: imgStyle
+      })
+    }
+
+    return m("img", {
+      src: "/api/apps/explorer/icons/file_default.svg",
+      style: imgStyle
+    })
   }
 
   const askName = (title, defaultName) => {
     return new Promise((resolve) => {
-      let value = defaultName
+      let InputBox = new Box()
+      InputBox.data.value = defaultName;
+
       const sign = "prompt_" + Date.now() + Math.random()
       Notice.launch({
-        sign, width: 300,
+        sign: sign,
+        width: 300,
+        tip: title,
         content: {
-          view: (v) => m(Box, { style: { display: "flex", flexDirection: "column" } }, [
-            m("", { style: { padding: "0.5rem", fontWeight: "bold" } }, title),
-            m(Box, {
-              tagName: "input", ext: { type: "text" }, value: value, color: "brown_4", style: { borderRadius: "10rem" },
-              oninput: (_, e) => value = e.target.value,
-              onkeydown: (e) => { if (e.key === "Enter") { resolve(value); v.attrs.delete() } else if (e.key === "Escape") { resolve(null); v.attrs.delete() } e.stopPropagation() },
-              oncreate: (vn) => setTimeout(() => { vn.dom.focus(); vn.dom.select() }, 50)
-            }),
-            m("", { style: { display: "flex", justifyContent: "flex-end", marginTop: "10px" } }, [
-              m(Box, { isBtn: true, color: "pink_1", onclick: () => { resolve(null); v.attrs.delete() } }, "取消"),
-              m(Box, { isBtn: true, onclick: () => { resolve(value); v.attrs.delete() } }, "确定")
-            ])
-          ])
+          view: (v) => {
+            return m("",
+              [
+                m(Box,
+                  {
+                    color: "gray_12",
+                    isBlock: true,
+                    style: {
+                      padding: "1.5rem"
+                    }
+                  },
+                  [
+                    m(InputBox,
+                      {
+                        tagName: "input[type=text]",
+                        ext: {
+                          onkeydown: (e) => {
+                            if (e.key === "Enter") {
+                              resolve(InputBox.data.value);
+                              v.attrs.delete();
+                            } else if (e.key === "Escape") {
+                              resolve(null);
+                              v.attrs.delete();
+                            }
+                            e.stopPropagation();
+                          }
+                        },
+                        oncreate: (vn) => {
+                          setTimeout(() => {
+                            vn.dom.focus();
+                            vn.dom.select();
+                          }, 50);
+                        }
+                      }
+                    ),
+                    m("",
+                      {
+                        style: {
+                          display: "flex",
+                          justifyContent: "flex-end",
+                          marginTop: "1.2rem",
+                          gap: "0.8rem"
+                        }
+                      },
+                      [
+                        m(Box,
+                          {
+                            isBtn: true,
+                            color: "gray_3",
+                            onclick: () => {
+                              resolve(null);
+                              v.attrs.delete();
+                            }
+                          },
+                          trs("资源管理器/按钮/取消", { cn: "取消", en: "Cancel" })
+                        ),
+                        m(Box,
+                          {
+                            isBtn: true,
+                            color: "main",
+                            onclick: () => {
+                              resolve(InputBox.data.value);
+                              v.attrs.delete();
+                            }
+                          },
+                          trs("资源管理器/按钮/确定", { cn: "确定", en: "Confirm" })
+                        )
+                      ]
+                    )
+                  ]
+                )
+              ]
+            );
+          }
         }
-      })
-    })
+      });
+    });
   }
 
   return {
@@ -252,11 +590,13 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, settingData, 
         {
           tabindex: 0,
           style: {
-            display: "flex", flexDirection: "column",
-            width: "100%", height: "100%",
-            background: getColor('gray_12').back,
-            color: getColor('gray_12').front,
-            outline: "none", position: "relative", overflow: "hidden"
+            display: "flex",
+            flexDirection: "column",
+            width: "100%",
+            height: "100%",
+            outline: "none",
+            position: "relative",
+            overflow: "hidden"
           },
           oncreate: (vn) => { dom = vn.dom },
           onkeydown: (e) => {
@@ -275,42 +615,37 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, settingData, 
         },
         [
           m(ActionBar, {
-            m, Box, iconPark, getColor, inputPath, searchMode, searchKeyword, sortField, sortOrder, viewMode,
+            m, Box, iconPark, getColor, trs, inputPath, currentPath, searchMode, searchKeyword, sortField, sortOrder, viewMode,
             askName, // 传递本地定义的 askName
+            onOpenSearchConfig, // 传递配置弹窗方法
             onNavigate: navigate, onGoHistory: goHistory, onLoadDir: loadDir,
-            onDoProjectSearch: async () => {
-              if (!searchKeyword) { projectSearchResults = []; isProjectSearching = false; redraw(); return; }
-              isProjectSearching = true; redraw();
-              searchVersion++;
-              const currentVersion = searchVersion;
-              const res = await settingData.fnCall("projectSearch", [searchKeyword])
-              if (currentVersion !== searchVersion) return;
-              if (res.ok) { projectSearchResults = res.data; viewMode = "list"; }
-              else Notice.launch({ msg: "搜索失败: " + res.msg })
-              isProjectSearching = false; redraw();
+            onDoProjectSearch: () => {
+              if (searchTimer) clearTimeout(searchTimer)
+              doProjectSearch()
             },
             onInputPathChange: (v) => inputPath = v,
-            onSearchModeChange: (v) => { 
-              searchMode = v; 
-              if (v === 'current') { projectSearchResults = []; isProjectSearching = false; } 
-              redraw(); 
+            onSearchModeChange: (v) => {
+              searchMode = v
+              if (searchTimer) clearTimeout(searchTimer)
+              if (v === 'current') {
+                projectSearchResults = []
+                isProjectSearching = false
+              } else {
+                doProjectSearch()
+              }
+              redraw()
             },
             onSearchKeywordChange: (v) => {
-              searchKeyword = v;
-              if (searchMode === 'current') { redraw(); return; }
-              
-              if (searchTimer) clearTimeout(searchTimer);
-              searchTimer = setTimeout(async () => {
-                if (!searchKeyword) { projectSearchResults = []; isProjectSearching = false; redraw(); return; }
-                isProjectSearching = true; redraw();
-                searchVersion++;
-                const currentVersion = searchVersion;
-                const res = await settingData.fnCall("projectSearch", [searchKeyword])
-                if (currentVersion !== searchVersion) return;
-                if (res.ok) { projectSearchResults = res.data; viewMode = "list"; }
-                else Notice.launch({ msg: "搜索失败: " + res.msg })
-                isProjectSearching = false; redraw();
-              }, 300);
+              searchKeyword = v
+              if (searchMode === 'current') {
+                redraw()
+                return
+              }
+              if (searchTimer) clearTimeout(searchTimer)
+              searchTimer = setTimeout(() => {
+                if (searchMode !== 'project') return
+                doProjectSearch()
+              }, 800)
             },
             onSortFieldChange: (v) => { sortField = v; redraw() },
             onSortOrderToggle: () => { sortOrder *= -1; redraw() },
@@ -356,7 +691,7 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, settingData, 
                         if (n && n !== item.name) {
                           const res = await settingData.fnCall("appDispatch", [appId, "rename", { oldName: item.isSearchResult ? item.path : item.name, newName: n }]);
                           if (!res?.ok) {
-                            Notice.launch({ msg: res?.msg || "重命名失败" });
+                            Notice.launch({ msg: res?.msg || trs("资源管理器/提示/重命名失败", { cn: "重命名失败", en: "Failed to rename" }) });
                           }
                         }
                       } else if (type === 'copy' || type === 'cut') {
@@ -488,7 +823,12 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, settingData, 
                   if (filesToMove.length > 0) {
                     // 只有真正需要移动时才询问
                     Notice.launch({
-                      msg: `确定要将 ${filesToMove.length} 个项目移动到 "${targetName}" 吗？`,
+                      msg: trs("资源管理器/拖放/移动确认",
+                        {
+                          cn: `确定要将 ${filesToMove.length} 个项目移动到 "${targetName}" 吗？`,
+                          en: `Are you sure you want to move ${filesToMove.length} item(s) to "${targetName}"?`
+                        }
+                      ),
                       confirm: async () => {
                         clipboard = { files: filesToMove, mode: 'cut' };
                         await doPaste(targetFolder, true); // 拖放移动不自动跳转

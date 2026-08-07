@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <!-- 左眼 > (贝塞尔) -->
+  <path d="M 122 164 C 156 180 172 189 178 196 C 172 203 156 212 122 228"
+        fill="none" stroke="#DDC1A2" stroke-width="22" stroke-linecap="round" stroke-linejoin="round"/>
+  
+  <!-- 右眼 < (贝塞尔) -->
+  <path d="M 390 164 C 356 180 340 189 334 196 C 340 203 356 212 390 228"
+        fill="none" stroke="#DDC1A2" stroke-width="22" stroke-linecap="round" stroke-linejoin="round"/>
+  
+  <!-- 嘴巴 w (贝塞尔波浪) -->
+  <path d="M 166 286 C 184 328 198 340 210 332 C 226 320 244 286 256 286 C 268 286 286 320 302 332 C 314 340 328 328 346 286"
+        fill="none" stroke="#DDC1A2" stroke-width="22" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

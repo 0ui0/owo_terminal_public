@@ -56,7 +56,9 @@ export default {
           overflowX: "hidden",
           position: "relative",
           alignContent: "flex-start",
-          boxSizing: "border-box"
+          boxSizing: "border-box",
+          background: getColor('gray_4').back,
+          color: getColor('gray_4').front
         },
         oncontextmenu: onContextMenu,
         onpointerdown: onPointerDown,
@@ -95,9 +97,7 @@ export default {
               background: getColor('gray_12').back,
               borderBottom: `1px solid ${getColor('gray_2').back}`,
               zIndex: 2,
-              fontSize: "1.1rem",
               color: getColor('gray_6').front,
-              fontWeight: "bold",
               boxSizing: "border-box"
             }
           },
@@ -183,9 +183,7 @@ export default {
                   style: {
                     padding: "0.8rem 1.5rem",
                     background: getColor('gray_1').back + '44',
-                    fontSize: "1.1rem",
-                    fontWeight: "bold",
-                    color: getColor('main').front,
+                    color: getColor('main').back,
                     borderBottom: `1px solid ${getColor('gray_2').back}`,
                     display: "flex",
                     alignItems: "center",
@@ -240,7 +238,6 @@ export default {
                 m("div",
                   {
                     style: {
-                      fontSize: viewMode === "grid" ? "3.2rem" : "2rem",
                       marginBottom: viewMode === "grid" ? "0.5rem" : "0",
                       marginRight: viewMode === "grid" ? "0" : "1rem",
                       pointerEvents: "none"
@@ -278,8 +275,6 @@ export default {
                           m("div",
                             {
                               style: {
-                                fontSize: "1.3rem",
-                                fontWeight: item.isSearchResult ? "bold" : "normal",
                                 overflow: "hidden",
                                 textOverflow: "ellipsis",
                                 whiteSpace: "nowrap",
@@ -308,10 +303,8 @@ export default {
                               : item.isSearchResult ? `行 ${item.line}:` : item.name
                           ),
                           item.isSearchResult && !item.isFileNameMatch ? m("div",
-
                             {
                               style: {
-                                fontSize: "1.1rem",
                                 opacity: 0.7,
                                 whiteSpace: "pre-wrap",
                                 marginTop: "0.2rem"
@@ -325,7 +318,6 @@ export default {
                         {
                           style: {
                             flex: 1,
-                            fontSize: "1.1rem",
                             color: getColor('gray_6').front,
                             textAlign: "right",
                             pointerEvents: "none"
@@ -337,7 +329,6 @@ export default {
                         {
                           style: {
                             flex: 2,
-                            fontSize: "1.1rem",
                             color: getColor('gray_6').front,
                             textAlign: "right",
                             pointerEvents: "none"

@@ -1,5 +1,6 @@
 import ChatItem from "./ChatItem.js"
 import getColor from "../common/getColor.js"
+import getBlurBg from "../common/getBlurBg.js"
 import Avatar from "./Avatar.js"
 
 export default () => {
@@ -31,10 +32,7 @@ export default () => {
       return m("", {
         style: {
           display: "flex",
-          alignItems: "center",
-          width: "100%",
-          maxWidth: "100%",
-          boxSizing: "border-box"
+          alignItems: "center"
         }
       }, [
 
@@ -49,11 +47,10 @@ export default () => {
             margin: '1rem',
             padding: '0.5rem 1rem',
             borderRadius: '0.5rem 2rem 2rem 0.5rem',
-            boxShadow: "rgba(0, 0, 0, 0.3) 0.1rem 0.1rem 1rem",
-            background: (hasError ? getColor("工具组失败背景") : getColor("工具组成功背景")) + "80",
+            boxShadow: `0rem 0rem 2rem ${hasError ? getColor("工具组失败边框") + "33" : getColor("工具组成功边框") + "33"}`,
+            background: getBlurBg(hasError ? "工具组失败边框" : "工具组成功边框", hasError ? "工具组失败背景" : "工具组成功背景"),
+            border: `0.1rem solid ${hasError ? getColor("工具组失败边框") : getColor("工具组成功边框")}33`,
             borderLeft: hasError ? `0.4rem solid ${getColor("工具组失败边框")}` : `0.4rem solid ${getColor("工具组成功边框")}`,
-            maxWidth: window.Mob ? "calc(100% - 5rem)" : "calc(100% - 9rem)",
-            boxSizing: "border-box"
           }
         }, [
           // 标题栏
