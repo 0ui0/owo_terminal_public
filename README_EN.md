@@ -3,10 +3,10 @@
 > **English Edition | [简体中文版](README.md)**
 
 <p align="center">
-  <img src="readmeImg/preview.png" width="800" />
+  <img src="readmeImg/preview_new.png" width="800" />
 </p>
 <p align="center">
-  <img src="readmeImg/blue_preview.png" height="600" />
+  <img src="readmeImg/preview_new2.png" height="600" />
 </p>
 <p align="center">
   <img src="readmeImg/languageSwitch.png" height="600" />
