@@ -15,11 +15,11 @@ import projectLoad from "./server/crossFuncs/projectLoad.js"
 import tempPath from "./server/tools/tempPath.js"
 
 // --- Portable Mode Detection (便携模式检测) ---
-// 存在 .portable 标记文件或 data 文件夹时，自动重定向用户数据根目录至 ./data (参考 VSCode Portable 规范)
+// 存在 .portable 标记文件或 owo_data 文件夹时，自动重定向用户数据根目录至 ./owo_data (参考 VSCode Portable 规范)
 const hasPortableFlag = fs.existsSync(pathLib.resolve("./.portable"))
-const hasDataDir = fs.existsSync(pathLib.resolve("./data"))
+const hasDataDir = fs.existsSync(pathLib.resolve("./owo_data"))
 if (hasPortableFlag || hasDataDir) {
-  const portableDataDir = pathLib.resolve("./data")
+  const portableDataDir = pathLib.resolve("./owo_data")
   fs.ensureDirSync(portableDataDir)
   app.setPath("userData", portableDataDir)
   console.log("[App] 激活便携模式，userData 已重定向至:", portableDataDir)
