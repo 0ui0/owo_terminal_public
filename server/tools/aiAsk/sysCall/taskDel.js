@@ -16,16 +16,7 @@ export default {
       chatList.tasks = currentTasks.filter(t => !taskids.includes(t.taskid))
     })
 
-    // 任务更新成功后，如果 AI 只调了这一个工具，则切断后续对话，避免重复
-    /*     const { allCalls } = context
-        if (allCalls?.length === 1) {
-          const aiBasic = (await import("../basic.js")).default
-          const subAgents = (await import("../subAgents.js")).default
-          const targetModel = listId > 0 ? subAgents.get(listId) : aiBasic.list.find((model) => model.name === comData.data.get().currentModel)
-          if (targetModel) {
-            targetModel.stopRun()
-          }
-        } */
+    /* 任务更新成功后，如果 AI 只调了这一个工具，则切断后续对话的逻辑已废弃 */
 
     return "任务删除成功"
   },

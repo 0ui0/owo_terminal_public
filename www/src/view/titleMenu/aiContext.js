@@ -1,8 +1,9 @@
 import m from "mithril"
 import Box from "../common/box.js"
+import HistoryPanel from "../../historyPanel/historyPanel.js"
 
 // 递归节点组件 (闭包工厂模式)
-const JsonNode = () => {
+export const JsonNode = () => {
   let expanded = true // 本地闭包状态，代替 vnode.state
 
   return {
@@ -105,7 +106,7 @@ export default () => {
   let data = null
   let error = null
   let isFetching = false
-  let viewMode = "chats" // 'chats' | 'asks'
+  let viewMode = "chats" // 'chats' | 'asks' | 'history'
 
   const fetchData = async () => {
     isFetching = true
@@ -186,6 +187,30 @@ export default () => {
             }
           }, viewMode === "chats" ? "查看 Asks 队列" : "返回 Chats 上下文"),
 
+          // 悬浮历史面板按钮
+          m(Box, {
+            isBtn: true,
+            style: {
+              padding: "4px 12px",
+              margin: "0",
+              background: "rgba(224, 108, 117, 0.2)",
+              color: "#e06c75",
+              border: "1px solid #e06c75",
+              borderRadius: "4px",
+              fontSize: "12px",
+              whiteSpace: "nowrap"
+            },
+            onclick: (e) => {
+              if (e && e.stopPropagation) e.stopPropagation()
+              if (viewMode === "history") {
+                viewMode = "chats";
+                fetchData();
+              } else {
+                viewMode = "history";
+              }
+            }
+          }, viewMode === "history" ? "关闭埋点日志" : "操作埋点日志"),
+
           // 悬浮刷新按钮
           m(Box, {
             isBtn: true,
@@ -206,7 +231,9 @@ export default () => {
           }, isFetching ? "刷新中..." : "刷新数据")
         ]),
 
-        data ? m(JsonNode, { value: data, isLast: true, depth: 0 }) : null
+        viewMode === "history"
+          ? m(HistoryPanel)
+          : (data ? m(JsonNode, { value: data, isLast: true, depth: 0 }) : null)
       ])
     }
   }

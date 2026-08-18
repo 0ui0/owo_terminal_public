@@ -31,7 +31,7 @@ export default {
               groupid: groupid,
               type: key.includes("Local") ? "本地QQ群" : (key.includes("channels") ? "QQ频道" : "QQ官方群"),
               switch: group.switch ? "已开启" : "已关闭",
-              model: group.derivedFromAgentName || group.model || "默认",
+              modelId: group.derivedFromModelId || "默认",
               stats: {
                 energy: state.energy != null ? Number(state.energy.toFixed(1)) : "未知",
                 excitement: state.excitement != null ? Number(state.excitement.toFixed(2)) : "未知",

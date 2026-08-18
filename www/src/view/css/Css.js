@@ -55,6 +55,9 @@ export default function () {
           border-radius:3rem;
           background: ${getColor('gray_8').back};
         }
+        input[type=text]:focus{
+          outline:0.1rem solid ${getColor('main').back};
+        }
         button{
           background: ${getColor('gray_8').front};
           outline:none;
@@ -144,7 +147,7 @@ export default function () {
 
         .article .imgBox{
           boxShadow:0 0 1rem rgba(3,3,3,0.5);
-          background:rgba(255,255,255,1);
+          background:${getColor('gray_4').back};
           border-radius: 2rem;
           margin:0.2rem;
           display:inline-flex;
@@ -209,7 +212,7 @@ export default function () {
           font-size:1.5rem;
         }
 
-        .artilce h1, .article h2, .article h3, .article h4, .article h5, .article h6{
+        .article h1, .article h2, .article h3, .article h4, .article h5, .article h6{
           color: ${getColor('gray_7').front};
         }
 
@@ -283,18 +286,18 @@ export default function () {
           width:100%;
         }
         .article table,table tr th,table tr td { 
-          border:1px solid #e3edf5;
+          border:1px solid ${getColor('gray_4').front};
           border-collapse:collapse;
           background:transparent;
           word-break:break-all;
         }
         .article table{
-          border-top:0px solid #e3edf5;
-          border-bottom:0px solid #e3edf5;
+          border-top:0px solid ${getColor('gray_4').front};
+          border-bottom:0px solid ${getColor('gray_4').front};
         }
         .article table th{
-          background:#f1f7fd;
-          color:#3c99c9;
+          background:${getColor('gray_3').back};
+          color:${getColor('gray_3').front};
         }
 
         .admonition {
@@ -471,6 +474,9 @@ export default function () {
         }
 
         .xterm, .xterm *{
+          font-family: unset;
+          font-size: unset;
+          line-height: unset;
           letter-spacing: normal !important;
         }
 

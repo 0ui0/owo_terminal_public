@@ -462,6 +462,63 @@ const timeMachineEngine = {
       console.log(err);
       return { ok: false, msg: "检测嵌套仓库失败喵：" + err.message };
     }
+  },
+
+  /**
+   * 计算快照与指定目录之间的文件差异（正向）
+   * @param {Object} config { repoPath: 备份仓库目录, comparePath: 对比目录, options: { hash } }
+   *   - hash: 快照 commit hash
+   * @returns {Object} { ok, data: [{ path, status, additions, deletions }] }
+   *   - status: 正向方向 M 修改 / A 新增 / D 删除
+   */
+  diffSnapshot: async function ({ repoPath, comparePath, options = {} }) {
+    try {
+      const { hash } = options;
+      if (!repoPath || !comparePath) throw new Error("diffSnapshot 需要提供 repoPath 和 comparePath");
+      if (!hash) throw new Error("diffSnapshot 需要提供 options.hash");
+
+      // git diff：跟踪文件的变动（M 修改 / D 快照有工作区删）
+      const nameStatusOut = await this._git({ repoPath, gitArgs: ['diff', '--name-status', hash], customWorkTree: comparePath });
+      // git diff --numstat：跟踪文件的增删行数
+      const numstatOut = await this._git({ repoPath, gitArgs: ['diff', '--numstat', hash], customWorkTree: comparePath });
+      // git ls-files --others：未跟踪文件（工作区新增、快照无），--exclude-standard 已排除 .gitignore 忽略项
+      const untrackedOut = await this._git({ repoPath, gitArgs: ['ls-files', '--others', '--exclude-standard'], customWorkTree: comparePath });
+
+      const results = [];
+      // 加载单个文件的内容（正向方向：original=快照旧版本，proposed=工作区新版本）
+      const loadContents = async (relPath, status) => {
+        const absPath = path.resolve(comparePath, relPath);
+        let proposedContent = "";
+        try { proposedContent = await fs.readFile(absPath, 'utf-8'); } catch (e) { proposedContent = ""; }
+        let originalContent = "";
+        if (status !== 'A') {
+          const snapRes = await this.getFileContent({ repoPath, hash, relPath });
+          if (snapRes.ok) originalContent = snapRes.data;
+        }
+        return { originalContent, proposedContent };
+      };
+
+      // 解析 git diff --name-status：每行 "状态\t路径"
+      for (const line of nameStatusOut.split('\n').filter(Boolean)) {
+        const [status, ...rest] = line.split('\t');
+        const path = rest.join('\t');
+        const numstat = numstatOut.split('\n').filter(Boolean).find(l => l.endsWith('\t' + path));
+        const [add, del] = numstat ? numstat.split('\t') : [0, 0];
+        const { originalContent, proposedContent } = await loadContents(path, status);
+        results.push({ path, status, additions: Number(add), deletions: Number(del), originalContent, proposedContent });
+      }
+      // 解析 git ls-files --others：每行路径，状态为 A（工作区新增）
+      for (const path of untrackedOut.split('\n').filter(Boolean)) {
+        const { originalContent, proposedContent } = await loadContents(path, 'A');
+        const lineCount = originalContent.split(/\r?\n/).filter(Boolean).length;
+        results.push({ path, status: 'A', additions: lineCount, deletions: 0, originalContent, proposedContent });
+      }
+
+      return { ok: true, msg: "差异计算完成喵！", data: results };
+    } catch (err) {
+      console.log(err);
+      return { ok: false, msg: "差异计算失败喵：" + (err.stderr || err.message) };
+    }
   }
 };
 

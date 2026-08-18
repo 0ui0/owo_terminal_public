@@ -109,8 +109,8 @@ export default ({ m, trs, getColor, config, outState, modelList = [] }) => {
             m("div", { style: { opacity: "0.25", fontSize: "0.8rem", flexShrink: 0 } }, trs("上级智能体", { cn: "上级智能体", en: "Superior Agent" })),
             m("select", {
               style: { ...styles.input(theme), padding: "0.4rem 0.8rem", width: "100%" },
-              value: item.derivedFromAgentName || "",
-              onchange: (e) => { item.derivedFromAgentName = e.target.value; }
+            value: item.derivedFromModelId || "",
+            onchange: (e) => { item.derivedFromModelId = e.target.value; }
             }, [
               m("option", { value: "" }, trs("系统默认", { cn: "系统默认", en: "System Default" })),
               modelList.map(mdl =>
@@ -146,7 +146,7 @@ export default ({ m, trs, getColor, config, outState, modelList = [] }) => {
           style: { ...styles.btn(getColor("blue_1"), true), padding: "0.8rem", marginTop: "0.5rem" },
           onclick: (e) => {
             e.stopPropagation();
-            const newItem = key.includes("channels") ? { channelid: "0", name: "New", switch: 1, derivedFromAgentName: "" } : { groupid: "0", name: "New", switch: 1, derivedFromAgentName: "" };
+            const newItem = key.includes("channels") ? { channelid: "0", name: "New", switch: 1, derivedFromModelId: "" } : { groupid: "0", name: "New", switch: 1, derivedFromModelId: "" };
             outState.draft[key].push(newItem);
             m.redraw();
           }

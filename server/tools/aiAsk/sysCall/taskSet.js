@@ -68,16 +68,7 @@ export default {
       chatList.tasks = currentTasks
     })
 
-    // 任务更新成功后，如果 AI 只调了这一个工具，则切断后续对话，避免重复
-    /*     const { allCalls } = context
-        if (allCalls?.length === 1 && (results.added.length > 0 || results.updated.length > 0)) {
-          const aiBasic = (await import("../basic.js")).default
-          const subAgents = (await import("../subAgents.js")).default
-          const targetModel = listId > 0 ? subAgents.get(listId) : aiBasic.list.find((model) => model.name === comData.data.get().currentModel)
-          if (targetModel) {
-            targetModel.stopRun()
-          }
-        } */
+    /* 任务更新成功后，如果 AI 只调了这一个工具，则切断后续对话的逻辑已废弃 */
 
     const success = results.added.length > 0 || results.updated.length > 0
     let msg = success ? "任务处理完成" : "任务处理失败：未执行任何有效操作"

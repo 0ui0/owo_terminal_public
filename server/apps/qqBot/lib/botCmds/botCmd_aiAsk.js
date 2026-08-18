@@ -240,8 +240,8 @@ const Executor = {
       const agent = subAgents.get(listId);
       if (!agent) return;
 
-      const targetName = agent.aiConfig?.derivedFromAgentName;
-      if (!targetName) return;
+      const targetModelId = agent.aiConfig?.derivedFromModelId;
+      if (!targetModelId) return;
 
       groupState.lastReplyTime = Date.now();
       groupState.dailyUsage += 1;
@@ -250,7 +250,7 @@ const Executor = {
       console.log(`[qqBot][耗能] 回复完成。剩余能量: ${groupState.energy.toFixed(1)} (📊${groupState.dailyUsage}/${botPulseConfig.dailyGroupLimit.value})`);
 
       const aiList = await options.get("ai_aiList");
-      const currentTokenConfig = aiList.find(m => m.name === targetName);
+      const currentTokenConfig = aiList.find(m => m.id === targetModelId);
 
       const allowApps = ["browser"];
       for (const app of allowApps) await backend.appManager.registerAppTools(app);
@@ -265,14 +265,14 @@ const Executor = {
           // 【核心修复】强制覆盖全局钩子，消除 preToken 读取错误
           onSendAskBefore: async () => {
             const innerAiList = await options.get("ai_aiList");
-            const mIdx = innerAiList.findIndex(m => m.name === targetName);
+            const mIdx = innerAiList.findIndex(m => m.id === targetModelId);
             if (mIdx === -1 || innerAiList[mIdx].preTokens <= 0) {
-              throw new Error(`[余额预警] ${targetName} 配置无效或额度不足`);
+              throw new Error(`[余额预警] ${targetModelId} 配置无效或额度不足`);
             }
           },
           onTokenChange: async (inst, usage) => {
             const innerAiList = await options.get("ai_aiList");
-            const mIdx = innerAiList.findIndex(m => m.name === targetName);
+            const mIdx = innerAiList.findIndex(m => m.id === targetModelId);
             if (innerAiList[mIdx]) {
               innerAiList[mIdx].preTokens = Number(innerAiList[mIdx].preTokens) - Number(usage.totalT);
               await options.set("ai_aiList", innerAiList);

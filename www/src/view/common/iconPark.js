@@ -163,7 +163,7 @@ let iconPark = {
   ExpandUp,
   ExpandRight,
   CopyOne,
-  Redo
+  Redo,
 };
 
 export default {

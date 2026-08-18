@@ -4,11 +4,12 @@ import pathLib from "path"
 import waitConfirm from "../../waitConfirm.js"
 import appManager from "../../../apps/appManager.js"
 import { v4 as uuidV4 } from "uuid"
+import workDirTool from "../../workDirTool.js"
 
 export default {
   name: "写入文件",
   id: "fileWriter",
-  async fn(argObj) {
+  async fn(argObj, metaData) {
     let { value, error } = this.joi().validate(argObj)
     if (error) {
       return "错误：" + error.details[0].message
@@ -16,21 +17,29 @@ export default {
     let { filePath, content, overwrite, reason } = value
 
     // 1. Resolve Path
-    const comData = (await import("../../../comData/comData.js")).default
-    const customCwd = comData.data.get()?.customCwd
-    if (!customCwd && (!filePath || !pathLib.isAbsolute(filePath))) {
-      return "错误：当前未设置工作目录。请先要求用户配置工作目录，或者在使用工具时提供绝对路径。"
+    const mainDir = workDirTool.getMainWorkDir(metaData.listId)
+    if (!mainDir && (!filePath || !pathLib.isAbsolute(filePath))) {
+      return "错误：当前会话未设置工作目录。请先要求用户配置工作目录，或者在使用工具时提供绝对路径。"
     }
-    const cwd = customCwd || process.cwd()
-    const resolvedPath = pathLib.resolve(cwd, filePath)
+    const resolvedPath = filePath ? (pathLib.isAbsolute(filePath) ? filePath : pathLib.resolve(mainDir, filePath)) : mainDir
 
-    // 2. Check existence
+    // 2. Check existence & Staleness Check
+    const fileState = (await import("../../fileState.js")).default
     let exists = false
     let originalContent = ""
     try {
-      await fs.access(resolvedPath)
+      const stat = await fs.stat(resolvedPath)
       exists = true
       originalContent = await fs.readFile(resolvedPath, 'utf8')
+
+      // 安全检查：如果文件已存在且覆盖写入，需检查外部修改
+      const cached = fileState.get(resolvedPath)
+      if (cached && stat.mtimeMs > cached.timestamp) {
+        return `⚠️ 安全拦截：文件自上次读取以来已被外部修改过。
+当前文件修改时间：${new Date(stat.mtimeMs).toLocaleString()}
+上次读取时间：${new Date(cached.timestamp).toLocaleString()}
+为防止覆盖他人或自己的最新改动，请先使用 fileOpener 重新读取文件！`
+      }
     } catch (e) {
       // File does not exist
     }
@@ -64,7 +73,7 @@ export default {
       type: "tip",
       title: title,
       content: `${reason}\n\n${exists ? "检测到文件已存在，请在编辑器中核对差异并批准覆盖。" : "即将创建新文件，请在编辑器中核对预览内容并批准。"}`,
-      listId: argObj.listId || 0
+      listId: metaData.listId
     })
 
     // 无论批准还是拒绝，只要是通过本工具启动的窗口，都应关闭
@@ -76,6 +85,16 @@ export default {
     try {
       await fs.mkdir(pathLib.dirname(resolvedPath), { recursive: true })
       await fs.writeFile(resolvedPath, content, "utf-8")
+
+      // 真正落盘成功后，闭环同步更新 fileState 状态缓存与最新 mtime
+      const newStat = await fs.stat(resolvedPath).catch(() => ({ mtimeMs: Date.now() }))
+      fileState.set(resolvedPath, {
+        timestamp: newStat.mtimeMs || Date.now(),
+        content: content,
+        startLine: 0,
+        endLine: 0
+      })
+
       let finalMsg = `成功写入文件: ${resolvedPath}。`
       if (userConfirm.comment) {
         if (userConfirm.comment.includes("批准修改的 Diff") || userConfirm.comment.includes("具体行批注")) {

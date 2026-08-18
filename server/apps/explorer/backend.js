@@ -140,7 +140,18 @@ export default {
           if (args.name) {
             const safeName = normalizeName(args.name)
             if (!safeName) return { ok: false, msg: "文件夹名称不合法" }
-            await fs.mkdir(path.resolve(currentPath, safeName), { recursive: true })
+            const target = path.resolve(currentPath, safeName)
+            // 重名检测：recursive:true 时已存在目录不会报错，需预检
+            try {
+              const stat = await fs.stat(target)
+              if (stat.isDirectory()) {
+                return { ok: false, msg: `文件夹 "${safeName}" 已存在` }
+              }
+              return { ok: false, msg: `同名文件 "${safeName}" 已存在` }
+            } catch (e) {
+              // 目标不存在，可以创建
+            }
+            await fs.mkdir(target, { recursive: true })
             io.emit("explorer:fs-change", { paths: [currentPath] })
             return this.dispatch({ app, action: "navigate", args: { path: currentPath, isHistoryOp: true }, appManager, io })
           }

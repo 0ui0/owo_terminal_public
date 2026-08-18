@@ -9,6 +9,14 @@ export default {
   last: null,
   isSyncing: false,
   hasPendingChange: false,
+  getChatList(listId) {
+    const list = this.data.get().chatLists?.find(l => l.id === listId);
+    if (!list) {
+      // 前端初次渲染可能在数据同步前发生，此时给予平滑回退，不阻断渲染
+      return null;
+    }
+    return list;
+  },
   async init() {
     let { default: DynamicData } = await import(`${window.location.origin}/api/dynamic?time=` + Date.now())
     this.data = new DynamicData({}, {
@@ -62,7 +70,7 @@ export default {
           ioSocket.socket.emit("comData", payload, (msg) => resPromise(msg))
         })
 
-        console.log("src/comData/dataSync", msg)
+        // console.log("src/comData/dataSync", msg)
         if (msg && msg.ok) {
           this.last = _.cloneDeep(data)
         } else {

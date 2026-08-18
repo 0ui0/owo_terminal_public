@@ -6,8 +6,18 @@ import { trs } from "./i18n.js"
 import aiContext from "../titleMenu/aiContext.js"
 import getColor from "./getColor.js"
 import chatData from "../chat/chatData.js"
+import comData from "../../comData/comData.js"
 
 export default () => {
+  // 项目 load/save 后遍历所有队列刷新时光机状态
+  const refreshAllTmStatus = async () => {
+    const lists = comData.data.get().chatLists
+    for (const list of lists) {
+      await chatData.updateTmStatus(list.id)
+    }
+    m.redraw()
+  }
+
   // Toggle Auto Save
   const toggleAutoSave = async (forceState) => {
     if (forceState !== undefined) {
@@ -47,8 +57,23 @@ export default () => {
       if (res.ok) {
         console.log("Project action success:", action, res.path)
 
-        chatData.updateTmStatus?.()
-        m.redraw()
+        await refreshAllTmStatus()
+      } else if (res.msg === "VERSION_MISMATCH") {
+      } else if (res.msg === "VERSION_MISMATCH") {
+        // 存档版本不匹配：询问用户是否以兼容模式继续导入
+        Notice.launch({
+          tip: trs("项目/版本不匹配", { cn: "存档版本不匹配", en: "Version Mismatch" }),
+          msg: trs("项目/版本不匹配详情", { cn: `存档版本 (${res.savedVersion}) 与当前版本 (${res.currentVersion}) 不一致，是否以兼容模式继续导入？`, en: `Archive version (${res.savedVersion}) differs from current (${res.currentVersion}). Continue in compatibility mode?` }),
+          confirm: async () => {
+            const retry = await settingData.fnCall("projectLoad", [{ path: res.path, forceConvert: true }])
+            if (retry.ok) {
+              await refreshAllTmStatus()
+            } else {
+              Notice.launch({ msg: trs("系统/错误/提示") + (retry.msg || "Unknown error") })
+            }
+            return undefined
+          }
+        })
       } else {
         if (res.msg !== "User canceled") {
           Notice.launch({ msg: trs("系统/错误/提示") + (res.msg || "Unknown error") })
@@ -129,6 +154,18 @@ export default () => {
             }
           }, trs("菜单栏/操作/检查更新")),
 
+          m(Box, {
+            isBtn: true,
+            style: { padding: "10px", textAlign: "left" },
+            onclick: async () => {
+              v.attrs.delete()
+              const res = await settingData.fnCall("openDataDir", [])
+              if (!res.ok) {
+                Notice.launch({ msg: res.msg, type: "error" })
+              }
+            }
+          }, trs("菜单栏/操作/打开数据目录", { cn: "打开数据目录", en: "Open Data Directory" })),
+
           m("div", { style: { height: "1px", background: "rgba(255,255,255,0.1)", margin: "5px 0" } }),
 
           m(Box, {
@@ -143,7 +180,7 @@ export default () => {
               }])
               if (!resDialog.ok || !resDialog.filePath) return
               const resExport = await settingData.fnCall("dbExport", [{ filePath: resDialog.filePath }])
-              Notice.launch({ msg: resExport.ok ? trs("系统/消息/操作成功") : resExport.msg })
+              if (!resExport.ok) Notice.launch({ msg: resExport.msg })
             }
           }, trs("菜单栏/操作/导出系统设置", { cn: "导出系统设置", en: "Export Settings" })),
 
@@ -193,7 +230,6 @@ export default () => {
                 if (resImport.name) {
                   await settingData.fnCall("petPkgSetDefault", [{ name: resImport.name }])
                 }
-                Notice.launch({ msg: resImport.msg })
               } else {
                 Notice.launch({ msg: resImport.msg })
               }

@@ -1,5 +1,4 @@
 import archiveDb from "../../../db/archiveDb.js"
-import ioServer from "../../ioServer.js"
 
 export default {
   async add(chat, listId = 0) {
@@ -46,12 +45,6 @@ export default {
     } catch (err) {
       console.error("[chats.js] findByTid failed:", err)
       return undefined
-    }
-  },
-
-  refresh(listId = 0) {
-    if (ioServer && ioServer.io) {
-      ioServer.io.emit("chat:refresh", { listId })
     }
   }
 }

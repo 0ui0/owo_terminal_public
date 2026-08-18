@@ -12,8 +12,7 @@ export default {
     const targetModel = context.aiAskInstance
 
     const aiList = await options.get("ai_aiList")
-    const currentModelName = comData.data.get().currentModel
-    const currentTokenConfig = aiList.find(m => m.name === currentModelName)
+    const currentTokenConfig = aiList.find(m => m.id === context.aiAskInstance?.modelId)
 
     const config = getMsgProtocalConfig({
       targetModel,

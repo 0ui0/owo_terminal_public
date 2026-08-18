@@ -3,9 +3,9 @@ import Dir from "../../dir.js"
 import fs from "fs/promises"
 import pathLib from "path"
 import waitConfirm from "../../waitConfirm.js"
+import tempPath from "../../tempPath.js"
 export default {
   name: "创建自定义函数",
-  id: "createFn",
   id: "createFn",
   async fn(argObj, metaData) {
     try {
@@ -59,8 +59,9 @@ export default {
 
 
 
-      let dir = new Dir("./tools/aiAsk/aiCall")
-      let filePath = pathLib.resolve(dir.pwd() + `/${value.id}.js`)
+      const aiCallDir = pathLib.join(tempPath.getUserDataDir(), "aiCall")
+      await fs.mkdir(aiCallDir, { recursive: true })
+      let filePath = pathLib.join(aiCallDir, `${value.id}.js`)
       let hasFile = null
 
       try { hasFile = await fs.stat(filePath) }

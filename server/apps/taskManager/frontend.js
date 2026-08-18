@@ -32,10 +32,9 @@ export default ({ appId, m, Notice, ioSocket, commonData, chatData, settingData,
     try {
       const res = await settingData.fnCall("appDispatch", [appId, "kill", { targetId }])
       if (res.ok) {
-        Notice.launch({ msg: res.msg, color: "green" })
         await fetchList(true)
       } else {
-        Notice.launch({ msg: res.msg, color: "red" })
+        Notice.launch({ msg: res.msg})
       }
     } catch (e) {
       console.error(e)
@@ -45,8 +44,8 @@ export default ({ appId, m, Notice, ioSocket, commonData, chatData, settingData,
   const showApp = async (targetId) => {
     try {
       const res = await settingData.fnCall("appDispatch", [appId, "show", { targetId }])
-      if (res.ok) {
-        Notice.launch({ msg: res.msg, color: "green" })
+      if (!res.ok) {
+        Notice.launch({ msg: res.msg })
       }
     } catch (e) {
       console.error(e)
@@ -56,9 +55,9 @@ export default ({ appId, m, Notice, ioSocket, commonData, chatData, settingData,
   const quoteId = (targetId) => {
     if (chatData && chatData.quoteAppId) {
       chatData.quoteAppId(targetId)
-      Notice.launch({ msg: "已引用 AppID 到输入框", color: "green" })
+      Notice.launch({ msg: "已引用 AppID 到输入框"})
     } else {
-      Notice.launch({ msg: "引用功能尚未开启", color: "yellow" })
+      Notice.launch({ msg: "引用功能尚未开启"})
     }
   }
 

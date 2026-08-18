@@ -307,8 +307,19 @@ marked.setOptions({
   }
 });
 
-export default format = function (content, type, opt) {
+const formatCache = new Map();
+
+const formatImpl = function (content, type, opt) {
   let code, err, imgCounter;
+  if (!content) return "";
+  if (typeof content === "string" && content.length > 15000) {
+    const sliced = content.slice(0, 5000);
+    const escaped = sliced.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    return `<div style="padding: 1rem; background: rgba(255, 107, 107, 0.1); border-left: 4px solid #ff6b6b; margin-bottom: 1rem; font-size: 0.9em; display: flex; justify-content: space-between; align-items: center;">
+      <div><b>性能保护机制：</b>本文本极长（共 ${content.length} 字符），为防止浏览器排版引擎卡死，已在<b>视觉上</b>极度截断为前 5000 字符展示。</div>
+      <button style="padding: 0.4rem 0.8rem; background: rgba(255, 107, 107, 0.2); border: 1px solid #ff6b6b; border-radius: 4px; color: inherit; cursor: pointer; white-space: nowrap; margin-left: 1rem;" onclick="this.dispatchEvent(new CustomEvent('owo-open-editor', { bubbles: true }))">在编辑器中打开全文</button>
+    </div><div style="width: 100%; min-width: 0; max-height: 15rem; overflow-y: auto; font-family: inherit; margin: 0; padding: 0.5rem; box-sizing: border-box; background: transparent; color: inherit; border: 1px solid rgba(127,127,127,0.2); border-radius: 4px; white-space: pre-wrap; word-break: break-all; contain: content;">${escaped}\n\n...... (剩余 ${content.length - 5000} 字符被折叠) ......</div>`;
+  }
   if (type === void 0 || type === "markdown" || type === "block" || type === "note" || type === null) {
     if (opt != null ? opt.mini : void 0) {
       if (content.length > 500) {
@@ -482,4 +493,24 @@ export default format = function (content, type, opt) {
   } else {
     return "【渲染器无法识别渲染类型】";
   }
+};
+
+export default format = function (content, type, opt) {
+  if (!content) return "";
+  if (typeof content !== "string") return formatImpl(content, type, opt);
+
+  const cacheKey = content + "|" + type + "|" + (opt?.mini ? '1' : '0');
+  if (formatCache.has(cacheKey)) {
+    return formatCache.get(cacheKey);
+  }
+
+  const result = formatImpl(content, type, opt);
+
+  if (formatCache.size > 200) {
+    const firstKey = formatCache.keys().next().value;
+    formatCache.delete(firstKey);
+  }
+  formatCache.set(cacheKey, result);
+
+  return result;
 };

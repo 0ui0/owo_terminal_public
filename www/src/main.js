@@ -18,6 +18,7 @@ import ioSocket from "./comData/ioSocket.js"
 import initRoute from "./init/init_routeBack.js"
 import initResponsive from "./init/init_responsive.js"
 import settingData from "./view/setting/settingData.js"
+import initShortcut from "./init/init_shortcut.js"
 
 
 
@@ -26,6 +27,7 @@ import settingData from "./view/setting/settingData.js"
   try {
     initRoute()
     initResponsive()
+    initShortcut()
     iconPark_.init()
     //注意先后，ioSocket引入了comData，要先初始化
     await comData.init()

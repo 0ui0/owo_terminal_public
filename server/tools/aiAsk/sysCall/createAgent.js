@@ -5,7 +5,8 @@ import idTool from "../../idTool.js"
 import chats from "../../../ioServer/ioApis/chat/chats.js"
 import ioServer from "../../../ioServer/ioServer.js"
 import Joi from "joi"
-import aiBasic from "../basic.js" // To copy config
+import defaultComData from "../../defaultComData.js"
+import tempPath from "../../tempPath.js"
 
 export default {
   name: "创建智能体",
@@ -15,7 +16,7 @@ export default {
       //系统QQ机器人用特殊参数，对ai隐藏
       const isBotAgent = argObj.isBotAgent
       const noAutoOpen = argObj.noAutoOpen
-      const derivedFromAgentName = argObj.derivedFromAgentName
+      const derivedFromModelId = argObj.derivedFromModelId
 
       const { value, error } = this.joi().validate(argObj);
       if (error) {
@@ -27,16 +28,20 @@ export default {
       const { name, prompt } = value;
       const { listId } = metaData;
 
-
-
-      //【注意】这里的currentModel用的是智能体名，不是模型名，一个模型可以创建多个智能体
-      const currentModelName = derivedFromAgentName ?? comData.data.get().currentModel;
-      const selectedModel = aiBasic.list.find(m => m.name === currentModelName);
-      //必须找name，不能找model，同一个模型允许创建多个智能体。
-      if (!selectedModel) {
+      // 解析配置源：三场景统一处理
+      // 1) AI工具调用：继承创建者 aiConfig；2) QQ bot/会话管理器：derivedFromModelId 指定后台配置
+      const chatLists = comData.data.get().chatLists || [];
+      const targetChatList = chatLists.find(l => l.id === listId) || {};
+      const creatorAgent = subAgents.get(listId);
+      const aiBasic = await (async () => {
+        if (creatorAgent?.aiConfig) return creatorAgent.aiConfig;
+        const aiList = await (await import("../../../config/options.js")).default.get("ai_aiList");
+        return aiList.find(m => m.id === derivedFromModelId) || null;
+      })();
+      if (!aiBasic) {
         return {
           ok: false,
-          msg: `错误：找不到当前选中的模型配置，请先选择一个ai模型 (${currentModelName})`
+          msg: `错误：找不到创建者实例，且系统配置中也没有匹配的模型（id: ${derivedFromModelId || "无"}）。`
         };
       }
 
@@ -53,20 +58,7 @@ export default {
       await comData.data.edit((data) => {
         // 计算新 ID
         if (!data.chatLists) {
-          data.chatLists = [{
-            id: 0,
-            linkid: 0,
-            data: data.chatList || [],
-            replying: false,
-            streamChunks: "",
-            streamDisplayContent: "",
-            streamReasoningChunks: "",
-            confirmCmds: [],
-            stop: false,
-            tasks: [],
-            notes: [],
-            graph: { nodes: {}, links: [] },
-          }];
+          data.chatLists = [{ ...defaultComData().chatLists[0], id: 0 }];
         }
 
         // 获取最大 ID
@@ -76,22 +68,13 @@ export default {
         // 确定当前上下文（父级）已经在上面确定了 (currentListId)
         // currentListId = data.targetChatListId || 0; // Removed legacy fallback block
 
-        // 创建物理列表
+        // 创建物理列表 (以系统默认模板为基础，防止将来新增字段丢失)
+        const templateList = defaultComData().chatLists[0];
         data.chatLists.push({
+          ...templateList,
           id: newListId,
           linkid: currentListId,
-          replying: false,
-          streamChunks: "",
-          streamDisplayContent: "",
-          streamReasoningChunks: "",
-          confirmCmds: [],
-          stop: false,
-          tasks: [],
-          notes: [],
-          graph: {
-            nodes: {},
-            links: []
-          }
+          currentModelId: aiBasic.modelId
         });
       });
 
@@ -120,14 +103,14 @@ export default {
         }
         // 并同步到数据库（add comData->chatLists）
         await chats.add(containerMsg, currentListId);
+        // 刷新父列表，让容器消息立即显示（无需等待下一条消息触发 pull）
+        ioServer.io.emit("chat:push", { listId: currentListId })
       }
 
 
 
 
       // 2. 使用选中模型的配置 (apiKey, baseURL, model)
-      // 2. 使用选中模型的配置 (apiKey, baseURL, model)
-      const baseConfig = selectedModel.aiConfig;
 
       // 解析创建者名称
       let creatorName = "主控AI";
@@ -153,24 +136,26 @@ export default {
       const finalPrompt = `${prompt}\n\n${forcedInstruction}`;
 
       const newAgent = new AiAsk({
-        apiKey: baseConfig.apiKey,
-        baseURL: baseConfig.baseURL,
-        model: baseConfig.model,
+        apiKey: aiBasic.apiKey,
+        baseURL: aiBasic.baseURL,
+        model: aiBasic.model,
         name: name,
         prompt: finalPrompt,
-        mediaDir: "./attachment"
+        modelId: aiBasic.modelId,
+        mediaDir: tempPath.get("attachment")
       });
 
       // 3. 初始化实例
       // 必须调用 init() 以创建 OpenAI 客户端连接和初始 System Prompt
       await newAgent.init({
-        apiKey: baseConfig.apiKey,
-        baseURL: baseConfig.baseURL,
-        model: baseConfig.model,
+        apiKey: aiBasic.apiKey,
+        baseURL: aiBasic.baseURL,
+        model: aiBasic.model,
         prompt: finalPrompt,
         name: name,
-        mediaDir: "./attachment",
-        derivedFromAgentName: derivedFromAgentName ?? undefined, //QQ机器人余额校验用
+        modelId: aiBasic.modelId,
+        mediaDir: tempPath.get("attachment"),
+        derivedFromModelId: derivedFromModelId ?? undefined, //QQ机器人余额校验用
       });
 
       // 注册

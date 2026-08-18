@@ -97,7 +97,7 @@ export default {
               background: getColor('gray_12').back,
               borderBottom: `1px solid ${getColor('gray_2').back}`,
               zIndex: 2,
-              color: getColor('gray_6').front,
+              color: getColor('gray_12').front,
               boxSizing: "border-box"
             }
           },
@@ -160,7 +160,7 @@ export default {
                 width: "100%",
                 padding: "3rem 0",
                 fontSize: "1.4rem",
-                color: getColor('gray_6').front,
+                color: getColor('gray_12').front,
                 gap: "0.6rem"
               }
             }, [
@@ -171,7 +171,7 @@ export default {
           }
           
           let lastFilePath = null;
-      processedFiles.forEach((item) => {
+          processedFiles.forEach((item) => {
             const itemId = item.isSearchResult ? `${item.path}:${item.line}` : item.name;
             const isSelected = selected.has(itemId);
             const fullPath = item.isSearchResult ? item.path : (currentPath + (currentPath.endsWith("/") ? "" : "/") + item.name);
@@ -183,7 +183,7 @@ export default {
                   style: {
                     padding: "0.8rem 1.5rem",
                     background: getColor('gray_1').back + '44',
-                    color: getColor('main').back,
+                    color: getColor('gray_1').front,
                     borderBottom: `1px solid ${getColor('gray_2').back}`,
                     display: "flex",
                     alignItems: "center",
@@ -307,6 +307,8 @@ export default {
                               style: {
                                 opacity: 0.7,
                                 whiteSpace: "pre-wrap",
+                                fontFamily: "monospace",
+                                tabSize: 2,
                                 marginTop: "0.2rem"
                               }
                             },
@@ -318,7 +320,7 @@ export default {
                         {
                           style: {
                             flex: 1,
-                            color: getColor('gray_6').front,
+                            color: getColor('gray_4').front,
                             textAlign: "right",
                             pointerEvents: "none"
                           }
@@ -329,7 +331,7 @@ export default {
                         {
                           style: {
                             flex: 2,
-                            color: getColor('gray_6').front,
+                            color: getColor('gray_4').front,
                             textAlign: "right",
                             pointerEvents: "none"
                           }

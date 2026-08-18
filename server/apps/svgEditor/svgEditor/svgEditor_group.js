@@ -56,7 +56,7 @@ export default svgGroup = class svgGroup extends Element {
     return data.elPaper.remove(this);
   }
 
-  translate({deltaX, deltaY}) {
+  translate({ deltaX, deltaY }) {
     var cloneElements;
     cloneElements = [...this.prop.elements];
     cloneElements.forEach((el) => {
@@ -64,7 +64,7 @@ export default svgGroup = class svgGroup extends Element {
       if (el.type === "fillGroup") {
         return el.break();
       } else {
-        el.translate({deltaX, deltaY});
+        el.translate({ deltaX, deltaY });
         // 按照系统的多选逻辑，一经平移立即打碎所有关联的填充组
         if (((ref = el.prop.fillGroups) != null ? ref.length : void 0) > 0) {
           [...el.prop.fillGroups].forEach((fg) => {

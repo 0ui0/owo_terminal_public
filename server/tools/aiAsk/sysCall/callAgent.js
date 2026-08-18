@@ -3,7 +3,6 @@ import comData from "../../../comData/comData.js"
 import { socketOnChat } from "../../../ioServer/ioApis/chat/ioApi_chat.js"
 import idTool from "../../idTool.js"
 import subAgents from "../subAgents.js"
-import aiBasic from "../basic.js"
 import options from "../../../config/options.js"
 import ioServer from "../../../ioServer/ioServer.js"
 import Joi from "joi"
@@ -45,22 +44,9 @@ export default {
       }
 
       // 2. 路由目标 Agent
-      let targetAgent = null;
-      let targetListIdArg = targetListId;
-
-      if (targetListId === 0) {
-        // 呼叫主 AI -> 获取当前活跃的主模型
-        const currentModelName = comData.data.get().currentModel;
-        targetAgent = aiBasic.list.find(m => m.name === currentModelName);
-        if (!targetAgent) {
-          return `错误：找不到当前活跃的主模型 (${currentModelName})`;
-        }
-      } else {
-        // 呼叫子 AI
-        targetAgent = subAgents.get(targetListId);
-        if (!targetAgent) {
-          return `错误：找不到 ID 为 ${targetListId} 的子智能体`;
-        }
+      let targetAgent = subAgents.get(targetListId);
+      if (!targetAgent) {
+        return `错误：找不到 ID 为 ${targetListId} 的智能体`;
       }
 
       // 3. 添加到目标上下文并构造消息
@@ -80,8 +66,8 @@ export default {
       };
 
       // 4. 广播 & 存库
-      if (ioServer.io) ioServer.io.emit("chat", chat);
       await chats.add(chat, targetListId);
+      ioServer.io.emit("chat:push", { listId: targetListId });
 
       // 5. 触发执行循环 (复制 ioApi_chat.js 核心逻辑)
       (async () => {
@@ -97,10 +83,9 @@ export default {
             }
           });
 
-          // 获取当前模型配置用于 Token 统计
+          // 获取当前模型配置用于 Token 统计（按目标实例烙的 modelId 精确反查）
           const aiList = await options.get("ai_aiList");
-          const modelName = comData.data.get().currentModel;
-          const currentTokenConfig = aiList.find(m => m.name === modelName);
+          const currentTokenConfig = aiList.find(m => m.id === targetAgent.modelId);
 
           await targetAgent.sendAskByMsgProtocol(getMsgProtocalConfig({
             targetModel: targetAgent,
@@ -127,7 +112,7 @@ export default {
 
             if (!hasReported) {
               // 由系统代为汇报给调用者（senderListId，若无则发给主列表 0）
-              const reportContent = `【系统自动汇报】\n检测到智能体【${targetAgent.name}】任务已结束，但未主动汇报。请检查其上下文。`;
+              const reportContent = `【系统自动汇报】\n检测到智能体【${targetAgent.name}】任务已结束，但可能未主动汇报。请检查其上下文。如果已汇报请忽略本提醒。`;
 
               // 使用 socketOnChat 模拟消息发送
               if (socketOnChat) {

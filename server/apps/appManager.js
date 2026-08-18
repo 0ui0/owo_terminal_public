@@ -5,6 +5,7 @@ import { pathToFileURL } from "url"
 import { app } from "electron"
 import idTool from "../tools/idTool.js"
 import { bumpAppDir, getAppVersion } from "./moduleRegistry.js"
+import tempPath from "../tools/tempPath.js"
 
 class AppManager {
   constructor() {
@@ -438,20 +439,20 @@ class AppManager {
   // ========== 工具注册表能力 ==========
 
   /**
-   * 加载核心内置工具（sysCall/usrCall/aiCall 三个目录）
+   * 加载核心内置工具（sysCall 为内置，usrCall/aiCall 位于用户数据目录）
    * 每个工具注入 tool.type 属性
    */
   async loadCoreTools() {
+    const userData = tempPath.getUserDataDir()
     const toolDirs = [
-      { dir: "sysCall", type: "sysCall" },
-      { dir: "usrCall", type: "usrCall" },
-      { dir: "aiCall", type: "aiCall" }
+      { dir: "sysCall", dirPath: path.resolve(import.meta.dirname, "../tools/aiAsk/sysCall"), type: "sysCall" },
+      { dir: "usrCall", dirPath: path.join(userData, "usrCall"), type: "usrCall" },
+      { dir: "aiCall", dirPath: path.join(userData, "aiCall"), type: "aiCall" }
     ]
-    const aiAskDir = path.resolve(import.meta.dirname, "../tools/aiAsk")
 
-    for (const { dir, type } of toolDirs) {
-      const dirPath = path.join(aiAskDir, dir)
+    for (const { dir, dirPath, type } of toolDirs) {
       try {
+        await fsP.mkdir(dirPath, { recursive: true })
         const files = await fsP.readdir(dirPath)
         for (const file of files) {
           if (!file.endsWith(".js")) continue
@@ -476,7 +477,7 @@ class AppManager {
         }
       }
     }
-    console.log(`[AppManager] 已加载 ${this.tools.length} 个核心工具`)
+    console.log(`[AppManager] 已加载 ${this.tools.length} 个核心/扩展工具`)
   }
 
   /**

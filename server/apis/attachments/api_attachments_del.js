@@ -1,5 +1,6 @@
 import fs from "fs-extra"
 import pathLib from "path"
+import tempPath from "../../tools/tempPath.js"
 
 export default async () => {
   return {
@@ -13,7 +14,7 @@ export default async () => {
 
       // 安全性检查：只允许删除本目录下的文件，防止路径遍历
       const safeId = pathLib.basename(id);
-      const uploadDir = pathLib.resolve("./attachment");
+      const uploadDir = tempPath.get("attachment");
       const targetPath = pathLib.join(uploadDir, safeId);
 
       try {

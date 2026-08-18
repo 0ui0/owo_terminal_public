@@ -5,9 +5,9 @@ import { exec } from "child_process"
 import util from "util"
 import options from "../../config/options.js"
 import idTool from "../../tools/idTool.js"
-import aiBasic from "../../tools/aiAsk/basic.js"
 import subAgents from "../../tools/aiAsk/subAgents.js"
 import comData from "../../comData/comData.js"
+import workDirTool from "../../tools/workDirTool.js"
 
 const execAsync = util.promisify(exec)
 
@@ -34,7 +34,13 @@ async function createShell(cwd) {
   }
   return spawn(shellChoice, args, {
     name: "xterm-256color",
-    env: { LANG: "zh_CN.UTF-8", ...process.env },
+    env: {
+      LANG: "zh_CN.UTF-8",
+      TERM: "xterm-256color",
+      COLORTERM: "truecolor",
+      CLICOLOR: "1",
+      ...process.env
+    },
     cwd: cwd ?? pathLib.resolve(process.cwd(), "..", "aiWork")
   })
 }
@@ -62,12 +68,44 @@ async function checkCwd(app, shell, io) {
   }, 800)
 }
 
+function cleanTerminalContent(str) {
+  str = str || ""
+  // 清理 Bracketed Paste 遗留的不可见字符，防止其污染 AI 视口
+  str = str.replace(/\x1b\[200~/g, "").replace(/\x1b\[201~/g, "")
+  str = stripAnsi(str)
+  let lines = str.split(/\r?\n/)
+  for (let i = 0; i < lines.length; i++) {
+    let parts = lines[i].split('\r')
+    let finalLine = parts[0]
+    for (let j = 1; j < parts.length; j++) {
+      let overwrite = parts[j]
+      if (overwrite.length >= finalLine.length) {
+        finalLine = overwrite
+      } else {
+        finalLine = overwrite + finalLine.substring(overwrite.length)
+      }
+    }
+    lines[i] = finalLine
+  }
+  let flattened = lines.join('\n')
+
+  while (/\b/.test(flattened)) {
+    let prev = flattened
+    flattened = flattened.replace(/[^\x08]\x08/g, '')
+    flattened = flattened.replace(/^\x08+/g, '')
+    flattened = flattened.replace(/\n\x08+/g, '\n')
+    if (prev === flattened) break
+  }
+  return flattened
+}
+
 export default {
+  cleanTerminalContent,
   async init(app, manager) {
     const { cwd, listId, toolCallGroupId, deferredFns } = app.data
 
     app.data.content = app.data.content || ""
-    app.data.cwd = cwd || comData.data.get()?.customCwd || pathLib.resolve(process.cwd(), "..", "aiWork")
+    app.data.cwd = cwd || workDirTool.getMainWorkDir(0) || pathLib.resolve(process.cwd(), "..", "aiWork")
     app.data.listId = listId || 0
 
     const shell = await createShell(app.data.cwd)
@@ -86,21 +124,32 @@ export default {
 
     const io = manager.io
 
+    let pendingStreamOutput = ""
+    let streamThrottleTimer = null
+
     shell.onData(async (data) => {
       session.lastOutputTime = Date.now()
       const output = String(data)
       // DEBUG: hex dump 追踪退格符来源
       const hex = Buffer.from(data).toString("hex").match(/.{1,2}/g).join(" ")
-      console.log(`[PTY-DEBUG] appId=${app.id} len=${data.length} hex=${hex}`)
       session.content += output
       app.data.content = session.content
 
-      // 向前端推送流式数据
-      io.emit("app:dispatch", {
-        appId: app.id,
-        action: "stream",
-        args: { content: output }
-      })
+      // 向前端推送流式数据（16ms 帧对齐微任务聚合，消除 Socket 泛洪）
+      pendingStreamOutput += output
+      if (!streamThrottleTimer) {
+        streamThrottleTimer = setTimeout(() => {
+          streamThrottleTimer = null
+          if (pendingStreamOutput) {
+            io.emit("app:dispatch", {
+              appId: app.id,
+              action: "stream",
+              args: { content: pendingStreamOutput }
+            })
+            pendingStreamOutput = ""
+          }
+        }, 16)
+      }
 
       // 节流 comData 广播
       if (!session.editThrottleTimer) {
@@ -110,14 +159,14 @@ export default {
         }, 100)
       }
 
-      // 终端数据原本通过 updateAsk 实时同步到 AI 上下文，但这会导致高频的上下文缓存穿透。
-      // 现已将其注释禁用，AI 获取终端内容应统一使用 terminalGet/terminalSet 主动查询通道。
+      // 终端数据原本通过 updateAsk 实时同步到 AI 上下文，但这会导致高频的上下文开销
+      // 现已将其注释禁用，AI 获取终端内容统一使用 terminalGet/terminalSet
       /*
       const updateAsk = (model) => {
         let ask = model.asks.find(a => a.tid === app.id)
         if (ask) {
           ask.content += stripAnsi(output)
-          ask.content = ask.content.split(/\r?\n/).slice(-20).join("\n").slice(-1000)
+          ask.content = ask.content.split(/\r?\n/).slice(-20).join("\n")
         } else {
           const runAddAsk = () => model.addAsk("终端", "user",
             "摘要终端最新20条的最后1000字<terminal>" +
@@ -145,6 +194,18 @@ export default {
     })
 
     shell.onExit(() => {
+      if (streamThrottleTimer) {
+        clearTimeout(streamThrottleTimer)
+        streamThrottleTimer = null
+        if (pendingStreamOutput) {
+          io.emit("app:dispatch", {
+            appId: app.id,
+            action: "stream",
+            args: { content: pendingStreamOutput }
+          })
+          pendingStreamOutput = ""
+        }
+      }
       io.emit("app:dispatch", { appId: app.id, action: "exit", args: {} })
     })
   },
@@ -165,12 +226,15 @@ export default {
     switch (action) {
       case "write": {
         if (!session) return { ok: false, msg: "终端 session 不存在" }
-        const data = args.data || ""
-        const CHUNK_SIZE = 512
+        let data = args.data || ""
+        if (args.bracketed && !data.startsWith("\x1b[200~")) {
+          data = `\x1b[200~${data}\x1b[201~\r`
+        }
+        const CHUNK_SIZE = 64
         for (let i = 0; i < data.length; i += CHUNK_SIZE) {
           session.shell.write(data.slice(i, i + CHUNK_SIZE))
           if (i + CHUNK_SIZE < data.length) {
-            await new Promise(r => setTimeout(r, 10))
+            await new Promise(r => setTimeout(r, 15))
           }
         }
         return { ok: true, msg: "写入成功" }
@@ -184,15 +248,46 @@ export default {
         return { ok: true, msg: "resize 成功" }
       }
 
+      case "checkRunningProcess": {
+        if (!session?.shell?.pid) return { ok: true, hasRunningProcess: false }
+        try {
+          if (process.platform === "win32") {
+            const { stdout } = await execAsync(`wmic process where ParentProcessId=${session.shell.pid} get ProcessId`)
+            const pids = stdout.trim().split("\n").map(l => l.trim()).filter(l => /^\d+$/.test(l))
+            return { ok: true, hasRunningProcess: pids.length > 0 }
+          } else {
+            // 获取所有直接子进程 PID
+            const { stdout: pgrepOut } = await execAsync(`pgrep -P ${session.shell.pid}`)
+            const pids = pgrepOut.trim().split("\n").map(p => p.trim()).filter(Boolean)
+            if (pids.length === 0) return { ok: true, hasRunningProcess: false }
+
+            // 精准检查子进程的 TTY 状态与命令名，排除 gitstatusd 等后台常驻插件
+            const { stdout: psOut } = await execAsync(`ps -o stat=,comm= -p ${pids.join(",")}`)
+            const lines = psOut.trim().split("\n").map(l => l.trim()).filter(Boolean)
+
+            // 在 Unix/macOS 下，stat 包含 '+'（如 S+、R+、I+）表示该子进程处于前台进程组并独占 TTY 控制权
+            const hasForegroundProc = lines.some(line => {
+              const parts = line.split(/\s+/)
+              const stat = parts[0] || ""
+              const comm = parts.slice(1).join(" ")
+              // 忽略已知的良性后台辅助插件守护进程
+              if (comm && /gitstatusd|async|zsh-async/i.test(comm)) return false
+              return stat.includes("+")
+            })
+
+            return { ok: true, hasRunningProcess: hasForegroundProc }
+          }
+        } catch (e) {
+          // pgrep/ps 退出码非0表示未匹配到子进程
+          return { ok: true, hasRunningProcess: false }
+        }
+      }
+
       case "getContent": {
         if (!session) return { ok: false, msg: "终端 session 不存在" }
         const limit = args.limit || 20
-        const rawStripped = stripAnsi(session.content)
-        // DEBUG: 检查 stripAnsi 后 \x08 是否还在
-        const hexAfter = Buffer.from(rawStripped).toString("hex")
-        const hasBackspace = hexAfter.includes("08")
-        console.log(`[PTY-DEBUG-getContent] appId=${app.id} strippedLen=${rawStripped.length} hasBackspace=${hasBackspace} hexPreview=${hexAfter.slice(0, 200)}`)
-        const allLines = rawStripped.split(/\r?\n/)
+        let targetContent = args.raw ? session.content : cleanTerminalContent(session.content)
+        const allLines = targetContent.split(/\r?\n/)
         const totalLines = allLines.length
         const content = allLines.slice(-limit).join("\n")
         const isTruncated = totalLines > limit
@@ -221,6 +316,7 @@ export default {
         }
         return { ok: true, msg: "已更新工具上下文" }
       }
+
 
       default:
         return { ok: false, msg: `未知操作: ${action}` }

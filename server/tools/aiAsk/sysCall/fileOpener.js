@@ -2,6 +2,7 @@ import Joi from "joi"
 import fs from "fs/promises"
 import pathLib from "path"
 import waitConfirm from "../../waitConfirm.js"
+import workDirTool from "../../workDirTool.js"
 
 export default {
   name: "读取文件内容",
@@ -14,13 +15,11 @@ export default {
     let { path, startLine, endLine, searchQuery, isRegex } = value
     const fileState = (await import("../../fileState.js")).default
 
-    const comData = (await import("../../../comData/comData.js")).default
-    const customCwd = comData.data.get()?.customCwd
-    if (!customCwd && (!path || !pathLib.isAbsolute(path))) {
-      return "错误：当前未设置工作目录。请先要求用户配置工作目录，或者在使用工具时提供绝对路径。"
+    const mainDir = workDirTool.getMainWorkDir(metaData.listId)
+    if (!mainDir && (!path || !pathLib.isAbsolute(path))) {
+      return "错误：当前会话未设置工作目录。请先要求用户配置工作目录，或者在使用工具时提供绝对路径。"
     }
-    const cwd = customCwd || process.cwd()
-    const resolvedPath = pathLib.resolve(cwd, path)
+    const resolvedPath = pathLib.isAbsolute(path) ? path : pathLib.resolve(mainDir, path)
 
     // 缓存校验（Token Dedup）
     try {
@@ -38,14 +37,15 @@ export default {
     }
 
     let commentSuffix = ""
-    const isInProject = resolvedPath.startsWith(cwd)
+    // 读白名单 = 主目录 + 辅助目录，全部工作目录内不拦截
+    const workDirs = workDirTool.getWorkDirs(metaData.listId)
+    const isInProject = workDirs.some(dir => resolvedPath === dir.path || resolvedPath.startsWith(dir.path + pathLib.sep))
     if (!isInProject) {
-      const currentListId = metaData?.listId || 0
       const userConfirm = await waitConfirm({
         type: "tip",
         content: `路径：${resolvedPath}`,
         title: "是否允许在工作目录外执行 fileOpener 工具？",
-        listId: currentListId
+        listId: metaData.listId
       })
       if (!userConfirm.ok) {
         return `用户拒绝访问项目外文件：${resolvedPath}。原因：${userConfirm.comment || "未提供"}`

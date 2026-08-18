@@ -1,6 +1,7 @@
 import fs from "fs-extra"
 import pathLib from "path"
 import idTool from "../../tools/idTool.js"
+import tempPath from "../../tools/tempPath.js"
 import { Jimp } from "jimp"
 
 export default async () => {
@@ -22,8 +23,7 @@ export default async () => {
         return h.response({ error: 'No file uploaded' }).code(400);
       }
 
-      const uploadDir = pathLib.resolve("./attachment");
-      await fs.ensureDir(uploadDir);
+      const uploadDir = tempPath.get("attachment");
 
       const file = data.file;
       const originalFilename = file.hapi.filename;

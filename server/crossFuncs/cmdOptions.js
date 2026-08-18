@@ -2,10 +2,10 @@ import defaultOptions from "../db/init/defaultOptions.js"
 import options from "../config/options.js"
 import db from "../db/db.js"
 import { Op } from "sequelize"
-import aiBasic from "../tools/aiAsk/basic.js"
+import subAgents from "../tools/aiAsk/subAgents.js"
 import comData from "../comData/comData.js"
 import { trs } from "../tools/i18n.js"
-
+import crypto from "crypto"
 export default {
   name: "cmdOptions",
   func: async (newOptions) => {
@@ -37,13 +37,35 @@ export default {
 
       for (let i = 0; i < newOptions.length; i++) {
         const newOption = newOptions[i]
-        let { error: error2 } = defaultOptions[newOption.key].joi().validate(newOption.value)
+
+        // ai_aiList 特殊处理：id 由后端签发——无 id（新增/导入）分配新 uuid，
+        // 带 id 必须是原列表已有的（防篡改），且不能重复
+        if (newOption.key === "ai_aiList" && Array.isArray(newOption.value)) {
+          const oldList = rows.find(r => r.key === "ai_aiList").value
+          const oldIds = new Set(oldList.map(m => m.id))
+          const seen = new Set()
+          newOption.value.forEach(item => {
+            if (!item.id) {
+              item.id = crypto.randomUUID()
+            } else if (!oldIds.has(item.id)) {
+              throw new Error(`未知模型 id: ${item.id}`)
+            }
+            if (seen.has(item.id)) {
+              throw new Error(`重复模型 id: ${item.id}`)
+            }
+            seen.add(item.id)
+          })
+        }
+
+        // 校验并采用 validate 后的值（Joi 的 .default() 等转换才会真正生效）
+        let { error: error2, value: validatedValue } = defaultOptions[newOption.key].joi().validate(newOption.value)
         if (error2) {
           return {
             ok: false,
             msg: error2.details[0].message,
           }
         }
+        newOption.value = validatedValue
       }
 
       await db.db.transaction(async (t) => {
@@ -63,12 +85,16 @@ export default {
         }
       })
 
-      await options.pull() //这两个顺序不能对调
-      await aiBasic.initList()
-
-      /* await comData.data.edit(data => {
-        data.currentModel = ""
-      }) */
+      await options.pull();
+      const chatLists = comData.data.get().chatLists || [];
+      
+      // 遍历现存的所有沙盒，全部触发配置更新/重载
+      for (const [id, _] of subAgents.getAll()) {
+        const targetList = chatLists.find(l => l.id === id);
+        if (targetList && targetList.currentModelId) {
+          await subAgents.initAgent(id, targetList.currentModelId);
+        }
+      }
 
       return {
         ok: true,

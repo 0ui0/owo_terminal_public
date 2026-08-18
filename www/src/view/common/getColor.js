@@ -97,9 +97,9 @@ export default function (colorStr) {
       terminal_back: "#2C3E50",
       terminal_front: "#ECF0F1",
 
-      工具组成功背景: "#efefef",
+      工具组成功背景: "#ffffff",
       工具组成功边框: "#ea9d9d",
-      工具组失败背景: "#efefef",
+      工具组失败背景: "#ffffff",
       工具组文字颜色: "#555555",
       右上角按钮背景: "#cde3fc",
       右上角按钮文字: "#1d5791",
@@ -115,13 +115,13 @@ export default function (colorStr) {
       确认框按钮执行文字: "#fff",
       确认框按钮拒绝背景: "#eee",
       确认框按钮拒绝文字: "#333",
-      我方气泡背景色: "#efefef",
+      我方气泡背景色: "#ffffff",
       我方气泡高亮边框色: "#dcc1a2",
-      对方气泡背景色: "#efefef",
+      对方气泡背景色: "#ffffff",
       对方气泡高亮边框色: "#80adff",
-      思考中气泡背景色: "#efefef",
+      思考中气泡背景色: "#ffffff",
       思考中气泡高亮边框色: "#d59bd6",
-      消息列表背景: "#fefefe"
+      消息列表背景: "#e4e9f0"
     }
     return themeOverrides[colorStr] || colorObj[colorStr] || themeOverrides.gray_4
   }

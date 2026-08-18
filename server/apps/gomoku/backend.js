@@ -4,7 +4,6 @@ import { socketOnChat } from "../../ioServer/ioApis/chat/ioApi_chat.js"
 import idTool from "../../tools/idTool.js"
 import chats from "../../ioServer/ioApis/chat/chats.js"
 import comData from "../../comData/comData.js"
-import aiBasic from "../../tools/aiAsk/basic.js"
 import subAgents from "../../tools/aiAsk/subAgents.js"
 import options from "../../config/options.js"
 

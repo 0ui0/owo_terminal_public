@@ -26,6 +26,8 @@ import idTool from "../idTool.js";
 
 import joiToText from "../joiToText.js";
 
+import tempPath from "../tempPath.js";
+
 //console.log JSON.stringify(joiToJSON(sendTemplate.joi()),null,"\t")
 
 // 用于推断流式输出缺少 index 的工具调用分段
@@ -145,6 +147,7 @@ writeDebugConfig = (configStr) => {
 
 /*
   @object aiConfig
+    @string modelId
     @string name
     @string model
     @number apiKey
@@ -324,7 +327,8 @@ ${hasCustomRules ? "" : "【性格】1傲娇机灵古怪，极可靠，关心用
 【状态自查】系统默认不主动推送运行时间、工作目录、任务清单和推理网点图。当你需要核对当前任务列表、时间进度、可用终端或网点图时，请主动调用 \`getSystemStatus\` 自查。
 【主动整理】为防止上下文膨胀并保护 Prefill 缓存性能，当你通过元数据发现累积消耗 Token 较大（例如接近或超过 100,000 tokens），或者已达成阶段性开发共识时，请务必主动调用 \`compressContext\`。注意，该工具会直接清空聊天历史和工具调用，请务必在大型任务完成后调用，不要随便调用。
 【主动更新任务】接到需求后，应该主动更新任务规划。完成任务后，也应该更新任务进度。
-【优先查看引用】若用户对话中引用了任何[key:value]格式的例如appid，代码片段等内容，都需优先调查。`.trim();
+【优先查看引用】若用户对话中引用了任何[key:value]格式的例如appid，代码片段等内容，都需优先调查。
+【临时脚本目录】系统在专属临时目录下提供了 \`aiTmp\` 目录（绝对路径：${tempPath.get("aiTmp")}），可用于创建和执行临时脚本、中间测试产物等。软件退出后会自动彻底清理该目录。`.trim();
 };
 
 //  Reasoning Effort: Absolute maximum with no shortcuts permitted. You MUST be very thorough in your thinking and comprehensively decompose the problem to resolve the root cause, rigorously stress-testing your logic against all potential paths, edge cases, and adversarial scenarios. Explicitly write out your entire deliberation process, documenting every intermediate step, considered alternative, and rejected hypothesis to ensure absolutely no assumption is left unchecked.
@@ -411,8 +415,12 @@ export default (class {
     };
     this.stageTotalTokens = 0;
     this.name = this.aiConfig.name;
+    this.modelId = this.aiConfig.modelId;
     this.index = this.aiConfig.index;
-    this.mediaDir = this.aiConfig.mediaDir || "./attachment";
+    if (!this.aiConfig.mediaDir) {
+      throw new Error("[AiAsk] 缺少必需的 mediaDir 配置参数");
+    }
+    this.mediaDir = this.aiConfig.mediaDir;
     this.replying = false;
     this.stop = false;
     this.abortController = new AbortController();
@@ -432,11 +440,12 @@ export default (class {
     var openAiConfig;
     if (aiConfig) {
       this.aiConfig = aiConfig;
+      this.name = this.aiConfig.name;
+      this.modelId = this.aiConfig.modelId;
     }
     if (userConfig) {
       this.userConfig = userConfig;
     }
-    this.name = this.aiConfig.name;
     openAiConfig = {
       apiKey: this.aiConfig.apiKey,
       baseURL: this.aiConfig.baseURL
@@ -1460,7 +1469,10 @@ id为${fnCallCache.cacheid}
           }
         }
         if (shouldWarn) {
-          ask = this.addAsk("系统", "user", `⚠️ 系统提醒：当前开发阶段累计已消耗 ${this.stageTotalTokens} tokens。为保证响应效率及优化缓存性能，请务必立即调用「阶段清理并压缩上下文 (compressContext)」工具对当前做阶段性总结并清空历史会话。注意：此操作会彻底清除之前所有的上下文和工具调用细节！如果你正在处理连贯的关键任务或刚读取了重要线索，请在当前任务闭环后再执行清理，并务必利用 summary 备忘录将关键记忆带到下一阶段！`);
+          ask = this.addAsk("系统", "user", `⚠️ 系统提醒：token累计消耗 ${this.stageTotalTokens}。请考虑调用【压缩上下文工具】。注意：这会彻底清除之前所有的聊天记录和工具调用细节！若当前正在处理任务，请先忽略本提示，在彻底完成任务闭环（调查→动作（如修改文件）→询问用户确认落地）后再执行清理。注意阅读【压缩上下文】工具的说明，携带重要信息和记忆`, {
+            isSystem: 1,
+            group: "tip"
+          });
           if (config.onResponse) {
             await config.onResponse(ask);
           }

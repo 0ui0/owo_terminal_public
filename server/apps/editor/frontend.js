@@ -14,6 +14,7 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, chatData, set
   // === Private State ===
   let isDiff = false
   let readOnly = false
+  let isCheckoutMode = true
   let isDirty = false
   let filePath = ""
   let content = ""
@@ -41,9 +42,9 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, chatData, set
     if (window.monaco) return Promise.resolve()
     return new Promise((resolve) => {
       const script = document.createElement("script")
-      script.src = "https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs/loader.js"
+      script.src = "/api/apps/editor/monaco/loader.js"
       script.onload = () => {
-        require.config({ paths: { vs: "https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs" } })
+        require.config({ paths: { vs: "/api/apps/editor/monaco/vs" } })
         require(["vs/editor/editor.main"], () => resolve())
       }
       document.head.appendChild(script)
@@ -527,7 +528,7 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, chatData, set
         annotations = []
       }
       if (editorData.openFileAfterAccept && filePath) {
-        settingData.fnCall("appLaunch", ["editor", { data: { filePath: filePath, singleInstance: true } }])
+        settingData.fnCall("appLaunch", ["editor", { data: { filePath: filePath, content: newContent, singleInstance: true } }])
       }
       updateEditor()
     } else {
@@ -722,6 +723,7 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, chatData, set
         const d = vnode.attrs.data
         isDiff = d.isDiff || false
         readOnly = !!d.readOnly
+        isCheckoutMode = d.isCheckoutMode !== false
         filePath = d.filePath || ""
         content = d.content || ""
         originalContent = d.originalContent || ""
@@ -976,7 +978,7 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, chatData, set
                 "返回编辑"
               )
             ]
-            : (isDiff
+            : (isDiff && isCheckoutMode
               ? [
                 m(Tag,
                   {
@@ -1082,17 +1084,32 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, chatData, set
                   "拒绝"
                 )
               ]
-              : m(Tag,
-                {
-                  isBtn: true,
-                  isWide: true,
-                  color: "main",
-                  onclick: (dom, e) => {
-                    e.stopPropagation()
-                    handleSave()
-                  }
-                },
-                "保存"
+              : (isDiff
+                ? m(Tag,
+                  {
+                    color: "gray_2",
+                    styleExt: {
+                      display: "inline-flex",
+                      alignItems: "center",
+                      height: "2.5rem",
+                      padding: "0 0.8rem",
+                      borderRadius: "3.0rem"
+                    }
+                  },
+                  "只读查看"
+                )
+                : m(Tag,
+                  {
+                    isBtn: true,
+                    isWide: true,
+                    color: "main",
+                    onclick: (dom, e) => {
+                      e.stopPropagation()
+                      handleSave()
+                    }
+                  },
+                  "保存"
+                )
               )
             )
         ]),

@@ -1,8 +1,10 @@
 import Joi from "joi"
+import fs from "fs/promises"
 import { v4 as uuidV4 } from "uuid"
 import waitConfirm from "../../../tools/waitConfirm.js"
 import appManager from "../../appManager.js"
 import { trs } from "../../../tools/i18n.js"
+import fileState from "../../../tools/fileState.js"
 
 export default {
   name: "编辑文本",
@@ -55,13 +57,26 @@ export default {
     if (!userConfirm.ok) return `用户拒绝了修改。备注：${userConfirm.comment || "无"}`
 
     // 【关键重构】由工具负责最终落盘
-    const fs = await import("fs/promises")
     let commentSuffix = userConfirm.comment ? `。用户备注：${userConfirm.comment}` : ""
     if (filePath) {
       await fs.writeFile(filePath, proposedContent, "utf-8")
+
+      // 真正落盘成功后，闭环同步更新 fileState 状态缓存与最新 mtime
+      const newStat = await fs.stat(filePath).catch(() => ({ mtimeMs: Date.now() }))
+      fileState.set(filePath, {
+        timestamp: newStat.mtimeMs || Date.now(),
+        content: proposedContent,
+        startLine: 0,
+        endLine: 0
+      })
+
+      // 同时更新编辑器内存状态与 mtime，防止用户后续保存误报外部修改
+      await appManager.dispatch(appId, "acceptDiff", { proposedContent })
+
       return `修改已成功应用并保存到 ${filePath}${commentSuffix}。`
     }
 
+    await appManager.dispatch(appId, "acceptDiff", { proposedContent })
     return `修改已成功应用（由于当前编辑器未关联文件路径，仅同步到内存）${commentSuffix}。`
   },
 

@@ -1,0 +1,8 @@
+{
+  "id": "sessionManager",
+  "name": "会话管理器",
+  "icon": "icon.svg",
+  "description": "管理子智能体会话窗口",
+  "version": "1.0.0",
+  "autoLoadTools": true
+}

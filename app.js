@@ -1,8 +1,6 @@
 import { app, BrowserWindow, Menu, dialog } from "electron"
 import fs from "fs-extra"
 import { exec } from "child_process"
-import crypto from "crypto"
-import { createReadStream, existsSync } from "fs"
 import pkgUpdater from "electron-updater"
 const { autoUpdater } = pkgUpdater
 import serve from "./server/serve.js"
@@ -14,12 +12,33 @@ import { trs } from "./server/tools/i18n.js"
 import comData from "./server/comData/comData.js"
 import projectSave from "./server/crossFuncs/projectSave.js"
 import projectLoad from "./server/crossFuncs/projectLoad.js"
+import tempPath from "./server/tools/tempPath.js"
 
-
+// --- Portable Mode Detection (便携模式检测) ---
+// 存在 .portable 标记文件或 data 文件夹时，自动重定向用户数据根目录至 ./data (参考 VSCode Portable 规范)
+const hasPortableFlag = fs.existsSync(pathLib.resolve("./.portable"))
+const hasDataDir = fs.existsSync(pathLib.resolve("./data"))
+if (hasPortableFlag || hasDataDir) {
+  const portableDataDir = pathLib.resolve("./data")
+  fs.ensureDirSync(portableDataDir)
+  app.setPath("userData", portableDataDir)
+  console.log("[App] 激活便携模式，userData 已重定向至:", portableDataDir)
+}
 
 // --- Auto Updater Configuration ---
 autoUpdater.autoDownload = false // 2026-02-06 Changed to false for manual confirmation
 autoUpdater.autoInstallOnAppQuit = true
+// 显式注入版本号与配置绝对路径，杜绝工作目录切换至 server/ 导致的寻址偏离
+try {
+  autoUpdater.currentVersion = app.getVersion()
+  if (process.resourcesPath) {
+    const ymlPath = pathLib.join(process.resourcesPath, "app-update.yml")
+    if (fs.existsSync(ymlPath)) {
+      autoUpdater.updateConfigPath = ymlPath
+    }
+  }
+} catch (e) { }
+
 autoUpdater.setFeedURL({
   provider: "github",
   owner: "0ui0",
@@ -32,28 +51,21 @@ autoUpdater.setFeedURL({
 let serveDir = pathLib.dirname(fileURLToPath(import.meta.url))
 process.chdir(pathLib.join(serveDir, "/server/"))
 
-// Helper: Clean temporary directories
-const cleanTempDirs = () => {
+// 生命周期标志：指示是否正处于应用整体退出流程，避免更新重启被 isDirty 拦截
+let isQuitting = false
+
+app.on('before-quit', () => {
+  isQuitting = true
+})
+
+// 退出清理：仅精准清理当前实例专属的 temp/{pid} 临时目录
+app.on('will-quit', () => {
   try {
-    const attachmentDir = pathLib.resolve("./attachment")
-    fs.ensureDirSync(attachmentDir)
-    fs.emptyDirSync(attachmentDir)
-    console.log("[App] Cleaned attachments directory")
-
-    const saveDir = pathLib.resolve("./save")
-    fs.ensureDirSync(saveDir)
-    fs.emptyDirSync(saveDir)
-    console.log("[App] Cleaned save directory")
+    tempPath.clean()
   } catch (e) {
-    console.warn("[App] Failed to clean temp directories:", e)
+    console.warn("[App] will-quit 清理异常:", e)
   }
-}
-
-// Startup Clean
-cleanTempDirs()
-
-// Register Shutdown Clean
-app.on('will-quit', cleanTempDirs)
+})
 
 
 
@@ -80,7 +92,7 @@ const createWindow = () => {
   // === Close Confirmation ===
   let forceClose = false
   win.on('close', async (e) => {
-    if (forceClose) return
+    if (forceClose || isQuitting) return
 
     if (projectManager.isDirty) {
       e.preventDefault()
@@ -110,7 +122,6 @@ const createWindow = () => {
     }
   })
 
-
   // --- Auto Updater Events ---
   let latestUpdateInfo = null
   const broadcastStatus = (status) => {
@@ -120,74 +131,55 @@ const createWindow = () => {
     }
   }
 
-  // Helper: Verify file hash (SHA512 Base64)
-  const validateFileHash = (filePath, expectedHash) => {
-    return new Promise((resolve) => {
-      if (!expectedHash) return resolve({ valid: false, error: "No expected hash" })
-      const hash = crypto.createHash('sha512')
-      const stream = createReadStream(filePath)
-      stream.on('data', (data) => hash.update(data))
-      stream.on('end', () => {
-        const fileHash = hash.digest('base64')
-        console.log(`[Hash Check] File: ${filePath}`)
-        console.log(`[Hash Check] Calculated: ${fileHash}`)
-        console.log(`[Hash Check] Expected:   ${expectedHash}`)
-        if (fileHash !== expectedHash) {
-          console.log(`[Hash Check] Mismatch!`)
-        }
-        resolve({ valid: fileHash === expectedHash, calculated: fileHash, expected: expectedHash })
-      })
-      stream.on('error', (err) => {
-        console.error(`[Hash Check] Error reading file: ${err}`)
-        resolve({ valid: false, error: err.message })
-      })
-    })
-  }
-
   // Helper: Handle successful update ready (Manual flow)
   const handleManualUpdateReady = (savePath) => {
     win.setProgressBar(-1)
-    broadcastStatus({ state: "downloaded", msg: trs("系统/消息/下载完成") })
+    broadcastStatus({ state: "downloaded", msg: trs("系统/消息/下载完成", { cn: "下载完成", en: "Download complete" }) })
 
-    // Mac: Mount DMG
-    if (process.platform === 'darwin' && savePath.endsWith('.dmg')) {
-      import("electron").then(async ({ shell }) => {
-        await shell.openPath(savePath)
-        setTimeout(() => exec("open -a Finder"), 500)
-      })
-    }
-    // Win/Linux: Open Folder
-    else if (savePath.endsWith('.zip')) {
-      import("electron").then(async ({ shell }) => {
-        shell.showItemInFolder(savePath)
-      })
-    }
+    const isArchive = savePath.endsWith('.zip')
 
     dialog.showMessageBox(win, {
       type: 'info',
-      title: trs("系统/消息/更新就绪"),
-      message: process.platform === 'darwin'
-        ? trs("系统/更新/手动安装提示", { cn: "下载已完成。已为您打开安装包，请将图标拖入应用程序文件夹以完成覆盖安装。", en: "Download complete. Installer opened. Please drag the icon to Applications to overwrite." })
-        : trs("系统/更新/手动安装提示", { cn: "下载已完成。已为您选中压缩包，请解压并覆盖原软件以完成更新。", en: "Download complete. File selected. Please unzip and overwrite the app to update." }),
-      buttons: [trs("系统/动作/退出应用", { cn: "退出应用", en: "Quit App" }), trs("系统/动作/稍后", { cn: "稍后", en: "Later" })]
+      title: trs("系统/消息/更新就绪", { cn: "更新就绪", en: "Update Ready" }),
+      message: trs("系统/更新/就绪提示详细", {
+        cn: `程序包已下载完毕。\n保存位置：${savePath}\n\n建议操作：\n1. 点击“启动安装并退出”，系统将拉起向导并安全退出本程序，以免占用文件。\n2. 或者仅打开下载目录查看文件。`,
+        en: `Update downloaded to:\n${savePath}\n\nSuggested actions:\n1. Click 'Install & Quit' to launch installer and safely quit app.\n2. Or just open download folder.`
+      }),
+      buttons: [
+        isArchive ? trs("系统/动作/打开并解压", { cn: "打开目录并手动解压", en: "Open & Extract" }) : trs("系统/动作/启动安装并退出", { cn: "启动安装并退出", en: "Install & Quit" }),
+        trs("系统/动作/前往目录", { cn: "仅前往下载目录", en: "Open Download Folder" }),
+        trs("系统/动作/稍后", { cn: "稍后", en: "Later" })
+      ],
+      cancelId: 2
     }).then((result) => {
-      if (result.response === 0) {
-        app.quit()
+      if (result.response === 0) { // 启动安装并退出 / 打开解压
+        import("electron").then(async ({ shell }) => {
+          if (isArchive) {
+            shell.showItemInFolder(savePath)
+            app.quit()
+          } else {
+            await shell.openPath(savePath)
+            if (process.platform === 'darwin') {
+              setTimeout(() => exec("open -a Finder"), 500)
+            }
+            app.quit() // 无论是 Mac 还是 Win，启动向导后直接退出本程序腾出文件句柄
+          }
+        })
+      } else if (result.response === 1) { // 仅前往下载目录
+        import("electron").then(({ shell }) => shell.showItemInFolder(savePath))
       }
     })
   }
 
-  // Handle manual downloads (for macOS DMG update)
+  // Handle manual downloads (for macOS DMG update & Windows manual flow)
   win.webContents.session.on('will-download', (event, item, webContents) => {
     item.on('updated', (event, state) => {
       if (win.isDestroyed()) return
       if (!item.getSavePath()) return // Don't show progress until path selected
       if (state === 'interrupted') {
-        console.log('Download is interrupted but can be resumed')
+        broadcastStatus({ state: "error", msg: "下载被中断 / Download interrupted" })
       } else if (state === 'progressing') {
-        if (item.isPaused()) {
-          console.log('Download is paused')
-        } else {
+        if (!item.isPaused()) {
           const progress = item.getReceivedBytes() / item.getTotalBytes() * 100
           win.setProgressBar(progress / 100)
           broadcastStatus({
@@ -202,37 +194,9 @@ const createWindow = () => {
       if (win.isDestroyed()) return
       if (state === 'completed') {
         const savePath = item.getSavePath()
-
-        // Validate Hash post-download
-        const checkAndOpen = () => {
-          if ((process.platform === 'darwin' && savePath.endsWith('.dmg')) || savePath.endsWith('.zip')) {
-            handleManualUpdateReady(savePath)
-          }
-        }
-
-        if (latestUpdateInfo) {
-          const expectedHash = latestUpdateInfo.selectedHash || latestUpdateInfo.sha512
-          if (expectedHash) {
-            broadcastStatus({ state: "checking", msg: trs("系统/更新/校验中", { cn: "正在校验文件...", en: "Verifying..." }) })
-            validateFileHash(savePath, expectedHash).then((result) => {
-              if (result.valid) {
-                checkAndOpen()
-              } else {
-                broadcastStatus({ state: "error", msg: "Hash mismatch" })
-                dialog.showErrorBox(
-                  trs("系统/错误/标题", { cn: "更新出错", en: "Update Error" }),
-                  trs("系统/错误/校验失败", { cn: "文件完整性校验失败。", en: "Integrity check failed." }) +
-                  `\nE: ${result.expected?.substring(0, 8)}...\nC: ${result.calculated?.substring(0, 8)}...`
-                )
-              }
-            })
-          } else {
-            checkAndOpen()
-          }
-        } else {
-          checkAndOpen()
-        }
+        handleManualUpdateReady(savePath)
       } else {
+        win.setProgressBar(-1)
         broadcastStatus({ state: "error", msg: `Download failed: ${state}` })
       }
     })
@@ -249,60 +213,73 @@ const createWindow = () => {
       msg: trs("系统/更新/发现新版本", { cn: "发现新版本", en: "New version found" }) + ` ${info.version}`
     })
 
-    // Ask user to download
+    let releaseNotes = info.releaseNotes || ''
+    if (typeof releaseNotes !== 'string') {
+      try {
+        releaseNotes = releaseNotes.toString()
+      } catch (e) {}
+    }
+    if (releaseNotes) {
+      releaseNotes = releaseNotes.replace(/<[^>]+>/g, '').trim()
+    }
+    const detailText = releaseNotes ? trs("系统/更新/更新说明", { cn: "更新说明：\n", en: "Release Notes:\n" }) + releaseNotes : undefined
+
+    // 发现新版本时不静默下载，弹窗询问用户确认
     dialog.showMessageBox(win, {
       type: 'info',
       title: trs("系统/更新/发现新版本", { cn: "发现新版本", en: "New version found" }),
       message: trs("系统/更新/发现新版本提示", { cn: `发现新版本 ${info.version}，是否立即更新？`, en: `New version ${info.version} found. Update now?` }),
+      detail: detailText,
       buttons: [trs("系统/动作/立即更新", { cn: "立即更新", en: "Update Now" }), trs("通用/取消", { cn: "取消", en: "Cancel" })],
       cancelId: 1
     }).then((result) => {
       if (result.response === 0) {
-        // broadcastStatus({ state: "downloading", msg: trs("系统/更新/下载中", { cn: "正在下载...", en: "Downloading..." }) })
-
-        // Manual download & Hash check
-        let downloadUrl, filename
-        if (process.platform === 'darwin') {
-          const arch = process.arch === 'arm64' ? '-arm64' : ''
-          filename = `owo-terminal-${info.version}${arch}.dmg`
-          downloadUrl = `https://github.com/0ui0/owo_terminal_public/releases/download/v${info.version}/${filename}`
-        } else {
-          const arch = process.arch
-          const platform = process.platform === 'win32' ? 'win' : 'linux'
-          filename = `owo-terminal-${info.version}-${platform}-${arch}.zip`
-          downloadUrl = `https://github.com/0ui0/owo_terminal_public/releases/download/v${info.version}/${filename}`
-        }
-
-        // Find correct hash for this specific file (ARM64 vs x64)
-        let targetHash = info.sha512
+        // 动态获取下载链接 (EXE or DMG or ZIP)
+        let downloadUrl
         if (info.files && Array.isArray(info.files)) {
-          const fileEntry = info.files.find(f => f.url === filename || (f.url && f.url.endsWith('/' + filename)))
-          if (fileEntry && fileEntry.sha512) {
-            targetHash = fileEntry.sha512
-            console.log("Found specific hash for:", filename)
+          let isMac = process.platform === 'darwin'
+          let isWin = process.platform === 'win32'
+          let archStr = process.arch === 'arm64' ? 'arm64' : 'x64'
+          
+          let fileEntry = info.files.find(f => {
+            let url = f.url || ''
+            if (isMac && url.endsWith('.dmg') && url.includes(archStr)) return true
+            if (isWin && url.endsWith('.exe') && url.includes(archStr)) return true
+            return false
+          })
+          
+          if (!fileEntry) {
+            fileEntry = info.files.find(f => isMac ? f.url.endsWith('.dmg') : (isWin ? f.url.endsWith('.exe') : false))
+          }
+          if (!fileEntry) {
+            fileEntry = info.files.find(f => isWin ? f.url.endsWith('.zip') : false)
+          }
+
+          if (fileEntry) {
+            let filename = fileEntry.url
+            if (filename.startsWith('http')) {
+              downloadUrl = filename
+            } else {
+              downloadUrl = `https://github.com/0ui0/owo_terminal_public/releases/download/v${info.version}/${filename}`
+            }
           }
         }
-        // Save for post-download check
-        if (latestUpdateInfo) {
-          latestUpdateInfo.selectedHash = targetHash
+
+        // 极限情况回退（以防 info.files 解析出错）
+        if (!downloadUrl) {
+          const arch = process.arch === 'arm64' ? (process.platform === 'darwin' ? '-arm64' : 'arm64') : (process.platform === 'darwin' ? '' : 'x64')
+          const platform = process.platform === 'win32' ? 'win' : 'mac'
+          const ext = process.platform === 'win32' ? 'exe' : 'dmg'
+          const filename = process.platform === 'darwin' ? `owo-terminal-${info.version}${arch}.${ext}` : `owo-terminal-${info.version}-${platform}-${arch}.${ext}`
+          downloadUrl = `https://github.com/0ui0/owo_terminal_public/releases/download/v${info.version}/${filename}`
         }
 
-        // Check if file exists in Downloads
-        const savePath = pathLib.join(app.getPath("downloads"), filename)
-        if (existsSync(savePath)) {
-          console.log("Checking existing file:", savePath)
-          validateFileHash(savePath, targetHash).then(result => {
-            if (result.valid) {
-              console.log("Hash match, skipping download")
-              handleManualUpdateReady(savePath)
-            } else {
-              console.log("Hash mismatch, redownloading")
-              win.webContents.downloadURL(downloadUrl)
-            }
-          })
-        } else {
-          win.webContents.downloadURL(downloadUrl)
-        }
+        broadcastStatus({
+          state: "downloading",
+          progress: 0,
+          msg: trs("系统/更新/下载中", { cn: "正在下载...", en: "Downloading..." })
+        })
+        win.webContents.downloadURL(downloadUrl)
       }
     })
   })
@@ -313,7 +290,6 @@ const createWindow = () => {
       state: "downloading",
       progress: progressObj.percent,
       msg: trs("系统/更新/下载中", { cn: "正在下载...", en: "Downloading..." }) + ` ${Math.round(progressObj.percent)}%`
-      // bytesPerSecond: progressObj.bytesPerSecond
     })
   })
 
@@ -322,42 +298,12 @@ const createWindow = () => {
       state: "up-to-date",
       msg: trs("系统/更新/已是最新", { cn: "当前已是最新版本", en: "Already up to date" }) + ` (${info.version})`
     })
-    // If manually checked (how to track?), show dialog.
-    // Just broadcast for now, UI can decide to show toast.
   })
 
   autoUpdater.on('update-downloaded', (info) => {
+    // 理论上由于接管了 downloadURL，此原生流不会被触发，作为兜底
     win.setProgressBar(-1)
-    broadcastStatus({ state: "downloaded", msg: trs("系统/消息/下载完成") })
-
-    // Mac: Manual install via DMG to bypass signature issues
-    if (process.platform === 'darwin') {
-      const downloadedFile = info.downloadedFile
-      if (downloadedFile) {
-        import("electron").then(({ shell }) => {
-          shell.openPath(downloadedFile) // Auto open DMG
-        })
-      }
-
-      dialog.showMessageBox(win, {
-        type: 'info',
-        title: trs("系统/消息/更新就绪"),
-        message: trs("系统/更新/手动安装提示", { cn: "下载已完成。已为您打开安装包，请将图标拖入应用程序文件夹以完成覆盖安装。", en: "Download complete. Installer opened. Please drag the icon to Applications to overwrite." }),
-        buttons: [trs("系统/动作/退出应用", { cn: "退出应用", en: "Quit App" }), trs("系统/动作/稍后", { cn: "稍后", en: "Later" })]
-      }).then((result) => {
-        if (result.response === 0) {
-          app.quit()
-        }
-      })
-    } else {
-      // Windows/Linux: Manual ZIP prompt (legacy support)
-      // Since we use manual download now, this event might not be triggered by autoUpdater if we don't use it.
-      // But if we did use autoUpdater.downloadUpdate(), this would trigger.
-      // Since we switched to manual `win.webContents.downloadURL`, this block is effectively dead code for new flow,
-      // but kept for safety or if we revert.
-      // Actually, let's just keep it simple or comment it out to avoid confusion?
-      // The `will-download` listener handles the manual flow.
-    }
+    broadcastStatus({ state: "downloaded", msg: trs("系统/消息/下载完成", { cn: "下载完成", en: "Download complete" }) })
   })
 
   autoUpdater.on('error', (err) => {
@@ -366,25 +312,15 @@ const createWindow = () => {
     const errStr = String(err)
     if (errStr.includes('app-update.yml') || errStr.includes('ENOENT')) {
       missAppUpdate = "\n" + trs("系统/更新/绿色版提示", {
-        cn: "（提示，windows系统下是绿色版，无法自动检测更新）软件为了能让ai和用户自己修改源码，没有采用标准安装器模式（该模式下软件目录是隔离的，无法自动修改）",
-        en: "(Note: This is a portable version on Windows, and cannot auto-check for updates.) To allow AI and users to modify the source code freely, we avoid standard installers (which isolate the app directory and prevent modifications)."
+        cn: "（提示，当前为绿色版，无法自动检测更新）",
+        en: "(Note: This is a portable version, and cannot auto-check for updates.)"
       })
     }
-    const errorMsg = trs("系统/错误/提示") + (err.message) + missAppUpdate
+    const errorMsg = trs("系统/错误/提示", { cn: "更新出错：", en: "Update Error: " }) + (err.message || String(err)) + missAppUpdate
     broadcastStatus({ state: "error", msg: errorMsg })
-    dialog.showMessageBox(win, {
-      type: 'error',
-      title: trs("系统/错误/标题", { cn: "更新出错", en: "Update Error" }),
-      message: trs("系统/错误/标题", { cn: "更新出错", en: "Update Error" }),
-      detail: errorMsg
-    })
   })
 
-  // Listen for frontend check request
-  // We need to wait for ioServer to be ready. It is ready after serve().
-  // But we can just set up the listener on connection.
-  // Ideally this should be in ioServer logic, but app.js controls autoUpdater.
-  // We'll rely on global ioServer.io being set.
+  // 监听前端更新与重启安装请求
   if (ioServer.io) {
     ioServer.io.on('connection', (socket) => {
       socket.on('sys:checkUpdate', async () => {
@@ -395,12 +331,21 @@ const createWindow = () => {
         }
       })
 
+      socket.on('sys:startDownload', () => {
+        broadcastStatus({
+          state: "downloading",
+          progress: 0,
+          msg: trs("系统/更新/下载中", { cn: "正在下载...", en: "Downloading..." })
+        })
+        autoUpdater.downloadUpdate()
+      })
+
       socket.on('sys:quitAndInstall', () => {
+        isQuitting = true
         autoUpdater.quitAndInstall()
       })
     })
   }
-
 
   const template = [
     {
@@ -570,26 +515,6 @@ app.whenReady().then(async () => {
 
     createWindow()
     autoUpdater.checkForUpdatesAndNotify()
-
-    // Listen for frontend check requests
-    if (ioServer.io) {
-      ioServer.io.on('connection', (socket) => {
-        socket.on('sys:checkUpdate', async () => {
-          // Trigger check
-          if (ioServer.io) ioServer.io.emit("sys:updateStatus", {
-            state: "checking",
-            msg: trs("系统/更新/检查中", { cn: "正在检查更新...", en: "Checking for updates..." })
-          })
-          const result = await autoUpdater.checkForUpdatesAndNotify()
-          if (!result && !app.isPackaged) {
-            if (ioServer.io) ioServer.io.emit("sys:updateStatus", {
-              state: "error",
-              msg: trs("系统/更新/开发环境", { cn: "开发环境跳过检查", en: "Skipped in Dev Mode" })
-            })
-          }
-        })
-      })
-    }
   } catch (err) {
     if (err.code === 'EADDRINUSE') {
       dialog.showErrorBox(trs("系统/错误/启动失败"), trs("系统/错误/端口占用"))

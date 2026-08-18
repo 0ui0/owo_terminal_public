@@ -1,93 +1,93 @@
-
 import comData from "../comData/comData.js"
-import aiBasic from "../tools/aiAsk/basic.js"
 import subAgents from "../tools/aiAsk/subAgents.js"
+import idTool from "../tools/idTool.js"
+import { trs } from "../tools/i18n.js"
+import chats from "../ioServer/ioApis/chat/chats.js"
+import ioServer from "../ioServer/ioServer.js"
+import archiveDb from "../db/archiveDb.js"
+import options from "../config/options.js"
 
 export default {
   name: "switchModel",
-  func: async (modelName) => {
+  func: async ({ listId = 0, modelId, options: opts = {} }) => {
+    const { coverPrompt = true, clearContext = false } = opts;
     try {
-      if (!modelName) {
-        return { ok: false, msg: "请传入模型名" };
+      if (!modelId) {
+        return { ok: false, msg: "请传入配置id" };
       }
 
-      // 1. 获取当前模型（在更新之前！）
-      const currentModelName = comData.data.get().currentModel;
-      const currentModel = aiBasic.list.find(m => m.name === currentModelName);
-
-      // 2. 更新全局 Current Model
       await comData.data.edit((data) => {
-        data.currentModel = modelName
-        data.sendMode = "agent"
-        if (data.call) {
-          if (data.call.tid) {
-            data.call = null
+        const chatLists = data.chatLists || [];
+        const targetList = chatLists.find(l => l.id === listId);
+        if (targetList) {
+          targetList.currentModelId = modelId;
+        }
+      });
+
+      // 沙盒处理：
+      // - 已有 agent：switchModelAgent 覆盖模型配置（含 coverPrompt/clearContext 选项）
+      // - 无 agent：initAgent 全新初始化
+      let agent;
+      const hasAgent = !!subAgents.get(listId);
+      if (hasAgent) {
+        agent = await subAgents.switchModelAgent(listId, modelId, { coverPrompt, clearContext });
+      } else {
+        agent = await subAgents.initAgent(listId, modelId);
+      }
+
+      // 仅在勾选"清空临时上下文并插入历史阅读提示"时，植入恢复指令
+      if (clearContext) {
+        // 植入恢复指令
+        const sysMsgContent = "用户指定了你和它继续对话，请调用【历史记录查询工具】查询先前的对话情况，然后接前面的对话或者任务继续。";
+        
+        let historyCount = 0;
+        if (archiveDb.tb_chat_messages) {
+          historyCount = await archiveDb.tb_chat_messages.count({
+            where: { chatListId: listId }
+          });
+
+          // 检查最后一条消息是否也是切换模型的提示，如果是，则删掉旧的防止刷屏
+          const lastMsg = await archiveDb.tb_chat_messages.findOne({
+            where: { chatListId: listId },
+            order: [['timestamp', 'DESC']],
+            raw: true
+          });
+
+          if (lastMsg && lastMsg.content === sysMsgContent) {
+            await archiveDb.tb_chat_messages.destroy({
+              where: { uuid: lastMsg.uuid }
+            });
+            historyCount -= 1; // 扣除这条即将被删掉的旧系统提示
           }
         }
-      })
+        
+        // 只有在队列中真的有实质性历史记录时，才发送恢复指令
+        if (historyCount > 0) {
+          const chat = {
+            uuid: idTool.get("sys"),
+            content: sysMsgContent,
+            name: trs("角色/系统"),
+            group: "system",
+            timestamp: Date.now(),
+            chatListId: listId
+          };
 
-      // 3. 获取目标模型
-      const targetModel = aiBasic.list.find(m => m.name === modelName);
-      if (!targetModel) {
-        return { ok: false, msg: "在aiBasic里未找到选定模型，无法更新模型配置" };
-      }
+          const ask = agent.addAsk("系统", "user", sysMsgContent, { id: chat.uuid });
+          chat.ask = ask;
 
-      // 4. 获取同步源数据 (对话历史从当前模型拿，记忆直接从 comData 拿)
-      let historyAsks = [];
-      if (currentModel) {
-        historyAsks = currentModel.asks.slice(1);
-      }
-
-      const mainList = comData.data.get().chatLists.find(l => l.id === 0);
-      const historyMemorys = mainList ? [...(mainList.notes || [])] : [];
-      const historyMemory = historyMemorys[historyMemorys.length - 1]?.memory || "";
-
-      /* 
-      // 旧同步逻辑（从当前模型实例获取记忆）- 已弃用并注释
-      if (currentModel) {
-        const historyAsks = currentModel.asks.slice(1);
-        for (const model of aiBasic.list) {
-          if (model !== currentModel) {
-            // 保留该模型的 System Prompt (asks[0])
-            const modelPrompt = model.asks[0];
-            model.asks = [modelPrompt, ...historyAsks];
-            // 同步记忆
-            model.memory = currentModel.memory;
-            model.memorys = [...currentModel.memorys];
-          }
-        }
-      }
-      */
-
-      // 5. 基础模型全量对齐 (记忆以 comData 为准，历史从当前模型同步)
-      for (const model of aiBasic.list) {
-        // 记忆对齐：所有人（含 currentModel）都必须与 comData 的笔记保持绝对一致
-        model.memory = historyMemory;
-        model.memorys = [...historyMemorys];
-
-        // 历史对话对齐：仅同步给非当前模型，且必须保留模型自己的 System Prompt (asks[0])
-        if (currentModel && model !== currentModel) {
-          const modelPrompt = model.asks[0];
-          model.asks = [modelPrompt, ...historyAsks];
+          // 写入物理数据库并广播给前端
+          await chats.add(chat, listId);
+          ioServer.io.emit("chat:refresh", { listId: listId });
         }
       }
 
-      const baseConfig = targetModel.aiConfig;
-
-      // 5. 同步所有子智能体，智能体保持独立上下文
-      let count = 0;
-      for (const [id, agent] of subAgents.getAll()) {
-        await agent.init({
-          ...baseConfig,
-          prompt: agent.aiConfig.prompt,
-          name: agent.aiConfig.name
-        });
-        count++;
-      }
+      // 读取模型名用于提示
+      const aiList = await options.get("ai_aiList");
+      const modelName = aiList.find(m => m.id === modelId)?.name;
 
       return {
         ok: true,
-        msg: `已切换模型为 ${modelName}`
+        msg: `已将队列 ${listId} 切换至为 模型${modelId} ：${modelName}`
       }
     } catch (err) {
       console.error(err);

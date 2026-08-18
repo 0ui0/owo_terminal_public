@@ -500,8 +500,8 @@ export default () => {
               const files = e.dataTransfer.files;
               if (files && files.length > 0) {
                 const targetChatListId = (comData.data.get()?.targetChatListId || 0);
-                if (!data.attachmentsMap[targetChatListId]) data.attachmentsMap[targetChatListId] = [];
-
+                const sessionState = data.getSessionState(targetChatListId);
+                if (!sessionState.attachments) sessionState.attachments = [];
                 for (let i = 0; i < files.length; i++) {
                   const file = files[i];
                   const isImage = file.type.startsWith('image/');
@@ -523,7 +523,7 @@ export default () => {
                       progress: 0,
                       status: 'uploading'
                     };
-                    data.attachmentsMap[targetChatListId].push(attachObj);
+                    sessionState.attachments.push(attachObj);
 
                     const formData = new FormData();
                     formData.append('file', file);
@@ -580,7 +580,7 @@ export default () => {
 
                   // 准备上传
                   const targetChatListId = (comData.data.get()?.targetChatListId || 0);
-                  if (!data.attachmentsMap[targetChatListId]) data.attachmentsMap[targetChatListId] = [];
+                  if (!sessionState.attachments) sessionState.attachments = [];
 
                   // 创建临时占位对象
                   const attachObj = {
@@ -590,7 +590,7 @@ export default () => {
                     progress: 0,
                     status: 'uploading'
                   };
-                  data.attachmentsMap[targetChatListId].push(attachObj);
+                  sessionState.attachments.push(attachObj);
 
                   const formData = new FormData();
                   formData.append('file', file, `pasted-image-${Date.now()}.png`);

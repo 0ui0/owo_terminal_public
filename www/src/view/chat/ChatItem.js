@@ -1,5 +1,6 @@
 
 import data from "./chatData.js"
+import debugHistory from "../../historyPanel/historyPanelData.js"
 import Tag from "../common/tag.js"
 import comData from '../../comData/comData.js'
 import ioSocket from '../../comData/ioSocket.js'
@@ -17,9 +18,12 @@ import getColor from "../common/getColor.js"
 import getBlurBg from "../common/getBlurBg.js"
 import { override } from "joi"
 import Avatar from "./Avatar.js"
+import ChatiTmRestoreDialog from "./ChatiTmRestoreDialog.js"
+import Row from "../../class/row.js"
 
 const ReasoningBlock = () => {
   let show = false;
+  let timer = null;
   return {
     view({ attrs }) {
       const { reasoning, isPreparing } = attrs;
@@ -89,13 +93,23 @@ const ReasoningBlock = () => {
             },
             onupdate(vnode) {
               if (isPreparing && vnode.dom && show) {
-                vnode.dom.scrollTop = vnode.dom.scrollHeight;
+                if (!timer) {
+                  timer = setTimeout(() => {
+                    timer = null;
+                    if (vnode.dom && show) {
+                      const isAtBottom = vnode.dom.scrollHeight - vnode.dom.scrollTop - vnode.dom.clientHeight <= 30;
+                      if (isAtBottom) {
+                        vnode.dom.scrollTop = vnode.dom.scrollHeight;
+                      }
+                    }
+                  }, 1000);
+                }
               }
             }
           }, [
             show
               ? m(".article", m.trust(format(reasoning, "markdown", {})))
-              : m(".article", reasoning)
+              : m(".article", reasoning ? (reasoning.length > 20000 ? "..." + reasoning.slice(-20000) : reasoning) : "")
 
           ]),
           m("", { style: { float: "clear" } }),
@@ -138,8 +152,32 @@ export default ChatItem = () => {
   let showMind = false
   let showRaw = false
   let showMore = false
+  let _chat = null
 
   return {
+    async oninit({ attrs }) {
+      //回复时候前端加载被回复的消息
+      const callUuid = attrs.chat?.ask?.call || attrs.chat?.ask?.content?.call
+      if (callUuid) {
+        try {
+          const res = await m.request({
+            method: "GET",
+            url: "/api/chatMessages/get",
+            params: { uuid: callUuid }
+          })
+          if (res?.ok && res.data?.[0]) {
+            _chat = new Row(res.data[0], {
+              apiName: "chatMessages",
+              idName: "id",
+              parent: data.chatLists[attrs.chat.chatListId]
+            })
+            m.redraw()
+          }
+        } catch (e) {
+          console.error("[ChatItem] fetch call chat failed:", e)
+        }
+      }
+    },
     view({ attrs, children }) {
       let chat = attrs.chat
 
@@ -316,30 +354,17 @@ export default ChatItem = () => {
                   }
                 }, chat.name) : null,
               //call的内容
-              chat.ask?.content?.call ?
+              _chat ?
                 m("", [
-                  (() => {
-                    let _chat = null
-                    const chatLists = comData.data.get().chatLists
-                    if (chatLists) {
-                      for (const list of chatLists) {
-                        _chat = list.data.find(c => c.uuid == chat.ask.content.call)
-                        if (_chat) break
-                      }
-                    }
-                    if (_chat) {
-                      return m(ChatItem, {
-                        key: _chat.uuid,
-                        chat: _chat,
-                        isChildren: true
-                      })
-                    }
-                    return null
-                  })()
+                  m(ChatItem, {
+                    key: _chat.uuid,
+                    chat: _chat,
+                    isChildren: true
+                  })
                 ]) : null,
               //quotes引用
-              chat.ask?.content?.quotes ?
-                chat.ask.content.quotes.map((quote) => {
+              (chat.ask?.content?.quotes || chat.ask?.quotes) ?
+                (chat.ask?.content?.quotes || chat.ask?.quotes).map((quote) => {
                   return m(IconTag, {
                     iconName: "Quote",
                     ext: {
@@ -384,7 +409,23 @@ export default ChatItem = () => {
                   case "childChatList":
                     // Find the specific list data
                     const childId = chat.ext?.targetSubListId;
-                    const childListObj = comData.data.get().chatLists?.find(l => l.id == childId);
+                    const childListObj = comData.getChatList(childId);
+                    // 防御：子会话已被删除时不再渲染 ChatList，避免 undefined 串台渲染主列表
+                    if (!childListObj) {
+                      return m("", {
+                        style: {
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "0.8rem",
+                          padding: "1.2rem",
+                          borderRadius: "1rem",
+                          background: getColor("gray_12").back,
+                          color: getColor("gray_4").front,
+                          fontSize: "1.1rem",
+                          opacity: 0.8
+                        }
+                      }, "🗑️ 该子会话已被删除")
+                    }
                     return m("", {
                       style: {
                         maxHeight: "30rem",
@@ -431,7 +472,7 @@ export default ChatItem = () => {
                         }, [
                           showMind
                             ? m.trust(format(chat.content, "markdown"))
-                            : chat.content
+                            : (chat.content ? (chat.content.length > 20000 ? "..." + chat.content.slice(-20000) : chat.content) : "")
                           ,
                         ]),
                         m("", { style: { float: "clear" } })
@@ -440,7 +481,15 @@ export default ChatItem = () => {
                     ]
 
                   default:
-                    return m("", chat.group === "tip"
+                    return m("", {
+                      oncreate({ dom }) {
+                        dom.addEventListener("owo-open-editor", (e) => {
+                          if (settingData && settingData.fnCall) {
+                            settingData.fnCall("appLaunch", ["editor", { data: { content: chat.content, readOnly: true } }]);
+                          }
+                        });
+                      }
+                    }, chat.group === "tip"
                       ? [
                         showMore
                           ? m("", {
@@ -482,14 +531,18 @@ export default ChatItem = () => {
                   isBlock: true,
                   style: {
                     borderRadius: "0.5rem",
-                    margin: "1rem 0"
+                    margin: "1rem 0",
+                    overflow: "auto",
+                    maxHeight: "30rem"
                   },
                 }, [
                   m(AutoForm, {
                     dataObj: { ask: chat.ask },
                     dataName: "ask"
                   }),
-                  JSON.stringify(chat, null, "\t\t")
+                  JSON.stringify(chat, null, "\t\t").length > 10000
+                    ? JSON.stringify(chat, null, "\t\t").slice(0, 10000) + "\n\n... (Raw JSON too large, truncated for performance)"
+                    : JSON.stringify(chat, null, "\t\t")
                 ]) : null,
               m("", {
                 style: {
@@ -545,7 +598,7 @@ export default ChatItem = () => {
                 chat.group === "childChatList" ?
                   m(Tag, {
                     styleExt: {
-                      background: comData.data.get()?.targetChatListId === chat.ext?.targetSubListId ? getColor('pink_1').back : getColor('purple_2').back,
+                      background: data.getSessionState(attrs.listId || 0).lockedListId === chat.ext?.targetSubListId ? getColor('pink_1').back : getColor('purple_2').back,
                       color: getColor('gray_9').front,
                       display: "inline-flex",
                       alignItems: "center",
@@ -554,20 +607,22 @@ export default ChatItem = () => {
                     },
                     isBtn: true,
                     onclick: async () => {
+                      const hostListId = attrs.listId || 0;
                       const targetId = chat.ext?.targetSubListId;
-                      await comData.data.edit(d => {
-                        if (d.targetChatListId === targetId) {
-                          d.targetChatListId = 0; // Unlock
-                        } else {
-                          d.targetChatListId = targetId;
-                        }
-                      })
+                      const session = data.getSessionState(hostListId);
+                      const newLockedId = session.lockedListId === targetId ? null : targetId;
+                      session.lockedListId = newLockedId;
+                      await settingData.fnCall("updateListConfig", [hostListId, { lockedListId: newLockedId }]);
+                      if (newLockedId !== null) {
+                        data.updateTmStatus(newLockedId);
+                      }
+                      m.redraw();
                     },
                   }, [
-                    m.trust(window.iconPark.getIcon(comData.data.get()?.targetChatListId === chat.ext?.targetSubListId ? "Lock" : "Unlock", {
+                    m.trust(window.iconPark.getIcon(data.getSessionState(attrs.listId || 0).lockedListId === chat.ext?.targetSubListId ? "Lock" : "Unlock", {
                       fill: getColor('gray_6').front
                     })),
-                    comData.data.get()?.targetChatListId === chat.ext?.targetSubListId ? trs("聊天/队列/解锁", { cn: "解锁队列", en: "Unlock Queue" }) : trs("聊天/队列/锁定", { cn: "锁定队列", en: "Lock Queue" })
+                    data.getSessionState(attrs.listId || 0).lockedListId === chat.ext?.targetSubListId ? trs("聊天/队列/解锁", { cn: "解锁队列", en: "Unlock Queue" }) : trs("聊天/队列/锁定", { cn: "锁定队列", en: "Lock Queue" })
                   ]) : null,
 
                 chat.group === "childChatList" ?
@@ -614,7 +669,8 @@ export default ChatItem = () => {
                       tip: trs("聊天/撤销/提示标题", { cn: "是否撤销", en: "Undo Check" }),
                       msg: trs("聊天/撤销/提示内容", { cn: "是否撤销本条消息?（若为提问消息本条消息将重新加入到输入框）", en: "Undo this message? (User questions will return to the input box)" }),
                       async confirm() {
-                        await settingData.fnCall("undoChat", [chat.uuid])
+                        debugHistory.log("撤销", { uuid: chat.uuid, chatListId: chat.chatListId });
+                        await settingData.fnCall("undoChat", [chat.uuid, chat.chatListId])
                         if (chat.group === "user") {
                           data.inputText += chat.content
                           await comData.data.edit((_data) => {
@@ -647,11 +703,12 @@ export default ChatItem = () => {
                       tip: trs("聊天/撤到此处/提示标题", { cn: "是否撤到本条？", en: "Undo to here?" }),
                       msg: trs("聊天/撤到此处/提示内容", { cn: "是否撤销到本条消息？（这将清空包括本条和本条以后的所有消息，若为提问消息本条消息将重新加入到输入框）", en: "Undo all messages from this point? (This clears everything after, and returns user questions to input)" }),
                       async confirm() {
-                        await settingData.fnCall("undoToChat", [chat.uuid])
+                        debugHistory.log("撤到本条", { uuid: chat.uuid, chatListId: chat.chatListId });
+                        await settingData.fnCall("undoToChat", [chat.uuid, chat.chatListId])
                         if (chat.group === "user") {
                           data.inputText += chat.content
                           const listId = chat.chatListId || 0
-                          data.attachmentsMap[listId] = chat.attachments || []
+                          data.getSessionState(listId).attachments = chat.attachments || []
                           await comData.data.edit((_data) => {
                             _data.inputText = data.inputText
                           })
@@ -678,24 +735,28 @@ export default ChatItem = () => {
                   },
                   isBtn: true,
                   onclick: async () => {
-                    const projectRoot = comData.data.get()?.customCwd;
-                    Notice.launch({
-                      tip: "时光机还原",
-                      msg: "确定要将整个项目还原到该消息对应的快照状态吗？\n（此操作将执行全量替换，不可撤销）",
-                      confirm: async () => {
-                        try {
-                          const res = await settingData.fnCall("restoreChatFile", [{ uuid: chat.uuid }]);
-                          if (res.ok) {
-                            Notice.launch({ msg: res.msg, type: "success" });
-                          } else {
-                            Notice.launch({ msg: res.msg, type: "error" });
-                          }
-                        }
-                        catch (err) {
-                          console.log(err)
-                        }
+                    try {
+                      const listId = attrs.listId || 0
+                      const diffRes = await settingData.fnCall("restoreChatFile", [{ uuid: chat.uuid, listId }])
+                      if (!diffRes.ok) {
+                        Notice.launch({ msg: diffRes.msg, type: "error" })
+                        return
                       }
-                    });
+                      const diffList = diffRes.data
+                      Notice.launch({
+                        tip: trs("时光机/还原", { cn: "时光机还原", en: "Time Machine Restore" }),
+                        content: ChatiTmRestoreDialog,
+                        contentAttrs: {
+                          diffList,
+                          uuid: chat.uuid,
+                          listId
+                        }
+                      })
+                    }
+                    catch (err) {
+                      console.log(err)
+                      Notice.launch({ msg: "时光机还原出错: " + (err.message || err), type: "error" })
+                    }
                   }
                 }, [
                   m.trust(window.iconPark.getIcon("History", { fill: getColor('green_1').front })),
@@ -719,7 +780,8 @@ export default ChatItem = () => {
                       tip: trs("聊天/清除之前/提示标题", { cn: "是否清除本条之前所有消息？", en: "Clear all before this?" }),
                       msg: trs("聊天/清除之前/提示内容", { cn: "是否清除本条之前所有消息（不包括本条消息）？", en: "Clear all messages before this one (not including this message)?" }),
                       async confirm() {
-                        await settingData.fnCall("clearBeforeChat", [chat.uuid])
+                        debugHistory.log("清除本条之前", { uuid: chat.uuid, chatListId: chat.chatListId });
+                        await settingData.fnCall("clearBeforeChat", [chat.uuid, chat.chatListId])
                       }
                     })
                   }
@@ -737,13 +799,9 @@ export default ChatItem = () => {
                   },
                   isBtn: true,
                   onclick: async () => {
-                    await comData.data.edit((data) => {
-                      data.call = {
-                        ...chat
-                      }
-                    })
-
-
+                    data.getSessionState(chat.chatListId).call = {
+                      uuid: chat.uuid,
+                    };
                   },
                 }, [
                   m.trust(window.iconPark.getIcon("Message", {
@@ -763,12 +821,10 @@ export default ChatItem = () => {
                   },
                   isBtn: true,
                   onclick: async () => {
-                    await comData.data.edit((data) => {
-                      data.quotes = data.quotes.filter((quote2) => { return quote2.uuid !== chat.uuid })
-                      data.quotes.push({
-                        ...chat
-                      })
-                    })
+                    const listId = chat.chatListId;
+                    const session = data.getSessionState(listId);
+                    session.quotes = (session.quotes || []).filter((q) => q.uuid !== chat.uuid);
+                    session.quotes.push({ ...chat });
                   },
                 }, [
                   m.trust(window.iconPark.getIcon("Quote", {

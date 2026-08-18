@@ -171,15 +171,7 @@ export default {
                 }
               },
               [
-                m("div",
-                  {
-                    style: {
-                      color: getColor('gray_6').front,
-                      marginRight: "0.4rem"
-                    }
-                  },
-                  "排序"
-                ),
+
                 m("select",
                   {
                     style: {
@@ -257,8 +249,9 @@ export default {
                   alignItems: "center",
                   background: getColor('gray_1').back + '88',
                   borderRadius: "0.4rem",
-                  padding: "0.4rem 1rem",
-                  border: `1px solid ${getColor('gray_2').back}`
+                  padding: "0.4rem 0.8rem",
+                  border: `1px solid ${getColor('gray_2').back}`,
+                  gap: "0.5rem"
                 },
                 onsubmit: (e) => {
                   e.preventDefault();
@@ -266,6 +259,32 @@ export default {
                 }
               },
               [
+                // 1. 最左侧：齿轮配置按钮 (iconPark)
+                searchMode === 'project'
+                  ? m("div",
+                    {
+                      style: {
+                        cursor: "pointer",
+                        display: "flex",
+                        alignItems: "center",
+                        flexShrink: 0
+                      },
+                      title: trs("资源管理器/搜索/配置", {
+                        cn: "搜索参数配置",
+                        en: "Search Config"
+                      }),
+                      onclick: () => {
+                        onOpenSearchConfig();
+                      }
+                    },
+                    m.trust(iconPark.getIcon("Setting", {
+                      size: "1.4rem",
+                      fill: getColor('gray_12').front
+                    }))
+                  )
+                  : null,
+
+                // 2. 搜索范围下拉选择
                 m("select",
                   {
                     style: {
@@ -274,9 +293,9 @@ export default {
                       outline: "none",
                       color: getColor('gray_12').front,
                       cursor: "pointer",
-                      marginRight: "0.5rem",
                       width: "8.5rem",
-                      opacity: 0.7
+                      opacity: 0.7,
+                      flexShrink: 0
                     },
                     onchange: (e) => onSearchModeChange(e.target.value)
                   },
@@ -285,12 +304,15 @@ export default {
                     m("option", { value: "project" }, "整个项目")
                   ]
                 ),
+
+                // 3. 放大镜图标
                 m("div",
                   {
                     style: {
                       cursor: "pointer",
                       display: "flex",
-                      alignItems: "center"
+                      alignItems: "center",
+                      flexShrink: 0
                     },
                     onclick: () => {
                       if (searchMode === 'project') onDoProjectSearch();
@@ -301,54 +323,61 @@ export default {
                     fill: getColor('gray_12').front
                   }))
                 ),
+
+                // 4. 输入框
                 m("input",
                   {
                     placeholder: searchMode === 'project'
                       ? trs("资源管理器/搜索/输入搜索",
-                          {
-                            cn: "输入整个项目搜索...",
-                            en: "Search whole project..."
-                          }
-                        )
+                        {
+                          cn: "输入整个项目搜索...",
+                          en: "Search whole project..."
+                        }
+                      )
                       : trs("资源管理器/搜索/本页过滤",
-                          {
-                            cn: "本页过滤...",
-                            en: "Filter current page..."
-                          }
-                        ),
+                        {
+                          cn: "本页过滤...",
+                          en: "Filter current page..."
+                        }
+                      ),
                     value: searchKeyword,
                     oninput: (e) => {
                       e.redraw = false; // 输入字符不重绘全局，解决卡死
                       onSearchKeywordChange(e.target.value);
                     },
                     style: {
+                      flex: 1,
                       border: "none",
                       background: "transparent",
                       outline: "none",
-                      marginLeft: "0.8rem",
-                      width: "100%",
+                      minWidth: 0,
                       color: getColor('gray_12').front
                     }
                   }
                 ),
-                searchMode === 'project'
+
+                // 5. 最右侧：清除 X 按钮 (仅在有输入内容时显示)
+                searchKeyword
                   ? m("div",
-                      {
-                        style: {
-                          cursor: "pointer",
-                          display: "flex",
-                          alignItems: "center",
-                          marginLeft: "0.5rem"
-                        },
-                        onclick: () => {
-                          onOpenSearchConfig();
-                        }
+                    {
+                      style: {
+                        cursor: "pointer",
+                        display: "flex",
+                        alignItems: "center",
+                        flexShrink: 0,
+                        opacity: 0.6
                       },
-                      m.trust(iconPark.getIcon("Setting", {
-                        size: "1.4rem",
-                        fill: getColor('gray_12').front
-                      }))
-                    )
+                      title: "清除",
+                      onclick: () => {
+                        onSearchKeywordChange("");
+                        if (searchMode === 'project') onDoProjectSearch();
+                      }
+                    },
+                    m.trust(iconPark.getIcon("CloseSmall", {
+                      size: "1.4rem",
+                      fill: getColor('gray_12').front
+                    }))
+                  )
                   : null
               ]
             )

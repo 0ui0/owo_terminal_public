@@ -9,9 +9,12 @@ import archiveDb from "./db/archiveDb.js"
 import Dir from "./tools/dir.js"
 import inert from "@hapi/inert"
 import comData from "./comData/comData.js"
-import aiBasic from "./tools/aiAsk/basic.js"
+import subAgents from "./tools/aiAsk/subAgents.js"
 import pathLib from "path"
 import fs from "fs-extra"
+import options from "./config/options.js"
+import crypto from "crypto"
+import tempPath from "./tools/tempPath.js"
 
 
 
@@ -24,10 +27,11 @@ const init = async (config) => {
     console.log(err);
   });
 
-  await fs.ensureDir(pathLib.resolve("./tools/aiAsk/usrCall"))
-  await fs.ensureDir(pathLib.resolve("./tools/aiAsk/aiCall"))
+  const userData = tempPath.getUserDataDir()
+  await fs.ensureDir(pathLib.join(userData, "aiCall"))
+  await fs.ensureDir(pathLib.join(userData, "usrCall"))
   await fs.ensureDir(pathLib.resolve("../aiWork"))
-  await fs.ensureDir(pathLib.resolve("./save"))
+  tempPath.get("aiTmp") // 启动时自动初始化并确保实例专属的 temp/aiTmp 临时脚本目录存在
 
 
   const serverOpts = (usePort) => ({
@@ -87,6 +91,10 @@ const init = async (config) => {
     }
   }
 
+  tempPath.cleanDeadOrphanDirs()
+  tempPath.get("attachment")
+  tempPath.get("save")
+
   const buildServer = async (usePort) => {
     const server = Hapi.server(serverOpts(usePort))
     await server.register(inert)
@@ -95,10 +103,23 @@ const init = async (config) => {
     await ioServer.run()
     await db.init()
     server.db = db
+
+    // 修补旧数据：ai_aiList 模型缺 id 的补 uuid（id 由系统分配）
+    try {
+      const row = await db.tb_options.findOne({ where: { key: "ai_aiList" } })
+      if (row && Array.isArray(row.value)) {
+        row.value = row.value.map(m => m.id ? m : { ...m, id: crypto.randomUUID() })
+        await row.save()
+        console.log("[Patch] ai_aiList 已为缺失 id 的模型补齐 uuid")
+      }
+    } catch (e) { console.error("[Patch] ai_aiList:", e) }
+
     await archiveDb.init()
     server.archiveDb = archiveDb
     server.comData = comData
-    await aiBasic.initList()
+    // 启动时默认用后台配置 0 号初始化主队列（存档恢复会走 projectManager.load 重新 initAgent）
+    const aiList = await options.get("ai_aiList");
+    await subAgents.initAgent(0, aiList[0].id);
     return server
   }
 

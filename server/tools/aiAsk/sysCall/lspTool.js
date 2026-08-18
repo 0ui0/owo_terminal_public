@@ -3,6 +3,7 @@ import fs from "fs/promises"
 import pathLib from "path"
 import { pathToFileURL } from 'url'
 import waitConfirm from "../../waitConfirm.js"
+import workDirTool from "../../workDirTool.js"
 import lspManager from "../../lsp/LspServerManager.js"
 
 export default {
@@ -15,23 +16,22 @@ export default {
     }
     let { filePath, operation, line, character } = value
 
-    const comData = (await import("../../../comData/comData.js")).default
-    const customCwd = comData.data.get()?.customCwd
-    if (!customCwd && (!filePath || !pathLib.isAbsolute(filePath))) {
-      return "错误：当前未设置工作目录。请先要求用户配置工作目录，或者在使用工具时提供绝对路径。"
+    const mainDir = workDirTool.getMainWorkDir(metaData.listId)
+    if (!mainDir && (!filePath || !pathLib.isAbsolute(filePath))) {
+      return "错误：当前会话未设置工作目录。请先要求用户配置工作目录，或者在使用工具时提供绝对路径。"
     }
-    const cwd = customCwd || process.cwd()
-    const resolvedPath = pathLib.resolve(cwd, filePath)
+    const resolvedPath = filePath ? (pathLib.isAbsolute(filePath) ? filePath : pathLib.resolve(mainDir, filePath)) : mainDir
 
     let commentSuffix = ""
-    const isInProject = resolvedPath.startsWith(cwd)
+    // 读白名单 = 主目录 + 辅助目录，全部工作目录内不拦截
+    const workDirs = workDirTool.getWorkDirs(metaData.listId)
+    const isInProject = workDirs.some(dir => resolvedPath === dir.path || resolvedPath.startsWith(dir.path + pathLib.sep))
     if (!isInProject) {
-      const currentListId = metaData?.listId || 0
       const userConfirm = await waitConfirm({
         type: "tip",
         content: `路径：${resolvedPath}`,
         title: "是否允许在工作目录外执行 lspTool 工具？",
-        listId: currentListId
+        listId: metaData.listId
       })
       if (!userConfirm.ok) return `用户拒绝访问项目外文件：${resolvedPath}。原因：${userConfirm.comment || "未提供"}`
       if (userConfirm.comment) commentSuffix = `用户备注：${userConfirm.comment}\n\n`

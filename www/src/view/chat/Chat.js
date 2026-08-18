@@ -97,14 +97,13 @@ export default () => {
           }
         }, [
           (() => {
-            const targetId = comData.data.get()?.targetChatListId || 0;
-            const targetList = comData.data.get()?.chatLists?.find(l => l.id === targetId);
-            const mainList = comData.data.get()?.chatLists?.find(l => l.id === 0);
+            if (!comData.data?.get()?.chatLists) return null; // 数据尚未从 Socket 同步，挂起渲染
             return m(ChatList, {
-              chatList: targetList || mainList,
+              chatList: comData.getChatList(data.getSessionState(0).lockedListId) || comData.getChatList(0),
+              listId: 0
             })
           })(),
-          m(InputBar),
+          m(InputBar, { listId: 0 }),
           m("", {
             style: {
               position: "absolute",

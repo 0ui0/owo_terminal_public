@@ -5,7 +5,6 @@ export default () => {
   return {
     view({ attrs }) {
       const { chat } = attrs;
-      console.log(chat)
       const petFace = chat.ask?.content?.placeFace || "smile";
 
 
@@ -14,10 +13,10 @@ export default () => {
           width: window.Mob ? "3rem" : "6rem",
           height: window.Mob ? "3rem" : "6rem",
           borderRadius: "50%",
-          backgroundImage: chat.group == "agent"
-            ? `url('./statics/petPkgs/${comData.data.get()?.defaultPet || "default"}/pet/${petFace}.png')`
-            : chat.group == "user"
-              ? "url(./statics/avatar.svg)"
+          backgroundImage: chat.group == "user" 
+            ? "url(./statics/avatar.svg)"
+            : chat.group == "agent" || chat.group == "system" || true
+              ? `url('./statics/petPkgs/${comData.data.get()?.defaultPet || "default"}/pet/${petFace}.png')`
               : null
           ,
           backgroundSize: "cover",

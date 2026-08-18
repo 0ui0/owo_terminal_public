@@ -2,6 +2,7 @@ import { DispatchTracker } from "../browser/dispatchTracker.js"
 import fs from "fs-extra"
 import pathLib from "path"
 import idTool from "../../tools/idTool.js"
+import tempPath from "../../tools/tempPath.js"
 
 export default {
   async dispatch({ app, action, args, appManager, io }) {
@@ -48,8 +49,7 @@ export default {
               .png()
               .toBuffer()
 
-            const uploadDir = pathLib.resolve("./attachment")
-            await fs.ensureDir(uploadDir)
+            const uploadDir = tempPath.get("attachment")
             const filename = idTool.get("file") + ".png"
             const savePath = pathLib.join(uploadDir, filename)
             await fs.writeFile(savePath, pngBuffer)

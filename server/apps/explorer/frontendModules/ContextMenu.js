@@ -6,6 +6,7 @@ export default {
       getColor,
       selectedCount,
       hasItem,
+      isSearchResult,
       canPaste,
       onAction
     } = vnode.attrs;
@@ -34,6 +35,7 @@ export default {
 
         hasItem ? [
           m(Box, { isBtn: true, onclick: () => onAction('open') }, "打开"),
+          (isSearchResult && selectedCount === 1) ? m(Box, { isBtn: true, onclick: () => onAction('openDir') }, "打开所在目录") : null,
           m(Box, { isBtn: true, onclick: () => onAction('rename') }, "重命名")
         ] : null,
 

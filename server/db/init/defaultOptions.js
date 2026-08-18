@@ -1,5 +1,5 @@
 
-
+import crypto from "crypto"
 let options = {};
 
 options["global_terminalShell"] = {
@@ -113,6 +113,7 @@ options["ai_aiList"] = {
   ],
   joi: function () {
     return Joi.array().items(Joi.object({
+      id:Joi.string().uuid({version:"uuidv4"}).default(()=>crypto.randomUUID()),
       name: Joi.string().required(),
       model: Joi.string().required(),
       apiKey: Joi.string().required(),

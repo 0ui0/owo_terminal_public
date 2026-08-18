@@ -1,7 +1,7 @@
 {
   "name": "owo-terminal",
   "productName": "owo-terminal",
-  "version": "1.1.24",
+  "version": "1.1.25",
   "type": "module",
   "main": "app.js",
   "description": "Super cute terminal",
@@ -104,6 +104,7 @@
     "@homebridge/node-pty-prebuilt-multiarch": "^0.13.1",
     "@vscode/ripgrep": "^1.17.0",
     "@xterm/addon-fit": "^0.10.0",
+    "@xterm/headless": "^6.0.0",
     "@xterm/xterm": "^5.5.0",
     "adm-zip": "^0.5.16",
     "axios": "^1.13.6",

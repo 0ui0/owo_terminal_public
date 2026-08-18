@@ -2,10 +2,12 @@ import fs from "fs-extra"
 import path from "path"
 import comData from "../comData/comData.js"
 import defaultComData from "../tools/defaultComData.js"
-import aiBasic from "../tools/aiAsk/basic.js"
+import subAgents from "../tools/aiAsk/subAgents.js"
 import appManager from "../apps/appManager.js"
 import AdmZip from "adm-zip"
 import archiveDb from "../db/archiveDb.js"
+import migrations from "./owoMigrations.js"
+import tempPath from "../tools/tempPath.js"
 
 class ProjectManager {
   constructor() {
@@ -32,7 +34,7 @@ class ProjectManager {
 
       const data = {
         meta: {
-          version: "1.1.0",
+          version: "1.3.0",
           timestamp: Date.now(),
           platform: process.platform
         },
@@ -40,9 +42,10 @@ class ProjectManager {
         comData: comData.data.get(),
 
         // 2. AI 状态 (记忆, 上下文)
-        aiState: aiBasic.list.map(model => ({
-          name: model.name,
-          state: model.exportState()
+        aiState: Array.from(subAgents.getAll()).map(([listId, agent]) => ({
+          listId: listId,
+          name: agent.name,
+          state: agent.exportState()
         })),
 
         // 3. App 状态
@@ -64,13 +67,13 @@ class ProjectManager {
       zip.addFile("chats_export.json", Buffer.from(JSON.stringify(messages, null, 2), "utf-8"))
 
       // 打包 SQLite 数据库文件
-      const sqlitePath = path.resolve("./save/archive.sqlite")
+      const sqlitePath = tempPath.get("save/archive.sqlite")
       if (await fs.pathExists(sqlitePath)) {
         zip.addFile("archive.sqlite", await fs.readFile(sqlitePath))
       }
 
       // 将本地 upload 目录中的所有相关附件打包进去，排除数据库文件和导出历史文件本身
-      const uploadDir = path.resolve("./attachment")
+      const uploadDir = tempPath.get("attachment")
       if (await fs.pathExists(uploadDir)) {
         const files = await fs.readdir(uploadDir)
         for (const file of files) {
@@ -104,30 +107,52 @@ class ProjectManager {
   }
 
   // === Load ===
-  async load(filePath) {
+  async load(filePath, opts = {}) {
     try {
       const fileBuffer = await fs.readFile(filePath)
       let data = null
 
-      // 关闭当前的存档库连接
-      await archiveDb.close()
-
-      // 物理删除当前的 SQLite 文件以准备写入/覆盖
-      const sqlitePath = path.resolve("./save/archive.sqlite")
-      await fs.remove(sqlitePath)
+      const CURRENT_VERSION = "1.3.0"; // 最新系统存档版本号
 
       // 嗅探格式：根据文件头判定 (ZIP 的签名是 PK\x03\x04, hex: 50 4b 03 04)
+      let zip = null
       if (fileBuffer[0] === 0x50 && fileBuffer[1] === 0x4b && fileBuffer[2] === 0x03 && fileBuffer[3] === 0x04) {
         console.log("[ProjectManager] Detected ZIP bundle format")
-        const zip = new AdmZip(fileBuffer)
+        zip = new AdmZip(fileBuffer)
         const projectEntry = zip.getEntry("project.json")
         if (!projectEntry) throw new Error("Invalid .owo bundle: project.json missing")
 
         const projectText = zip.readAsText(projectEntry)
-        // 兼容旧版：将所有的 /upload/ 引用替换为 /attachment/
-        data = JSON.parse(projectText.replace(/\/upload\//g, "/attachment/"))
+        data = JSON.parse(projectText)
+      } else {
+        console.log("[ProjectManager] Detected legacy JSON format")
+        const projectText = fileBuffer.toString("utf-8")
+        data = JSON.parse(projectText)
+      }
 
-        // 解压 archive.sqlite
+      // 结构迁移：无版本号或低于当前版本的存档，跑迁移链对齐到当前结构
+      const savedVersion = data.meta?.version || "0";
+      if (!migrations.canMigrate(savedVersion) && !opts.forceConvert) {
+        return {
+          ok: false,
+          msg: "VERSION_MISMATCH",
+          currentVersion: CURRENT_VERSION,
+          savedVersion: savedVersion
+        };
+      }
+      data = await migrations.run(data, CURRENT_VERSION)
+
+      // 版本匹配（或兼容模式），才开始破坏性操作：关闭当前的存档库连接
+      await archiveDb.close()
+
+      // 物理删除当前的 SQLite 文件及所有可能存在的 WAL 残留
+      const sqlitePath = tempPath.get("save/archive.sqlite")
+      await fs.remove(sqlitePath)
+      await fs.remove(sqlitePath + "-wal")
+      await fs.remove(sqlitePath + "-shm")
+
+      // 解压 archive.sqlite（仅 ZIP 格式）
+      if (zip) {
         const sqliteEntry = zip.getEntry("archive.sqlite")
         if (sqliteEntry) {
           await fs.ensureDir(path.dirname(sqlitePath))
@@ -135,7 +160,7 @@ class ProjectManager {
         }
 
         // 提取附件到当前的 upload 目录
-        const uploadDir = path.resolve("./attachment")
+        const uploadDir = tempPath.get("attachment")
         await fs.ensureDir(uploadDir)
 
         // 提取 media 文件夹内容到 upload
@@ -146,11 +171,6 @@ class ProjectManager {
             await fs.writeFile(path.join(uploadDir, targetFileName), entry.getData())
           }
         }
-      } else {
-        console.log("[ProjectManager] Detected legacy JSON format")
-        const projectText = fileBuffer.toString("utf-8")
-        // 同样执行兼容性替换
-        data = JSON.parse(projectText.replace(/\/upload\//g, "/attachment/"))
       }
 
       // 重启数据库服务
@@ -192,12 +212,29 @@ class ProjectManager {
         Object.assign(d, data.comData);
       })
 
-      // 2. 恢复 AI 状态
+      // 2. 按存档中的模型重建各沙盒实例（currentModel 转换已由迁移链完成）
+      const savedLists = data.comData?.chatLists || [];
+      for (const list of savedLists) {
+        if (list.currentModelId) {
+          try {
+            await subAgents.initAgent(list.id, list.currentModelId);
+          } catch (e) {
+            console.warn(`[ProjectManager] initAgent(${list.id}, ${list.currentModelId}) failed:`, e.message);
+          }
+        }
+      }
+
+      // 3. 恢复 AI 状态
       if (data.aiState) {
         data.aiState.forEach(savedModel => {
-          const target = aiBasic.list.find(m => m.name === savedModel.name)
+          const listId = savedModel.listId !== undefined ? savedModel.listId : 0;
+          const target = subAgents.get(listId);
           if (target) {
             target.importState(savedModel.state)
+            if (savedModel.name) {
+              target.name = savedModel.name
+              if (target.aiConfig) target.aiConfig.name = savedModel.name
+            }
           }
         })
       }
@@ -253,15 +290,47 @@ class ProjectManager {
 
   // === Reset ===
   async reset() {
-    // 1. 清空路径和计时器
+    // 1. 【UI 响应先行】立即重置全局 comData 数据 (触发 dataSync 观察者，通知前端 0ms 瞬间清空聊天列表)
+    if (comData.data) {
+      await comData.data.edit(d => {
+        for (const key in d) if (key !== "version") delete d[key];
+        Object.assign(d, defaultComData());
+      })
+    }
+
+    // 2. 清空路径和计时器，归位脏位
     this.currentProjectPath = null
     this.stopAutoSave()
+    this.isDirty = false
 
-    // 2. 清空存档 SQLite 数据库文件
+    // 3. 重置 AI 运行环境
+    for (const [id, agent] of subAgents.getAll()) {
+      agent.clearAsks()
+      agent.initPrompt()
+      agent.clearMemorys()
+      agent.clearFnCallCache()
+      agent.clearUsage()
+    }
+
+    // 4. 关闭所有活动 App
+    const apps = appManager.getSummary()
+    for (const app of apps) {
+      try {
+        await appManager.close(app.id)
+      } catch (e) {
+        console.error(e)
+      }
+    }
+
+    // 5. 后台清理与重建存档 SQLite 数据库文件及临时附件
     try {
       await archiveDb.close()
-      const sqlitePath = path.resolve("./save/archive.sqlite")
+      const sqlitePath = tempPath.get("save/archive.sqlite")
       await fs.remove(sqlitePath)
+      await fs.remove(sqlitePath + "-wal")
+      await fs.remove(sqlitePath + "-shm")
+      const uploadDir = tempPath.get("attachment")
+      await fs.emptyDir(uploadDir)
     } catch (dbErr) {
       console.error("[ProjectManager] Reset DB file failed:", dbErr)
     } finally {
@@ -272,35 +341,6 @@ class ProjectManager {
       }
     }
 
-    // 3. 执行物理重置 (改用 edit 以触发 dataSync 观察者，通知前端清空聊天列表)
-    if (comData.data) {
-      await comData.data.edit(d => {
-        for (const key in d) if (key !== "version") delete d[key];
-        Object.assign(d, defaultComData());
-      })
-    }
-
-    // 4. 重置 AI 运行环境
-    aiBasic.list.forEach(model => {
-      model.clearAsks()
-      model.initPrompt()
-      model.clearMemorys()
-      model.clearFnCallCache()
-      model.clearUsage()
-    })
-
-    // 5. 关闭所有活动 App
-    const apps = appManager.getSummary()
-    for (const app of apps) {
-      try {
-        await appManager.close(app.id)
-      } catch (e) {
-        console.error(e)
-      }
-    }
-
-    // 6. 归位脏位
-    this.isDirty = false
     console.log("[ProjectManager] Project Reset Complete")
     return { ok: true }
   }

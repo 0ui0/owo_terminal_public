@@ -146,6 +146,7 @@ export default function () {
   }
 
   const toggleMaximize = (e, win) => {
+    if (e.target.closest(".win-btn") || e.target.closest(".tab-item")) return
     const rootDom = e.target.closest(".window-box")
     materialize(rootDom, win)
 

@@ -15,7 +15,6 @@ export default () => {
   const heightsMap = {}
   const fetchingPages = new Set() // 追踪正在获取的页面
 
-  // 估算高度采用固定常数，防止单个卡片尺寸抖动（如展开详情）通过平均值乘数效应放大，引起虚拟列表布局塌陷与强制卸载
   let totalHeight = 0
   let measuredCount = 0
   function getEstimatedHeight() {
@@ -52,15 +51,16 @@ export default () => {
 
   // 虚拟滚动区间计算器（带依赖缓存保护）
   function getVirtualScrollState(chatList, headerHeight) {
-    const listId = chatList?.id || 0
+    const listId = chatList.id
     const listData = chatData.computedLists[listId] || chatData.list || []
     const dataLength = listData.length
     const heightsCount = Object.keys(heightsMap).length
 
-    // 组装缓存依赖 Key (加入列表首尾消息的 uuid 和 totalMeasuredHeight，防止尺寸变更误命中缓存)
+    // 组装缓存依赖 Key (加入列表首尾消息的 uuid、已加载页面指纹和 totalMeasuredHeight，防止尺寸变更误命中缓存)
     const headUuid = listData[0]?.uuid || ""
     const tailUuid = listData[listData.length - 1]?.uuid || ""
-    const cacheKey = `${dataLength}_${scrollTop}_${viewportHeight}_${headerHeight}_${heightsCount}_${totalHeight}_${headUuid}_${tailUuid}`
+    const pagesKey = Object.keys(chatData.chatLists[listId]?.pages || {}).join(',')
+    const cacheKey = `${dataLength}_${scrollTop}_${viewportHeight}_${headerHeight}_${heightsCount}_${totalHeight}_${headUuid}_${tailUuid}_${pagesKey}`
 
     if (cacheKey === lastCacheKey) {
       return cachedScrollState
@@ -197,48 +197,83 @@ export default () => {
     async oninit(vnode) {
       // 实例化 ResizeObserver 测高
       resizeObserver = new ResizeObserver((entries) => {
-        let changed = false
+        // 🔧 两阶段处理：先收集所有变化（不修改 scrollTop，保证 getBoundingClientRect 准确），再统一补偿
+
+        // 阶段1: 收集所有变化
+        const changes = []
         for (let entry of entries) {
           const id = entry.target.getAttribute("data-id")
           const newHeight = entry.target.offsetHeight
           if (newHeight > 0 && heightsMap[id] !== newHeight) {
             const oldHeight = heightsMap[id]
-            const delta = oldHeight !== undefined ? (newHeight - oldHeight) : 0
+            // 首次测量用估算高度做基准（旧代码首次 delta=0 导致新消息跳动）
+            const refHeight = oldHeight !== undefined ? oldHeight : getEstimatedHeight()
+            const delta = newHeight - refHeight
 
-            // 滚动锚定与高度差物理补偿：
-            // 当卡片在非贴底（上翻历史）状态下变高（展开）或变矮（折叠）时，
-            // 自动补偿 scrollTop，消解高度跳变，保持当前视口视效稳定且卡片不出界
-            if (!atBottom && listDom && delta > 0) {
+            let aboveViewport = false
+            if (listDom && delta !== 0) {
               const itemRect = entry.target.getBoundingClientRect()
               const listRect = listDom.getBoundingClientRect()
-              if (itemRect.top < listRect.top) {
-                listDom.scrollTop += delta
-                scrollTop = listDom.scrollTop
-              }
+              // 卡片顶部在视口上方 → 高度变化会推挤视口内容，需要补偿
+              aboveViewport = itemRect.top < listRect.top
             }
 
-            if (oldHeight !== undefined) {
-              totalHeight += (newHeight - oldHeight)
-            } else {
-              totalHeight += newHeight
-              measuredCount++
-            }
-            heightsMap[id] = newHeight
-            changed = true
+            changes.push({ id, newHeight, oldHeight, delta, aboveViewport })
           }
         }
+
+        if (changes.length === 0) return
+
+        // 实时判断是否在底部（不用闭包 atBottom 变量，避免 scroll 事件异步更新导致的滞后）
+        let isReallyAtBottom = true
+        if (listDom) {
+          isReallyAtBottom = Math.abs(listDom.scrollHeight - listDom.scrollTop - listDom.clientHeight) < 30
+        }
+
+        // 阶段2: 统一计算补偿量，一次性修改 scrollTop
+        if (listDom) {
+          let totalCompensation = 0
+          for (let change of changes) {
+            if (change.delta === 0) continue
+            if (isReallyAtBottom || change.aboveViewport) {
+              totalCompensation += change.delta
+            }
+          }
+          if (totalCompensation !== 0) {
+            listDom.scrollTop += totalCompensation
+            scrollTop = listDom.scrollTop
+          }
+        }
+
+        // 阶段3: 更新 heightsMap 与 totalHeight，然后触发重绘
+        let changed = false
+        for (let change of changes) {
+          if (change.oldHeight !== undefined) {
+            totalHeight += (change.newHeight - change.oldHeight)
+          } else {
+            totalHeight += change.newHeight
+            measuredCount++
+          }
+          heightsMap[change.id] = change.newHeight
+          changed = true
+        }
+
         if (changed) {
           m.redraw()
         }
       })
 
-      const listId = vnode.attrs.chatList?.id || 0
+      const listId = vnode.attrs.chatList.id
       currentChatListId = listId
       lastDataLength = 0
       atBottom = true
       try {
         chatData.initChatLists(listId)
+
         await chatData.chatLists[listId].pull()
+
+        console.log("初始数据拉取完毕", chatData.chatLists[listId])
+
         chatData.getHistoryList(listId)
         m.redraw()
       } catch (e) {
@@ -280,6 +315,7 @@ export default () => {
           }
         `),
         m(".chatList", {
+          "data-list-id": chatList.id,
           style: {
             height: "100%",
             width: "100%",
@@ -291,26 +327,36 @@ export default () => {
             viewportHeight = scrollVnode.dom.clientHeight
             scrollTop = scrollVnode.dom.scrollTop
             const dom = scrollVnode.dom
+            const listId = chatList.id
+            chatData.getSessionState(listId).chatListDom = scrollVnode.dom
 
             // 初始判定是否在底部
-            atBottom = chatData.chatListScrollAtBottom()
+            atBottom = chatData.chatListScrollAtBottom(listId)
 
             requestAnimationFrame(() => {
               dom.scrollTop = dom.scrollHeight
+              scrollTop = dom.scrollTop
+              // 等一帧让 ResizeObserver 完成初始测量后，再滚一次确保精准到到底部
+              requestAnimationFrame(() => {
+                dom.scrollTop = dom.scrollHeight
+                scrollTop = dom.scrollTop
+              })
             })
 
             scrollVnode.dom.addEventListener("scroll", async () => {
+              const targetListId = currentChatListId !== null ? currentChatListId : chatList.id
+              const session = chatData.getSessionState(targetListId)
               const newScrollTop = scrollVnode.dom.scrollTop
               const distToBottom = dom.scrollHeight - newScrollTop - dom.clientHeight
 
               // 触顶自动拉取上一页数据
-              if (newScrollTop === 0 && currentChatListId !== null) {
-                const rows = chatData.chatLists[currentChatListId]
+              if (newScrollTop === 0 && targetListId !== null) {
+                const rows = chatData.chatLists[targetListId]
                 if (rows && !rows.isToEnd()) {
                   const oldScrollHeight = dom.scrollHeight
                   rows.clickFn()
                   await rows.pull()
-                  chatData.getHistoryList(currentChatListId)
+                  chatData.getHistoryList(targetListId)
                   m.redraw()
                   requestAnimationFrame(() => {
                     dom.scrollTop = dom.scrollHeight - oldScrollHeight
@@ -318,11 +364,21 @@ export default () => {
                 }
               }
 
-              const isNowAtBottom = chatData.chatListScrollAtBottom()
+              const isNowAtBottom = chatData.chatListScrollAtBottom(targetListId)
               if (isNowAtBottom !== atBottom) {
                 atBottom = isNowAtBottom
-                if (atBottom) {
-                  chatData.chatListUnreadCount = 0
+              }
+
+              // 💡 滚回底部闭环：如果重新回到最底部且存在未读累积，立即补拉最新消息
+              if (isNowAtBottom && session.unreadCount > 0) {
+                session.unreadCount = 0
+                const rows = chatData.chatLists[targetListId]
+                if (rows) {
+                  rows.pull().then(() => {
+                    chatData.getHistoryList(targetListId)
+                    m.redraw()
+                    chatData.scrollChatListTobottom(targetListId)
+                  })
                 }
               }
 
@@ -343,14 +399,15 @@ export default () => {
           onupdate(scrollVnode) {
             const dom = scrollVnode.dom
             listDom = scrollVnode.dom
+            const listId = chatList.id
+            chatData.getSessionState(listId).chatListDom = scrollVnode.dom
 
             // 切换会话时重置状态
-            const listId = chatList?.id || 0
             if (currentChatListId !== listId) {
               currentChatListId = listId
               lastDataLength = 0
               atBottom = true
-              chatData.chatListUnreadCount = 0
+              chatData.getSessionState(listId).unreadCount = 0
               chatData.initChatLists(listId)
               chatData.chatLists[listId].pull().then(() => {
                 chatData.getHistoryList(listId)
@@ -359,6 +416,12 @@ export default () => {
                   dom.scrollTop = dom.scrollHeight
                 })
               })
+            }
+          },
+          onremove() {
+            const listId = chatList.id
+            if (chatData.getSessionState(listId).chatListDom === listDom) {
+              chatData.getSessionState(listId).chatListDom = null
             }
           }
         }, [
@@ -383,12 +446,10 @@ export default () => {
               margin: "1rem",
             },
             async onclick() {
-              if (chatList?.id && chatList.id !== 0) {
-                await comData.data.edit(d => d.targetChatListId = chatList.linkid || 0);
-              } else {
-                await comData.data.edit(() => { })
-                await comData.pullData()
-              }
+              const hostListId = attrs.listId;
+              chatData.getSessionState(hostListId).lockedListId = null;
+              await settingData.fnCall("updateListConfig", [hostListId, { lockedListId: null }]);
+              m.redraw();
             },
           }, [
             chatList?.id === 0
@@ -428,6 +489,7 @@ export default () => {
                   top: activeUserChatOffset + (headerHeight || 0) - 50,
                   behavior: "auto"
                 });
+                scrollTop = listDom.scrollTop
               }
             }
           }, [
@@ -443,7 +505,7 @@ export default () => {
                 color: getColor('gray_8').front,
                 minWidth: 0 // 核心修复：防止被超长文本撑破 flex 容器导致 maxWidth 失效
               }
-            }, activeUserChat.content)
+            }, activeUserChat.content ? (activeUserChat.content.length > 100 ? activeUserChat.content.slice(0, 100) + "..." : activeUserChat.content) : "")
           ]) : null,
 
           // 核心消息流（应用虚拟滚动）
@@ -502,7 +564,8 @@ export default () => {
                   chatGroup.chats.map((chat) => {
                     return m(ChatItem, {
                       key: chat.uuid,
-                      chat
+                      chat,
+                      listId: attrs.listId
                     })
                   })
                 ])
@@ -522,6 +585,7 @@ export default () => {
                 reasoning: chatList?.streamReasoningChunks,
                 timestamp: Date.now(),
               },
+              listId: attrs.listId,
               onupdate() {
                 // 思考流/打字流持续推进：只要用户没有主动向上划，持续保持吸底
                 if (!userHasScrolledUp) {
@@ -529,7 +593,7 @@ export default () => {
                   // 1秒节流（只触发第一次），给用户充足的向上滚动的操作窗口期
                   if (now - lastAutoScrollTime > 1000) {
                     lastAutoScrollTime = now
-                    chatData.scrollChatListTobottom()
+                    chatData.scrollChatListTobottom(attrs.listId)
                   }
                 }
               }
@@ -554,7 +618,7 @@ export default () => {
             height: "2.4rem",
             borderRadius: "50%",
             zIndex: 100,
-            background: chatData.chatListUnreadCount > 0
+            background: chatData.getSessionState(currentChatListId !== null ? currentChatListId : chatList.id).unreadCount > 0
               ? (isHovered ? "#FFC107ee" : "#FFC107cc")
               : (isHovered ? getColor('右上角按钮背景') + "ee" : getColor('右上角按钮背景') + "cc"),
             color: getColor('右上角按钮文字'),
@@ -570,18 +634,34 @@ export default () => {
           },
           onmouseenter() { isHovered = true },
           onmouseleave() { isHovered = false },
-          onclick() {
+          onclick: async (e) => {
+            if (e && e.stopPropagation) e.stopPropagation()
+            const targetListId = currentChatListId !== null ? currentChatListId : chatList.id
+            const session = chatData.getSessionState(targetListId)
+            const hadUnread = session.unreadCount > 0
             atBottom = true
-            chatData.chatListUnreadCount = 0
+            session.unreadCount = 0
             isHovered = false
             lastScrollTime = Date.now()
+            if (hadUnread && targetListId !== null) {
+              const rows = chatData.chatLists[targetListId]
+              if (rows) {
+                rows.pull().then(() => {
+                  chatData.getHistoryList(targetListId)
+                  m.redraw()
+                  chatData.scrollChatListTobottom(targetListId)
+                })
+                return
+              }
+            }
             if (listDom) {
               listDom.scrollTop = listDom.scrollHeight
+              scrollTop = listDom.scrollTop
             }
           }
         }, [
-          m.trust(window.iconPark.getIcon("Down", { size: "1.2rem", fill: chatData.chatListUnreadCount > 0 ? "#555" : getColor('右上角按钮文字') })),
-          chatData.chatListUnreadCount > 0 ? m(".unread-badge", {
+          m.trust(window.iconPark.getIcon("Down", { size: "1.2rem", fill: chatData.getSessionState(currentChatListId !== null ? currentChatListId : chatList.id).unreadCount > 0 ? "#555" : getColor('右上角按钮文字') })),
+          chatData.getSessionState(currentChatListId !== null ? currentChatListId : chatList.id).unreadCount > 0 ? m(".unread-badge", {
             style: {
               position: "absolute",
               top: "-4px",
@@ -598,7 +678,7 @@ export default () => {
               minWidth: "1rem",
               textAlign: "center"
             }
-          }, chatData.chatListUnreadCount > 99 ? "99+" : chatData.chatListUnreadCount) : null
+          }, chatData.getSessionState(currentChatListId !== null ? currentChatListId : chatList.id).unreadCount > 99 ? "99+" : chatData.getSessionState(currentChatListId !== null ? currentChatListId : chatList.id).unreadCount) : null
         ]) : null,
 
         // 回到顶部按钮
@@ -629,6 +709,7 @@ export default () => {
             e.stopPropagation()
             if (listDom) {
               listDom.scrollTop = 0
+              scrollTop = 0
             }
           }
         }, [

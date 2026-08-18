@@ -1,13 +1,20 @@
 export default function getDefaultComData() {
   return {
     currentModel: "",
-    sendMode: "agent",
     call: null,
     inputText: "",
     chatLists: [
       {
         id: 0,
         linkid: 0,
+        lockedListId: null,
+        currentModelId: null,
+        toolsMode: 5,
+        enableThinking: false,
+        thinkControl: false,
+        thinkStrength: "medium",
+        workDirs: [],
+        tokenCompressSwitch: true,
         replying: false,
         streamChunks: "",
         streamDisplayContent: "",
@@ -45,8 +52,6 @@ export default function getDefaultComData() {
     thinkControl: false, //思考控制
     thinkStrength: "medium",
     defaultPet: "zCatBlue",
-    customCwd: "",
-    snapshots: [],
     tokenCompressSwitch: true
   }
 }

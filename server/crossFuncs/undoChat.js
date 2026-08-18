@@ -1,5 +1,4 @@
 import archiveDb from "../db/archiveDb.js"
-import aiBasic from "../tools/aiAsk/basic.js"
 import appManager from "../apps/appManager.js"
 import subAgents from "../tools/aiAsk/subAgents.js"
 import ioServer from "../ioServer/ioServer.js"
@@ -7,20 +6,32 @@ import comData from "../comData/comData.js"
 
 export default {
   name: "undoChat",
-  func: async (uuid) => {
+  func: async (uuid, listId) => {
     try {
+      let { error } = Joi.array().ordered(
+        Joi.string().required(),
+        Joi.number().required()
+      ).validate([uuid, listId]);
+      if (error) {
+        return { ok: false, msg: "参数校验失败: " + error.details[0].message };
+      }
+
       if (!archiveDb.tb_chat_messages) {
         return { ok: false, msg: "数据库未准备好" };
       }
 
       let targetTimestamp = 0;
       let targetTid = null;
-      let targetListId = -1;
+      let targetListId = typeof listId === 'number' ? listId : -1;
 
       // 从数据库中查找并删除
       const chat = await archiveDb.tb_chat_messages.findOne({ where: { uuid }, raw: true });
       if (chat) {
-        targetListId = chat.chatListId;
+        if (targetListId === -1) {
+          targetListId = chat.chatListId;
+        } else if (targetListId !== chat.chatListId) {
+          console.warn(`undoChat: provided listId ${targetListId} doesn't match db record ${chat.chatListId}`);
+        }
         targetTimestamp = chat.timestamp;
         targetTid = chat.tid;
         await archiveDb.tb_chat_messages.destroy({ where: { uuid } });
@@ -46,7 +57,7 @@ export default {
       // 同步清理 AI 模型的上下文 (增加隔离逻辑)
       const cleanupModel = (model) => {
         model.asks = model.asks.filter((ask, index) => {
-          if (index === 0 || index === 1) return true;
+          if (index === 0) return true;
           // 同时通过 ID 和时间戳判断
           if (ask.id === uuid) return false;
           if (targetTimestamp > 0 && ask.timestamp === targetTimestamp) return false;
@@ -66,12 +77,8 @@ export default {
         }
       };
 
-      if (targetListId === 0) {
-        aiBasic.list.forEach(cleanupModel);
-      } else if (targetListId > 0) {
-        const targetAgent = subAgents.get(targetListId);
-        if (targetAgent) cleanupModel(targetAgent);
-      }
+      const targetAgent = subAgents.get(targetListId);
+      if (targetAgent) cleanupModel(targetAgent);
 
       // 广播刷新事件
       if (ioServer.io && targetListId !== -1) {

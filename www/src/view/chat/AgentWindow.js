@@ -3,11 +3,14 @@
 import ChatList from "./ChatList.js"
 import InputBar from "./ChatInputBar.js"
 import comData from "../../comData/comData.js"
+import chatData from "./chatData.js"
 
 export default ({ listId, agentName }) => {
   return {
     view() {
-      const chatList = comData.data.get()?.chatLists?.find(l => l.id === listId)
+      const targetId = chatData.getSessionState(listId).lockedListId || listId;
+      const chatList = comData.getChatList(targetId) || comData.getChatList(listId);
+      
       if (!chatList) {
         return m("", {
           style: {
@@ -38,10 +41,10 @@ export default ({ listId, agentName }) => {
             flexDirection: "column",
           }
         }, [
-          m(ChatList, { chatList })
+          m(ChatList, { chatList, listId: listId })
         ]),
-        // 输入栏 (锁定到当前子智能体的 listId)
-        m(InputBar, { forcedListId: listId })
+        // 输入栏
+        m(InputBar, { listId: listId })
       ])
     }
   }

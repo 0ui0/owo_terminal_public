@@ -5,6 +5,7 @@ import waitConfirm from "../../waitConfirm.js"
 import appManager from "../../../apps/appManager.js"
 import { v4 as uuidV4 } from "uuid"
 import { trs } from "../../i18n.js"
+import workDirTool from "../../workDirTool.js"
 
 export default {
   name: "修改文件内容",
@@ -16,13 +17,11 @@ export default {
     }
     let { path, target, replace, allowMultiple, startLine, endLine, reason } = value
 
-    const comData = (await import("../../../comData/comData.js")).default
-    const customCwd = comData.data.get()?.customCwd
-    if (!customCwd && (!path || !pathLib.isAbsolute(path))) {
-      return "错误：当前未设置工作目录。请先要求用户配置工作目录，或者在使用工具时提供绝对路径。"
+    const mainDir = workDirTool.getMainWorkDir(metaData.listId)
+    if (!mainDir && (!path || !pathLib.isAbsolute(path))) {
+      return "错误：当前会话未设置工作目录。请先要求用户配置工作目录，或者在使用工具时提供绝对路径。"
     }
-    const cwd = customCwd || process.cwd()
-    const resolvedPath = pathLib.resolve(cwd, path)
+    const resolvedPath = pathLib.isAbsolute(path) ? path : pathLib.resolve(mainDir, path)
     const fileState = (await import("../../fileState.js")).default
     const stringUtils = (await import("../../stringUtils.js")).default
 
@@ -41,14 +40,15 @@ export default {
     }
 
     let comments = []
-    const isInProject = resolvedPath.startsWith(cwd)
+    // 第 1 道拦截：isInProject —— 路径是否在工作目录（主目录+辅助目录）内，目录外需用户确认
+    const workDirs = workDirTool.getWorkDirs(metaData.listId)
+    const isInProject = workDirs.some(dir => resolvedPath === dir.path || resolvedPath.startsWith(dir.path + pathLib.sep))
     if (!isInProject) {
-      const currentListId = metaData?.listId || 0
       const userConfirm = await waitConfirm({
         type: "tip",
         content: `路径：${resolvedPath}`,
         title: "是否允许在工作目录外执行 filePatcher 工具？",
-        listId: currentListId
+        listId: metaData.listId
       })
       if (!userConfirm.ok) {
         return `用户拒绝访问项目外文件：${resolvedPath}。原因：${userConfirm.comment || "未提供"}`
@@ -116,16 +116,6 @@ export default {
         }
       }
 
-      // 覆盖更新缓存状态
-      const newStat = await fs.stat(resolvedPath).catch(() => ({ mtimeMs: Date.now() }))
-      fileState.set(resolvedPath, {
-        timestamp: newStat.mtimeMs || Date.now(),
-        content: newContent,
-        // 这里如果是 target 模式，原本的行号范围失效了，简单置空
-        startLine: 0,
-        endLine: 0
-      })
-
       // 3. Launch Dedicated Editor Window
       const appId = `editor_patcher_${uuidV4().slice(0, 8)}`
       const confirmId = uuidV4()
@@ -149,7 +139,7 @@ export default {
         type: "tip",
         title: `核对代码变更: ${pathLib.basename(path)}`,
         content: `${reason}\n\n` + trs("工具/提示/请在编辑器中核核对代码", { cn: "请在编辑器中核对代码并批准/拒绝修改", en: "Please review the code in the editor and approve/reject changes" }),
-        listId: metaData?.listId || 0
+        listId: metaData.listId
       })
 
       // 无论批准还是拒绝，只要是通过本工具启动的窗口，都应关闭
@@ -164,6 +154,16 @@ export default {
 
       // 5. Final Write (The tool handles the IO)
       await fs.writeFile(resolvedPath, newContent, "utf-8")
+
+      // 真正落盘成功后，闭环同步更新 fileState 状态缓存与最新 mtime
+      const newStat = await fs.stat(resolvedPath).catch(() => ({ mtimeMs: Date.now() }))
+      fileState.set(resolvedPath, {
+        timestamp: newStat.mtimeMs || Date.now(),
+        content: newContent,
+        startLine: 0,
+        endLine: 0
+      })
+
       let commentSuffix = comments.length > 0 ? `。用户备注：${comments.join("；")}` : ""
       return `修改成功。已应用并保存到 ${path}${commentSuffix}。`
 

@@ -3,13 +3,17 @@ import getColor from "../common/getColor.js"
 import Tag from "../common/tag.js"
 import mermaid from "mermaid"
 import format from "../common/format.js"
+import settingData from "../setting/settingData.js"
 
-// 初始化 Mermaid 配置，使用暗色主题适配终端
+// 初始化 Mermaid 配置，使用暗色主题适配终端，并强制使用纯 SVG text 渲染节点文字
 mermaid.initialize({
   startOnLoad: false,
   theme: 'dark',
   securityLevel: 'loose',
   fontFamily: 'monospace',
+  flowchart: {
+    htmlLabels: false
+  },
   themeVariables: {
     primaryColor: getColor('main').back,
     primaryTextColor: getColor('main').front,
@@ -23,6 +27,7 @@ mermaid.initialize({
  */
 export default () => {
   let expandedStates = {};
+  let currentSvgString = "";
 
   // 生成 Mermaid 源码
   const buildMermaidCode = (graph) => {
@@ -51,6 +56,7 @@ export default () => {
     const id = "mermaid_" + Math.random().toString(36).slice(2, 9);
     try {
       mermaid.render(id, code).then(({ svg }) => {
+        currentSvgString = svg;
         dom.innerHTML = svg;
         m.redraw(); // 渲染完成后通知 Mithril 重绘，确保高度被捕捉
       }).catch(err => {
@@ -60,6 +66,71 @@ export default () => {
       });
     } catch (e) {
       console.error(e);
+    }
+  };
+
+  /**
+   * 绝对几何扁平化处理器 (Flattened Absolute Geometry Processor)
+   * 全面支持 path、polygon、rect 的真实几何包围盒解析，彻底根除坐标退化
+   */
+  const flattenMermaidSvgToCleanSvg = (svgString) => {
+    if (!svgString || typeof svgString !== "string") return svgString;
+    try {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(svgString, "image/svg+xml");
+      const rootSvg = doc.querySelector("svg");
+      if (!rootSvg) return svgString;
+
+      // 1. 遍历所有 Mermaid 节点容器
+      const allNodes = Array.from(doc.querySelectorAll("g.node, .node"));
+      const topNodes = allNodes.filter(n => !n.parentElement?.closest("g.node, .node"));
+
+      topNodes.forEach(nodeEl => {
+        // 提取异构文本
+        const text = (nodeEl.textContent || "").trim();
+        if (!text) return;
+
+        // 移除原有的 label 容器和 foreignObject（包含干扰的负偏移量 transform）
+        nodeEl.querySelectorAll("g.label, foreignObject").forEach(el => el.remove());
+
+        // 计算文字视觉居中偏移量（每个汉字约 14px，西文约 7px）
+        let textLen = 0;
+        for (let i = 0; i < text.length; i++) {
+          textLen += text.charCodeAt(i) > 255 ? 14 : 7;
+        }
+        // node 自身以 (0,0) 为几何中心，向左偏移半个字符宽度实现水平绝对居中
+        const renderX = -textLen / 2;
+        const renderY = 5; // 基线向下微调 5px 命中垂直中心线
+
+        // 创建纯净 SVG text 并直接作为 node 的子元素
+        const flatText = doc.createElementNS("http://www.w3.org/2000/svg", "text");
+        flatText.setAttribute("x", renderX.toString());
+        flatText.setAttribute("y", renderY.toString());
+        flatText.setAttribute("text-anchor", "middle");
+        flatText.setAttribute("dominant-baseline", "middle");
+        flatText.setAttribute("fill", "#000000");
+        flatText.setAttribute("font-size", "14");
+        flatText.setAttribute("font-family", "Arial, sans-serif");
+
+        const lines = text.split('\n');
+        lines.forEach((line, i) => {
+          const tspan = doc.createElementNS("http://www.w3.org/2000/svg", "tspan");
+          tspan.setAttribute("x", renderX.toString());
+          if (i > 0) tspan.setAttribute("dy", "16");
+          tspan.textContent = line;
+          flatText.appendChild(tspan);
+        });
+
+        nodeEl.appendChild(flatText);
+      });
+
+      // 2. 清理所有孤立的 foreignObject 防止格式污染
+      doc.querySelectorAll("foreignObject").forEach(fo => fo.remove());
+
+      return new XMLSerializer().serializeToString(doc.documentElement);
+    } catch (err) {
+      console.error("【ChatNote】SVG 绝对几何扁平化失败:", err);
+      return svgString;
     }
   };
 
@@ -108,7 +179,7 @@ export default () => {
               pointerEvents: "none"
             }
           }),
-          // 标题
+          // 标题与操作栏
           m("", {
             style: {
               width: "100%",
@@ -119,11 +190,95 @@ export default () => {
               zIndex: 2,
               display: "flex",
               alignItems: "center",
-              gap: "0.5rem"
+              justifyContent: "space-between",
+              gap: "0.5rem",
+              flexWrap: "wrap"
             }
           }, [
-            m.trust(window.iconPark.getIcon("TrendTwo", { size: "1rem" })),
-            "TACTICAL SANDBOX / 战术沙盘拓扑"
+            m("", {
+              style: {
+                display: "flex",
+                alignItems: "center",
+                gap: "0.5rem"
+              }
+            }, [
+              m.trust(window.iconPark.getIcon("TrendTwo", { size: "1rem" })),
+              "TACTICAL SANDBOX / 战术沙盘拓扑"
+            ]),
+            m("", {
+              style: {
+                display: "flex",
+                alignItems: "center",
+                gap: "0.5rem"
+              }
+            }, [
+              m(Tag, {
+                isBtn: true,
+                color: "gray_4",
+                styleExt: {
+                  display: "inline-flex",
+                  alignItems: "center",
+                  cursor: "pointer"
+                },
+                onclick: async () => {
+                  if (!currentSvgString) {
+                    window.Notice?.launch({ msg: "当前暂无生成的网点图 SVG 喵！", color: "yellow" });
+                    return;
+                  }
+                  try {
+                    await navigator.clipboard.writeText(currentSvgString);
+                    window.Notice?.launch({ msg: "原始 SVG 源码已复制到剪贴板！", color: "green" });
+                  } catch (e) {
+                    console.error("复制失败:", e);
+                    window.Notice?.launch({ msg: "复制失败: " + e.message, type: "error" });
+                  }
+                }
+              }, [
+                m("span", {}, "复制原始SVG")
+              ]),
+              m(Tag, {
+                isBtn: true,
+                color: "purple_2",
+                styleExt: {
+                  display: "inline-flex",
+                  alignItems: "center",
+                  cursor: "pointer"
+                },
+                onclick: async () => {
+                  if (!currentSvgString) {
+                    window.Notice?.launch({ msg: "当前暂无生成的网点图 SVG 喵！", color: "yellow" });
+                    return;
+                  }
+                  try {
+                    // 1. 标准调用后端 appLaunch 启动 svgEditor App
+                    const launchRes = await settingData.fnCall("appLaunch", ["svgEditor", {}]);
+                    if (launchRes && launchRes.ok && launchRes.app && launchRes.app.id) {
+                      // 2. 将 Mermaid 嵌套图元做绝对几何扁平化处理
+                      const cleanSvg = flattenMermaidSvgToCleanSvg(currentSvgString);
+                      // 3. 待实例挂载后，通过 appDispatch 将干净纯正的沙盘 SVG 导入
+                      setTimeout(async () => {
+                        try {
+                          await settingData.fnCall("appDispatch", [
+                            launchRes.app.id,
+                            "drawSvg",
+                            { svgString: cleanSvg }
+                          ]);
+                        } catch (dispatchErr) {
+                          console.error("【svgEditor】分发 SVG 失败:", dispatchErr);
+                        }
+                      }, 350);
+                    } else {
+                      window.Notice?.launch({ msg: "启动矢量图编辑器失败: " + (launchRes?.msg || "未知错误"), type: "error" });
+                    }
+                  } catch (err) {
+                    console.error("【svgEditor】启动 App 失败:", err);
+                    window.Notice?.launch({ msg: "启动失败: " + err.message, type: "error" });
+                  }
+                }
+              }, [
+                m("span", {}, "在矢量图编辑器打开")
+              ])
+            ])
           ]),
           // Mermaid 容器
           m(".mermaid-viewer", {

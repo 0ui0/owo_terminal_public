@@ -356,7 +356,7 @@ export default () => {
                 flexDirection: "column",
                 gap: "1.2rem"
               }
-            }, Object.keys(model).filter(k => k !== "_expanded" && k !== "_showKey" && k !== "system" && k !== "price" && k !== "tokenRate").map(key => {
+            }, Object.keys(model).filter(k => k !== "_expanded" && k !== "_showKey" && k !== "id" && k !== "system" && k !== "price" && k !== "tokenRate").map(key => {
               const label = getModelFieldLabel(key)
               const val = model[key]
               const isBool = key === "switch" || key === "system" || typeof val === "boolean" || (key === "switch" && (val === 0 || val === 1))

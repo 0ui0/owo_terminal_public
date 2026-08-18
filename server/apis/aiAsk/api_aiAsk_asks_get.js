@@ -1,4 +1,3 @@
-import aiBasic from "../../tools/aiAsk/basic.js"
 import subAgents from "../../tools/aiAsk/subAgents.js"
 import { trs } from "../../tools/i18n.js"
 
@@ -9,15 +8,6 @@ export default async () => {
     handler: async (req, h) => {
       try {
         let output = []
-        aiBasic.list.forEach((model, index) => {
-          output.push({
-            name: model.name,
-            model: model.model,
-            listId: 0,
-            asks: model.asks
-          })
-        })
-
         subAgents.getAll().forEach((agent, listId) => {
           output.push({
             name: agent.name,

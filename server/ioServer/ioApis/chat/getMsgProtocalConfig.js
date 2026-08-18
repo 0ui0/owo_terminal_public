@@ -7,6 +7,7 @@ import chats from "./chats.js"
 import options from "../../../config/options.js"
 import { parse as parseBestEffort, disableErrorLogging } from "best-effort-json-parser"
 import yaml from "js-yaml"
+import workDirTool from "../../../tools/workDirTool.js"
 
 disableErrorLogging()
 
@@ -19,33 +20,37 @@ export default function (json) {
   } = json
   let io = ioServer.io
 
+  const chatList = comData.getChatList(listId);
+
+  const tokenCompressSwitch = chatList.tokenCompressSwitch;
+  const toolsMode = chatList.toolsMode;
+  const enableThinking = chatList.enableThinking;
+  const thinkControl = chatList.thinkControl;
+  const thinkStrength = chatList.thinkStrength;
+
   return {
-    tokenCompressSwitch: comData.data.get().tokenCompressSwitch,
-    toolsMode: comData.data.get().toolsMode,
+    tokenCompressSwitch: tokenCompressSwitch,
+    toolsMode: toolsMode,
     listId: listId,
-    enableThinking: comData.data.get().enableThinking,
-    thinkControl: comData.data.get().thinkControl,
-    thinkStrength: comData.data.get().thinkStrength,
-    tools: comData.data.get().toolsMode === 3
+    enableThinking: enableThinking,
+    thinkControl: thinkControl,
+    thinkStrength: thinkStrength,
+    tools: toolsMode === 3
       ? appManager.getTools()
       : appManager.getTools().filter((tool) => {
-        const toolsMode = comData.data.get().toolsMode
         const isHidden = typeof tool.hidden === 'function' ? tool.hidden(toolsMode) : !!tool.hidden
         return !isHidden
       }),
 
     onMemoryChange: async (aiAskInstance, notes) => {
       await comData.data.edit((data) => {
-        const list = data.chatLists.find(l => l.id === listId);
-        if (list) {
-          list.notes = notes; // 复用 memorys 历史作为可视化笔记
-        }
+        const list = comData.getChatList(listId);
+        list.notes = notes; // 复用 memorys 历史作为可视化笔记
       })
     },
     onTaskChange: async (aiAskInstance, tasks) => {
       await comData.data.edit(async (data) => {
-        const chatList = data.chatLists.find(l => l.id === listId)
-        if (!chatList) return
+        const chatList = comData.getChatList(listId);
 
         const currentTasks = chatList.tasks || []
         const errors = []
@@ -117,7 +122,7 @@ export default function (json) {
             chatListId: listId
           }
           await chats.add(chat, listId)
-          chats.refresh(listId)
+          ioServer.io.emit("chat:push", { listId })
 
           // 抛出错误以告知 AiAsk 触发重试喵
           throw new Error(errorMsg)
@@ -127,7 +132,8 @@ export default function (json) {
     getExtraInfo: () => {
       const appList = appManager.getAppList(20)
       const appDetails = appManager.getAiSummary(5, 1000)
-      const { customCwd } = comData.data.get()
+      const chatList = comData.getChatList(listId);
+      const workDirs = workDirTool.getWorkDirs(listId);
       const lang = options.json?.global_language?.value || 'cn'
       const langMap = {
         cn: "用户指定你用中文回复",
@@ -154,8 +160,13 @@ export default function (json) {
         parts.push(`当前token余额：${currentTokenConfig.preTokens}`)
       }
 
-      if (customCwd) {
-        parts.push(`工作目录：${customCwd}`)
+      if (workDirs.length > 0) {
+        const mainDir = workDirs.find((item) => item.type === "main")?.path
+        const auxDirs = workDirs.filter((item) => item.type !== "main").map((item) => item.path)
+        const dirParts = []
+        if (mainDir) dirParts.push(`主工作目录：${mainDir}`)
+        if (auxDirs.length > 0) dirParts.push(`辅助工作目录：${auxDirs.join("、")}`)
+        parts.push(dirParts.join("\n"))
       }
 
       if (appList.length > 0) {
@@ -170,7 +181,7 @@ export default function (json) {
       }
 
       // 1. 插入网点图骨架 (网点图先行)
-      const graph = comData.data.get().chatLists.find(l => l.id === listId)?.graph || { nodes: {}, links: [] }
+      const graph = comData.getChatList(listId).graph || { nodes: {}, links: [] }
       let graphStr = '【推理网点图】\n'
       if (graph.nodes && Object.keys(graph.nodes).length > 0) {
         for (const id in graph.nodes) {
@@ -178,7 +189,11 @@ export default function (json) {
         }
         if (graph.links && graph.links.length > 0) {
           graph.links.forEach(l => {
-            graphStr += `- [连线] ${l.source} --> ${l.target}\n`
+            const from = l.from || l.source;
+            const to = l.to || l.target;
+            if (from && to) {
+              graphStr += `- [连线] ${from} --> ${to}\n`
+            }
           })
         }
       } else {
@@ -187,7 +202,7 @@ export default function (json) {
       parts.push(graphStr.trim())
 
       // 2. 插入任务清单
-      const tasks = comData.data.get().chatLists.find(l => l.id === listId)?.tasks || []
+      const tasks = comData.getChatList(listId).tasks || []
       let taskStr = '【任务清单】\n'
       if (tasks.length > 0) {
         tasks.forEach(t => {
@@ -211,8 +226,9 @@ export default function (json) {
       const aiList = await options.get("ai_aiList");
       let modelIndex = -1;
 
-      const currentModelName = comData.data.get().currentModel;
-      modelIndex = aiList.findIndex(m => m.name === currentModelName);
+      const chatList = comData.getChatList(listId);
+      const currentModelId = chatList.currentModelId;
+      modelIndex = aiList.findIndex(m => m.id === currentModelId);
 
       if (!aiList[modelIndex]) {
         throw new Error(trs("错误/找不到模型配置", { cn: "找不到模型对应的数据库模型配置（读取preToken错误）", en: "Model config not found (preToken read error)" }));
@@ -225,8 +241,9 @@ export default function (json) {
       const aiList = await options.get("ai_aiList");
       let modelIndex = -1;
 
-      const currentModelName = comData.data.get().currentModel;
-      modelIndex = aiList.findIndex(m => m.name === currentModelName);
+      const chatList = comData.getChatList(listId);
+      const currentModelId = chatList.currentModelId;
+      modelIndex = aiList.findIndex(m => m.id === currentModelId);
 
       if (aiList[modelIndex]) {
         aiList[modelIndex].preTokens = Number(aiList[modelIndex].preTokens) - Number(usage.totalT);
@@ -235,17 +252,15 @@ export default function (json) {
     },
     async onRollMemory(status) {
       await comData.data.edit((data) => {
-        const list = data.chatLists.find(l => l.id === listId);
-        if (list) {
-          if (status === "start") {
-            list.replying = true;
-            list.streamChunks = trs("消息/正在整理记忆", { cn: "正在整理记忆...", en: "Optimizing memory..." });
-            list.streamReasoningChunks = ""; // 清除回复阶段残留的思考链
-            list.streamDisplayContent = "";
-          } else {
-            list.replying = false;
-            list.streamChunks = "";
-          }
+        const list = comData.getChatList(listId);
+        if (status === "start") {
+          list.replying = true;
+          list.streamChunks = trs("消息/正在整理记忆", { cn: "正在整理记忆...", en: "Optimizing memory..." });
+          list.streamReasoningChunks = ""; // 清除回复阶段残留的思考链
+          list.streamDisplayContent = "";
+        } else {
+          list.replying = false;
+          list.streamChunks = "";
         }
       })
     },
@@ -257,7 +272,8 @@ export default function (json) {
       mind = content = "";
       if (reply.role === "assistant") {
         try {
-          const toolsMode = comData.data.get().toolsMode;
+          const chatList = comData.getChatList(listId);
+          const toolsMode = chatList.toolsMode;
 
           if (toolsMode === 5) {
             // 模式 5：兼容纯 Markdown 加 <extJsonConfig> 的情况
@@ -273,13 +289,18 @@ export default function (json) {
             // 剥离 <extJsonConfig> 标签，让前台拿到纯净的 markdown 内容
             const cleanContent = reply.content.replace(/<extJsonConfig>[\s\S]*?<\/extJsonConfig>/, "").trim();
 
+            //这个转化后的字段会存入数据库
             contentJSON = {
-              mind: extConfig.mind || "...",
+              mind: extConfig.mind || "",
               mood: extConfig.mood ?? 5,
               content: cleanContent,
               playFace: extConfig.playFace || "无表情",
               faceAction: extConfig.faceAction || "none",
-              graph: extConfig.graph || "我已知晓"
+
+              graph: extConfig.graph || "我已知晓",
+              call: extConfig.call,
+              quotes: extConfig.quotes,
+              note: extConfig.note
             };
           } else {
             // 其它普通模式：大模型直接返回全量 JSON 字符串
@@ -335,7 +356,7 @@ export default function (json) {
         }
       }
       await chats.add(chat, listId)
-      chats.refresh(listId)
+      ioServer.io.emit("chat:push", { listId })
       /* 这里不用添加，已经aiAsk里面是先加了Ask再执行这个函数
       aiBasic.list.forEach((model)=>{
         model.addAsk(chat.name,"assistant",chat.content,{
@@ -347,65 +368,59 @@ export default function (json) {
 
     },
     async beforeRun() {
-      const list = comData.data.get().chatLists.find(l => l.id === listId);
+      const list = comData.getChatList(listId);
       if (list?.stop) {
         targetModel.addAsk(trs("角色/系统"), "user", trs("消息/用户手动中断", { cn: "用户手动中断回复", en: "User manually interrupted" }))
         targetModel.stopRun()
       }
       await comData.data.edit((data) => {
-        const list = data.chatLists.find(l => l.id === listId);
-        if (list) {
-          list.replying = targetModel.replying;
-          list.streamChunks = "";
-          list.streamDisplayContent = "";
-          list.streamReasoningChunks = "";
-        }
+        const list = comData.getChatList(listId);
+        list.replying = targetModel.replying;
+        list.streamChunks = "";
+        list.streamDisplayContent = "";
+        list.streamReasoningChunks = "";
       })
 
 
     },
     async endRun() {
       await comData.data.edit((data) => {
-        const list = data.chatLists.find(l => l.id === listId);
-        if (list) {
-          list.replying = targetModel.replying;
-          list.streamChunks = "";
-          list.streamDisplayContent = "";
-          list.streamReasoningChunks = ""; // 运行结束，清理流缓冲
-        }
+        const list = comData.getChatList(listId);
+        list.replying = targetModel.replying;
+        list.streamChunks = "";
+        list.streamDisplayContent = "";
+        list.streamReasoningChunks = ""; // 运行结束，清理流缓冲
       })
     },
     async streamFn({ chunk, replyChunk, reasoningChunk }) {
       await comData.data.edit((data) => {
-        const list = data.chatLists.find(l => l.id === listId);
+        const list = comData.getChatList(listId);
 
-        if (list) {
-          if (replyChunk) {
-            list.streamChunks += replyChunk; // 依然保持原生的 streamChunks 协议完整
+        if (replyChunk) {
+          list.streamChunks += replyChunk; // 依然保持原生的 streamChunks 协议完整
 
-            // --- 顶配提取器：使用成熟库从 list.streamChunks 中抠出当前最完整的正文 ---
-            try {
-              const partial = parseBestEffort(list.streamChunks);
-              if (partial) {
-                // 同步正式文本渲染逻辑：(mind)content
-                const mindPart = partial.mind ? `> (${partial.mind})\n\n` : "";
-                const contentPart = partial.content || "";
-                let notePart = "";
-                if (partial.note) {
-                  const noteContent = (typeof partial.note === 'object' && partial.note !== null) ? yaml.dump(partial.note) : partial.note;
-                  notePart = "\n\n---\n**【思考笔记】**\n" + noteContent;
-                }
-                list.streamDisplayContent = mindPart + contentPart + notePart;
+          // --- 顶配提取器：使用成熟库从 list.streamChunks 中抠出当前最完整的正文 ---
+          try {
+            const partial = parseBestEffort(list.streamChunks);
+            if (partial) {
+              // 同步正式文本渲染逻辑：(mind)content
+              const mindPart = partial.mind ? `> (${partial.mind})\n\n` : "";
+              const contentPart = partial.content || "";
+              let notePart = "";
+              if (partial.note) {
+                const noteContent = (typeof partial.note === 'object' && partial.note !== null) ? yaml.dump(partial.note) : partial.note;
+                notePart = "\n\n---\n**【思考笔记】**\n" + noteContent;
               }
-            } catch (e) {
-              if (!list._hasLoggedStreamError) {
-                console.log("[qqBot/Stream] 流json处理失败(仅提示一次):", e.message);
-                list._hasLoggedStreamError = true;
-              }
+              list.streamDisplayContent = mindPart + contentPart + notePart;
+            }
+          } catch (e) {
+            if (!list._hasLoggedStreamError) {
+              console.log("[qqBot/Stream] 流json处理失败(仅提示一次):", e.message);
+              list._hasLoggedStreamError = true;
             }
           }
-          if (reasoningChunk) list.streamReasoningChunks += reasoningChunk;
         }
+        if (reasoningChunk) list.streamReasoningChunks += reasoningChunk;
       })
     },
 

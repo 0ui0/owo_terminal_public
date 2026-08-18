@@ -1,5 +1,4 @@
 import comData from "../../comData/comData.js"
-import aiBasic from "../../tools/aiAsk/basic.js"
 import subAgents from "../../tools/aiAsk/subAgents.js"
 import { trs } from "../../tools/i18n.js"
 
@@ -9,27 +8,20 @@ export default async () => {
     method: "get",
     handler: async (req, h) => {
       try {
-        let output = {
-          aiBasic: [],
-          subAgents: [],
+        let chatList = [];
+        for (const [id, model] of subAgents.getAll()) {
+          chatList.push({
+            name: model.name,
+            listId: id,
+            model: model.model,
+            messages: model.messages
+          });
         }
-        aiBasic.list.forEach((model, index) => {
-          output.aiBasic[index] = {
-            name: model.name,
-            model: model.model,
-            messages: model.messages
-          }
-        })
-        Array.from(subAgents.getAll()).forEach((model, index) => {
-          output.subAgents[index] = {
-            name: model.name,
-            model: model.model,
-            messages: model.messages
-          }
-        })
+        
+        chatList.sort((a, b) => a.listId - b.listId);
         return {
           ok: true,
-          data: output
+          data: chatList
         }
       }
       catch (err) {

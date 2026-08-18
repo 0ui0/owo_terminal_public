@@ -2,6 +2,7 @@ import Joi from "joi"
 import yaml from "js-yaml"
 import comData from "../../../comData/comData.js"
 import chats from "../../../ioServer/ioApis/chat/chats.js"
+import ioServer from "../../../ioServer/ioServer.js"
 import idTool from "../../../tools/idTool.js"
 import { trs } from "../../../tools/i18n.js"
 import archiveDb from "../../../db/archiveDb.js"
@@ -163,7 +164,7 @@ ${summaryText}
       }
 
       await chats.add(chat, listId)
-      chats.refresh(listId)
+      ioServer.io.emit("chat:push", { listId })
 
       // 4. 整理 AI 模型内部维护 of 对话上下文 asks，将其截断为仅有基础提示 and 刚落库的 user 消息
       if (aiAskInstance.asks && aiAskInstance.asks.length > 0) {
@@ -207,7 +208,7 @@ ${summaryText}
               })
               console.log("[compressContext] 异步成功物理清除数据库中该组的 tool 消息数量:", uuidsToDelete.length, uuidsToDelete)
               // 关键：通知前端刷新，抹除残留卡片
-              chats.refresh(listId)
+              ioServer.io.emit("chat:refresh", { listId })
             }
           } catch (dbErr) {
             console.error("[compressContext] 从数据库删除 tool 消息失败:", dbErr)

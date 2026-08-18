@@ -182,22 +182,45 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, settingData, 
                 zIndex: 100,
                 background: getColor('gray_4').back
               } : {},
-              customCwd: comData.data.get()?.customCwd,
               onOpenProjectBackup: async () => {
-                const cwd = comData.data.get()?.customCwd;
-                if (!cwd) return;
-                const targetPath = `${cwd}/.owoTimeMachine`;
-                const oldPath = repoPath;
-                repoPath = targetPath;
-                if (await loadHistory()) {
-                  await settingData.fnCall("appUpdateData", [appId, { repoPath }]);
-                  hash = null;
-                  files = [];
-                } else {
-                  repoPath = oldPath;
+                // 收集所有会话配置的主工作目录
+                const mainDirs = comData.data.get().chatLists
+                  .map(l => l.workDirs.find(w => w.type === "main")?.path)
+                  .filter(Boolean);
+                if (mainDirs.length === 0) {
+                  Notice.launch({ tip: "打开项目备份", msg: "尚未配置任何主工作目录，请先在会话中配置工作目录喵！" })
+                  return;
                 }
-                if (isMob) showSidebar = false;
-                m.redraw();
+                // 打开备份仓库并刷新列表
+                const openRepo = async (dir) => {
+                  const targetPath = `${dir}/.owoTimeMachine`;
+                  const oldPath = repoPath;
+                  repoPath = targetPath;
+                  if (await loadHistory()) {
+                    await settingData.fnCall("appUpdateData", [appId, { repoPath }]);
+                    hash = null;
+                    files = [];
+                  } else {
+                    repoPath = oldPath;
+                  }
+                  if (showSidebar) showSidebar = false;
+                  m.redraw();
+                };
+                Notice.launch({
+                  tip: "打开项目备份",
+                  content: {
+                    view: (vn) => m("", { style: { padding: "1rem", display: "flex", flexDirection: "column", gap: "0.5rem" } },
+                      mainDirs.map(dir => m(Box, {
+                        isBtn: true,
+                        color: "gray_3",
+                        onclick: async () => {
+                          await openRepo(dir);
+                          vn.attrs.delete();
+                        }
+                      }, dir.split(/[/\\]/).filter(Boolean).pop() || dir))
+                    )
+                  }
+                });
               },
               onSelect: (newHash) => {
                 hash = newHash;

@@ -1,4 +1,4 @@
-import pathLib from "path"
+import tempPath from "../../tools/tempPath.js"
 
 export default async () => {
     return {
@@ -6,7 +6,7 @@ export default async () => {
         path: "/attachment/{param*}",
         handler: {
             directory: {
-                path: pathLib.resolve("./attachment"),
+                path: tempPath.get("attachment"),
                 redirectToSlash: true
             }
         }

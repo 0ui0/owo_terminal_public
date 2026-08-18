@@ -10,21 +10,28 @@ export default async () => {
     cnName: "聊天消息",
     setFields: ["content", "reasoning", "name", "group", "timestamp", "chatListId", "attachments", "ask", "snapshotId"],
     getQuery: {
-      listId: Joi.number().integer().optional()
+      listId: Joi.number().integer().optional(),
+      uuid: Joi.string().optional()
     },
     getFindAllWhere: (sendParams) => {
-      const { listId } = sendParams.que
+      const { listId, uuid } = sendParams.que
       const where = {}
       if (listId !== undefined) {
         where.chatListId = Number(listId)
       }
+      if (uuid !== undefined) {
+        where.uuid = uuid
+      }
       return where
     },
     getAllCountWhere: (sendParams) => {
-      const { listId } = sendParams.que
+      const { listId, uuid } = sendParams.que
       const where = {}
       if (listId !== undefined) {
         where.chatListId = Number(listId)
+      }
+      if (uuid !== undefined) {
+        where.uuid = uuid
       }
       return where
     }

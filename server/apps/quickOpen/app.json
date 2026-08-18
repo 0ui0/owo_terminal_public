@@ -1,0 +1,9 @@
+{
+  "id": "quickOpen",
+  "name": "快速打开",
+  "description": "VSCode 风格快速打开：跨工作目录搜索文件，回车打开",
+  "icon": "icon.svg",
+  "version": "1.0.0",
+  "backend": "backend.js",
+  "frontend": "frontend.js"
+}

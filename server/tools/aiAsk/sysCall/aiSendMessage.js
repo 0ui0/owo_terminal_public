@@ -1,7 +1,6 @@
 import chats from "../../../ioServer/ioApis/chat/chats.js"
 import ioServer from "../../../ioServer/ioServer.js"
 import subAgents from "../subAgents.js"
-import aiBasic from "../basic.js"
 import comData from "../../../comData/comData.js"
 import Joi from "joi"
 
@@ -17,38 +16,24 @@ export default {
 
     const { deferredFns, aiAskInstance } = metaData || {};
 
-    // 提前确定发送者名称（闭包捕获），agent 的最终实例在 sendFn 内部解析
+    // 提前确定发送者名称（闭包捕获），在真正的发送环节执行
     let senderName;
+    let targetAgent = aiAskInstance || subAgents.get(listId);
+    
     if (aiAskInstance) {
       senderName = aiAskInstance.name;
-    } else if (listId === 0) {
-      const currentModelName = comData.data.get().currentModel;
-      const m = aiBasic.list.find(m => m.name === currentModelName);
-      senderName = m ? m.name : "主控AI";
     } else {
-      const m = subAgents.get(listId);
-      senderName = m ? m.name : `智能体(List:${listId})`;
+      senderName = targetAgent ? targetAgent.name : (listId === 0 ? "主控AI" : `智能体(List:${listId})`);
     }
 
-    const sendFn = async () => {
-      // 确定最终使用的 agent（优先 aiAskInstance，其次从 listId 查找）
-      let agent = aiAskInstance;
-      if (!agent) {
-        if (listId === 0) {
-          const currentModelName = comData.data.get().currentModel;
-          agent = aiBasic.list.find(m => m.name === currentModelName);
-        } else {
-          agent = subAgents.get(listId);
-        }
-      }
-
-      // 1. 先通过 agent.addAsk 将消息加入 AI 记忆，并获取标准的 ask 元数据对象
-      const ask = agent.addAsk(senderName, "assistant", content, {
+    const processSend = async () => {
+      // 1. 先通过 addAsk 将消息加入 AI 记忆，并获取标准的 ask 元数据对象
+      const ask = targetAgent.addAsk(senderName, "assistant", content, {
         group: "agent",
         listId: listId
       });
 
-      // 2. 构造发往前端和数据库的 chat 对象，确保包含 ask 字段，与 ioApi_chat.js 保持 100% 一致
+      // 2. 构造发往前端和数据库的 chat 对象，确保包含 ask 字段，与底层存储结构保持一致
       const chat = {
         uuid: ask.id,
         content: content,
@@ -64,17 +49,17 @@ export default {
         ioServer.io.emit("chat", chat);
       }
 
-      // 4. 存入数据库（comData.chatLists）
+      // 4. 存入数据库
       await chats.add(chat, listId);
     };
 
-    // 如果处于工具调用周期中（deferredFns 由 AiAsk.coffee 注入），进入延迟队列，协议安全执行
-    // 否则（如直接调用等场景）立即执行
+    // 如果处于工具调用周期中（deferredFns 由底层注入），进入延迟队列，确保安全执行
+    // 否则直接执行
     if (deferredFns) {
-      deferredFns.push(sendFn);
+      deferredFns.push(processSend);
       return "消息已加入延迟队列，将在本轮工具调用全部结束后发送。";
     } else {
-      await sendFn();
+      await processSend();
       return "消息已发送";
     }
 

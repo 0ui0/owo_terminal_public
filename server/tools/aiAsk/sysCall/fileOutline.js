@@ -2,17 +2,40 @@ import Joi from "joi"
 import fs from "fs/promises"
 import pathLib from "path"
 import { parse } from "@babel/parser"
+import workDirTool from "../../workDirTool.js"
+import waitConfirm from "../../waitConfirm.js"
 
 export default {
   name: "获取文件大纲",
   id: "fileOutline",
-  async fn(argObj) {
+  async fn(argObj, metaData) {
     let { value, error } = this.joi().validate(argObj)
     if (error) {
       return "错误：" + error.details[0].message
     }
     let { path } = value
-    const resolvedPath = pathLib.resolve(path)
+
+    const mainDir = workDirTool.getMainWorkDir(metaData?.listId)
+    if (!mainDir && (!path || !pathLib.isAbsolute(path))) {
+      return "错误：当前会话未设置工作目录。请先要求用户配置工作目录，或者在使用工具时提供绝对路径。"
+    }
+    const resolvedPath = pathLib.isAbsolute(path) ? path : pathLib.resolve(mainDir, path)
+
+    // 读白名单 = 主目录 + 辅助目录，全部工作目录内不拦截
+    const workDirs = workDirTool.getWorkDirs(metaData?.listId)
+    const isInProject = workDirs.some(dir => resolvedPath === dir.path || resolvedPath.startsWith(dir.path + pathLib.sep))
+    if (!isInProject) {
+      const userConfirm = await waitConfirm({
+        type: "tip",
+        content: `路径：${resolvedPath}`,
+        title: "是否允许在工作目录外执行 fileOutline 工具？",
+        listId: metaData?.listId
+      })
+      if (!userConfirm.ok) {
+        return `用户拒绝访问项目外文件：${resolvedPath}。原因：${userConfirm.comment || "未提供"}`
+      }
+    }
+
     const ext = pathLib.extname(resolvedPath).toLowerCase()
 
     try {

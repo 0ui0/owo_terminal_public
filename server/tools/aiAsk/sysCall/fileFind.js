@@ -2,6 +2,7 @@ import Joi from "joi"
 import fs from "fs/promises"
 import pathLib from "path"
 import waitConfirm from "../../waitConfirm.js"
+import workDirTool from "../../workDirTool.js"
 
 export default {
   name: "查找文件",
@@ -14,23 +15,22 @@ export default {
     let { pattern, searchPath, maxDepth } = value
 
     // Resolve Path
-    const comData = (await import("../../../comData/comData.js")).default
-    const customCwd = comData.data.get()?.customCwd
-    if (!customCwd && (!searchPath || !pathLib.isAbsolute(searchPath))) {
-      return "错误：当前未设置工作目录。请先要求用户配置工作目录，或者在使用工具时提供绝对路径。"
+    const mainDir = workDirTool.getMainWorkDir(metaData.listId)
+    if (!mainDir && (!searchPath || !pathLib.isAbsolute(searchPath))) {
+      return "错误：当前会话未设置工作目录。请先要求用户配置工作目录，或者在使用工具时提供绝对路径。"
     }
-    const cwd = customCwd || process.cwd()
-    const startPath = searchPath ? pathLib.resolve(cwd, searchPath) : cwd
+    const startPath = searchPath ? (pathLib.isAbsolute(searchPath) ? searchPath : pathLib.resolve(mainDir, searchPath)) : mainDir
 
     let commentSuffix = ""
-    const isInProject = startPath.startsWith(cwd)
+    // 读白名单 = 主目录 + 辅助目录，全部工作目录内不拦截
+    const workDirs = workDirTool.getWorkDirs(metaData.listId)
+    const isInProject = workDirs.some(dir => startPath === dir.path || startPath.startsWith(dir.path + pathLib.sep))
     if (!isInProject) {
-      const currentListId = metaData?.listId || 0
       const userConfirm = await waitConfirm({
         type: "tip",
         content: `路径：${startPath}`,
         title: "是否允许在工作目录外执行 fileFind 工具？",
-        listId: currentListId
+        listId: metaData.listId
       })
       if (!userConfirm.ok) return `用户拒绝访问项目外目录：${startPath}。原因：${userConfirm.comment || "未提供"}`
       if (userConfirm.comment) commentSuffix = `用户备注：${userConfirm.comment}\n\n`

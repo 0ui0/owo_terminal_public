@@ -44,6 +44,7 @@ export const globalDict = {
   "菜单栏/操作/刷新": { cn: "刷新", en: "Reload" },
   "菜单栏/操作/调试工具": { cn: "开发者工具", en: "Developer Tools" },
   "菜单栏/操作/检查更新": { cn: "检查更新", en: "Check for Updates" },
+  "菜单栏/操作/打开数据目录": { cn: "打开数据目录", en: "Open Data Directory" },
 
   "菜单栏/编辑/撤销": { cn: "撤销", en: "Undo" },
   "菜单栏/编辑/重做": { cn: "重做", en: "Redo" },

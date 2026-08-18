@@ -2,6 +2,8 @@ import Joi from "joi"
 import Dir from "../../dir.js"
 import pathLib from "path"
 import fs from "fs/promises"
+import tempPath from "../../tempPath.js"
+
 export default {
   name:"删除自定义函数",
   id:"removeFn",
@@ -11,8 +13,8 @@ export default {
       return "错误："+error.details[0].message
     }
     let fnid = value.id
-    let dir = new Dir("./tools/aiAsk/aiCall")
-    let filePath = pathLib.resolve(dir.pwd()+`/${fnid}.js`)
+    const aiCallDir = pathLib.join(tempPath.getUserDataDir(), "aiCall")
+    let filePath = pathLib.join(aiCallDir, `${fnid}.js`)
 
     let hasFile = null
     try{hasFile = await fs.stat(filePath)}

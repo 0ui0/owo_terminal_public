@@ -357,16 +357,30 @@ graph TD
     A[啦沐达指正: flex 默认就是 row，无需额外声明；且不用改原有卡片样式] --> B[样式最小侵入清理]
     B --> C[1. 移除了外层容器冗余的 flexDirection: 'row']
     B --> D[2. 恢复气泡卡片最原始的 alignSelf: chat.group === 'user' ? 'flex-end' : 'unset' 属性]
+    B --> V{quickOpen 全文搜索与模块化配置}
+    V --> W[SearchConfigModal: 独立模块化组件, 统一纯净 Box 与 Notice 规范]
+    V --> X[quickOpen 顶部栏: FormInput + FullTextSwitch + Setting 齿轮]
+    V --> Y[多目录联动: 按 chatlist workDirs 标签无缝切换检索结果]
+    V --> Z[VSCode 同款代码高亮: monospace + tabSize 2 + submatches 黄色高亮 + 带行号跳转]
+    V --> AA[空工作目录指引: 未指定目录时呈现居中提示, placeholder 通过 Box.ext 规范绑定]
+    V --> AB[quickOpenData 规范化: Singleton 路由管理 + searchConfig 状态持久化与自动恢复]
+    V --> AC[单一可信源重构: backend.js:init 固化 app.data.searchConfig, 前端直读 data 消除冗余拷贝]
+    V --> AD[UI 规范修复: 彻底移除违规 Emoji 字符, Switch 开关补充 trs 多语言文本标签]
+    V --> AE[胶囊输入框重构: 纯净原生 input 容器 + 右侧 CloseSmall 一键清除 X 按钮]
+    V --> AF[开关胶囊重构: 标准 Box 胶囊包裹【说明文字在左+box开关在右】, 文字色天然继承 Box 成套 front 配色]
+    V --> AG[并排等高双胶囊: 搜索 Box 内部右侧绝对定位 CloseSmall + 左右统一 padding/borderRadius 达成像素级等高对称]
+    V --> AH[语法纯净化与高度锁定: 清除文件尾部残留代码, 左右双胶囊显式 height 3.2rem + FullTextSwitch 消除 margin]
+    V --> AJ[双结果模块极致解耦: 独立拆分为 FullTextResultList.js(全文代码行高亮) 与 FileNameResultList.js(纯文件名与Tag), 语法100%校验通过]
+    V --> AK[Notice 规范化: 移除弹窗底部冗余应用按钮, 统一改为 Notice.launch 原生 confirm 打勾回调实现]
+    V --> AL[交互反馈闭环: 接收 appUpdateData 返回值并在 confirm 后调用 Notice.launch 弹出 res.msg 提示]
+    V --> AM[系统弹窗体验一致性: 资源管理器同步移除底部按钮, 采用 Notice 标题栏 confirm 与 res.msg 弹窗提示]
+    V --> AN[对齐VSCode搜索容错: 吸收ripgrep正则中间态解析异常+支持Glob通配符文件名检索+错误分级(控制台提示/致命弹窗)]
+    V --> AO[消息列表防跳变与补拉闭环: 非底部中断pull消除阅读跳变+滚回底部/点击未读按钮即时补拉最新消息]
+    V --> AP[项目级配置: jsconfig.json 关闭 checkJs, 全项目仅保留原生 JS 语法检查并关闭 TS 类型推断]
+    V --> AQ[缓存纯净化: 移除滚轮事件与置底按钮中侵入式 rows.pages = [], 保证历史页内存稳定与向上滚动秒开]
+    V --> AR[主被动意图智能分流: 结合 preparing 状态与 latestChat 用户判定, 用户发信必置底, AI被动回复非底部坚决静默防跳变]
+    V --> AS[极简置底与防跳变终态: ChatInputBar发信即时置底 + ioSocket纯净if-else分支, chatList变量规范统一]
 ```
-
-
-
-
-
-
-
-
-
 
 ## 2026/08/08 01:36 - 资源管理器配置工作目录后项目搜索结果为空Bug修复
 
@@ -381,6 +395,7 @@ graph TD
     
     H["修复方案: 显式传递项目工作目录"] --> I["前端 doProjectSearch 调整为传递 customCwd 或 currentPath 作为第二个参数"]
     I --> J["后端获得正确的 baseDir 从而使用当前项目根路径搜索 -> 完美检索出 ChatItem.js"]
+```
 
 ## 2026/08/08 02:35 - 资源管理器搜索配置弹窗、双向持久化与极致 UI 贴边重构
 
@@ -407,4 +422,278 @@ graph TD
     O --> R[FileArea.js 容器 style 添加 background: getColor'gray_4'.back]
     R --> S[视觉收益: 文件区呈现清爽的高档亮白底板并全贴边裁剪]
 ```
+
+## 2026/08/08 08:33 - 会话管理器 parentId 合法性校验
+
+```mermaid
+graph TD
+    A[现象: sessionManager/backend.js 在 create 动作中未对 parentId 校验] --> B{隐患: 传入非法 parentId 产生悬空父节点}
+    B --> C[后端接收 args 中的 parentId]
+    C --> D[若 parentId 不为 0, 从 comData 读取 chatLists 进行是否存在校验]
+    D -->|不存在| E[拦截并返回 '父级会话 X 不存在']
+    D -->|存在/为0| F[继续调用 createAgent.fn.call 并保留原有变量名与契约]
 ```
+
+## 2026/08/08 08:44 - 新建会话允许指定模型与拒绝假定重构
+
+```mermaid
+graph TD
+    A[需求: 创建会话未选模型导致报错 & 允许下拉选择后台模型] --> B{原则: 恪守规则19拒绝假设, 禁止随便兜底}
+    
+    B --> C[前端 frontend.js 改造]
+    C --> D["读取 settingData.options.get('ai_aiList').filter(m => m.switch)"]
+    D --> E[以智能体配置名 m.name 渲染下拉 select]
+    E --> F[默认选中 comData.data.get()?.currentModel 或开启的第一项]
+    F --> G[提交前增加未选模型拦截 Notice.launch]
+    
+    B --> H[后端 backend.js 改造]
+    H --> I[彻底删除 defaultModelName 隐式兜底代码]
+    I --> J[仅在显式传入 modelName 时赋值 createArgs.derivedFromAgentName]
+    J --> K[若未选模型由 createAgent 原生返回明确报错, 不做任何掩盖假定]
+## 2026/08/08 10:04 - 修复标题栏图标类型错乱与补充 Notice 完整属性
+
+```mermaid
+graph TD
+    A[现象: 控制台抛出 removeChild 节点错位与参数缺传隐患] --> B{根源1: headerButtons 中 icon 多包了 m.trust}
+    B --> C[导致 typeof btn.icon === 'string' 判定失败]
+    C --> D[错将 VNode 抛给外部渲染 -> 每次 fetchList 重绘时触发 removeChild 崩塌]
+    D --> E[修复: 去掉 m.trust 包装, 保持 iconPark.getIcon 原生 SVG 字符串]
+    
+    A --> F{根源2: Notice.launch 调用处缺失 appType 与 icon 声明}
+
+## 2026/08/08 10:25 - 统一发送 fnCall 与配置下沉至 chatList 架构深度调查
+
+```mermaid
+graph TD
+    A[核心目标: 参数全面下沉与统一发送 fnCall 架构升级] --> B[1. 发送参数从 comData 根迁移至各 chatList]
+    B --> B1[下沉参数: currentModel / customCwd / sendMode / toolsMode / enableThinking / thinkControl / tokenCompressSwitch]
+    B --> B2[上下文交互下沉: call 回复目标 / quotes 引用列表 绑定到所属 listId]
+    
+    A --> C[2. 统一发送接口与前端交互重构]
+    C --> C1[废弃: comData.data.edit 异步修改全局 + socket.emit('chat') 隐式拉取]
+    C --> C2[新建: settingData.fnCall('chatSend', [payload]) 显式一次性合并提交]
+    C --> C3[前端 ChatInputBar 改造: 依据 currentListId 独立双向绑定与显式传参]
+    
+    A --> D[3. 系统全链路波及面深度调查]
+    D --> D1[AiAsk.coffee 核心引擎]
+    D1 --> D11[记忆组装 buildMemory: 提取对应 listId 的独立上下文]
+    D1 --> D12[双重滚动 _rollMemory: 独立 token 统计与上下文滚动隔离]
+    D1 --> D13[任务状态 tasks 与流式通道 streamChunks 精准归属 listId]
+    
+    D --> D2[撤回与历史重置系统]
+    D2 --> D21[undoChat.js: 撤回特定消息, 回填对应 listId 的 inputText]
+    D2 --> D22[undoToChat.js: 撤回到某条, 清空并重置该 listId 的 attachments 与 call]
+    D2 --> D23[clearBeforeChat.js: 清理历史记录时的引用/回复状态清理]
+    
+    D --> D3[QQ 机器人与多会话联动]
+    D3 --> D31[botMsgCenter.js: 多群组 listId 路由与上下文同步]
+    D3 --> D32[ioApi_chat.js: 精准拦截 QQ 自动化指令与 AI 思考触发]
+```
+
+## 2026/08/10 03:01 - 解耦 comData 全局发信状态，彻底实现消息通道隔离
+
+```mermaid
+graph TD
+    A[背景: 以前发信的 currentModel, quotes, call 放在 comData 根节点, 会产生跨队列污染与上下文窜区] --> B[任务: 从全局下沉到独立局部管理]
+    
+    B --> C[后端通信通道 ioApi_chat.js 隔离]
+    C --> D[弃用 comData 兜底, 转而要求前端发信 que 必须携带目标信息]
+    D --> E[移除后端针对 quotes/call 的 edit 脏清理操作]
+    
+    B --> F[切换模型引擎 switchModel.js 重构]
+    F --> G[不再改写全局 currentModel, 而是遍历 subAgents 现存沙盒单独切脑]
+    G --> H[用 chats.add 落物理数据库 + ioServer.emit 同步系统切换指令广播, 代替隐式的 addAsk]
+    
+    B --> I[前端本地状态 sessionStates 管理]
+    I --> J[
+    - [ChatInputBar.js] `getSession()` <--> `chatData.initSessionState(listId)` (统一的临时配置沙盒)
+    - [ChatItem.js] `引用/回复` 按钮操作 --> 写入 `chatData.sessionStates[listId].call / quotes`
+    - [ioApi_chat.js] 发信通道不再依赖全局 comData，通过 payload({ call, quotes, targetChatListId }) 从 `ChatInputBar.submitFn` 获取。 分 listId 管理临时引用]
+    J --> K[修改 ChatInputBar 渲染源与 submitFn 提取源 -> 做到发信前提取、发信后即弃]
+```
+
+## 2026/08/10 03:17 - createAgent.js 子智能体配置继承逻辑重构
+
+```mermaid
+graph TD
+    A[历史包袱: currentModelName 既用于表示模型名，又用于表示智能体名导致歧义] --> B[优化目标: 清晰地继承创建者的配置]
+    B --> C[放弃使用 currentModelName 在 subAgents 中遍历匹配现存沙盒]
+    C --> D[直接使用当前调用的 listId 寻找 creatorAgent]
+    D --> E[若存在创建者，直接克隆 creatorAgent.aiConfig]
+    E --> F[若无创建者，才退化为原生模型名称去匹配 options.js 中的配置]
+```
+
+## 2026/08/14 07:11 - 全项目搜索 projectSearch 流式重构与 VSCode 规范对齐
+
+```mermaid
+graph TD
+    A[历史缺陷: execFileAsync 存在 10MB maxBuffer 溢出瓶颈] --> B{重构方案: spawn + runRgLines 流式逐行处理}
+    B --> C[stdout chunk 数据缓冲 -> buffer.indexOf 逐行分割 -> 降低空间复杂度为 O1]
+    B --> D[依赖缺失捕获: 剔除无效 grep 退化, 明确报错 @vscode/ripgrep 缺失]
+    B --> E[退出码处理: 精准识别 code 0 与 1 均属正常结束]
+    
+    B --> F{跨平台与 VSCode 搜索规范对齐}
+    F --> G[跨平台路径: dirname split 使用正则 /[\\/]/ 兼容 Windows 反斜杠]
+    F --> H[代码层级保真: 废除全量主动 trim, 原样保留代码缩进与原始 submatches]
+    F --> I[长行视口截断: 仅当行长 > 200 时以 match 为中心局部截取并修正 offset]
+    F --> J[前端呈现强化: FileArea 补充 monospace 等宽字体与 tabSize: 2 紧凑排版]
+
+    B --> K{搜索结果右键交互增强}
+    K --> L[ContextMenu 识别 isSearchResult 且 selectedCount === 1 -> 展现【打开所在目录】]
+    K --> M[点击调度 settingData.fnCall appLaunch explorer -> 新弹窗打开目录且保留当前搜索结果]
+
+    B --> N{搜索栏与配置弹窗规范化重构}
+    N --> O[ActionBar: 齿轮按钮 Setting 前置至左侧, 内部有输入时显示 CloseSmall 一键清除]
+    N --> P[onOpenSearchConfig: 移除 Emoji 标题与固定宽度 400, 去除 bold 与冗余灰底, 对齐样式设计指南与 Notice 规范]
+    N --> Q[Box 纯净规范: Switch 与输入框统一 color main, 输入框除外边距外零覆盖样式]
+
+    B --> R{暗色模式对比度修复}
+    R --> S[FileArea 表头: gray_6.front -> gray_12.front, 消除深底黑字]
+    R --> T[FileArea 搜索分组: main.back -> gray_1.front, 消除暗粉灰对比度崩溃]
+    R --> U[FileArea 列表项大小与日期: gray_6.front -> gray_4.front, 严格遵循同名配对守恒公理]
+
+    B --> V{quickOpen 全文搜索与模块化配置}
+    V --> W[SearchConfigModal: 独立模块化组件, 统一纯净 Box 与 Notice 规范]
+    V --> X[quickOpen 顶部栏: FormInput + FullTextSwitch + Setting 齿轮]
+    V --> Y[多目录联动: 按 chatlist workDirs 标签无缝切换检索结果]
+    V --> Z[VSCode 同款代码高亮: monospace + tabSize 2 + submatches 黄色高亮 + 带行号跳转]
+    V --> AA[空工作目录指引: 未指定目录时呈现居中提示, placeholder 通过 Box.ext 规范绑定]
+    V --> AB[quickOpenData 规范化: Singleton 路由管理 + searchConfig 状态持久化与自动恢复]
+    V --> AC[单一可信源重构: backend.js:init 固化 app.data.searchConfig, 前端直读 data 消除冗余拷贝]
+    V --> AD[UI 规范修复: 彻底移除违规 Emoji 字符, Switch 开关补充 trs 多语言文本标签]
+    V --> AE[胶囊输入框重构: 纯净原生 input 容器 + 右侧 CloseSmall 一键清除 X 按钮]
+    V --> AF[开关胶囊重构: 标准 Box 胶囊包裹【说明文字在左+box开关在右】, 文字色天然继承 Box 成套 front 配色]
+    V --> AG[并排等高双胶囊: 搜索 Box 内部右侧绝对定位 CloseSmall + 左右统一 padding/borderRadius 达成像素级等高对称]
+    V --> AH[语法纯净化与高度锁定: 清除文件尾部残留代码, 左右双胶囊显式 height 3.2rem + FullTextSwitch 消除 margin]
+    V --> AJ[双结果模块极致解耦: 独立拆分为 FullTextResultList.js(全文代码行高亮) 与 FileNameResultList.js(纯文件名与Tag), 语法100%校验通过]
+    V --> AK[Notice 规范化: 移除弹窗底部冗余应用按钮, 统一改为 Notice.launch 原生 confirm 打勾回调实现]
+    V --> AL[交互反馈闭环: 接收 appUpdateData 返回值并在 confirm 后调用 Notice.launch 弹出 res.msg 提示]
+    V --> AM[系统弹窗体验一致性: 资源管理器同步移除底部按钮, 采用 Notice 标题栏 confirm 与 res.msg 弹窗提示]
+    V --> AN[对齐VSCode搜索容错: 吸收ripgrep正则中间态解析异常+支持Glob通配符文件名检索+错误分级(控制台提示/致命弹窗)]
+    V --> AO[消息列表防跳变与补拉闭环: 非底部中断pull消除阅读跳变+滚回底部/点击未读按钮即时补拉最新消息]
+    V --> AP[项目级配置: jsconfig.json 关闭 checkJs, 全项目仅保留原生 JS 语法检查并关闭 TS 类型推断]
+    V --> AQ[缓存纯净化: 移除滚轮事件与置底按钮中侵入式 rows.pages = [], 保证历史页内存稳定与向上滚动秒开]
+    V --> AR[主被动意图智能分流: 结合 preparing 状态与 latestChat 用户判定, 用户发信必置底, AI被动回复非底部坚决静默防跳变]
+    V --> AS[终端字体等宽穿透与色彩注入: Css.js 增加 .xterm * { font-family: unset } 击穿全局通配符覆盖 + backend.js 注入 CLICOLOR 与 TERM 变量激活原生彩色]
+    V --> AU[深度思考流式右对齐修复: 废除 slice(0, 500) 头部死锁 -> 正常全量输出恢复 float:right + whiteSpace:nowrap 天然流式推进 -> 仅在 >20000 字符极端超长时截取末尾]
+```
+
+## 2026/08/16 02:10 - 深度思考框流式输入 float 右对齐滚动与超长文本截断优化
+
+```mermaid
+graph TD
+    A[现象: 新版深度思考框在 AI 流式输入时被固定住, 不会自动 float 右对齐滚动最新内容] --> B{Git 历史回溯与原理对比}
+    B --> C[旧版 commit add3e84: 全量传入 streamChunks 且无截断]
+    C --> D[float: right 将右边界锁死贴合父容器右边缘]
+    D --> E[whiteSpace: nowrap 使文本向右延伸 -> 随着字符增加整块向左挤压]
+    E --> F[左侧历史内容由父容器 overflow: hidden 裁剪 -> 视觉上始终滚动展示最右侧最新文字]
+
+    B --> G[新版缺陷根源]
+    G --> H[1. slice 0, 500 截取头部: 超过 500 字后右边缘停止延展, 彻底锁死在最前部文本]
+    G --> I[2. onupdate 守卫条件限制: 仅在 show==true 展开时执行纵向滚动, 折叠状态完全静默]
+
+    J --> M[展开防打扰: 在 onupdate 内部引入 1秒 timer 延迟执行]
+    M --> N[离开底部检测: scrollHeight - scrollTop - clientHeight > 30 -> 判定用户向上滚动查看历史 -> 跳过置底]
+    M --> O[停留在底部: isAtBottom=true -> 1秒自动置底保持最新, 零组件级长驻定时器]
+```
+
+## 2026/08/16 14:15 - 用户数据目录重构、tempPath 端口隔离与标准自动更新落地
+
+```mermaid
+graph TD
+    A[需求与根因: 数据与源码混放导致更新抹除 + 多实例目录竞争 + 自动更新阻断] --> B{三维系统重构}
+
+    B --> C[1. 数据目录重构 & 便携模式]
+    C --> C1[app.js 检测 ./data 存在 -> 自动 app.setPath('userData', portableDataDir)]
+    C --> C2[主库迁移: db.sqlite 移至 userData/db.sqlite 并开启 WAL 与 busy_timeout=5000]
+    C --> C3[外置目录: aiCall 与 usrCall 移至 userData 下, appManager 通过 pathToFileURL 动态 ESM 导入]
+
+    B --> D[2. 多实例与临时目录隔离 tempPath.js]
+    D --> D1[服务端端口捕获: buildServer 启动后绑定 tempPath.setPort(port)]
+    D --> D2[路径统一: archive.sqlite 与 attachment 重定向至 userData/temp/{port}/]
+    D --> D3[生命周期清理: will-quit 仅精准清理 temp/{port}, 彻底消除跨进程误删与竞争]
+
+    B --> E[3. 恢复标准 Electron 自动更新]
+    E --> E1[autoUpdater.autoDownload = true, 废除拦截式 will-download 与手动解压旁路]
+    E --> E2[完整映射 checking/downloading/downloaded/error 状态至前端 UpdateIndicator]
+    E --> E3[before-quit 注入 isQuitting = true 标志, 彻底消除 quitAndInstall 被 isDirty 弹窗阻断]
+```
+
+## 2026/08/17 08:12 - path/polygon/rect 全图元包围盒精准解析终极落地
+
+## 2026/08/17 08:58 - svgParser 内部闭环方案终极落地 (0 侵入 group.js)
+
+```mermaid
+graph TD
+    A[svgParser.js 内部自闭环架构] --> B[1. allTexts.forEach: 烘焙文字舞台绝对物理坐标]
+    A --> C[2. data.elPaper.elements.forEach: 彻底剥离全量图元 transform]
+    A --> D[3. removeEmptyGroups(): 递归清理无图元空组, 消除父组污染]
+    A --> E[4. 全面遍历 group.update(): 刷新纯物理包围盒]
+    B & C & D & E --> F[文字居中 + 蓝色虚线框 100% 严密对齐贴合, 完全等价于手动创建组]
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

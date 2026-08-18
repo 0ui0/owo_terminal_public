@@ -52,5 +52,9 @@ export default {
   autoSaveEnabled: false,
   autoSaveInterval: 5,
 
+  // 主题颜色
   themeColor: 2,
+
+  // 全局按键状态（快捷键系统维护，供各组件读取当前按下的键）
+  pressKeys: [],
 }

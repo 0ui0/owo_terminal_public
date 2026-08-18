@@ -1,19 +1,24 @@
 import { Sequelize as Seq } from "sequelize"
 import Dir from "../tools/dir.js"
+import tempPath from "../tools/tempPath.js"
 import fs from "fs-extra"
 import pathLib from "path"
 import { fileURLToPath } from "url"
 
 export default {
   db: null,
-  async init() {
-    await fs.ensureDir(pathLib.resolve("./save"))
+  async init(customStoragePath) {
+    const storagePath = customStoragePath || tempPath.get("save/archive.sqlite")
+    await fs.ensureDir(pathLib.dirname(storagePath))
 
     this.db = new Seq({
       dialect: "sqlite",
-      storage: "./save/archive.sqlite",
+      storage: storagePath,
       logging: () => { }
     })
+
+    await this.db.query("PRAGMA journal_mode = WAL;")
+    await this.db.query("PRAGMA busy_timeout = 5000;")
 
     const __dirname = pathLib.dirname(fileURLToPath(import.meta.url))
     let dir = new Dir(pathLib.resolve(__dirname, "./archiveTables"))

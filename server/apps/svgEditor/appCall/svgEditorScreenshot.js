@@ -1,6 +1,9 @@
 import Joi from "joi"
 import appManager from "../../../apps/appManager.js"
 import options from "../../../config/options.js"
+import { imageToAscii } from "../../../tools/imageToAscii.js"
+import pathLib from "path"
+import tempPath from "../../../tools/tempPath.js"
 
 export default {
   name: "获取画布截图",
@@ -41,7 +44,8 @@ export default {
           if (totalTokens > 0) {
             try {
               const aiList = await options.get("ai_aiList")
-              const modelIndex = aiList.findIndex(m => m.name === ai.aiConfig.name)
+              // 用实例上烙的后台配置唯一id反查（name/model都可能重复，只有id唯一）
+              const modelIndex = aiList.findIndex(m => m.id === ai.modelId)
               if (modelIndex !== -1) {
                 aiList[modelIndex].preTokens = Number(aiList[modelIndex].preTokens) - totalTokens
                 await options.set("ai_aiList", aiList)
@@ -58,10 +62,7 @@ export default {
       isVisionSupported = ai.isVisionSupported
     }
 
-    if (!isVisionSupported) {
-      const modelName = metaData?.aiAskInstance?.aiConfig?.model || "当前模型"
-      return `错误：当前模型 [${modelName}] 不支持图片等多模态输入接口，无法使用 svgEditor 截图工具。请勿再次调用此工具进行截图。若需获取画板内容，请改用 svgEditorGetElements 等非截图类工具。`
-    }
+    // 不再阻断不支持图片的模型，而是继续执行截图并在末尾进行 ASCII 兜底转换
 
     let { appId, useGrid } = value
 
@@ -85,6 +86,13 @@ export default {
 
     if (res && res.ok) {
       const attachId = res.data.id
+
+      if (!isVisionSupported) {
+        // AI 不支持图片输入，触发 ASCII 兜底转化机制
+        const imagePath = pathLib.join(tempPath.get("attachment"), attachId)
+        const asciiArt = await imageToAscii(imagePath, 80)
+        return `【svgEditor截图动作执行成功】。由于您当前使用的模型不支持多模态视觉输入，系统已自动将其转化为 ASCII 字符画格式供您参考画板布局：\n\n\`\`\`text\n${asciiArt}\n\`\`\`\n\n（提示：字符画已丢失所有颜色及细节，若需操作元素，请继续使用画笔、填充等其它非视觉工具）`
+      }
 
       if (metaData && metaData.aiAskInstance) {
         const tipAsk = metaData.aiAskInstance.addAsk("系统", "user", `[画板快照(ID:${appId})] [attachid:${attachId}]`, {

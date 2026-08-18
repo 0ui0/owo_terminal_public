@@ -6,7 +6,6 @@ export default {
   inputDom: null,
   inputText: "",
   needSync: false, // 外部修改 inputText 后置 true，通知编辑器重渲染
-  tmStatus: { gitOk: false, isReady: false },
   inputHistory: [],
   historyIndex: undefined,
   isInputExpanded: false,
@@ -28,19 +27,19 @@ export default {
     }
     localStorage.setItem("owo_chat_input_history", JSON.stringify(this.inputHistory));
   },
-  async updateTmStatus() {
+  async updateTmStatus(listId) {
     try {
-      const cwd = comData.data.get()?.customCwd;
-      if (!cwd) {
-        this.tmStatus = { gitOk: false, isReady: false };
+      const mainDir = comData.getChatList(listId)?.workDirs?.find(item => item.type === "main")?.path
+      if (!mainDir) {
+        this.getSessionState(listId).tmStatus = { gitOk: false, isReady: false };
         return m.redraw();
       }
-      const res = await settingData.fnCall("tmGetProjectStatus", [cwd]);
-      this.tmStatus = res || { ok: false, gitOk: false, isReady: false };
+      const res = await settingData.fnCall("tmGetProjectStatus", [mainDir]);
+      this.getSessionState(listId).tmStatus = res || { ok: false, gitOk: false, isReady: false };
       m.redraw();
     } catch (e) {
       console.error("[chatData] updateTmStatus failed:", e);
-      this.tmStatus = { ok: false, gitOk: false, isReady: false, msg: e.message };
+      this.getSessionState(listId).tmStatus = { ok: false, gitOk: false, isReady: false, msg: e.message };
       m.redraw();
     }
   },
@@ -55,15 +54,51 @@ export default {
   ],
   chatLists: {},
   computedLists: {},
-  chatListUnreadCount: 0,
-  chatListScrollAtBottom() {
-    const el = document.querySelector(".chatList")
+  sessionStates: {}, // 统一存储每个 listId 的输入和发信状态 (取代散装的 calls, quotesMap, attachmentsMap)
+  initSessionState(listId, initConfig = {}) {
+    if (!this.sessionStates[listId]) {
+      this.sessionStates[listId] = {
+        call: null,
+        quotes: [],
+        attachments: [],
+        inputText: "",
+        workDirs: [],
+        tmStatus: { gitOk: false, isReady: false },
+        unreadCount: 0,
+        chatListDom: null,
+        ...initConfig
+      };
+    } else {
+      // 合并更新配置
+      Object.assign(this.sessionStates[listId], initConfig);
+    }
+  },
+  getSessionState(listId) {
+    if (!this.sessionStates[listId]) {
+      const listConfig = comData.getChatList(listId);
+      this.initSessionState(listId, listConfig);
+      if (listConfig?.workDirs?.find(item => item.type === "main")?.path) {
+        this.updateTmStatus(listId);
+      }
+    }
+    return this.sessionStates[listId];
+  },
+  getChatListDom(listId) {
+    if (this.sessionStates[listId]?.chatListDom?.isConnected) {
+      return this.sessionStates[listId].chatListDom;
+    }
+    const el = document.querySelector(`.chatList[data-list-id="${listId}"]`)
+    if (el) return el
+    return null
+  },
+  chatListScrollAtBottom(listId) {
+    const el = this.getChatListDom(listId)
     if (!el) return true
     return Math.abs(el.scrollHeight - el.scrollTop - el.clientHeight) < 30
   },
-  scrollChatListTobottom() {
+  scrollChatListTobottom(listId) {
     requestAnimationFrame(() => {
-      const el = document.querySelector(".chatList")
+      const el = this.getChatListDom(listId)
       if (el) {
         el.scrollTo({
           top: el.scrollHeight,
@@ -73,7 +108,7 @@ export default {
     })
   },
   topChat: null,
-  getHistoryList(listId = 0) {
+  getHistoryList(listId) {
     const rows = this.chatLists[listId]
     if (!rows) return this.list
     // 如果尚未获取过总数，回退到普通拼接逻辑
@@ -144,7 +179,7 @@ export default {
   },
   xTerms: {},
   preparing: false,
-  attachmentsMap: {}, // Keyed by listId to support per-session attachments
+  isUserSending: false,
   quoteToChatInputText(appId, arr, ext) {
     let txt = ""
     if (appId && appId !== "system") {

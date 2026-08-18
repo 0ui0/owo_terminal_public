@@ -11,24 +11,30 @@ import Browser from "../browser/Browser.js"
 import DesktopMini from "../desktopMini/desktopMini.js"
 import { trs } from "../common/i18n.js"
 import ChatInputEditor from "./ChatInputEditor.js"
+import ChatCwdConfig from "./ChatCwdConfig.js"
+import debugHistory from "../../historyPanel/historyPanelData.js"
 import HelpMenu from "../common/HelpMenu.js"
 import getColor from "../common/getColor.js"
 
+const updateListSession = async (listId, updates) => {
+  chatData.initSessionState(listId, updates);
+  await settingData.fnCall("updateListConfig", [listId, updates]);
+  m.redraw();
+}
+
 export default () => {
-  let _forcedListId = null // 若非 null，则锁定发送目标（用于子智能体独立窗口）
-
-
-  const submitFn = async (e) => {
+  const submitFn = async (e, listId) => {
     e.preventDefault()
 
     const currentData = comData.data.get()
-    const sendMode = currentData?.sendMode
-    const targetChatListId = _forcedListId !== null ? _forcedListId : (currentData?.targetChatListId)
+    const session = chatData.getSessionState(listId);
+    const targetChatListId = session.lockedListId || listId;
+    const targetSession = chatData.getSessionState(targetChatListId);
 
     // 如果不是发给子智能体，且未选择任何有效 AI 模型，拦截并给出提示
     if (!targetChatListId) {
       const enabledModels = settingData.options.get("ai_aiList")?.filter(m => m.switch)
-      const hasValidModel = enabledModels.some(m => m.name === currentData?.currentModel)
+      const hasValidModel = enabledModels.some(m => m.id === targetSession?.currentModelId)
       if (!hasValidModel) {
         Notice.launch({
           msg: trs("输入栏/提示/请选择模型", { cn: "请在下拉菜单中选择一个模型喵！", en: "Please select a model from the dropdown menu!" }),
@@ -39,7 +45,7 @@ export default () => {
     }
 
     // 时光机预警：如果指定了目录但未开启备份
-    if (currentData?.customCwd && !chatData.tmStatus.isReady) {
+    if (targetSession.workDirs.find(item => item.type === "main")?.path && !targetSession.tmStatus.isReady) {
       const goOn = await new Promise(resolve => {
         Notice.launch({
           tip: "安全警告",
@@ -62,34 +68,55 @@ export default () => {
       chatData.saveHistory(trimmedInput)
     }
 
+    // 空消息拦截：无文本、无附件、无引用时，禁止发送
+    if (!trimmedInput && (!session.attachments || session.attachments.length === 0) && (!session.quotes || session.quotes.length === 0)) {
+      return;
+    }
+
     chatData.preparing = true
 
-    // Retrieve routing context (forcedListId 优先于全局)
+    // Retrieve routing context
 
-    await comData.data.edit((data_) => {
-      data_.inputText = chatData.inputText
-    })
-
-    // Send with routing info
-    ioSocket.socket.emit("chat", {
+    const payload = {
+      ...session,
+      inputText: chatData.inputText,
       targetChatListId: targetChatListId,
-      attachments: chatData.attachmentsMap[targetChatListId] || [] // 加入附件元数据
-    })
+    };
 
-    await comData.data.edit((data_) => {
-      data_.inputText = ""
-    })
+    console.log("发送的payload", payload)
+
+    session.call = null;
+    session.quotes = [];
+
+    // 发送前立即清空前端状态并即时置底，提升响应速度
     chatData.inputText = ""
-    chatData.attachmentsMap[targetChatListId] = [] // 发送后清空预览
+    session.attachments = [] // 发送后清空预览
+    chatData.scrollChatListTobottom(targetChatListId) //滚动到底部
+
+    session.unreadCount = 0
+    m.redraw()
+
+    // 悄悄在后台编辑 comData，不必 await 阻塞主线程
+    comData.data.edit((data_) => {
+      data_.inputText = ""
+    }).catch(err => console.error(err))
+
+    // Send with HTTP RPC 
+    try {
+      debugHistory.log("发送消息", { payload });
+      await settingData.fnCall("sendChatMessage", [payload]);
+    } catch (err) {
+      console.error(err)
+      // 可选：如果发送彻底失败，可以考虑把字恢复到输入框
+    }
   }
 
-  // 上传附件逻辑
-  const uploadAttachment = async (e) => {
+  const uploadAttachment = async (e, listId) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
-    const targetChatListId = _forcedListId !== null ? _forcedListId : (comData.data.get()?.targetChatListId || 0);
-    if (!chatData.attachmentsMap[targetChatListId]) chatData.attachmentsMap[targetChatListId] = [];
+    const session = chatData.getSessionState(listId);
+    if (!session.attachments) session.attachments = [];
 
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
@@ -106,8 +133,8 @@ export default () => {
         status: 'uploading'
       };
 
-      chatData.attachmentsMap[targetChatListId].push(attachObj);
-      const index = chatData.attachmentsMap[targetChatListId].length - 1;
+      session.attachments.push(attachObj);
+      const index = session.attachments.length - 1;
 
       try {
         const xhr = new XMLHttpRequest();
@@ -166,22 +193,30 @@ export default () => {
 
 
   return {
-    async oninit() {
+    async oninit({ attrs }) {
       try {
+        const listId = attrs.listId || 0;
+
         await settingData.options.pull()
-        chatData.updateTmStatus() // 初始获取时光机状态
+        chatData.updateTmStatus(listId) // 初始获取时光机状态
+
+        const listConfig = comData.getChatList(listId);
+        chatData.initSessionState(listId, listConfig);
+
       }
       catch (err) {
         throw err
       }
     },
     view({ attrs }) {
-      // 更新强制 listId（来自子智能体窗口等外部调用方）
-      _forcedListId = attrs?.forcedListId !== undefined ? attrs.forcedListId : null
-      const targetChatListId = _forcedListId !== null ? _forcedListId : (comData.data.get()?.targetChatListId || 0)
-      const attachments = chatData.attachmentsMap[targetChatListId] || []
+      // 更新原生 listId
+      const listId = attrs.listId || 0;
+      const session = chatData.getSessionState(listId);
+      const targetChatListId = session.lockedListId || listId;
+      const targetSession = chatData.getSessionState(targetChatListId);
+      const attachments = session.attachments || []
 
-      let showThinkStrength = comData.data.get()?.thinkControl && comData.data.get()?.enableThinking
+      let showThinkStrength = targetSession.thinkControl && targetSession.enableThinking
 
 
       return m("", {
@@ -207,13 +242,12 @@ export default () => {
               marginRight: "0.5rem",
             },
             ext: {
-              onclick: submitFn
+              onclick: (e) => submitFn(e, listId)
             }
           }, trs("输入栏/按钮/发送", { cn: "发送", en: "Send" })),
 
           m(IconTag, {
-            bgColor: comData.data.get()?.sendMode === "agent" ? getColor('yellow_1').back : getColor('main').back,
-            //fgColor: comData.data.get()?.sendMode === "agent" ? getColor('yellow_1').front : getColor('main').front,
+            bgColor: getColor('yellow_1').back,
 
             iconName: "RobotOne",
             styleExt: {
@@ -248,7 +282,7 @@ export default () => {
                 whiteSpace: "nowrap"
               }
             }, [
-              comData.data.get()?.currentModel || "ai"
+              (settingData.options.get("ai_aiList")?.find(m => m.id === targetSession.currentModelId)?.name) || "ai"
             ]),
             m.trust(window.iconPark.getIcon("Down")),
 
@@ -275,12 +309,131 @@ export default () => {
                     onclick: async (e) => {
                       e.stopPropagation()
 
+                      // 弹窗让用户勾选切换选项
+                      let coverPrompt = true   // 是否覆盖初始提示词（默认勾选）
+                      let clearContext = false // 是否清空临时上下文并插入历史阅读提示（默认不勾选）
+
+                      const switchOptions = await new Promise(resolve => {
+                        Notice.launch({
+                          sign: "switchModel_confirm_" + targetChatListId,
+                          tip: trs("输入栏/提示/切换模型", { cn: "切换模型", en: "Switch Model" }),
+                          hideBtn: 0,
+                          content: {
+                            view: () => m("div", {
+                              style: {
+                                margin: "0 1rem 1rem",
+                                minWidth: "30rem",
+                                maxWidth: "80vw",
+                                fontSize: "1.5rem",
+                                color: getColor('gray_6').front,
+                                display: "flow-root"
+                              }
+                            }, [
+                              // 标题（用字号强调，不用粗体）
+                              m("div", {
+                                style: {
+                                  fontSize: "1.6rem",
+                                  margin: "1rem 1rem 1.5rem",
+                                  color: getColor('gray_6').front
+                                }
+                              }, trs("输入栏/提示/切换到模型", { cn: `切换到模型「${model.name}」`, en: `Switch to model "${model.name}"` })),
+
+                              // 选项1：覆盖初始提示词（默认勾选）
+                              m("div", {
+                                style: {
+                                  display: "flex",
+                                  alignItems: "center",
+                                  margin: "0 1rem 1rem",
+                                  borderRadius: "3rem",
+                                  background: getColor('gray_3').back
+                                }
+                              }, [
+                                m("span", {
+                                  style: {
+                                    margin: "0.8rem 1rem",
+                                    flex: 1,
+                                    color: getColor('gray_3').front
+                                  }
+                                }, trs("输入栏/选项/覆盖初始提示词", { cn: "覆盖初始提示词", en: "Override initial prompt" })),
+                                m(Box, {
+                                  color: "main",
+                                  isSwitch: true,
+                                  value: coverPrompt,
+                                  style: {
+                                    margin: "0.8rem 1rem"
+                                  },
+                                  onclick: (el, e, v, box_this) => {
+                                    coverPrompt = box_this.data.value
+                                    m.redraw()
+                                  }
+                                })
+                              ]),
+
+                              // 选项2：清空临时上下文并插入历史阅读提示（默认不勾选）
+                              m("div", {
+                                style: {
+                                  display: "flex",
+                                  alignItems: "center",
+                                  margin: "0 1rem",
+                                  borderRadius: "3rem",
+                                  background: getColor('gray_3').back
+                                }
+                              }, [
+                                m("span", {
+                                  style: {
+                                    margin: "0.8rem 1rem",
+                                    flex: 1,
+                                    color: getColor('gray_3').front
+                                  }
+                                }, trs("输入栏/选项/清空上下文阅读历史", { cn: "清空临时上下文列表，并插入一条让模型阅读历史消息的提示", en: "Clear temp context and insert a prompt to read history" })),
+                                m(Box, {
+                                  color: "main",
+                                  isSwitch: true,
+                                  value: clearContext,
+                                  style: {
+                                    margin: "0.8rem 1rem"
+                                  },
+                                  onclick: (el, e, v, box_this) => {
+                                    clearContext = box_this.data.value
+                                    m.redraw()
+                                  }
+                                })
+                              ])
+                            ])
+                          },
+                          confirm(box, closeTabFn) {
+                            resolve({ coverPrompt, clearContext })
+                            return undefined // 自动关闭
+                          },
+                          cancel(box, closeTabFn) {
+                            resolve(null)
+                            return undefined // 自动关闭
+                          }
+                        })
+                      })
+
+                      // 用户取消则不切换
+                      if (!switchOptions) {
+                        showAiList = false
+                        chatData.inputDom.focus()
+                        return
+                      }
+
                       try {
-                        let res = await settingData.fnCall("switchModel", [model.name])
+                        let res = await settingData.fnCall("switchModel", [{
+                          listId: targetChatListId,
+                          modelId: model.id,
+                          options: {
+                            coverPrompt: switchOptions.coverPrompt,
+                            clearContext: switchOptions.clearContext
+                          }
+                        }])
                         if (!res.ok) {
                           Notice.launch({
                             msg: res.msg
                           })
+                        } else {
+                          updateListSession(targetChatListId, { currentModelId: model.id })
                         }
                       } catch (err) {
                         console.error(err)
@@ -358,15 +511,13 @@ export default () => {
             m(Box, {
               color: "main",
               isSwitch: true,
-              value: comData.data.get()?.tokenCompressSwitch,
+              value: targetSession.tokenCompressSwitch,
               style: {
                 margin: "0",
                 marginRight: "0.5rem"
               },
               onclick: async (el, e, v, box_this) => {
-                await comData.data.edit((data) => {
-                  data.tokenCompressSwitch = box_this.data.value
-                })
+                await updateListSession(targetChatListId, { tokenCompressSwitch: box_this.data.value })
               }
             }),
 
@@ -384,33 +535,30 @@ export default () => {
               width: "1.2rem",
               height: "1.2rem",
               borderRadius: "50%",
-              background: comData.data.get()?.thinkControl ? getColor('yellow_1').back : getColor('gray_8').back,
+              background: targetSession.thinkControl ? getColor('yellow_1').back : getColor('gray_8').back,
               marginRight: "0.5rem",
               cursor: "pointer",
               transition: "all 0.3s ease",
-              boxShadow: comData.data.get()?.thinkControl ? `0 0 0.5rem ${getColor('yellow_1').back}` : "none",
+              boxShadow: targetSession.thinkControl ? `0 0 0.5rem ${getColor('yellow_1').back}` : "none",
               border: `0.1rem solid ${getColor('gray_4').front}55`,
             },
             onclick: async (e) => {
-              await comData.data.edit((data) => {
-                data.thinkControl = !comData.data.get()?.thinkControl
-              })
-              m.redraw()
+              await updateListSession(targetChatListId, { thinkControl: !targetSession.thinkControl })
             }
           }),
 
 
           m(IconTag, {
             iconName: "Brain",
-            bgColor: comData.data.get()?.thinkControl
-              ? (comData.data.get()?.enableThinking ? getColor('yellow_1').back : getColor('gray_2').back)
+            bgColor: targetSession.thinkControl
+              ? (targetSession.enableThinking ? getColor('yellow_1').back : getColor('gray_2').back)
               : getColor('gray_4').back,
-            fgColor: comData.data.get()?.thinkControl
-              ? (comData.data.get()?.enableThinking ? getColor('yellow_1').front : getColor('gray_2').front)
+            fgColor: targetSession.thinkControl
+              ? (targetSession.enableThinking ? getColor('yellow_1').front : getColor('gray_2').front)
               : getColor('gray_4').front,
             styleExt: {
-              opacity: comData.data.get()?.thinkControl ? 1 : 0.5,
-              cursor: comData.data.get()?.thinkControl ? "pointer" : "not-allowed",
+              opacity: targetSession.thinkControl ? 1 : 0.5,
+              cursor: targetSession.thinkControl ? "pointer" : "not-allowed",
 
               ...(showThinkStrength ? {
                 borderRadius: "10rem 0 0 10rem",
@@ -419,10 +567,8 @@ export default () => {
             },
             ext: {
               onclick: async () => {
-                if (!comData.data.get()?.thinkControl) return
-                await comData.data.edit((data) => {
-                  data.enableThinking = !data.enableThinking
-                })
+                if (!targetSession.thinkControl) return
+                await updateListSession(targetChatListId, { enableThinking: !targetSession.enableThinking })
               }
             }
           }, trs("输入栏/按钮/思考", { cn: "思考", en: "Thinking" })),
@@ -470,7 +616,7 @@ export default () => {
                 trs("输入栏/配置/强度", {
                   cn: "强度",
                   en: "Strength"
-                }) + ({ low: 1, medium: 2, high: 3 }[comData.data.get()?.thinkStrength] || 2),
+                }) + ({ low: 1, medium: 2, high: 3 }[targetSession.thinkStrength] || 2),
               ]),
 
               m.trust(window.iconPark.getIcon("Down")),
@@ -493,15 +639,13 @@ export default () => {
                   }
                 }, [
                   [{ level: "low", num: 1 }, { level: "medium", num: 2 }, { level: "high", num: 3 }].map((v) => {
-                    const isActive = (comData.data.get()?.thinkStrength || "medium") === v.level
+                    const isActive = (targetSession.thinkStrength || "medium") === v.level
                     return m(Tag, {
                       isBtn: true,
                       ext: {
                         onclick: async (e) => {
                           e.stopPropagation()
-                          await comData.data.edit((data) => {
-                            data.thinkStrength = v.level
-                          })
+                          await updateListSession(targetChatListId, { thinkStrength: v.level })
                           chatData.inputDom.focus()
                           showThinkStrengthList = false
                         },
@@ -561,15 +705,15 @@ export default () => {
                 fontSize: "1.3rem"
               }
             }, [
-              comData.data.get()?.toolsMode === 1
+              targetSession.toolsMode === 1
                 ? trs("输入栏/模式/提示词", { cn: "提示词模式", en: "Prompt" }) : null,
-              comData.data.get()?.toolsMode === 2
+              targetSession.toolsMode === 2
                 ? trs("输入栏/模式/标准工具", { cn: "标准工具模式", en: "Standard" }) : null,
-              comData.data.get()?.toolsMode === 3
+              targetSession.toolsMode === 3
                 ? trs("输入栏/模式/宅喵工具", { cn: "宅喵工具模式", en: "OwO Tools" }) : null,
-              comData.data.get()?.toolsMode === 4
+              targetSession.toolsMode === 4
                 ? trs("输入栏/模式/原生外壳", { cn: "原生外壳模式", en: "Native Wrapper" }) : null,
-              comData.data.get()?.toolsMode === 5
+              targetSession.toolsMode === 5
                 ? trs("输入栏/模式/编程模式", { cn: "编程模式", en: "Coding Mode" }) : null,
             ]),
             m.trust(window.iconPark.getIcon("Down")),
@@ -595,15 +739,13 @@ export default () => {
                 { id: 4, label: trs("输入栏/模式/原生外壳/名称", { cn: "原生外壳模式", en: "Native Wrapper" }) },
                 { id: 5, label: trs("输入栏/模式/编程模式/名称", { cn: "编程模式", en: "Coding Mode" }) }
               ].map((mode) => {
-                const isActive = comData.data.get()?.toolsMode === mode.id
+                const isActive = targetSession.toolsMode === mode.id
                 return m(Tag, {
                   isBtn: true,
                   ext: {
                     onclick: async (e) => {
                       e.stopPropagation()
-                      await comData.data.edit((data) => {
-                        data.toolsMode = mode.id
-                      })
+                      await updateListSession(targetChatListId, { toolsMode: mode.id })
                       showToolsList = false
                     },
                   },
@@ -643,25 +785,23 @@ export default () => {
 
 
           //回复
-          comData.data.get()?.call ?
+          session.call ?
             m(IconTag, {
-              bgColor: getColor('yellow_2').back,
               iconName: "Message",
+              bgColor: getColor('yellow_1').back,
+              fgColor: getColor('yellow_1').front,
               ext: {
                 onclick: async () => {
-                  //清除当前锁定回复
-                  await comData.data.edit((data) => {
-                    data.call = null
-                  })
-                }
+                  session.call = null;
+                },
               },
             }, [
-              trs("聊天界面/词汇/回复") + ":" + (comData.data.get().call.uuid + "").slice(0, 7)
+              (session.call.uuid + "").slice(0, 7) //回复
             ]) : null,
 
 
           (() => {
-            const targetList = comData.data.get().chatLists?.find(l => l.id === targetChatListId);
+            const targetList = comData.getChatList(targetChatListId);
             return targetList?.replying ?
               m(IconTag, {
                 iconName: "PauseOne",
@@ -760,91 +900,44 @@ export default () => {
 
           m(IconTag, {
             iconName: "FolderOpen",
-            bgColor: comData.data.get()?.customCwd ? getColor('yellow_1').back : getColor('gray_2').back,
-            fgColor: comData.data.get()?.customCwd ? getColor('gray_8').front : getColor('gray_2').front,
+            bgColor: targetSession.workDirs.find(item => item.type === "main") ? getColor('yellow_1').back : getColor('gray_2').back,
+            fgColor: targetSession.workDirs.find(item => item.type === "main") ? getColor('gray_8').front : getColor('gray_2').front,
             ext: {
-              onclick: async () => {
-                if (comData.data.get()?.customCwd) {
-                  Notice.launch({
-                    tip: "取消工作目录",
-                    msg: "确定要取消当前的工作目录映射吗？取消后 AI 将无法直接操作您的本地文件喵。",
-                    async confirm() {
-                      await settingData.fnCall("setCustomCwd", [null]);
-                      chatData.updateTmStatus();
-                      return undefined
-                    }
-                  });
-                } else {
-                  try {
-                    let res = await settingData.fnCall("appOpenDialog", [{
-                      title: "选择目标工作目录",
-                      properties: ["openDirectory"]
-                    }])
-                    if (res.ok && res.filePath) {
-                      // 1. 检查 Git 和备份状态（传入选中的路径）
-                      const status = await settingData.fnCall("tmGetProjectStatus", [res.filePath]);
-                      const gitOk = (typeof status.gitOk === 'object') ? status.gitOk.ok : status.gitOk;
-                      if (!gitOk) {
-                        Notice.launch({
-                          tip: "Git 环境异常",
-                          type: "error",
-                          msg: (typeof status.gitOk === 'object' ? status.gitOk.msg : status.msg) || "未检测到 Git 客户端，请先安装 Git 喵！"
-                        });
-                        return;
-                      }
-
-                      if (status.isReady) {
-                        // 已有备份目录，直接设定
-                        await settingData.fnCall("setCustomCwd", [res.filePath]);
-                        Notice.launch({ msg: "已检测到备份目录，工作目录已就绪喵！🕒" });
-                        chatData.updateTmStatus();
-                      } else {
-                        // 2. 询问并强制初始化
-                        Notice.launch({
-                          tip: "初始化时光机",
-                          msg: "您选定了工作目录，是否立即为该目录初始化时光机（.owoTimeMachine）？为了数据安全，AI 强烈建议您开启备份喵！",
-                          async confirm() {
-                            await settingData.fnCall("setCustomCwd", [res.filePath]);
-                            const initRes = await settingData.fnCall("tmInit", [res.filePath]);
-                            Notice.launch({ msg: initRes.msg });
-                            chatData.updateTmStatus();
-                            return undefined
-                          },
-                          cancel() {
-                            Notice.launch({ msg: "安全中止：未开启备份前禁止选定工作目录喵。" });
-                            return undefined
-                          }
-                        });
-                      }
-                    }
-                  } catch (err) {
-                    console.error(err)
-                  }
-                }
+              onclick: () => {
+                Notice.launch({
+                  group: "chatCwdConfig",
+                  hideBtn: 2,
+                  tip: trs("工作目录/配置", { cn: "工作目录配置", en: "Working Directory" }),
+                  content: ChatCwdConfig,
+                  contentAttrs: { listId: targetChatListId }
+                })
               }
             }
-          }, comData.data.get()?.customCwd ? (comData.data.get().customCwd.split(/[/\\]/).pop() || "/") : trs("聊天界面/词汇/工作目录")),
+          }, targetSession.workDirs.find(item => item.type === "main")?.path.split(/[/\\]/).pop() || trs("聊天界面/词汇/工作目录")),
 
           // --- 备份状态指示器 ---
-          comData.data.get()?.customCwd ? m(IconTag, {
-            iconName: chatData.tmStatus.isReady ? "History" : "FileLock",
-            bgColor: chatData.tmStatus.isReady ? getColor('green_1').back : getColor('red_1').back,
-            fgColor: chatData.tmStatus.isReady ? getColor('green_1').front : getColor('red_1').front,
+          targetSession.workDirs.find(item => item.type === "main") ? m(IconTag, {
+            iconName: targetSession.tmStatus.isReady ? "History" : "FileLock",
+            bgColor: targetSession.tmStatus.isReady ? getColor('green_1').back : getColor('red_1').back,
+            fgColor: targetSession.tmStatus.isReady ? getColor('green_1').front : getColor('red_1').front,
             ext: {
               onclick: async () => {
-                if (!chatData.tmStatus.isReady) {
+                const mainDir = targetSession.workDirs.find(item => item.type === "main")?.path
+                if (!mainDir) return;
+                if (!targetSession.tmStatus.isReady) {
                   Notice.launch({
                     tip: "立即初始化备份",
                     msg: "该目录尚未初始化时光机备份，是否立即创建喵？",
                     async confirm() {
-                      const initRes = await settingData.fnCall("tmInit", [comData.data.get().customCwd]);
+                      const initRes = await settingData.fnCall("tmInit", [mainDir]);
                       Notice.launch({ msg: initRes.msg });
-                      chatData.updateTmStatus();
+                      chatData.updateTmStatus(targetChatListId);
                       return undefined
                     }
                   });
                 } else {
-                  Notice.launch({ msg: "时光机运行中：实时守护您的每一行代码喵！" });
+                  // 立即用当前队列主工作目录打开时光机备份
+                  await settingData.fnCall("appLaunch", ["owoTimeMachine", { data: { repoPath: `${mainDir}/.owoTimeMachine` } }]);
                 }
               }
             }
@@ -870,7 +963,7 @@ export default () => {
             multiple: true,
             // accept: "image/*", // 解除限制，允许所有类型
             style: { display: "none" },
-            onchange: uploadAttachment
+            onchange: (e) => uploadAttachment(e, listId)
           }),
 
         ]),
@@ -976,6 +1069,7 @@ export default () => {
                 m("span", { style: { fontSize: "0.6rem", color: "#fff" } }, `${attach.progress || 0}%`)
               ]) : null,
 
+
               m("", {
                 style: {
                   position: "absolute",
@@ -1031,7 +1125,7 @@ export default () => {
             ])
           })) : null,
         //引用
-        comData.data.get()?.quotes > [0] ?
+        session.quotes?.length > 0 ?
           m(Box, {
             style: {
               margin: "1rem 0",
@@ -1040,22 +1134,22 @@ export default () => {
               alignItems: "center",
               flexWrap: "wrap",
               marginTop: "0",
-              //border:"0.2rem solid #755d5c"
             }
           }, [
-            comData.data.get().quotes.map((quote) => {
+            session.quotes.map((quote) => {
               return m(IconTag, {
                 iconName: "Quote",
+                bgColor: getColor('yellow_1').back,
+                fgColor: getColor('yellow_1').front,
                 ext: {
                   async onclick() {
-                    await comData.data.edit((data) => {
-                      data.quotes = data.quotes.filter((quote2) => { return quote2.uuid !== quote.uuid })
-                    })
+                    if (session.quotes) {
+                      session.quotes = session.quotes.filter((quote2) => { return quote2.uuid !== quote.uuid });
+                    }
                   }
                 }
-              }, quote.uuid.slice(0, 7))
+              }, (quote.uuid + "").slice(0, 7)) //引用
             })
-
           ]) : null,
         m("form", {
           onsubmit: (e) => e.preventDefault(),
@@ -1065,7 +1159,7 @@ export default () => {
         }, [
           m(ChatInputEditor, {
             placeholder: comData.data.get()?.targetChatListId ? trs("输入栏/占位符/已锁定队列", { cn: `已锁定到队列 ${comData.data.get()?.targetChatListId} ...`, en: `Locked to queue ${comData.data.get()?.targetChatListId}...` }) : trs("输入栏/占位符/输入消息", { cn: "输入消息...", en: "Type a message..." }),
-            onsubmit: submitFn,
+            onsubmit: (e) => submitFn(e, listId),
             style: {
               width: "100%",
               flex: 1,

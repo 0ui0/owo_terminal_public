@@ -1,5 +1,6 @@
 import fs from "fs/promises"
 import path from "path"
+import fileState from "../../tools/fileState.js"
 
 
 export default {
@@ -78,6 +79,15 @@ export default {
           app.data.filePath = targetPath
           app.data.content = args.content
           app.data.mtime = newStat.mtimeMs
+
+          // 闭环同步全局 fileState，确保 AI 侧状态与用户手动保存绝对一致
+          fileState.set(targetPath, {
+            timestamp: newStat.mtimeMs || Date.now(),
+            content: args.content,
+            startLine: 0,
+            endLine: 0
+          })
+
           return { ok: true, msg: "保存成功", data: { filePath: targetPath } } // 返回路径与成功提示
         } catch (e) {
           console.error(e)

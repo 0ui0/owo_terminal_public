@@ -131,7 +131,7 @@ export default {
           const result = await createAgent.fn.call(createAgent, {
             name: `${typeName}-${group.name}`,
             prompt: agentPrompt,
-            derivedFromAgentName: group.derivedFromAgentName || group.model || undefined,
+            derivedFromModelId: group.derivedFromModelId || undefined,
             noAutoOpen: true,
             isBotAgent: true
           }, {

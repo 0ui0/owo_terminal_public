@@ -3,7 +3,7 @@ export default function () {
 
   return {
     view: (vnode) => {
-      const { m, Box, getColor, history, hash, isValidPath, customCwd, iconPark, onOpenProjectBackup, onSelect, onDelete, onSnap, style, trs } = vnode.attrs;
+      const { m, Box, getColor, history, hash, isValidPath, iconPark, onOpenProjectBackup, onSelect, onDelete, onSnap, style, trs } = vnode.attrs;
 
       // 分类逻辑：带有 msgId 的通常是系统/消息触发的，没带的是手动创建的
       const userSnapshots = (history || []).filter(s => !s.msgId);
@@ -95,7 +95,7 @@ export default function () {
                     ]),
 
                   // 快捷打开项目备份
-                  customCwd ? m("div",
+                  m("div",
                     {
                       style: {
                         flex: 1,
@@ -115,7 +115,7 @@ export default function () {
                     [
                       m.trust(iconPark.getIcon('Inbox', { fill: getColor('gray_2').front })),
                       m("span", trs("时光机/侧边栏/项目备份", { cn: "项目备份", en: "Backups" }))
-                    ]) : null
+                    ])
                 ]),
 
             ]),

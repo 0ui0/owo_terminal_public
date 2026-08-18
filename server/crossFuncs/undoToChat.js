@@ -1,5 +1,4 @@
 import archiveDb from "../db/archiveDb.js"
-import aiBasic from "../tools/aiAsk/basic.js"
 import appManager from "../apps/appManager.js"
 import subAgents from "../tools/aiAsk/subAgents.js"
 import ioServer from "../ioServer/ioServer.js"
@@ -8,8 +7,16 @@ import { Op } from "sequelize"
 
 export default {
   name: "undoToChat",
-  func: async (uuid) => {
+  func: async (uuid, listId) => {
     try {
+      let { error } = Joi.array().ordered(
+        Joi.string().required(),
+        Joi.number().required()
+      ).validate([uuid, listId]);
+      if (error) {
+        return { ok: false, msg: "参数校验失败: " + error.details[0].message };
+      }
+
       if (!archiveDb.tb_chat_messages) {
         return { ok: false, msg: "数据库未准备好" };
       }
@@ -17,12 +24,16 @@ export default {
       let targetTimestamp = 0;
       let removedTids = new Set();
       let removedUuids = new Set();
-      let targetListId = -1;
+      let targetListId = typeof listId === 'number' ? listId : -1;
 
       // 查找锚点消息
       const anchorMsg = await archiveDb.tb_chat_messages.findOne({ where: { uuid }, raw: true });
       if (anchorMsg) {
-        targetListId = anchorMsg.chatListId;
+        if (targetListId === -1) {
+          targetListId = anchorMsg.chatListId;
+        } else if (targetListId !== anchorMsg.chatListId) {
+          console.warn(`undoToChat: provided listId ${targetListId} doesn't match db record ${anchorMsg.chatListId}`);
+        }
         targetTimestamp = anchorMsg.timestamp;
 
         // 收集需要回溯的消息
@@ -75,7 +86,7 @@ export default {
         let askIndex = model.asks.findIndex(ask => ask.id === uuid);
 
         if (askIndex !== -1) {
-          // 撤到本条包含本条，所以从 askIndex 开始往后切
+          // 撤到本条，意味着本条及之后的消息全部删除
           model.asks.splice(askIndex, model.asks.length);
         } else if (targetTimestamp > 0) {
           // 如果 UUID 没找到（可能被滑动窗口剔除了），尝试通过时间戳匹配
@@ -109,12 +120,8 @@ export default {
         }
       };
 
-      if (targetListId === 0) {
-        aiBasic.list.forEach(cleanupModel);
-      } else if (targetListId > 0) {
-        const targetAgent = subAgents.get(targetListId);
-        if (targetAgent) cleanupModel(targetAgent);
-      }
+      const targetAgent = subAgents.get(targetListId);
+      if (targetAgent) cleanupModel(targetAgent);
 
       // 广播刷新事件
       if (ioServer.io && targetListId !== -1) {

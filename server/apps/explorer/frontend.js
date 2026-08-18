@@ -62,16 +62,20 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, settingData, 
     searchVersion++
     const currentVersion = searchVersion
     try {
-      const res = await settingData.fnCall("projectSearch", [searchKeyword, comData.data.get()?.customCwd || currentPath, searchConfig])
+      const res = await settingData.fnCall("projectSearch", [searchKeyword, comData.getChatList(0).workDirs?.find(item => item.type === "main")?.path || currentPath, searchConfig])
       if (currentVersion !== searchVersion) return
       if (res.ok) {
         projectSearchResults = res.data
         viewMode = "list"
       } else {
-        Notice.launch({ msg: trs("资源管理器/搜索/搜索失败", { cn: "搜索失败: ", en: "Search failed: " }) + res.msg })
+        // 💡 对齐 VSCode：搜索语法/中间态等普通错误输出到控制台，避免打断用户实时输入
+        console.warn("[explorer] 搜索提示:", res.msg)
+        projectSearchResults = []
       }
     } catch (err) {
       if (currentVersion === searchVersion) {
+        // 💡 严重系统级网络/崩溃异常保留 Notice 弹窗
+        console.error("[explorer] 搜索系统级严重错误:", err)
         Notice.launch({ msg: trs("资源管理器/搜索/搜索异常", { cn: "搜索异常: ", en: "Search error: " }) + (err.message || err) })
       }
     } finally {
@@ -95,172 +99,158 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, settingData, 
 
     Notice.launch({
       sign: "search_config_" + appId,
-      width: 400,
+      appType: "explorer",
+      useMinus: false,
       tip: trs("资源管理器/搜索配置/标题",
         {
-          cn: "🔍 搜索参数配置",
-          en: "🔍 Search Configuration"
+          cn: "搜索参数配置",
+          en: "Search Configuration"
         }
       ),
+      // 💡 遵循 Notice说明.md：点击标题栏 Check 确认按钮时保存配置并弹出反馈
+      confirm: async (box, closeTabFn) => {
+        searchConfig.useRegex = RegexSwitch.data.value;
+        searchConfig.caseSensitive = CaseSwitch.data.value;
+        searchConfig.wholeWord = WordSwitch.data.value;
+        searchConfig.excludePatterns = ExcludeInput.data.value;
+
+        // 同步到后端进行持久化保存并弹出操作回执
+        try {
+          const res = await settingData.fnCall("appUpdateData", [appId, {
+            searchConfig: searchConfig
+          }]);
+          if (res && res.msg) {
+            Notice.launch({ msg: res.msg });
+          }
+        } catch (err) {
+          console.error("更新配置失败:", err);
+          Notice.launch({ msg: err.message || "更新配置失败" });
+        }
+
+        if (searchMode === 'project') {
+          doProjectSearch();
+        }
+        // 隐式返回 undefined，Notice 自动关闭弹窗
+      },
       content: {
         view: (v) => {
           return m("",
+            {
+              style: {
+                padding: "1.5rem",
+                minWidth: "26rem",
+                display: "flex",
+                flexDirection: "column",
+                gap: "1.2rem"
+              }
+            },
             [
-              m(Box,
+              m("",
                 {
-                  color: "gray_12",
-                  isBlock: true,
                   style: {
-                    padding: "1.5rem"
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between"
                   }
                 },
                 [
-                  m("",
-                    {
-                      style: {
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                        marginBottom: "1.2rem"
+                  m("span",
+                    trs("资源管理器/搜索配置/正则",
+                      {
+                        cn: "启用正则表达式 (Regex)",
+                        en: "Enable Regular Expression (Regex)"
                       }
-                    },
-                    [
-                      m("span",
-                        trs("资源管理器/搜索配置/正则",
-                          {
-                            cn: "启用正则表达式匹配 (Regex)",
-                            en: "Enable Regular Expression (Regex)"
-                          }
-                        )
-                      ),
-                      m(RegexSwitch,
-                        {
-                          isSwitch: true,
-                          color: "main"
-                        }
-                      )
-                    ]
+                    )
                   ),
-                  m("",
+                  m(RegexSwitch,
                     {
-                      style: {
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                        marginBottom: "1.2rem"
+                      isSwitch: true,
+                      color: "main"
+                    }
+                  )
+                ]
+              ),
+              m("",
+                {
+                  style: {
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between"
+                  }
+                },
+                [
+                  m("span",
+                    trs("资源管理器/搜索配置/大小写",
+                      {
+                        cn: "区分大小写 (Case Sensitive)",
+                        en: "Case Sensitive"
                       }
-                    },
-                    [
-                      m("span",
-                        trs("资源管理器/搜索配置/大小写",
-                          {
-                            cn: "区分大小写 (Case Sensitive)",
-                            en: "Case Sensitive"
-                          }
-                        )
-                      ),
-                      m(CaseSwitch,
-                        {
-                          isSwitch: true,
-                          color: "main"
-                        }
-                      )
-                    ]
+                    )
                   ),
-                  m("",
+                  m(CaseSwitch,
                     {
-                      style: {
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                        marginBottom: "1.2rem"
+                      isSwitch: true,
+                      color: "main"
+                    }
+                  )
+                ]
+              ),
+              m("",
+                {
+                  style: {
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between"
+                  }
+                },
+                [
+                  m("span",
+                    trs("资源管理器/搜索配置/全字",
+                      {
+                        cn: "全字匹配 (Whole Word)",
+                        en: "Whole Word"
                       }
-                    },
-                    [
-                      m("span",
-                        trs("资源管理器/搜索配置/全字",
-                          {
-                            cn: "全字匹配 (Whole Word)",
-                            en: "Whole Word"
-                          }
-                        )
-                      ),
-                      m(WordSwitch,
-                        {
-                          isSwitch: true,
-                          color: "main"
-                        }
-                      )
-                    ]
+                    )
                   ),
-                  m("",
+                  m(WordSwitch,
+                    {
+                      isSwitch: true,
+                      color: "main"
+                    }
+                  )
+                ]
+              ),
+              m("",
+                {
+                  style: {
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "0.6rem"
+                  }
+                },
+                [
+                  m("span",
                     {
                       style: {
-                        display: "flex",
-                        flexDirection: "column",
-                        gap: "0.6rem",
-                        marginBottom: "1.2rem"
+                        opacity: 0.8
                       }
                     },
-                    [
-                      m("span",
-                        {
-                          style: {
-                            fontWeight: "bold"
-                          }
-                        },
-                        trs("资源管理器/搜索配置/排除名单",
-                          {
-                            cn: "排除名单 (Glob 模式，以逗号分隔):",
-                            en: "Exclude Patterns (Glob patterns, comma separated):"
-                          }
-                        )
-                      ),
-                      m(ExcludeInput,
-                        {
-                          tagName: "input[type=text]"
-                        }
-                      )
-                    ]
+                    trs("资源管理器/搜索配置/排除名单",
+                      {
+                        cn: "排除名单 (Glob 模式，逗号分隔):",
+                        en: "Exclude Patterns (Glob patterns, comma separated):"
+                      }
+                    )
                   ),
-                  m("",
+                  m(ExcludeInput,
                     {
+                      tagName: "input",
+                      color: "main",
+                      isBlock: true,
                       style: {
-                        display: "flex",
-                        justifyContent: "flex-end"
+                        margin: "0.4rem 0"
                       }
-                    },
-                    [
-                      m(Box,
-                        {
-                          isBtn: true,
-                          color: "main",
-                          onclick: () => {
-                            // 从 Box 实例中读取输入值并应用
-                            searchConfig.useRegex = RegexSwitch.data.value;
-                            searchConfig.caseSensitive = CaseSwitch.data.value;
-                            searchConfig.wholeWord = WordSwitch.data.value;
-                            searchConfig.excludePatterns = ExcludeInput.data.value;
-
-                            // 同步到后端进行持久化保存
-                            settingData.fnCall("appUpdateData", [appId, {
-                              searchConfig: searchConfig
-                            }]);
-
-                            v.attrs.delete();
-                            if (searchMode === 'project') {
-                              doProjectSearch();
-                            }
-                          }
-                        },
-                        trs("资源管理器/搜索配置/确认",
-                          {
-                            cn: "应用配置",
-                            en: "Apply Config"
-                          }
-                        )
-                      )
-                    ]
+                    }
                   )
                 ]
               )
@@ -412,7 +402,7 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, settingData, 
     explorerData.addTool("commonData", commonData)
     explorerData.registerInstances(appId, instanceInterface)
     if (commonData?.registerApp) commonData.registerApp(appId, explorerData)
-    await navigate(comData.data.get()?.customCwd || ".")
+    await navigate(comData.getChatList(0).workDirs?.find(item => item.type === "main")?.path || ".")
   }
   init()
 
@@ -607,8 +597,11 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, settingData, 
               redraw()
             } else if (e.key === 'Delete' && selected.size > 0) {
               const fs = resolveSelectedPaths(searchMode === 'project' && projectSearchResults.length > 0 ? projectSearchResults : files, Array.from(selected))
-              askConfirm(`确定要删除选中的 ${fs.length} 个项目吗？`, "确认删除").then(yes => {
-                if (yes) settingData.fnCall("appDispatch", [appId, "delete", { files: fs }])
+              askConfirm(`确定要删除选中的 ${fs.length} 个项目吗？`, "确认删除").then(async yes => {
+                if (yes) {
+                  const res = await settingData.fnCall("appDispatch", [appId, "delete", { files: fs }])
+                  if (!res?.ok) Notice.launch({ msg: res?.msg })
+                }
               })
             }
           }
@@ -682,10 +675,15 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, settingData, 
                     m, Box, getColor,
                     selectedCount: selected.size,
                     hasItem: !!item,
+                    isSearchResult: !!item?.isSearchResult,
                     canPaste: selected.size === 0 && clipboard.files.length > 0,
                     onAction: async (type) => {
                       v.attrs.delete();
                       if (type === 'open') openItem(item);
+                      else if (type === 'openDir') {
+                        const targetDir = item.isDirectory ? item.path : (item.path.replace(/[\\/][^\\/]+$/, "") || "/");
+                        await settingData.fnCall("appLaunch", ["explorer", { data: { currentPath: targetDir } }]);
+                      }
                       else if (type === 'rename') {
                         const n = await askName("重命名", item.name);
                         if (n && n !== item.name) {
@@ -701,12 +699,18 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, settingData, 
                         doPaste(currentPath);
                       } else if (type === 'delete') {
                         const fs = resolveSelectedPaths(pool, Array.from(selected))
-                        askConfirm(`确定要删除选中的 ${fs.length} 个项目吗？`, "确认删除").then(yes => {
-                          if (yes) settingData.fnCall("appDispatch", [appId, "delete", { files: fs }]);
+                        askConfirm(`确定要删除选中的 ${fs.length} 个项目吗？`, "确认删除").then(async yes => {
+                          if (yes) {
+                            const res = await settingData.fnCall("appDispatch", [appId, "delete", { files: fs }]);
+                            if (!res?.ok) Notice.launch({ msg: res?.msg });
+                          }
                         });
                       } else if (type === 'mkdir') {
                         const n = await askName("新建文件夹", "新建文件夹");
-                        if (n) await settingData.fnCall("appDispatch", [appId, "mkdir", { name: n }]);
+                        if (n) {
+                          const res = await settingData.fnCall("appDispatch", [appId, "mkdir", { name: n }]);
+                          if (!res?.ok) Notice.launch({ msg: res?.msg });
+                        }
                       }
                     }
                   })

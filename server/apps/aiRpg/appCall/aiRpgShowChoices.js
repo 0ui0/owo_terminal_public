@@ -1,6 +1,5 @@
 import Joi from "joi";
 import comData from "../../../comData/comData.js";
-import aiBasic from "../../../tools/aiAsk/basic.js";
 import subAgents from "../../../tools/aiAsk/subAgents.js";
 
 export default {
@@ -34,7 +33,7 @@ export default {
 
         // 强行切断大模型当前回复流，等待玩家进行选择
         const targetListId = comData.data.get().targetChatListId || 0;
-        let targetModel = targetListId > 0 ? subAgents.get(targetListId) : aiBasic.list.find((model) => model.name === comData.data.get().currentModel);
+        let targetModel = subAgents.get(targetListId);
         if (targetModel) {
             targetModel.stopRun();
         }
