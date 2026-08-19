@@ -10,7 +10,20 @@ export default () => {
     view: () => {
       const now = Date.now()
       const flashMsg = commonData.messages.find(msg => now - msg.timestamp < 5000)
-      const unreadCount = commonData.messages.filter(msg => !msg.isRead).length
+      const unreadMsgs = commonData.messages.filter(msg => !msg.isRead)
+      const unreadCount = unreadMsgs.length
+
+      const getBadgeColor = (type) => {
+        switch(type) {
+          case "error": return "#ff5252"
+          case "success": return "#4caf50"
+          case "warning": return "#ff9800"
+          case "downloading": return "#2196f3"
+          case "info": return "#2196f3"
+          default: return "#ff5252"
+        }
+      }
+      const badgeColor = unreadCount > 0 ? getBadgeColor(unreadMsgs[unreadMsgs.length - 1].type) : "#ff5252"
 
       const openInbox = () => {
         Notice.launch({
@@ -96,18 +109,6 @@ export default () => {
                     }
                   }
                 }, [
-                  !msg.isRead ? m("", {
-                    style: {
-                      position: "absolute",
-                      top: "-0.2rem",
-                      right: "-0.2rem",
-                      width: "0.6rem",
-                      height: "0.6rem",
-                      borderRadius: "50%",
-                      background: "#2196f3",
-                      boxShadow: "0 0 0 2px white"
-                    }
-                  }) : null,
                   // Header Row
                   m("", {
                     style: {
@@ -118,17 +119,25 @@ export default () => {
                   }, [
                     m("", { style: { display: "flex", alignItems: "center", gap: "0.5rem" } }, [
                       m.trust(window.iconPark.getIcon(getIconName(), { fill: getIconColor(), size: "1.2rem" })),
-                      m("span", { style: { fontSize: "1.1rem", color: getColor("gray_6").front, opacity: 0.6 } }, getTypeName())
+                      m("span", { style: { fontSize: "1.1rem", color: getColor("gray_1").front, opacity: 0.6 } }, getTypeName()),
+                      !msg.isRead ? m("", {
+                        style: {
+                          width: "0.6rem",
+                          height: "0.6rem",
+                          borderRadius: "50%",
+                          background: getIconColor()
+                        }
+                      }) : null
                     ]),
                     m("", { style: { display: "flex", alignItems: "center", gap: "0.8rem" } }, [
-                      m("span", { style: { fontSize: "1.1rem", color: getColor("gray_6").front, opacity: 0.4 } }, formatTime(msg.timestamp)),
+                      m("span", { style: { fontSize: "1.1rem", color: getColor("gray_1").front, opacity: 0.4 } }, formatTime(msg.timestamp)),
                       m("", {
                         style: { cursor: "pointer", display: "flex", alignItems: "center" },
                         onpointerup: (e) => {
                           e.stopPropagation()
                           commonData.messages.splice(index, 1)
                         }
-                      }, m.trust(window.iconPark.getIcon("Close", { fill: getColor("gray_6").front, size: "1.1rem", opacity: 0.5 })))
+                      }, m.trust(window.iconPark.getIcon("Close", { fill: getColor("gray_1").front, size: "1.1rem", opacity: 0.5 })))
                     ])
                   ]),
                   // Body Row
@@ -140,8 +149,8 @@ export default () => {
                       paddingLeft: "0.2rem"
                     }
                   }, [
-                     m("", { style: { fontWeight: "bold", fontSize: "1.3rem", color: getColor("gray_6").front, lineHeight: "1.4" } }, msg.title),
-                     msg.content ? m("", { style: { fontSize: "1.2rem", color: getColor("gray_6").front, opacity: 0.8, lineHeight: "1.4" } }, msg.content) : null,
+                     m("", { style: { fontWeight: "bold", fontSize: "1.3rem", color: getColor("gray_1").front, lineHeight: "1.4" } }, msg.title),
+                     msg.content ? m("", { style: { fontSize: "1.2rem", color: getColor("gray_1").front, opacity: 0.8, lineHeight: "1.4" } }, msg.content) : null,
                      msg.meta && msg.meta.progress !== undefined ? m("", {
                        style: {
                          width: "100%",
@@ -226,7 +235,7 @@ export default () => {
             position: "absolute",
             top: "-0.4rem",
             right: "-0.4rem",
-            background: "#ff5252",
+            background: badgeColor,
             color: "#fff",
             fontSize: "1rem",
             padding: "0 0.4rem",

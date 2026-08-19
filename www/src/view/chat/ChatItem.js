@@ -287,6 +287,8 @@ export default ChatItem = () => {
               maxWidth: window.Mob ? "calc(100% - 5rem)" : "calc(100% - 9rem)",
               overflow: "auto",
 
+              boxShadow: "0 0 1rem rgba(0,0,0,0.05)",
+
               ...(/*chat.tid === comData.data.get()?.currentTid || */fullScreen ? {
                 maxWidth: "unset",
                 maxHeight: "unset",
@@ -302,7 +304,7 @@ export default ChatItem = () => {
 
               } : {}),
 
-              boxShadow: "0 0 1rem rgba(0,0,0,0.05)",
+
 
               ...(chat.group === "user" ? {
                 border: `0.1rem solid ${getColor("我方气泡高亮边框色")}30`,

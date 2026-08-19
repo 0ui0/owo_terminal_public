@@ -130,17 +130,19 @@ export default function () {
           white-space: pre-wrap;
           word-wrap:break-word;
         }
-        .article {
-          color: ${getColor('gray_4').front};
+
+        .article{
+          color: ${getColor('gray_1').front}88;
         }
+
         .article *{
           line-height:1.8;
-          font-size:1.4rem !important;
+          font-size:1.5rem !important;
           /*font-weight:normal;*/
           
         }
         .article a{
-          color: ${getColor('blue_1').back};
+          color: ${getColor('blue_1').back}88;
         }
         .article img{
           border-radius: 1rem;
@@ -235,9 +237,9 @@ export default function () {
 
         .article p code{
           display:inline-block;
-          background: ${getColor('gray_3').back};
-          color: ${getColor('gray_8').front};
-          border-radius:0.3rem;
+          background: ${getColor('blue_3').back};
+          color: ${getColor('blue_3').front};
+          border-radius:0.5rem;
           margin:0.2rem;
           font-size:1.3rem;
           text-indent: 0;
@@ -247,8 +249,8 @@ export default function () {
           display:block;
           padding-left:1.8rem;
           padding-right: 1.8rem;
-          background: ${getColor('gray_3').back};
-          color: ${getColor('gray_8').front};
+          background: ${getColor('blue_3').back};
+          color: ${getColor('blue_3').front};
           border-radius:0.3rem;
           margin:0.2rem;
           font-size:1.3rem;
@@ -266,6 +268,7 @@ export default function () {
           padding-right:1rem;
           border-left:0.4rem solid ${getColor('blue_1').back};
           background:${getColor('brown_1').back};
+          color:${getColor('brown_1').front};
           border-radius: 0.5rem 2rem 2rem 0.5rem;
           //font-style:italic
         }

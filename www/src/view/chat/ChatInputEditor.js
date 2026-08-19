@@ -580,6 +580,7 @@ export default () => {
 
                   // 准备上传
                   const targetChatListId = (comData.data.get()?.targetChatListId || 0);
+                  const sessionState = data.getSessionState(targetChatListId);
                   if (!sessionState.attachments) sessionState.attachments = [];
 
                   // 创建临时占位对象
