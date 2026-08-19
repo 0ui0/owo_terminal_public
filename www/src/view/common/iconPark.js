@@ -80,6 +80,14 @@ import {
   ExpandRight,
   CopyOne,
   Redo,
+  CloseOne,
+  Caution,
+  Loading,
+  Info,
+  Mail,
+  Error,
+  Success,
+  Attention
 } from '@icon-park/svg';
 
 let iconPark = {
@@ -164,6 +172,14 @@ let iconPark = {
   ExpandRight,
   CopyOne,
   Redo,
+  CloseOne,
+  Caution,
+  Loading,
+  Info,
+  Mail,
+  Error,
+  Success,
+  Attention
 };
 
 export default {

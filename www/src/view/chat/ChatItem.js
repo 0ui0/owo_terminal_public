@@ -23,7 +23,8 @@ import Row from "../../class/row.js"
 
 const ReasoningBlock = () => {
   let show = false;
-  let timer = null;
+  let scrollThrottleTimer = null;
+  let isAtBottom = true;
   return {
     view({ attrs }) {
       const { reasoning, isPreparing } = attrs;
@@ -91,18 +92,21 @@ const ReasoningBlock = () => {
               overflowY: "auto",
 
             },
-            onupdate(vnode) {
-              if (isPreparing && vnode.dom && show) {
-                if (!timer) {
-                  timer = setTimeout(() => {
-                    timer = null;
-                    if (vnode.dom && show) {
-                      const isAtBottom = vnode.dom.scrollHeight - vnode.dom.scrollTop - vnode.dom.clientHeight <= 30;
-                      if (isAtBottom) {
-                        vnode.dom.scrollTop = vnode.dom.scrollHeight;
-                      }
+            onscroll(e) {
+              const dom = e.target;
+              isAtBottom = dom.scrollHeight <= dom.clientHeight
+                ? true
+                : dom.scrollHeight - dom.scrollTop - dom.clientHeight <= 30;
+            },
+            onupdate({ dom }) {
+              if (isPreparing) {
+                if (!scrollThrottleTimer) {
+                  scrollThrottleTimer = setTimeout(() => {
+                    scrollThrottleTimer = null;
+                    if (isAtBottom) {
+                      dom.scrollTop = dom.scrollHeight;
                     }
-                  }, 1000);
+                  }, 200);
                 }
               }
             }
@@ -149,10 +153,12 @@ const ReasoningBlock = () => {
 let ChatItem = null
 export default ChatItem = () => {
   let fullScreen = false
-  let showMind = false
+  let showMind = true
   let showRaw = false
   let showMore = false
   let _chat = null
+  let contentScrollTimer = null
+  let isContentAtBottom = true
 
   return {
     async oninit({ attrs }) {
@@ -442,16 +448,18 @@ export default ChatItem = () => {
                       m("", {
                         style: {
                           overflow: "hidden",
-                          maxWidth: "50rem",
+                          maxWidth: "80rem",
                         }
                       }, [
                         m(ReasoningBlock, { reasoning: chat.reasoning, isPreparing: true }),
                         m("", [
                           trs("聊天/状态/思考中", { cn: "思考中...", en: "Thinking..." }),
+
                           chat.content?.length > 0 ?
                             m("a", {
                               style: {
-                                cursor: "pointer"
+                                cursor: "pointer",
+                                color: getColor('main').front
                               },
                               onclick() {
                                 showMind = !showMind
@@ -466,8 +474,21 @@ export default ChatItem = () => {
                             maxHeight: "10rem",
                             overflow: "auto",
                           },
+                          onscroll(e) {
+                            const dom = e.target;
+                            isContentAtBottom = dom.scrollHeight <= dom.clientHeight
+                              ? true
+                              : dom.scrollHeight - dom.scrollTop - dom.clientHeight <= 30;
+                          },
                           onupdate({ dom }) {
-                            dom.scrollTop = dom.scrollHeight
+                            if (!contentScrollTimer) {
+                              contentScrollTimer = setTimeout(() => {
+                                contentScrollTimer = null;
+                                if (isContentAtBottom) {
+                                  dom.scrollTop = dom.scrollHeight;
+                                }
+                              }, 200);
+                            }
                           },
                         }, [
                           showMind

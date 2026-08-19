@@ -16,19 +16,6 @@ export default function () {
   let domRect = null
   let currentAttrs = null // Fix: Capture attrs in closure
 
-  // 注入隐藏滚动条的样式
-  const injectStyle = () => {
-    if (document.getElementById("notice-box-style")) return
-    const style = document.createElement("style")
-    style.id = "notice-box-style"
-    style.innerHTML = `
-      .hide-scrollbar::-webkit-scrollbar { display: none; }
-      .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-    `
-    document.head.appendChild(style)
-  }
-  injectStyle()
-
   // 固化尺寸函数
   const materialize = (dom, win) => {
     const isAuto = (win.width === 0 || win.height === 0)
@@ -403,7 +390,7 @@ export default function () {
           boxShadow: "0 0 2rem rgba(0,0,0,0.3)",
           backdropFilter: "blur(10px)",
           "-webkit-backdrop-filter": "blur(10px)",
-          overflow: "hidden",
+          //overflow: "hidden",
           border: win.isMaximized ? "none" : `0.1rem solid ${getColor('main').back}`,
           transition: isResizing || isMoving ? "none" : "display 0.3s, opacity 0.3s",
           minWidth: "20rem",
@@ -426,6 +413,7 @@ export default function () {
           style: {
             touchAction: "none",
             background: getColor('main').back,
+            borderRadius: "3rem",
             opacity: attrs.isActiveWindow === false ? 0.6 : 1,
             transition: "opacity 0.3s",
             display: "flex",
@@ -455,7 +443,8 @@ export default function () {
               display: "flex",
               alignItems: "center",
               flexShrink: 0,
-              minWidth: "4rem"
+              minWidth: "4rem",
+
             }
           }, [
             (activeTab.icon || activeTab.appType) ? m("img", {
@@ -717,7 +706,7 @@ export default function () {
             overflow: "auto",
             background: getColor('brown_2').back,
             margin: "0.5rem",
-            borderRadius: "2rem",
+            borderRadius: "3rem",
             display: "flex", flexDirection: "column",
           }
         }, stablePhysicalTabs.map(tab => { // 绝对物理稳定渲染，保证 webview 不重连

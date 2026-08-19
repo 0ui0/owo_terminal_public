@@ -73,8 +73,7 @@ export default {
       }
 
       if (ioServer.io) {
-        projectManager.startAutoSave() // 首次加载后自动开启定时器
-        ioServer.io.emit("project:state", { path: filePath, autoSave: true })
+        ioServer.io.emit("project:state", { path: filePath })
         ioServer.io.emit("project:loaded")
 
         // --- 同步前端 sessionStates（导入存档后需刷新模型下拉菜单状态） ---

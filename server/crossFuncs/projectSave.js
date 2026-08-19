@@ -35,8 +35,7 @@ export default {
       await projectManager.save(filePath)
       
       if (ioServer.io) {
-        projectManager.startAutoSave() // 首次保存后自动开启定时器
-        ioServer.io.emit("project:state", { path: filePath, autoSave: true })
+        ioServer.io.emit("project:state", { path: filePath })
         ioServer.io.emit("notice", trs("系统/消息/操作成功"))
       }
 

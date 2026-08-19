@@ -1,8 +1,8 @@
-// 桌面入口组件 - App 网格列表
 import Notice from "../common/notice.js"
 import settingData from "../setting/settingData.js"
 import { trs } from "../common/i18n.js"
 import getAppIconUrl from "../common/getAppIconUrl.js"
+import getColor from "../common/getColor.js"
 
 export default {
   oninit(vnode) {
@@ -17,58 +17,65 @@ export default {
   },
 
   view(vnode) {
-    return m("div", {
+    return m("", {
       style: {
-        padding: "20px",
-        minWidth: "420px"
+        display: "flow-root",
+        padding: "2rem",
+        boxSizing: "border-box",
+        minWidth: "31rem"
       }
     }, [
-      m("div", { style: { fontSize: "18px", fontWeight: "bold", marginBottom: "20px", textAlign: "center" } }, trs("聊天界面/词汇/应用")),
-
       vnode.state.loading
-        ? m("div", { style: { textAlign: "center", padding: "20px" } }, trs("系统/状态/加载中", { cn: "加载中...", en: "Loading..." }))
+        ? m("", { style: { textAlign: "center", margin: "2rem", color: getColor("gray_4").front } }, trs("系统/状态/加载中", { cn: "加载中...", en: "Loading..." }))
         : vnode.state.appDefs.length === 0
-          ? m("div", { style: { textAlign: "center", padding: "20px", color: "#888" } }, trs("应用/无应用", { cn: "暂无可用应用", en: "No apps available" }))
-          : m("div", {
+          ? m("", { style: { textAlign: "center", margin: "2rem", color: getColor("gray_4").front } }, trs("应用/无应用", { cn: "暂无可用应用", en: "No apps available" }))
+          : m("", {
             style: {
               display: "grid",
-              gridTemplateColumns: "repeat(auto-fill, minmax(100px, 1fr))",
-              gap: "15px"
+              gridTemplateColumns: "repeat(auto-fill, minmax(8rem, 1fr))",
+              gap: "1.2rem"
             }
           }, vnode.state.appDefs.map(app =>
-            m("div", {
+            m("", {
               key: app.id,
               style: {
                 display: "flex",
                 flexDirection: "column",
                 alignItems: "center",
-                padding: "15px",
-                borderRadius: "10px",
-                background: "rgba(255,255,255,0.1)",
+                justifyContent: "center",
+                aspectRatio: "1 / 1",
+                gap: "0.8rem",
+                borderRadius: "1.2rem",
+                background: getColor("gray_2").back,
+                color: getColor("gray_6").front,
                 cursor: "pointer",
-                transition: "all 0.2s"
+                transition: "background 0.2s, color 0.2s"
               },
-              onmouseover(e) { e.currentTarget.style.background = "rgba(255,255,255,0.2)" },
-              onmouseout(e) { e.currentTarget.style.background = "rgba(255,255,255,0.1)" },
+              onmouseover(e) { 
+                e.currentTarget.style.background = getColor("gray_3").back
+                e.currentTarget.style.color = getColor("gray_3").front
+              },
+              onmouseout(e) { 
+                e.currentTarget.style.background = getColor("gray_2").back
+                e.currentTarget.style.color = getColor("gray_6").front
+              },
               onclick() {
-                // 关闭桌面窗口
-                // 关闭桌面窗口
-                //if (vnode.attrs.delete) vnode.attrs.delete()
                 // 启动 App
                 settingData.fnCall("appLaunch", [app.id])
               }
             }, [
-              m("div", {
+              m("", {
                 style: {
-                  width: "48px", height: "48px",
-                  borderRadius: "11px",
+                  width: "4.2rem",
+                  height: "4.2rem",
+                  borderRadius: "1rem",
                   overflow: "hidden",
-                  marginBottom: "8px",
-                  boxShadow: "0 4px 10px rgba(0,0,0,0.15)",
+                  boxShadow: "0 0.4rem 1rem rgba(0,0,0,0.15)",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  background: "#ffffff"
+                  background: getColor("gray_1").back,
+                  flexShrink: 0
                 }
               }, [
                 m("img", {
@@ -77,7 +84,18 @@ export default {
                   style: { width: "100%", height: "100%", objectFit: "cover" }
                 })
               ]),
-              m("div", { style: { fontSize: "12px", textAlign: "center" } }, app.name)
+              m("span", {
+                style: {
+                  fontSize: "1.1rem",
+                  textAlign: "center",
+                  padding: "0 0.8rem",
+                  lineHeight: "1.2",
+                  display: "-webkit-box",
+                  "-webkit-line-clamp": "2",
+                  "-webkit-box-orient": "vertical",
+                  overflow: "hidden"
+                }
+              }, app.name)
             ])
           ))
     ])

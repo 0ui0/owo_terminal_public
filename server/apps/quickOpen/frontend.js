@@ -229,7 +229,7 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, settingData, 
                   m(FormInput,
                     {
                       tagName: "input[type=text]",
-                      color: "blue_1",
+                      color: "gray_2",
                       style: {
                         width: "100%",
                         height: "3.2rem",
@@ -281,7 +281,7 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, settingData, 
                       },
                       m.trust(iconPark.getIcon("CloseSmall", {
                         size: "1.4rem",
-                        fill: getColor('blue_1').front
+                        fill: getColor('gray_5').front
                       }))
                     )
                     : null
@@ -291,7 +291,7 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, settingData, 
               // 2. 右侧：全文开关 Box 胶囊 (与左侧高度严格 3.2rem 等高并排)
               m(Box,
                 {
-                  color: "blue_1",
+                  color: "gray_2",
                   style: {
                     height: "3.2rem",
                     display: "flex",

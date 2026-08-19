@@ -1,5 +1,6 @@
 export default {
-  main: { back: "#836766ff", front: "#340101ff" },
+  //main: { back: "#836766", front: "#340101" },
+  main: { back: "#9b6e6d", front: "#340101" },
 
   pink_1: { back: "#a75e5e", front: "#463838" },
   pink_2: { back: "#8e6c8e", front: "#eee" },

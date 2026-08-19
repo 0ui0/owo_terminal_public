@@ -13,6 +13,7 @@ import comData from "./server/comData/comData.js"
 import projectSave from "./server/crossFuncs/projectSave.js"
 import projectLoad from "./server/crossFuncs/projectLoad.js"
 import tempPath from "./server/tools/tempPath.js"
+import crypto from "crypto"
 
 // --- Portable Mode Detection (便携模式检测) ---
 // 存在 .portable 标记文件或 owo_data 文件夹时，自动重定向用户数据根目录至 ./owo_data (参考 VSCode Portable 规范)
@@ -28,9 +29,8 @@ if (hasPortableFlag || hasDataDir) {
 // --- Auto Updater Configuration ---
 autoUpdater.autoDownload = false // 2026-02-06 Changed to false for manual confirmation
 autoUpdater.autoInstallOnAppQuit = true
-// 显式注入版本号与配置绝对路径，杜绝工作目录切换至 server/ 导致的寻址偏离
+// 显式配置更新路径，杜绝工作目录切换至 server/ 导致的寻址偏离
 try {
-  autoUpdater.currentVersion = app.getVersion()
   if (process.resourcesPath) {
     const ymlPath = pathLib.join(process.resourcesPath, "app-update.yml")
     if (fs.existsSync(ymlPath)) {
@@ -124,17 +124,26 @@ const createWindow = () => {
 
   // --- Auto Updater Events ---
   let latestUpdateInfo = null
-  const broadcastStatus = (status) => {
-    // console.log("Broadcast:", status)
+  const PUSH_TITLE = () => trs("系统/消息/系统更新", { cn: "系统更新", en: "System Update" })
+  const pushUpdateMessage = (msg) => {
     if (ioServer.io) {
-      ioServer.io.emit("sys:updateStatus", status)
+      ioServer.io.emit("sys:pushMessage", msg)
     }
   }
 
   // Helper: Handle successful update ready (Manual flow)
   const handleManualUpdateReady = (savePath) => {
     win.setProgressBar(-1)
-    broadcastStatus({ state: "downloaded", msg: trs("系统/消息/下载完成", { cn: "下载完成", en: "Download complete" }) })
+    pushUpdateMessage({
+      id: crypto.randomUUID(),
+      title: trs("系统/消息/下载完成", { cn: "下载完成", en: "Download complete" }),
+      type: "success",
+      content: trs("系统/更新/等待安装", { cn: "文件已保存，等待执行安装", en: "File saved, waiting for install" }),
+      isRead: false,
+      tag: "sys-update",
+      merge: "cover",
+      action: { type: "emit", event: "sys:quitAndInstall" }
+    })
 
     const isArchive = savePath.endsWith('.zip')
 
@@ -177,16 +186,34 @@ const createWindow = () => {
       if (win.isDestroyed()) return
       if (!item.getSavePath()) return // Don't show progress until path selected
       if (state === 'interrupted') {
-        broadcastStatus({ state: "error", msg: "下载被中断 / Download interrupted" })
+        pushUpdateMessage({
+          id: crypto.randomUUID(),
+          title: "下载被中断 / Download interrupted",
+          type: "error",
+          content: trs("系统/更新/中断提示", { cn: "下载进度已被中断，请重试", en: "Download was interrupted, please try again" }),
+          isRead: false,
+          tag: "sys-update",
+          merge: "cover"
+        })
       } else if (state === 'progressing') {
         if (!item.isPaused()) {
           const progress = item.getReceivedBytes() / item.getTotalBytes() * 100
           win.setProgressBar(progress / 100)
-          broadcastStatus({
-            state: "downloading",
-            progress: progress,
-            msg: trs("系统/更新/下载中", { cn: "正在下载...", en: "Downloading..." }) + ` ${Math.round(progress)}%`
-          })
+
+          const now = Date.now()
+          if (!item._lastProgressTime || now - item._lastProgressTime > 500 || progress === 100) {
+            item._lastProgressTime = now
+            pushUpdateMessage({
+              id: crypto.randomUUID(),
+              title: trs("系统/更新/下载中", { cn: "正在下载...", en: "Downloading..." }) + ` ${Math.round(progress)}%`,
+              type: "downloading",
+              content: trs("系统/更新/保存本地", { cn: "正在将更新文件保存到本地...", en: "Saving update files locally..." }),
+              isRead: false,
+              tag: "sys-update",
+              merge: "cover",
+              meta: { progress: Math.round(progress) }
+            })
+          }
         }
       }
     })
@@ -197,27 +224,48 @@ const createWindow = () => {
         handleManualUpdateReady(savePath)
       } else {
         win.setProgressBar(-1)
-        broadcastStatus({ state: "error", msg: `Download failed: ${state}` })
+        pushUpdateMessage({
+          id: crypto.randomUUID(),
+          title: `下载失败: ${state} / Download failed`,
+          type: "error",
+          content: trs("系统/更新/异常提示", { cn: "下载过程中出现异常", en: "An exception occurred during download" }),
+          isRead: false,
+          tag: "sys-update",
+          merge: "cover"
+        })
       }
     })
   })
 
   autoUpdater.on('checking-for-update', () => {
-    broadcastStatus({ state: "checking", msg: trs("系统/更新/检查中", { cn: "正在检查更新...", en: "Checking for updates..." }) })
+    pushUpdateMessage({
+      id: crypto.randomUUID(),
+      title: trs("系统/更新/检查中", { cn: "正在检查更新...", en: "Checking for updates..." }),
+      type: "info",
+      content: trs("系统/更新/连接中", { cn: "正在与发布服务器通信...", en: "Communicating with release server..." }),
+      isRead: false,
+      tag: "sys-update",
+      merge: "cover"
+    })
   })
 
   autoUpdater.on('update-available', (info) => {
     latestUpdateInfo = info
-    broadcastStatus({
-      state: "available",
-      msg: trs("系统/更新/发现新版本", { cn: "发现新版本", en: "New version found" }) + ` ${info.version}`
+    pushUpdateMessage({
+      id: crypto.randomUUID(),
+      title: trs("系统/更新/发现新版本", { cn: "发现新版本", en: "New version found" }) + ` v${info.version}`,
+      type: "info",
+      content: trs("系统/更新/准备下载", { cn: "已准备好获取更新文件", en: "Ready to fetch update files" }),
+      isRead: false,
+      tag: "sys-update",
+      merge: "cover"
     })
 
     let releaseNotes = info.releaseNotes || ''
     if (typeof releaseNotes !== 'string') {
       try {
         releaseNotes = releaseNotes.toString()
-      } catch (e) {}
+      } catch (e) { }
     }
     if (releaseNotes) {
       releaseNotes = releaseNotes.replace(/<[^>]+>/g, '').trim()
@@ -240,14 +288,14 @@ const createWindow = () => {
           let isMac = process.platform === 'darwin'
           let isWin = process.platform === 'win32'
           let archStr = process.arch === 'arm64' ? 'arm64' : 'x64'
-          
+
           let fileEntry = info.files.find(f => {
             let url = f.url || ''
             if (isMac && url.endsWith('.dmg') && url.includes(archStr)) return true
             if (isWin && url.endsWith('.exe') && url.includes(archStr)) return true
             return false
           })
-          
+
           if (!fileEntry) {
             fileEntry = info.files.find(f => isMac ? f.url.endsWith('.dmg') : (isWin ? f.url.endsWith('.exe') : false))
           }
@@ -274,36 +322,64 @@ const createWindow = () => {
           downloadUrl = `https://github.com/0ui0/owo_terminal_public/releases/download/v${info.version}/${filename}`
         }
 
-        broadcastStatus({
-          state: "downloading",
-          progress: 0,
-          msg: trs("系统/更新/下载中", { cn: "正在下载...", en: "Downloading..." })
+        pushUpdateMessage({
+          id: crypto.randomUUID(),
+          title: trs("系统/更新/开始下载", { cn: "正在开始下载...", en: "Starting download..." }),
+          type: "downloading",
+          content: trs("系统/更新/启动浏览器下载", { cn: "即将启动浏览器下载文件", en: "Starting browser to download file" }),
+          isRead: false,
+          tag: "sys-update",
+          merge: "cover"
         })
         win.webContents.downloadURL(downloadUrl)
       }
     })
   })
 
+  let lastAutoUpdaterProgressTime = 0
   autoUpdater.on('download-progress', (progressObj) => {
     win.setProgressBar(progressObj.percent / 100) // Keep taskbar progress
-    broadcastStatus({
-      state: "downloading",
-      progress: progressObj.percent,
-      msg: trs("系统/更新/下载中", { cn: "正在下载...", en: "Downloading..." }) + ` ${Math.round(progressObj.percent)}%`
-    })
+    const now = Date.now()
+    if (!lastAutoUpdaterProgressTime || now - lastAutoUpdaterProgressTime > 500 || progressObj.percent === 100) {
+      lastAutoUpdaterProgressTime = now
+      pushUpdateMessage({
+        id: crypto.randomUUID(),
+        title: trs("系统/更新/下载中", { cn: "正在下载...", en: "Downloading..." }) + ` ${Math.round(progressObj.percent)}%`,
+        type: "downloading",
+        content: trs("系统/更新/保存本地", { cn: "正在拉取服务器资源文件...", en: "Fetching resource files from server..." }),
+        isRead: false,
+        tag: "sys-update",
+        merge: "cover",
+        meta: { progress: Math.round(progressObj.percent) }
+      })
+    }
   })
 
   autoUpdater.on('update-not-available', (info) => {
-    broadcastStatus({
-      state: "up-to-date",
-      msg: trs("系统/更新/已是最新", { cn: "当前已是最新版本", en: "Already up to date" }) + ` (${info.version})`
+    pushUpdateMessage({
+      id: crypto.randomUUID(),
+      title: trs("系统/更新/已是最新", { cn: "当前已是最新版本", en: "Already up to date" }) + ` (v${info.version})`,
+      type: "success",
+      content: trs("系统/更新/无需更新", { cn: "无需更新", en: "No update needed" }),
+      isRead: false,
+      tag: "sys-update",
+      merge: "cover"
     })
   })
 
   autoUpdater.on('update-downloaded', (info) => {
     // 理论上由于接管了 downloadURL，此原生流不会被触发，作为兜底
     win.setProgressBar(-1)
-    broadcastStatus({ state: "downloaded", msg: trs("系统/消息/下载完成", { cn: "下载完成", en: "Download complete" }) })
+    pushUpdateMessage({
+      id: crypto.randomUUID(),
+      title: trs("系统/消息/下载完成", { cn: "下载完成", en: "Download complete" }),
+      type: "success",
+      content: trs("系统/更新/点击安装", { cn: "点击这里重新启动并安装", en: "Click to restart and install" }),
+      isRead: false,
+      tag: "sys-update",
+      merge: "cover",
+      action: { type: "emit", event: "sys:quitAndInstall" }
+    })
   })
 
   autoUpdater.on('error', (err) => {
@@ -316,26 +392,54 @@ const createWindow = () => {
         en: "(Note: This is a portable version, and cannot auto-check for updates.)"
       })
     }
-    const errorMsg = trs("系统/错误/提示", { cn: "更新出错：", en: "Update Error: " }) + (err.message || String(err)) + missAppUpdate
-    broadcastStatus({ state: "error", msg: errorMsg })
+    const errorMsg = (err.message || String(err)) + missAppUpdate
+    pushUpdateMessage({
+      id: crypto.randomUUID(),
+      title: trs("系统/错误/更新出错", { cn: "更新出错", en: "Update Error" }) + `: ${err.message || String(err)}`,
+      type: "error",
+      content: missAppUpdate ? missAppUpdate.trim() : trs("系统/错误/检查网络", { cn: "请检查网络或手动下载最新版", en: "Please check network or download manually" }),
+      isRead: false,
+      tag: "sys-update",
+      merge: "cover"
+    })
   })
 
   // 监听前端更新与重启安装请求
   if (ioServer.io) {
     ioServer.io.on('connection', (socket) => {
       socket.on('sys:checkUpdate', async () => {
-        broadcastStatus({ state: "checking", msg: trs("系统/更新/检查中", { cn: "正在检查更新...", en: "Checking for updates..." }) })
+        pushUpdateMessage({
+          id: crypto.randomUUID(),
+          title: trs("系统/更新/检查中", { cn: "正在检查更新...", en: "Checking for updates..." }),
+          type: "info",
+          content: trs("系统/更新/连接中", { cn: "正在与发布服务器通信...", en: "Communicating with release server..." }),
+          isRead: false,
+          tag: "sys-update",
+          merge: "cover"
+        })
         const result = await autoUpdater.checkForUpdatesAndNotify()
         if (!result && !app.isPackaged) {
-          broadcastStatus({ state: "error", msg: trs("系统/更新/开发环境", { cn: "开发环境跳过检查", en: "Skipped in Dev Mode" }) })
+          pushUpdateMessage({
+            id: crypto.randomUUID(),
+            title: trs("系统/更新/开发环境", { cn: "开发环境跳过检查", en: "Skipped in Dev Mode" }),
+            type: "error",
+            content: trs("系统/更新/打包后可用", { cn: "仅打包后的版本可执行自动更新", en: "Only packaged app supports auto-update" }),
+            isRead: false,
+            tag: "sys-update",
+            merge: "cover"
+          })
         }
       })
 
       socket.on('sys:startDownload', () => {
-        broadcastStatus({
-          state: "downloading",
-          progress: 0,
-          msg: trs("系统/更新/下载中", { cn: "正在下载...", en: "Downloading..." })
+        pushUpdateMessage({
+          id: crypto.randomUUID(),
+          title: trs("系统/更新/开始下载", { cn: "正在开始下载...", en: "Starting download..." }),
+          type: "downloading",
+          content: trs("系统/更新/初始化", { cn: "正在初始化下载资源...", en: "Initializing download resources..." }),
+          isRead: false,
+          tag: "sys-update",
+          merge: "cover"
         })
         autoUpdater.downloadUpdate()
       })
@@ -376,10 +480,26 @@ const createWindow = () => {
         {
           label: trs("菜单栏/操作/检查更新", { cn: "检查更新", en: "Check for Updates" }),
           click: async () => {
-            broadcastStatus({ state: "checking", msg: trs("系统/更新/检查中", { cn: "正在检查更新...", en: "Checking for updates..." }) })
+            pushUpdateMessage({
+              id: crypto.randomUUID(),
+              title: trs("系统/更新/检查中", { cn: "正在检查更新...", en: "Checking for updates..." }),
+              type: "info",
+              content: trs("系统/更新/连接中", { cn: "正在与发布服务器通信...", en: "Communicating with release server..." }),
+              isRead: false,
+              tag: "sys-update",
+              merge: "cover"
+            })
             const result = await autoUpdater.checkForUpdatesAndNotify()
             if (!result && !app.isPackaged) {
-              broadcastStatus({ state: "error", msg: trs("系统/更新/开发环境", { cn: "开发环境跳过检查", en: "Skipped in Dev Mode" }) })
+              pushUpdateMessage({
+                id: crypto.randomUUID(),
+                title: trs("系统/更新/开发环境", { cn: "开发环境跳过检查", en: "Skipped in Dev Mode" }),
+                type: "error",
+                content: trs("系统/更新/打包后可用", { cn: "仅打包后的版本可执行自动更新", en: "Only packaged app supports auto-update" }),
+                isRead: false,
+                tag: "sys-update",
+                merge: "cover"
+              })
               dialog.showMessageBox({
                 type: 'info',
                 title: trs("系统/更新/开发环境标题", { cn: "开发环境", en: "Dev Environment" }),
@@ -510,8 +630,6 @@ app.whenReady().then(async () => {
       comData.data.addObserver('markProjectDirty', () => projectManager.markDirty())
     }
 
-    // 启动自动保存定时器 (内部会根据 currentProjectPath 是否存在来决定是否执行写入)
-    projectManager.startAutoSave()
 
     createWindow()
     autoUpdater.checkForUpdatesAndNotify()

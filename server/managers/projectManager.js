@@ -8,12 +8,20 @@ import AdmZip from "adm-zip"
 import archiveDb from "../db/archiveDb.js"
 import migrations from "./owoMigrations.js"
 import tempPath from "../tools/tempPath.js"
+import options from "../config/options.js"
 
 class ProjectManager {
   constructor() {
     this.currentProjectPath = null
-    this.autoSaveInterval = null
     this.isDirty = false
+    
+    // 全局唯一自动保存心跳 (5分钟)
+    setInterval(() => {
+      const isAutoSave = options.get("global_projectAutoSave")
+      if (isAutoSave === 1 && this.currentProjectPath && this.isDirty) {
+        this.save(this.currentProjectPath).catch(err => console.error("AutoSave Error:", err))
+      }
+    }, 60000 * 5)
   }
 
   markDirty() {
@@ -271,22 +279,7 @@ class ProjectManager {
     }
   }
 
-  // === Auto Save ===
-  startAutoSave(intervalMs = 60000 * 5) {
-    this.stopAutoSave()
-    this.autoSaveInterval = setInterval(() => {
-      if (this.currentProjectPath) {
-        this.save(this.currentProjectPath).catch(err => console.error("AutoSave Error:", err))
-      }
-    }, intervalMs)
-  }
 
-  stopAutoSave() {
-    if (this.autoSaveInterval) {
-      clearInterval(this.autoSaveInterval)
-      this.autoSaveInterval = null
-    }
-  }
 
   // === Reset ===
   async reset() {

@@ -18,26 +18,7 @@ export default () => {
     m.redraw()
   }
 
-  // Toggle Auto Save
-  const toggleAutoSave = async (forceState) => {
-    if (forceState !== undefined) {
-      commonData.autoSaveEnabled = forceState
-    } else {
-      commonData.autoSaveEnabled = !commonData.autoSaveEnabled
-    }
 
-    try {
-      await settingData.fnCall("projectAutoSave", [{
-        enabled: commonData.autoSaveEnabled,
-        interval: commonData.autoSaveInterval * 60 * 1000
-      }])
-      console.log("AutoSave set to:", commonData.autoSaveEnabled)
-      m.redraw()
-    } catch (e) {
-      console.error("AutoSave toggle failed:", e)
-      commonData.autoSaveEnabled = !commonData.autoSaveEnabled // revert
-    }
-  }
 
   // Generic Action Handler
   const handleAction = async (action, saveAs = false) => {
@@ -130,8 +111,6 @@ export default () => {
             style: { padding: "10px", textAlign: "left" },
             onclick: () => { v.attrs.delete(); handleAction("save", true) }
           }, trs("菜单栏/操作/另存为")),
-
-          m("div", { style: { height: "1px", background: "rgba(255,255,255,0.1)", margin: "5px 0" } }),
 
           m(Box, {
             isBtn: true,
@@ -234,16 +213,7 @@ export default () => {
                 Notice.launch({ msg: resImport.msg })
               }
             }
-          }, trs("菜单栏/操作/导入角色包", { cn: "导入角色包", en: "Import Pet Package" })),
-
-          m(Box, {
-            isBtn: true,
-            style: { padding: "10px", textAlign: "left", display: "flex", justifyContent: "space-between" },
-            onclick: () => { toggleAutoSave(); /* Don't close merely on toggle? or close? user preference. Explorer closes. Let's keep open for toggle? No, standard menu closes. */ }
-          }, [
-            m("span", trs("菜单栏/操作/自动保存")),
-            m("span", { style: { color: commonData.autoSaveEnabled ? "#4caf50" : "transparent" } }, "✔")
-          ])
+          }, trs("菜单栏/操作/导入角色包", { cn: "导入角色包", en: "Import Pet Package" }))
         ])
       }
     })

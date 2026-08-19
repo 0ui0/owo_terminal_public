@@ -2,7 +2,7 @@ import m from "mithril"
 import FileMenu from "./FileMenu.js"
 import commonData from "./commonData.js"
 import { trs } from "./i18n.js"
-import UpdateIndicator from "./UpdateIndicator.js"
+import MessageInbox from "./MessageInbox.js"
 import getColor from "./getColor.js"
 
 export default () => {
@@ -28,8 +28,8 @@ export default () => {
         m("span", trs("聊天界面/标题/宅喵终端")),
         m(FileMenu),
         m("div", { style: { marginLeft: "auto", display: "flex", alignItems: "center", gap: "10px" } }, [
-          // Update status indicator
-          m(UpdateIndicator),
+          // Message Inbox
+          m(MessageInbox),
 
           commonData.currentProject ? m("div", {
             style: {

@@ -35,17 +35,12 @@ export default {
       console.log("连接成功")
     })
 
-    this.socket.on("sys:updateStatus", (status) => {
-      // console.log("Update Status:", status)
-      commonData.updateStatus = status
+    this.socket.on("sys:pushMessage", (msg) => {
+      commonData.pushMessage(msg)
       m.redraw()
-
-      if (['up-to-date', 'error', 'downloaded'].includes(status.state)) {
-        setTimeout(() => {
-          commonData.updateStatus = { state: "idle", progress: 0, msg: "" }
-          m.redraw()
-        }, 5000)
-      }
+      // 如果新消息到来，由于展示组件内部没有用 setTimeout 自动收回的功能（为了安全）
+      // 我们在此统一在 5 秒后重绘，使其自然回退到收纳盒状态。
+      setTimeout(m.redraw, 5000)
     })
 
     this.socket.on("comData", async (payload, callback) => {
@@ -141,7 +136,7 @@ export default {
       // 彻底清空整个列表实例字典，斩断任何可能滞留的闭包或状态
       chatData.chatLists = {}
       chatData.computedLists = {}
-      
+
       // 重新实例化并立即拉取当前激活的列表（默认 0）
       const listId = 0
       chatData.initChatLists(listId)
@@ -291,6 +286,12 @@ export default {
         }
 
         Notice.launch(noticeObj)
+        if (saved && saved.minimized) {
+          // 立即最小化，抵消 Notice.launch 默认强制激活的问题
+          if (noticeObj._winConfig && noticeObj._winConfig.id) {
+            Notice.minimizeWindow(noticeObj._winConfig.id)
+          }
+        }
       } catch (e) {
         console.log("app加载失败:", e)
         Notice.launch({

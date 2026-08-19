@@ -29,6 +29,10 @@ export default function () {
           color: ${getColor('yellow_1').back};
           text-decoration: none;
         }
+        input::placeholder, textarea::placeholder {
+          color: ${getColor('gray_4').front};
+          opacity: 1;
+        }
         textarea{
           border:0.1rem solid ${getColor('gray_8').front};
           border-radius:3rem;
@@ -76,8 +80,9 @@ export default function () {
           width: 1rem;
         }
 
-        *::-webkit-scrollbar-track {
-          background: ${getColor('gray_3').back};
+        *::-webkit-scrollbar-track,
+        *::-webkit-scrollbar-corner {
+          background: transparent;
         }
         *::-webkit-scrollbar-thumb {
           background: ${getColor('main').back};

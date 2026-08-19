@@ -13,7 +13,7 @@ export default {
     const { value, error } = this.joi().validate(argObj)
     if (error) return "错误：" + error.details[0].message
 
-    let { appId, waitSec, commands } = value
+    let { appId, waitSec, commands, minimized } = value
 
     // 强制安全校验 1：多命令流水线中，除了最后一条，前面的子命令必须提供有效的连接符 op
     for (let i = 0; i < commands.length - 1; i++) {
@@ -115,7 +115,7 @@ export default {
 
     const findIdleTerm = async () => {
       for (const a of appManager.apps.values()) {
-        if (a.type !== "terminal" || a.data.listId !== currentListId) continue
+        if (a.type !== "terminal" || (a.data.listId !== currentListId && a.data.listId !== undefined)) continue
         const session = terminalBackend.getSession(a.id)
         if (!session) continue
         const noToolLock = !session.toolCallGroupId
@@ -179,6 +179,7 @@ export default {
       // 强制新建终端
       const launchRes = await appManager.launch("terminal", {
         data: {
+          window: { minimized },
           cwd: mainWorkDir,
           listId: currentListId,
           toolCallGroupId,
@@ -200,6 +201,7 @@ export default {
         // 无可用空闲终端，自动新建终端
         const launchRes = await appManager.launch("terminal", {
           data: {
+            window: { minimized },
             cwd: mainWorkDir,
             listId: currentListId,
             toolCallGroupId,
@@ -236,68 +238,72 @@ export default {
       await appManager.dispatch(termApp.id, "setToolContext", { toolCallGroupId, deferredFns })
     }
 
-    // 广播 app:active 聚焦/打开终端窗口
-    if (appManager.io) {
-      appManager.io.emit("app:active", { appId: termApp.id })
-    }
-
-    // 写入命令（已废弃 Bracketed Paste，改用涓流写入，因此必须追加回车符以执行）
-    await appManager.dispatch(termApp.id, "write", {
-      data: fullCommand + "\r"
-    })
-
-    // 等待输出稳定：未产生输出前允许充分等待至 waitSec（硬上限）；一旦产生输出，连续静默 2.5 秒则提前返回
-    await new Promise((res) => {
-      let tSilence = null
-      let tMax = null
-      let disposer = null
-
-      const done = () => {
-        if (tSilence) clearTimeout(tSilence)
-        if (tMax) clearTimeout(tMax)
-        if (disposer) disposer.dispose()
-        res()
+    // --- 新增保护：无论后续读写或网络发生什么异常，确保释放被锁定的终端 ---
+    try {
+      // 广播 app:active 聚焦/打开终端窗口（仅非静默模式）
+      if (appManager.io && !minimized) {
+        appManager.io.emit("app:active", { appId: termApp.id })
       }
 
-      const session = terminalBackend.getSession(termApp.id)
-      if (!session?.shell) return res()
-
-      // 硬上限：到达 waitSec 秒时强制结束并读取已有结果
-      tMax = setTimeout(done, waitSec * 1000)
-
-      // 数据流监听：只有当命令真正开始吐出数据时，才启动静默 2.5 秒提前返回的倒计时
-      disposer = session.shell.onData(() => {
-        if (tSilence) clearTimeout(tSilence)
-        tSilence = setTimeout(done, 2500)
+      // 写入命令（已废弃 Bracketed Paste，改用涓流写入，因此必须追加回车符以执行）
+      await appManager.dispatch(termApp.id, "write", {
+        data: fullCommand + "\r"
       })
-    })
 
-    // 读取最新输出（默认放宽至 100 行）
-    const contentRes = await appManager.dispatch(termApp.id, "getContent", { limit: 100 })
-    const rawContent = contentRes?.data?.content || ""
-    const totalLines = contentRes?.data?.totalLines || 0
-    const isTruncated = contentRes?.data?.isTruncated ?? false
+      // 等待输出稳定：未产生输出前允许充分等待至 waitSec（硬上限）；一旦产生输出，连续静默 2.5 秒则提前返回
+      await new Promise((res) => {
+        let tSilence = null
+        let tMax = null
+        let disposer = null
 
-    // 加上行号，格式与 terminalGet 一致
-    const lines = rawContent ? rawContent.split("\n") : []
-    const startLine = Math.max(1, totalLines - lines.length + 1)
-    const numberedContent = lines.map((line, i) => `${startLine + i}: ${line}`).join("\n")
+        const done = () => {
+          if (tSilence) clearTimeout(tSilence)
+          if (tMax) clearTimeout(tMax)
+          if (disposer) disposer.dispose()
+          res()
+        }
 
-    // 清理工具上下文
-    await appManager.dispatch(termApp.id, "setToolContext", { toolCallGroupId: null, deferredFns: null })
+        const session = terminalBackend.getSession(termApp.id)
+        if (!session?.shell) return res()
 
-    const commentSuffix = userConfirm.comment ? `。用户备注：${userConfirm.comment}` : ""
-    const pagePrompt = isTruncated
-      ? `\n⚠️ 终端输出共 ${totalLines} 行，当前仅显示第 ${startLine} ~ ${totalLines} 行。可使用 terminalGet 工具传入 appId="${termApp.id}" 配合 endLine=${startLine - 1}（或指定 startLine, endLine）向上翻页查看更早被截断的历史输出。`
-      : ""
+        // 硬上限：到达 waitSec 秒时强制结束并读取已有结果
+        tMax = setTimeout(done, waitSec * 1000)
 
-    const displayCmd = fullCommand.length > 300
-      ? fullCommand.slice(0, 300) + ` ... (指令过长，共 ${fullCommand.length} 字符，已截断显示)`
-      : fullCommand
+        // 数据流监听：只有当命令真正开始吐出数据时，才启动静默 2.5 秒提前返回的倒计时
+        disposer = session.shell.onData(() => {
+          if (tSilence) clearTimeout(tSilence)
+          tSilence = setTimeout(done, 2500)
+        })
+      })
 
-    let returnStr = `已发送执行指令：\`${displayCmd}\`\n静默检测后(最大${waitSec}s)的终端输出如下：\n<terminal>\n${numberedContent || "(无输出)"}\n</terminal>${pagePrompt}${commentSuffix}`
-    console.log("【returnStr】", returnStr)
-    return returnStr
+      // 读取最新输出（默认放宽至 100 行）
+      const contentRes = await appManager.dispatch(termApp.id, "getContent", { limit: 100 })
+      const rawContent = contentRes?.data?.content || ""
+      const totalLines = contentRes?.data?.totalLines || 0
+      const isTruncated = contentRes?.data?.isTruncated ?? false
+
+      // 加上行号，格式与 terminalGet 一致
+      const lines = rawContent ? rawContent.split("\n") : []
+      const startLine = Math.max(1, totalLines - lines.length + 1)
+      const numberedContent = lines.map((line, i) => `${startLine + i}: ${line}`).join("\n")
+
+      const commentSuffix = userConfirm.comment ? `。用户备注：${userConfirm.comment}` : ""
+      const pagePrompt = isTruncated
+        ? `\n⚠️ 终端输出共 ${totalLines} 行，当前仅显示第 ${startLine} ~ ${totalLines} 行。可使用 terminalGet 工具传入 appId="${termApp.id}" 配合 endLine=${startLine - 1}（或指定 startLine, endLine）向上翻页查看更早被截断的历史输出。`
+        : ""
+
+      const displayCmd = fullCommand.length > 300
+        ? fullCommand.slice(0, 300) + ` ... (指令过长，共 ${fullCommand.length} 字符，已截断显示)`
+        : fullCommand
+
+      let returnStr = `已发送执行指令：\`${displayCmd}\`\n静默检测后(最大${waitSec}s)的终端输出如下：\n<terminal>\n${numberedContent || "(无输出)"}\n</terminal>${pagePrompt}${commentSuffix}`
+      console.log("【returnStr】", returnStr)
+      return returnStr
+
+    } finally {
+      // 绝对清理工具上下文，防止死锁
+      await appManager.dispatch(termApp.id, "setToolContext", { toolCallGroupId: null, deferredFns: null })
+    }
   },
 
   joi() {
@@ -306,13 +312,14 @@ export default {
       // command: Joi.string().description("执行命令（已废弃，由 commands 替代）"),
       commands: Joi.array().items(
         Joi.object({
-          bin: Joi.string().required().description("主命令/可执行文件名，如cd,ls等"),
-          args: Joi.array().items(Joi.string().allow("")).default([]).description("该命令的参数数组，如 ['-la']。注意：凡含空格或特殊控制字符(&, |, ;, $, 反引号等)的参数，必须显式加单引号包裹，否则会被安全拦截打回；纯重定向符号(>, >>, 2>, 2>>, <, <<, <<<, &>, &>>, 2>&1 等)作为独立参数时可免引号裸传"),
+          bin: Joi.string().required().description("主命令/可执行文件名，如cd,ls(Mac/Linux),dir(Windows)等"),
+          args: Joi.array().items(Joi.string().allow("")).default([]).description("该命令的参数数组，如 ['-la'] 或 Windows 下的 ['/A']。注意：凡含空格或特殊控制字符(&, |, ;, $, 反引号等)的参数，必须显式加单引号包裹，否则会被安全拦截打回；纯重定向符号(>, >>, 2>, 2>>, <, <<, <<<, &>, &>>, 2>&1 等)作为独立参数时可免引号裸传"),
           op: Joi.string().valid("&&", "||", "|", "|&", ";", "&").allow("", null).description("连接到下一个命令的连接符，最后一项不填"),
           desc: Joi.string().required().description("必填，该命令的具体作用说明")
         })
       ).min(1).required().description("必填，结构化终端命令流水线数组（用于生成审查表格并在后台拼接命令）"),
-      waitSec: Joi.number().default(10).description("最大等待秒数，默认10（产生输出后静默2.5秒会提前返回）")
+      waitSec: Joi.number().default(10).description("最大等待秒数，默认10（产生输出后静默2.5秒会提前返回）"),
+      minimized: Joi.boolean().default(false).description("是否以最小化窗口运行")
     })
   },
 
@@ -321,12 +328,20 @@ export default {
       向指定终端 App 写入并执行命令。
       系统会检测输出静默（产生输出后静默2.5秒）自动返回结果。
       waitSec为最大等待时间硬上限，防止长时间阻塞。
-      调用范例：
+      【警告】执行前务必确认当前系统(Mac/Win)，使用对应的系统终端命令和路径格式！
+      
+      调用范例[Mac/Linux]：
       {
         commands: [
-          { bin: "cd", args: ["'/Users/lambda/my project'"], op: "&&", desc: "切换到项目目录" },
-          { bin: "npm", args: ["run", "build"], op: "&&", desc: "构建项目" },
-          { bin: "ls", args: ["-la", "'dist/assets'"], desc: "列出构建产物文件" }
+          { bin: "ls", args: ["'-la'", "'/Users/xxx/project'"], op: "&&", desc: "查看目录" },
+          { bin: "cat", args: ["'package.json'"], desc: "查看配置" }
+        ]
+      }
+      调用范例[Windows]：
+      {
+        commands: [
+          { bin: "dir", args: ["'/A'", "'C:\\\\Users\\\\xxx\\\\project'"], op: "&&", desc: "查看目录" },
+          { bin: "type", args: ["'package.json'"], desc: "查看配置" }
         ]
       }
       使用 terminalGet 工具翻页

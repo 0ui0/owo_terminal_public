@@ -263,6 +263,8 @@ oninit(vnode) {
 > 所有的前端模块必须提供【移动端】支持（实际上只要使用系统组件默认就支持，如果自己div布局，要写好自适应app窗口尺寸的css）
 【移动端事件优先使用pointer事件，并记得做好事件清理】
 
+参考：/Users/lambda/old_lamuda/文稿和桌面/原桌面/owo_terminal/aiDocs/样式设计指南.md
+
 ### 6.1 极致垂直化格式 (Vertical Formatting)
 - **对象属性换行**：对象（尤其是 `style` 和配置对象）的每一个属性必须独占一行。
 - **函数参数换行**：`m()` 函数的参数（tag, attrs, children）必须独占一行。

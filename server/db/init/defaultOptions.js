@@ -113,7 +113,7 @@ options["ai_aiList"] = {
   ],
   joi: function () {
     return Joi.array().items(Joi.object({
-      id:Joi.string().uuid({version:"uuidv4"}).default(()=>crypto.randomUUID()),
+      id: Joi.string().uuid({ version: "uuidv4" }).default(() => crypto.randomUUID()),
       name: Joi.string().required(),
       model: Joi.string().required(),
       apiKey: Joi.string().required(),
@@ -140,6 +140,19 @@ options["global_language"] = {
   value: "cn",
   joi: function () {
     return Joi.string().valid("cn", "en").strict();
+  }
+};
+
+options["global_projectAutoSave"] = {
+  group1: "全局",
+  group2: "基本",
+  group3: "项目",
+  type: "number",
+  key: "global_projectAutoSave",
+  name: "自动保存",
+  value: 1,
+  joi: function () {
+    return Joi.number().valid(0, 1).strict();
   }
 };
 

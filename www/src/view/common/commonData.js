@@ -29,11 +29,23 @@ export default {
   // 是否启用winMode
   navWinMode: false,
 
-  // Update Status
-  updateStatus: {
-    state: "idle", // idle, checking, available, downloading, downloaded, error, up-to-date
-    progress: 0,
-    msg: ""
+  // Message Inbox
+  messages: [],
+  pushMessage(msg) {
+    msg.timestamp = Date.now()
+    if (msg.tag && msg.merge === "cover") {
+      const existingIndex = this.messages.findIndex(m => m.tag === msg.tag)
+      if (existingIndex > -1) {
+        // 原地覆盖旧的相同 tag 消息
+        this.messages[existingIndex] = { ...this.messages[existingIndex], ...msg }
+        return
+      }
+    }
+    
+    this.messages.unshift(msg) // 新消息放前面
+    if (this.messages.length > 500) {
+      this.messages.pop() // 防止内存泄露
+    }
   },
 
   // === App Registry (Added) ===
