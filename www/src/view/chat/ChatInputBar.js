@@ -754,7 +754,7 @@ export default () => {
                     padding: 0,
                     margin: 0,
                     background: "transparent",
-                    color: isActive ? getColor('gray_8').front : getColor('gray_4').front,
+                    color: isActive ? getColor('main').back : getColor('gray_4').front,
                     borderBottom: `0.2rem solid ${getColor('main').back}`,
                     borderRadius: "0",
                   }

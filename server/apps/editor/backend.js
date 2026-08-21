@@ -88,7 +88,7 @@ export default {
             endLine: 0
           })
 
-          return { ok: true, msg: "保存成功", data: { filePath: targetPath } } // 返回路径与成功提示
+          return { ok: true, msg: `[编辑器]保存成功（appid：${app.id}）`, data: { filePath: targetPath } } // 返回路径与成功提示
         } catch (e) {
           console.error(e)
           return { ok: false, msg: `保存文件失败: ${e.message}` }

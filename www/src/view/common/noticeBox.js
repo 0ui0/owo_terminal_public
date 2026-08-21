@@ -469,7 +469,7 @@ export default function () {
             title: win.isPinned ? "取消置顶" : "窗口置顶",
             style: {
               background: win.isPinned ? getColor('yellow_1').back : getColor('gray_2').back,
-              color: win.isPinned ? getColor('yellow_1').front : getColor('gray_6').front,
+              color: win.isPinned ? getColor('yellow_1').front : getColor('gray_2').front,
               border: `0.1rem solid ${getColor('gray_1').back}`,
               borderRadius: "50%",
               display: "inline-flex",
@@ -608,11 +608,10 @@ export default function () {
             flexWrap: "nowrap",
             alignItems: "center",
             padding: "0 0.5rem",
-            gap: "0.2rem",
             overflowX: "auto",
             scrollbarWidth: "thin", // 改为极细滚动条，或者完全依赖滚轮
             flexShrink: 0,
-            borderBottom: `0.1rem solid ${getColor('gray_10').back}`,
+            borderBottom: `0.1rem solid ${getColor('main').back}`,
             scrollBehavior: "smooth"
           },
           // 监听滚轮，将垂直滚动转换为水平滚动
@@ -644,22 +643,25 @@ export default function () {
             }
           }
 
+
           return m("", {
             key: tab.sign, // 必须添加 key，否则重排后 DOM 状态丢失
             class: "tab-item",
             style: {
               display: "flex", alignItems: "center",
-              padding: "0 12px", gap: "6px",
+              padding: "0 12px",
               height: "100%", cursor: "pointer",
               fontSize: "12px", color: isActive ? getColor('gray_8').front : getColor('gray_7').front,
-              background: isActive ? getColor('gray_3').back : "transparent",
-              borderRight: `1px solid ${getColor('gray_6').back}`,
+              background: isActive ? getColor('blue_2').back : getColor('gray_1').back,
+              color: isActive ? getColor('blue_2').front : getColor('gray_1').front,
+              borderRight: `1px solid ${getColor('main').back}`,
               userSelect: "none",
               touchAction: "none",
 
               flex: "0 1 180px",   // 允许压缩，最大 180px
               minWidth: "60px",   // 最小宽度
               maxWidth: "180px",
+              borderRadius: "1rem 1rem 0 0",
 
               transform: isDraggingThis ? undefined : `translate3d(${translateX}px, 0, 0)`,
               transition: isDraggingThis ? "none" : "transform 0.2s cubic-bezier(0.2, 0, 0, 1), background 0.2s",
@@ -671,6 +673,7 @@ export default function () {
               handleTabDown(e, tab, realTabs, attrs.onSetTabOrder)
             }
           }, [
+            console.log(tab),
             m("span", {
               style: {
                 overflow: "hidden",

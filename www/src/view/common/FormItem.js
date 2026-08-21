@@ -1,5 +1,6 @@
 import Box from "./box.js";
 import Tag from "./tag.js";
+import getColor from "./getColor.js";
 
 var FormItem;
 
@@ -13,8 +14,8 @@ FormItem = function() {
         label ? m(Box,
         {
           style: {
-            backgroundColor: "#625B56",
-            color: "#fff",
+            backgroundColor: getColor("brown_2").back,
+            color: getColor("brown_2").front,
             margin: "1rem 0.5rem 0 0.5rem",
             padding: "0.6rem 1.5rem",
             borderRadius: "0.5rem 0.5rem 0 0",
@@ -42,7 +43,7 @@ FormItem = function() {
           description ? m(Tag,
           {
             styleExt: {
-              color: "#999",
+              color: getColor("gray_4").front,
               marginBottom: "1rem",
               borderRadius: "0.5rem",
               ...(styleDescription || {})

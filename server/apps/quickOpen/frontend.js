@@ -35,6 +35,7 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, settingData, 
   let selectedIndex = 0
   let searchTimer = null
   let inputDom = null
+  let needsScroll = false
 
   // 实例接口（暴露给 quickOpenData Singleton）
   const instanceInterface = {
@@ -95,8 +96,10 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, settingData, 
     }
     const isFullText = FullTextSwitch.data.value
     const targets = dirs.filter(d => d.path)
+    // 文件名模式（对齐 VSCode Ctrl+P）：只匹配文件名/路径，不跑内容搜索、不截断
+    const fileNameOnly = !isFullText
     const resArr = await Promise.all(targets.map(d =>
-      settingData.fnCall("projectSearch", [q, d.path, appData.searchConfig]).catch(() => ({ ok: false }))
+      settingData.fnCall("projectSearch", [q, d.path, appData.searchConfig, fileNameOnly]).catch(() => ({ ok: false }))
     ))
     results = {}
     resArr.forEach((res, i) => {
@@ -154,19 +157,43 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, settingData, 
   }
 
   // 键盘导航：上下选择、回车打开、Esc 关闭
+  // 判断当前激活窗口是否属于本 app（参考 svgEditor 的 checkActiveApp）
+  const checkActiveApp = () => {
+    if (Notice) {
+      if (!Notice.data?.activeWindowId) return false
+      const activeItem = Notice.data.dataArr?.find((i) => i._winConfig?.id === Notice.data.activeWindowId)
+      if (activeItem) {
+        const appIdInWindow = activeItem.sign || activeItem.contentAttrs?.appId
+        if (appIdInWindow && !appIdInWindow.startsWith(appId)) return false
+      }
+    }
+    return true
+  }
+
   const onKeydown = (e) => {
+    // 仅在当前窗口获得焦点时响应方向键/回车/ESC（参考 svgEditor 监听器）
+    if (!checkActiveApp()) return
     const list = results[activeDir] || []
     if (e.key === "ArrowDown") {
       e.preventDefault()
       selectedIndex = Math.min(selectedIndex + 1, Math.max(list.length - 1, 0))
+      needsScroll = true
       m.redraw()
     } else if (e.key === "ArrowUp") {
       e.preventDefault()
       selectedIndex = Math.max(selectedIndex - 1, 0)
+      needsScroll = true
       m.redraw()
     } else if (e.key === "Enter") {
       e.preventDefault()
       if (list[selectedIndex]) openFile(list[selectedIndex])
+    } else if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+      // 左右键切换全文/文件名模式（与点击开关等价的完整逻辑）
+      e.preventDefault()
+      FullTextSwitch.data.value = !FullTextSwitch.data.value
+      syncPersistentData(false)
+      selectedIndex = 0
+      doSearch()
     } else if (e.key === "Escape") {
       settingData.fnCall("appClose", [appId])
     }
@@ -186,8 +213,11 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, settingData, 
         appData.isFullText = Boolean(vData.isFullText)
         FullTextSwitch.data.value = appData.isFullText
       }
+      // 全局键盘导航：不依赖输入框焦点，切换开关/点击其它区域后方向键依然有效
+      document.addEventListener("keydown", onKeydown)
     },
     onremove() {
+      document.removeEventListener("keydown", onKeydown)
       quickOpenData.unregisterInstances(appId, commonData)
     },
     view() {
@@ -246,8 +276,7 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, settingData, 
                           ? trs("快速打开/未指定目录占位", { cn: "未指定工作目录...", en: "No working directory..." })
                           : (FullTextSwitch.data.value
                               ? trs("快速打开/搜索/全文占位", { cn: "全文内容搜索...", en: "Search file contents..." })
-                              : trs("快速打开/搜索/文件名占位", { cn: "快速搜索文件名...", en: "Search file names..." })),
-                        onkeydown: (e) => onKeydown(e)
+                              : trs("快速打开/搜索/文件名占位", { cn: "快速搜索文件名...", en: "Search file names..." }))
                       },
                       oninput: (dom, e) => {
                         onSearchInput(e.target.value)
@@ -410,17 +439,20 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, settingData, 
           ) : null,
 
           // 结果列表：根据全文搜索开关状态分别委托给专用的独立组件渲染
+          // 组件内部依据 keyword 变化自行重置测量状态（见各组件 view 开头），避免闭包旧高度残留
           FullTextSwitch.data.value
             ? m(FullTextResultList, {
                 list,
                 selectedIndex,
                 keyword,
+                needsScroll: needsScroll ? (needsScroll = false, true) : false,
                 onOpenFile: (f) => openFile(f)
               })
             : m(FileNameResultList, {
                 list,
                 selectedIndex,
                 keyword,
+                needsScroll: needsScroll ? (needsScroll = false, true) : false,
                 onOpenFile: (f) => openFile(f)
               })
         ]

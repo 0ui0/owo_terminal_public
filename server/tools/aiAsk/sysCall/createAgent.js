@@ -28,26 +28,30 @@ export default {
       const { name, prompt } = value;
       const { listId } = metaData;
 
-      // 解析配置源：三场景统一处理
-      // 1) AI工具调用：继承创建者 aiConfig；2) QQ bot/会话管理器：derivedFromModelId 指定后台配置
-      const chatLists = comData.data.get().chatLists || [];
-      const targetChatList = chatLists.find(l => l.id === listId) || {};
+      // 解析配置源：三场景统一处理（优先级：显式指定 > 父级继承）
+      // 1) 会话管理器/QQ bot：derivedFromModelId 显式指定后台配置（按精确 id 匹配）
+      // 2) AI 工具调用：未指定则继承创建者 aiConfig
       const creatorAgent = subAgents.get(listId);
       const aiBasic = await (async () => {
+        if (derivedFromModelId) {
+          const aiList = await (await import("../../../config/options.js")).default.get("ai_aiList");
+          return aiList.find(m => m.id === derivedFromModelId) || null;
+        }
         if (creatorAgent?.aiConfig) return creatorAgent.aiConfig;
-        const aiList = await (await import("../../../config/options.js")).default.get("ai_aiList");
-        return aiList.find(m => m.id === derivedFromModelId) || null;
+        return null;
       })();
       if (!aiBasic) {
         return {
           ok: false,
-          msg: `错误：找不到创建者实例，且系统配置中也没有匹配的模型（id: ${derivedFromModelId || "无"}）。`
+          msg: `错误：未找到模型配置（derivedFromModelId: ${derivedFromModelId || "无"}，父级 ${listId} 亦无可用 aiConfig）。`
         };
       }
 
 
       let newListId = 0;
       let currentListId = listId;
+      // 统一模型 id：指定模型时 aiBasic 是 ai_aiList 条目（用 id），继承父级时是 aiConfig（用 modelId）
+      let targetModelId = aiBasic.modelId || aiBasic.id;
       let toolCallGroupId = metaData?.toolCallGroupId
 
       console.log("智能体tcgid", toolCallGroupId)
@@ -74,7 +78,7 @@ export default {
           ...templateList,
           id: newListId,
           linkid: currentListId,
-          currentModelId: aiBasic.modelId
+          currentModelId: targetModelId
         });
       });
 
@@ -141,7 +145,7 @@ export default {
         model: aiBasic.model,
         name: name,
         prompt: finalPrompt,
-        modelId: aiBasic.modelId,
+        modelId: targetModelId,
         mediaDir: tempPath.get("attachment")
       });
 
@@ -153,7 +157,7 @@ export default {
         model: aiBasic.model,
         prompt: finalPrompt,
         name: name,
-        modelId: aiBasic.modelId,
+        modelId: targetModelId,
         mediaDir: tempPath.get("attachment"),
         derivedFromModelId: derivedFromModelId ?? undefined, //QQ机器人余额校验用
       });

@@ -402,7 +402,8 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, settingData, 
     explorerData.addTool("commonData", commonData)
     explorerData.registerInstances(appId, instanceInterface)
     if (commonData?.registerApp) commonData.registerApp(appId, explorerData)
-    await navigate(comData.getChatList(0).workDirs?.find(item => item.type === "main")?.path || ".")
+
+
   }
   init()
 
@@ -568,6 +569,13 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, settingData, 
   }
 
   return {
+    async oninit({attrs}){
+      //定位到初始目录，后端以及有默认值
+      if(attrs.data.currentPath){
+        await navigate(attrs.data.currentPath) 
+      }
+      
+    },
     onremove() {
       if (ioSocket && ioSocket.socket) {
         ioSocket.socket.off("tm:trigger-restore", tmTriggerHandler);

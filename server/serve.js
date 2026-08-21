@@ -70,6 +70,8 @@ const init = async (config) => {
       }
     })
 
+    // 注：/attachment/{param*} 静态目录服务由 server/apis/upload/api_upload.js 统一注册
+
 
     let apiDir = new Dir("./apis")
     let apiFiles = await apiDir.ls()

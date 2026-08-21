@@ -220,7 +220,7 @@ export default function () {
         }
 
         .article h1, .article h2, .article h3, .article h4, .article h5, .article h6{
-          color: ${getColor('gray_7').front};
+
         }
 
         .article p{
@@ -304,8 +304,8 @@ export default function () {
           border-bottom:0px solid ${getColor('gray_4').front};
         }
         .article table th{
-          background:${getColor('gray_3').back};
-          color:${getColor('gray_3').front};
+          background:${getColor('main').back};
+          color:${getColor('main').front};
         }
 
         .admonition {

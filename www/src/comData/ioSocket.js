@@ -243,7 +243,7 @@ export default {
           group: msg.type,
           appType: msg.type,
           icon: msg.icon,
-          tip: msg.name,
+          tip: `[${msg.appId}]${msg.name}`,
           headerButtons: [
             {
               icon: window.iconPark ? window.iconPark.getIcon("Quote", { fill: "#eee", size: "12px" }) : '"',

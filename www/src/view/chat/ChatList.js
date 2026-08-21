@@ -470,7 +470,7 @@ export default () => {
               boxSizing: "border-box",
               padding: "0.4rem 0.8rem",
               margin: "1rem",
-              background: getColor('brown_1').back + 'ee',
+              background: getColor('brown_1').back,
               borderRadius: "1rem",       // 胶囊形圆角
               color: getColor('brown_1').front,
               fontSize: "0.8rem",
@@ -502,8 +502,8 @@ export default () => {
                 overflow: "hidden",
                 textOverflow: "ellipsis",
                 flex: 1,
-                color: getColor('gray_8').front,
-                minWidth: 0 // 核心修复：防止被超长文本撑破 flex 容器导致 maxWidth 失效
+                minWidth: 0,// 核心修复：防止被超长文本撑破 flex 容器导致 maxWidth 失效
+                color: getColor('brown_1').front,
               }
             }, activeUserChat.content ? (activeUserChat.content.length > 100 ? activeUserChat.content.slice(0, 100) + "..." : activeUserChat.content) : "")
           ]) : null,

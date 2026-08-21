@@ -774,8 +774,8 @@ ${yaml.dump(tmp)}</readOnlyMetaData>`.trim();
             if (attachment && attachment.type === 'image') {
               usedAttachIds.push(attachment.id);
               try {
-                filePath = attachment.url.startsWith('/') ? attachment.url.startsWith('/attachment/') ? pathLib.resolve(`.${attachment.url}`) : attachment.url : pathLib.resolve(`${this.mediaDir // 绝对路径
-}/${attachment.url}`);
+                filePath = attachment.url.startsWith('/') ? attachment.url.startsWith('/attachment/') ? pathLib.join(this.mediaDir, pathLib.basename(attachment.url)) : attachment.url : pathLib.resolve(`${this.mediaDir // 绝对路径
+                }/${attachment.url}`);
                 if (fs.existsSync(filePath)) {
                   bitmap = fs.readFileSync(filePath);
                   base64Data = Buffer.from(bitmap).toString('base64');
@@ -822,7 +822,7 @@ ${yaml.dump(tmp)}</readOnlyMetaData>`.trim();
           attachment = ref1[j];
           if (attachment.type === 'image' && (ref2 = attachment.id, indexOf.call(usedAttachIds, ref2) < 0)) {
             try {
-              filePath = attachment.url.startsWith('/') ? attachment.url.startsWith('/attachment/') ? pathLib.resolve(`.${attachment.url}`) : attachment.url : pathLib.resolve(`${this.mediaDir}/${attachment.url}`);
+              filePath = attachment.url.startsWith('/') ? attachment.url.startsWith('/attachment/') ? pathLib.join(this.mediaDir, pathLib.basename(attachment.url)) : attachment.url : pathLib.resolve(`${this.mediaDir}/${attachment.url}`);
               if (fs.existsSync(filePath)) {
                 bitmap = fs.readFileSync(filePath);
                 base64Data = Buffer.from(bitmap).toString('base64');

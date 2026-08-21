@@ -277,7 +277,6 @@ export default {
     for (let idx = 0; idx < preparedChanges.length; idx++) {
       const change = preparedChanges[idx]
       const fileProgress = preparedChanges.length > 1 ? ` [${idx + 1}/${preparedChanges.length}]` : ""
-      const appId = `editor_patcher_${uuidV4().slice(0, 8)}`
       const confirmId = uuidV4()
 
       let title = ""

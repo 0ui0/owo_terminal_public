@@ -293,7 +293,7 @@ class ProjectManager {
 
     // 2. 清空路径和计时器，归位脏位
     this.currentProjectPath = null
-    this.stopAutoSave()
+    // 注：自动保存已重构为 constructor 内 setInterval 心跳，无需 stopAutoSave
     this.isDirty = false
 
     // 3. 重置 AI 运行环境

@@ -1,6 +1,6 @@
 import sessionManagerData from "./sessionManagerData.js"
 
-export default ({ appId, m, Notice, ioSocket, commonData, chatData, settingData, Box, Tag, iconPark, getColor }) => {
+export default ({ appId, m, Notice, ioSocket, commonData, chatData, settingData, Box, Tag, iconPark, getColor, AutoForm, FormItem }) => {
   // === State ===
   let sessionList = []
   let isLoading = false
@@ -74,32 +74,35 @@ export default ({ appId, m, Notice, ioSocket, commonData, chatData, settingData,
     })
   }
   // === 新建会话表单组件（Notice 弹窗内容）===
+  // 完全参考 admin_page_main.js 标准范式：FormItem（标签）+ AutoForm（字段编辑器）
   const CreateSessionForm = (vnode) => {
-    let name = ""
-    let prompt = ""
-    let parentId = "0"
+    // formData 作为 AutoForm 数据源，字段值由 AutoForm 直接编辑
+    const formData = {
+      name: "",
+      modelId: "",
+      prompt: "",
+      parentId: 0
+    }
     const enabledAgents = settingData.options.get("ai_aiList")?.filter(m => m.switch) || []
-    let selectedModelId = enabledAgents[0]?.id || ""
     let submitting = false
 
     const close = () => Notice.closeTab(vnode.attrs.noticeConfig)
     const submit = async () => {
-      if (!name.trim()) {
+      // AutoForm 会把纯数字输入转成 number，统一 String() 包裹为字符串
+      const nameStr = String(formData.name ?? "").trim()
+      const promptStr = String(formData.prompt ?? "").trim()
+      if (!nameStr) {
         Notice.launch({ msg: "请填写会话名称", color: "yellow" })
-        return
-      }
-      if (!selectedModelId) {
-        Notice.launch({ msg: "请选择 AI 模型配置", color: "yellow" })
         return
       }
       submitting = true
       m.redraw()
       try {
         const res = await settingData.fnCall("appDispatch", [appId, "create", {
-          name: name.trim(),
-          prompt: prompt.trim(),
-          parentId: Number(parentId) || 0,
-          modelId: selectedModelId
+          name: nameStr,
+          prompt: promptStr,
+          parentId: Number(formData.parentId) || 0,
+          modelId: formData.modelId
         }])
         if (res.ok) {
           close()
@@ -115,83 +118,62 @@ export default ({ appId, m, Notice, ioSocket, commonData, chatData, settingData,
         m.redraw()
       }
     }
-    const inputStyle = {
-      fontSize: "1.2rem",
-      borderRadius: "0.8rem",
-      border: `0.1rem solid ${getColor("gray_5").back}`,
-      background: getColor("gray_12").back,
-      color: getColor("gray_1").front,
-      outline: "none",
-      padding: "0.6rem 1rem",
-      width: "100%",
-      boxSizing: "border-box"
-    }
     return {
       view() {
         return m("", {
           style: {
             display: "flex",
             flexDirection: "column",
-            gap: "1.2rem",
-            width: "36rem",
-            maxWidth: "90vw",
-            boxSizing: "border-box"
+            width: "100%"
           }
         }, [
-          m("", { style: { display: "flex", flexDirection: "column", gap: "0.4rem" } }, [
-            m("span", { style: { fontSize: "1.0rem", opacity: 0.7 } }, "名称 *"),
-            m("input", {
-              type: "text",
-              value: name,
-              placeholder: "例如：数据分析助手",
-              oninput: (e) => { name = e.target.value },
-              style: inputStyle
-            })
+          m(FormItem, {
+            label: "名称 *"
+          }, [
+            m(AutoForm, { dataObj: formData, dataName: "name", extEditMode: false })
           ]),
-          m("", { style: { display: "flex", flexDirection: "column", gap: "0.4rem" } }, [
-            m("span", { style: { fontSize: "1.0rem", opacity: 0.7 } }, "AI 模型配置 *"),
+          // 模型字段：AutoForm 显示当前值，下拉框辅助改 formData.modelId
+          m(FormItem, {
+            label: "AI 模型配置"
+          }, [
+            m(AutoForm, { dataObj: formData, dataName: "modelId", extEditMode: false }),
             m("select", {
-              value: selectedModelId,
-              onchange: (e) => { selectedModelId = e.target.value },
+              onchange: (e) => { formData.modelId = e.target.value; m.redraw() },
               style: {
-                ...inputStyle,
-                cursor: "pointer"
+                width: "100%",
+                borderRadius: "0.8rem",
+                border: "0.15rem solid " + getColor("gray_1").front + "22",
+                background: getColor("gray_3").back,
+                color: getColor("gray_1").front,
+                outline: "none",
+                padding: "0.6rem 1rem",
+                cursor: "pointer",
+                marginTop: "0.6rem"
               }
-            }, enabledAgents.length === 0
-              ? m("option", { value: "" }, "无可用 AI 模型（请先在设置中开启）")
-              : enabledAgents.map(item => m("option", { value: item.id, key: item.id }, item.name))
-            )
+            }, [
+              m("option", { value: "" }, "继承父级模型"),
+              enabledAgents.length === 0
+                ? m("option", { value: "", disabled: true }, "无可用 AI 模型（请先在设置中开启）")
+                : enabledAgents.map(item => m("option", { value: item.id, key: item.id }, item.name))
+            ])
           ]),
-          m("", { style: { display: "flex", flexDirection: "column", gap: "0.4rem" } }, [
-            m("span", { style: { fontSize: "1.0rem", opacity: 0.7 } }, "提示词（可选）"),
-            m("textarea", {
-              value: prompt,
-              placeholder: "设定子智能体的角色与任务...",
-              oninput: (e) => { prompt = e.target.value },
-              rows: 4,
-              style: {
-                ...inputStyle,
-                fontSize: "1.1rem",
-                resize: "vertical"
-              }
-            })
+          m(FormItem, {
+            label: "提示词（可选）"
+          }, [
+            m(AutoForm, { dataObj: formData, dataName: "prompt", extEditMode: false })
           ]),
-          m("", { style: { display: "flex", flexDirection: "column", gap: "0.4rem" } }, [
-            m("span", { style: { fontSize: "1.0rem", opacity: 0.7 } }, "父级会话 ID（可选，默认主控AI）"),
-            m("input", {
-              type: "number",
-              value: parentId,
-              oninput: (e) => { parentId = e.target.value },
-              style: inputStyle
-            })
+          m(FormItem, {
+            label: "父级会话 ID（可选，默认主控AI）"
+          }, [
+            m(AutoForm, { dataObj: formData, dataName: "parentId", extEditMode: false })
           ]),
           m("", { style: { display: "flex", justifyContent: "flex-end", gap: "1rem" } }, [
-            m(Tag, {
+            m(Box, {
               isBtn: true,
               color: "gray_4",
               onclick: close
             }, "取消"),
-            m(Tag, {
+            m(Box, {
               isBtn: true,
               color: "green_1",
               onclick: submit

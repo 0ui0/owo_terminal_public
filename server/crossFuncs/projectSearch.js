@@ -52,7 +52,9 @@ const globToRegex = (globStr, isCaseSensitive) => {
 
 export default {
   name: "projectSearch",
-  func: async (query, baseDir, searchConfig) => {
+  // fileNameOnly: 仅匹配文件名/路径（对齐 VSCode Ctrl+P），不跑内容搜索、不截断
+  // 默认 false 保持原有行为（文件名+内容混合，保留截断），不影响其它模块复用
+  func: async (query, baseDir, searchConfig, fileNameOnly) => {
     try {
       if (!query) return { ok: true, msg: "搜索词为空", data: [] }
       
@@ -163,8 +165,11 @@ export default {
       }
 
       // === 第二路：文件内容匹配与智能截断 ===
+      // fileNameOnly 模式（对齐 VSCode Ctrl+P）不跑内容搜索，只匹配文件名/路径
       const contentResults = []
-      try {
+      if (fileNameOnly) {
+        // 跳过内容搜索
+      } else try {
         const contentArgs = [
           "--json",
           "--max-count", "100",
@@ -280,7 +285,8 @@ export default {
         if (a.path !== b.path) return a.path.localeCompare(b.path)
         return a.line - b.line
       })
-      const combined = raw.slice(0, 200)
+      // fileNameOnly 模式返回全部文件名匹配（不截断）；全文模式保留原有 200 条截断防渲染卡顿
+      const combined = fileNameOnly ? raw : raw.slice(0, 200)
       return { ok: true, msg: `搜索完成，找到 ${combined.length} 个匹配项`, data: combined }
     } catch (err) {
       console.log(err)

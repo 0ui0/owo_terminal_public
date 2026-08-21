@@ -21,6 +21,7 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, chatData, set
   let originalContent = ""
   let proposedContent = ""
   let confirmId = null
+  let pendingLine = 0 // 打开文件后待定位的行号（0 表示无需定位）
   let localComment = ""
   let isConflictDiff = false
   let annotations = []
@@ -187,7 +188,9 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, chatData, set
   }
 
   const handleSave = async (forceDialog = false, forceWrite = false) => {
-    if (!editor) {
+    // 冲突差异对比模式下，主编辑器已 dispose（走 diffEditor），
+    // 此时"保留我的修改"应保存用户本地 content，而非从 editor 取值
+    if (!editor && !isDiff) {
       return false
     }
     let currentPath = filePath
@@ -224,7 +227,8 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, chatData, set
         }
         currentPath = dialogRes.filePath
       }
-      const txt = editor.getValue()
+      // diff 模式下 editor 为 null，使用用户本地 content；否则从主编辑器取当前值
+      const txt = editor ? editor.getValue() : content
       const res = await settingData.fnCall("appDispatch", [
         appId,
         "save",
@@ -431,6 +435,14 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, chatData, set
         readOnly: readOnly
       })
       editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => { if (!readOnly) handleSave() })
+
+      // 打开文件后定位到指定行（来自 quickOpen 全文搜索等场景）
+      if (pendingLine > 0) {
+        const targetLine = Math.min(pendingLine, editor.getModel()?.getLineCount() || pendingLine)
+        editor.setPosition({ lineNumber: targetLine, column: 1 })
+        editor.revealLineInCenter(targetLine)
+        pendingLine = 0
+      }
 
       // Auto-save content state (Debounced 1s)
       let timer = null
@@ -732,6 +744,7 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, chatData, set
         isConflictDiff = d.isConflictDiff || false
         annotations = d.annotations || []
         reason = d.reason || ""
+        pendingLine = d.line ? parseInt(d.line, 10) : 0
       }
 
       // 💡 运行时重复检测与静默置顶销毁逻辑 (如果指定了 singleInstance)

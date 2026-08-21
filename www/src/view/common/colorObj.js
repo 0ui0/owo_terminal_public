@@ -11,11 +11,11 @@ export default {
   gray_4: { back: "#47464f", front: "#999999" }, //菜单背景色等
   gray_5: { back: "#4f4f5a", front: "#eeeeee" },
   gray_6: { back: "#333333", front: "#333333" },
-  gray_7: { back: "#999999", front: "#999999" },
-  gray_8: { back: "#eeeeee", front: "#eeeeee" },
+  gray_7: { back: "#999999", front: "#000000" },
+  gray_8: { back: "#eeeeee", front: "#333333" },
   gray_9: { back: "#111111", front: "#111111" },
-  gray_10: { back: "#555555", front: "#555555" },
-  gray_11: { back: "#333333", front: "#333333" },
+  gray_10: { back: "#555555", front: "#eeeeee" },
+  gray_11: { back: "#333333", front: "#eeeeee" },
 
   gray_12: { back: "#393432", front: "#eeeeee" },//导航栏背景
 
@@ -29,7 +29,7 @@ export default {
   purple_1: { back: "#6c6379", front: "#333333" },
   purple_2: { back: "#6c607a", front: "#111111" },
 
-  yellow_1: { back: "#7c5d01", front: "#111111" },
+  yellow_1: { back: "#a0751fff", front: "#111111" },
   yellow_2: { back: "#7b5d00", front: "#111111" },
 
   blue_1: { back: "#34343d", front: "#849aba" },

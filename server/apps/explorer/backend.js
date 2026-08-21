@@ -2,11 +2,12 @@ import fs from "fs-extra"
 import path from "path"
 import { shell } from "electron"
 import timeMachineEngine from "../owoTimeMachine/timeMachineEngine.js"
+import workDirTool from "../../tools/workDirTool.js"
 
 
 export default {
   async init(app, appManager) {
-    app.data.currentPath = app.data.currentPath || process.cwd()
+    app.data.currentPath = app.data.currentPath || workDirTool.getMainWorkDir(0) || process.cwd()
     app.data.history = [app.data.currentPath] // 历史记录栈
     app.data.historyIndex = 0
     app.data.clipboard = null // { type: 'copy'|'cut', files: [] }

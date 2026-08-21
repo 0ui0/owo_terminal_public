@@ -20,6 +20,8 @@ disableErrorLogging()
 
 const socketOnChat = async (que, callback) => {
   let io = ioServer.io
+  // 在函数级声明 listId，确保 catch 错误处理也能访问到真实值（块内 let 在 catch 不可见）
+  let listId = que?.targetChatListId ?? que?.listId ?? 0;
   try {
     // 前台选定终端窗口的时候（在 xterm 内直接敲击键盘）
     // 前端遗留的 ChatTerm.js 目前依然复用了 chat 事件通道来发送按键 chunk
@@ -32,9 +34,6 @@ const socketOnChat = async (que, callback) => {
     let inputText = que.inputText ?? comData.data.get().inputText;
     let call = que.call ?? null;
     let quotes = que.quotes ?? [];
-
-    // 获取最终目标 listId：如果是前端聊天框发来的带 targetChatListId，则优先采用，否则使用普通的 listId 或主队列 0
-    let listId = que.targetChatListId ?? que.listId ?? 0;
 
     console.log("----------------------------------------")
     console.log("|| 从聊天框或工具处输入文本", inputText)
@@ -168,7 +167,7 @@ const socketOnChat = async (que, callback) => {
 
   } catch (error) {
     console.error(error);
-    let errorListId = typeof listId === 'number' ? listId : (que.listId ?? 0);
+    let errorListId = listId
 
     await comData.editChatList(errorListId, list => {
       list.replying = false;

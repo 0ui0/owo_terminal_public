@@ -73,6 +73,13 @@ function cleanTerminalContent(str) {
   // 清理 Bracketed Paste 遗留的不可见字符，防止其污染 AI 视口
   str = str.replace(/\x1b\[200~/g, "").replace(/\x1b\[201~/g, "")
   str = stripAnsi(str)
+  // ============================================================
+  // [2026-08-20] 简化：只过滤颜色码（stripAnsi），其余全量返回。
+  // 原 \r 覆盖拼接逻辑会把超长命令折行处的两段文本强行拼接，
+  // 导致提示符丢失、路径碎片错乱（详见 filePatcherBetter 调查），
+  // 已行注释保留，便于还原。\x08 退格处理逻辑正常，予以保留。
+  // ============================================================
+  /*
   let lines = str.split(/\r?\n/)
   for (let i = 0; i < lines.length; i++) {
     let parts = lines[i].split('\r')
@@ -88,6 +95,8 @@ function cleanTerminalContent(str) {
     lines[i] = finalLine
   }
   let flattened = lines.join('\n')
+  */
+  let flattened = str
 
   while (/\b/.test(flattened)) {
     let prev = flattened

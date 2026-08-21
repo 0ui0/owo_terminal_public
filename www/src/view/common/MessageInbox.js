@@ -13,17 +13,17 @@ export default () => {
       const unreadMsgs = commonData.messages.filter(msg => !msg.isRead)
       const unreadCount = unreadMsgs.length
 
-      const getBadgeColor = (type) => {
-        switch(type) {
-          case "error": return "#ff5252"
-          case "success": return "#4caf50"
-          case "warning": return "#ff9800"
-          case "downloading": return "#2196f3"
-          case "info": return "#2196f3"
-          default: return "#ff5252"
+      const getBadgeTheme = (type) => {
+        switch (type) {
+          case "error": return getColor("pink_1")
+          case "success": return getColor("green_1")
+          case "warning": return getColor("yellow_1")
+          case "downloading": return getColor("blue_1")
+          case "info": return getColor("blue_1")
+          default: return getColor("pink_1")
         }
       }
-      const badgeColor = unreadCount > 0 ? getBadgeColor(unreadMsgs[unreadMsgs.length - 1].type) : "#ff5252"
+      const badgeTheme = unreadCount > 0 ? getBadgeTheme(unreadMsgs[unreadMsgs.length - 1].type) : getColor("pink_1")
 
       const openInbox = () => {
         Notice.launch({
@@ -50,7 +50,7 @@ export default () => {
                 }
               }, commonData.messages.map((msg, index) => {
                 const getIconName = () => {
-                  switch(msg.type) {
+                  switch (msg.type) {
                     case "error": return "Attention"
                     case "success": return "Success"
                     case "warning": return "Caution"
@@ -59,11 +59,11 @@ export default () => {
                   }
                 }
                 const getIconColor = () => {
-                  switch(msg.type) {
-                    case "error": return "#ff5252"
-                    case "success": return "#4caf50"
-                    case "warning": return "#ff9800"
-                    case "downloading": return "#2196f3"
+                  switch (msg.type) {
+                    case "error": return getColor("pink_1").back
+                    case "success": return getColor("green_1").back
+                    case "warning": return getColor("yellow_1").back
+                    case "downloading": return getColor("blue_1").back
                     default: return getColor("main").back
                   }
                 }
@@ -72,13 +72,13 @@ export default () => {
                   if (!ts) return "刚刚"
                   const diff = Date.now() - ts;
                   if (diff < 60000) return "刚刚"
-                  if (diff < 3600000) return Math.floor(diff/60000) + "分钟前"
-                  if (diff < 86400000) return Math.floor(diff/3600000) + "小时前"
+                  if (diff < 3600000) return Math.floor(diff / 60000) + "分钟前"
+                  if (diff < 86400000) return Math.floor(diff / 3600000) + "小时前"
                   return new Date(ts).toLocaleDateString()
                 }
 
                 const getTypeName = () => {
-                  switch(msg.type) {
+                  switch (msg.type) {
                     case "error": return "错误提醒"
                     case "success": return "成功提示"
                     case "warning": return "系统警告"
@@ -103,9 +103,9 @@ export default () => {
                     e.stopPropagation()
                     msg.isRead = true
                     if (msg.action && msg.action.type === "emit") {
-                       ioSocket.socket.emit(msg.action.event, msg.action.args)
+                      ioSocket.socket.emit(msg.action.event, msg.action.args)
                     } else if (msg.action && msg.action.type === "notice") {
-                       Notice.launch(msg.action.args)
+                      Notice.launch(msg.action.args)
                     }
                   }
                 }, [
@@ -149,25 +149,25 @@ export default () => {
                       paddingLeft: "0.2rem"
                     }
                   }, [
-                     m("", { style: { fontWeight: "bold", fontSize: "1.3rem", color: getColor("gray_1").front, lineHeight: "1.4" } }, msg.title),
-                     msg.content ? m("", { style: { fontSize: "1.2rem", color: getColor("gray_1").front, opacity: 0.8, lineHeight: "1.4" } }, msg.content) : null,
-                     msg.meta && msg.meta.progress !== undefined ? m("", {
-                       style: {
-                         width: "100%",
-                         height: "0.4rem",
-                         background: "rgba(0,0,0,0.1)",
-                         borderRadius: "0.2rem",
-                         marginTop: "0.5rem",
-                         overflow: "hidden"
-                       }
-                     }, m("", {
-                       style: {
-                         width: `${msg.meta.progress}%`,
-                         height: "100%",
-                         background: getColor("main").back,
-                         transition: "width 0.3s ease"
-                       }
-                     })) : null
+                    m("", { style: { fontWeight: "bold", fontSize: "1.3rem", color: getColor("gray_1").front, lineHeight: "1.4" } }, msg.title),
+                    msg.content ? m("", { style: { fontSize: "1.2rem", color: getColor("gray_1").front, opacity: 0.8, lineHeight: "1.4" } }, msg.content) : null,
+                    msg.meta && msg.meta.progress !== undefined ? m("", {
+                      style: {
+                        width: "100%",
+                        height: "0.4rem",
+                        background: "rgba(0,0,0,0.1)",
+                        borderRadius: "0.2rem",
+                        marginTop: "0.5rem",
+                        overflow: "hidden"
+                      }
+                    }, m("", {
+                      style: {
+                        width: `${msg.meta.progress}%`,
+                        height: "100%",
+                        background: getColor("main").back,
+                        transition: "width 0.3s ease"
+                      }
+                    })) : null
                   ])
                 ])
               }))
@@ -178,21 +178,12 @@ export default () => {
 
       if (flashMsg) {
         const getIconName = () => {
-          switch(flashMsg.type) {
+          switch (flashMsg.type) {
             case "error": return "Attention"
             case "success": return "Success"
             case "warning": return "Caution"
             case "downloading": return "Loading"
             default: return "Info"
-          }
-        }
-        const getIconColor = () => {
-          switch(flashMsg.type) {
-            case "error": return "#ff5252"
-            case "success": return "#4caf50"
-            case "warning": return "#ff9800"
-            case "downloading": return "#2196f3"
-            default: return getColor("main").back
           }
         }
 
@@ -209,8 +200,8 @@ export default () => {
           },
           onpointerup: openInbox
         }, [
-           m.trust(window.iconPark.getIcon(getIconName(), { fill: getIconColor(), size: "1.2rem" })),
-           m("span", { style: { fontSize: "1.2rem", color: getIconColor() } }, flashMsg.title)
+          m.trust(window.iconPark.getIcon(getIconName(), { fill: getColor("main").front, size: "1.2rem" })),
+          m("span", { style: { fontSize: "1.2rem", color: getColor("main").front } }, flashMsg.title)
         ])
       }
 
@@ -235,8 +226,8 @@ export default () => {
             position: "absolute",
             top: "-0.4rem",
             right: "-0.4rem",
-            background: badgeColor,
-            color: "#fff",
+            background: badgeTheme.back,
+            color: badgeTheme.front,
             fontSize: "1rem",
             padding: "0 0.4rem",
             borderRadius: "1rem",

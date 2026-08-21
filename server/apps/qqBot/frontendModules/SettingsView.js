@@ -114,7 +114,7 @@ export default ({ m, trs, getColor, config, outState, modelList = [] }) => {
             }, [
               m("option", { value: "" }, trs("系统默认", { cn: "系统默认", en: "System Default" })),
               modelList.map(mdl =>
-                m("option", { value: mdl.name, key: mdl.name }, `${mdl.name} (${mdl.model})`)
+                m("option", { value: mdl.id, key: mdl.id }, `${mdl.name} (${mdl.model})`)
               )
             ])
           ]) : null,
