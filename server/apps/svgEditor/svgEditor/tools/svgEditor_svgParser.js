@@ -13,7 +13,7 @@ import FillGroup from "../svgEditor_fillGroup.js";
 
 import SvgText from "../svgEditor_text.js";
 
-getStyleOrAttr = function (node, name) {
+getStyleOrAttr = function(node, name) {
   var escapedName, match, regex, style, val;
   val = node.getAttribute(name);
   if (val) {
@@ -31,7 +31,7 @@ getStyleOrAttr = function (node, name) {
   return null;
 };
 
-rectToPath = function (node) {
+rectToPath = function(node) {
   var h, w, x, y;
   x = parseFloat(node.getAttribute("x") || 0);
   y = parseFloat(node.getAttribute("y") || 0);
@@ -40,7 +40,7 @@ rectToPath = function (node) {
   return `M ${x} ${y} L ${x + w} ${y} L ${x + w} ${y + h} L ${x} ${y + h} Z`;
 };
 
-circleToPath = function (node) {
+circleToPath = function(node) {
   var cx, cy, k, r;
   cx = parseFloat(node.getAttribute("cx") || 0);
   cy = parseFloat(node.getAttribute("cy") || 0);
@@ -49,7 +49,7 @@ circleToPath = function (node) {
   return `M ${cx} ${cy - r} C ${cx + k} ${cy - r} ${cx + r} ${cy - k} ${cx + r} ${cy} C ${cx + r} ${cy + k} ${cx + k} ${cy + r} ${cx} ${cy + r} C ${cx - k} ${cy + r} ${cx - r} ${cy + k} ${cx - r} ${cy} C ${cx - r} ${cy - k} ${cx - k} ${cy - r} ${cx} ${cy - r} Z`;
 };
 
-ellipseToPath = function (node) {
+ellipseToPath = function(node) {
   var cx, cy, kx, ky, rx, ry;
   cx = parseFloat(node.getAttribute("cx") || 0);
   cy = parseFloat(node.getAttribute("cy") || 0);
@@ -60,7 +60,7 @@ ellipseToPath = function (node) {
   return `M ${cx} ${cy - ry} C ${cx + kx} ${cy - ry} ${cx + rx} ${cy - ky} ${cx + rx} ${cy} C ${cx + rx} ${cy + ky} ${cx + kx} ${cy + ry} ${cx} ${cy + ry} C ${cx - kx} ${cy + ry} ${cx - rx} ${cy + ky} ${cx - rx} ${cy} C ${cx - rx} ${cy - ky} ${cx - kx} ${cy - ry} ${cx} ${cy - ry} Z`;
 };
 
-lineToPath = function (node) {
+lineToPath = function(node) {
   var x1, x2, y1, y2;
   x1 = parseFloat(node.getAttribute("x1") || 0);
   y1 = parseFloat(node.getAttribute("y1") || 0);
@@ -69,7 +69,7 @@ lineToPath = function (node) {
   return `M ${x1} ${y1} L ${x2} ${y2}`;
 };
 
-polygonToPath = function (node, isClosed) {
+polygonToPath = function(node, isClosed) {
   var d, i, points, pointsStr;
   pointsStr = node.getAttribute("points") || "";
   points = pointsStr.trim().split(/[\s,]+/).map(parseFloat);
@@ -88,7 +88,7 @@ polygonToPath = function (node, isClosed) {
   return d;
 };
 
-parsePathData = function (d) {
+parsePathData = function(d) {
   var C, aIndex, args, cmd, currentPoint, i, isRelative, segments, startPoint, token, tokens, x, x1, x2, y, y1, y2;
   tokens = d.match(/[a-df-z]|[\-+]?(?:\d+\.?\d*|\.\d+)(?:[eE][\-+]?\d+)?/gi);
   if (!tokens) {
@@ -140,8 +140,8 @@ parsePathData = function (d) {
       if (C === "M") {
         x = args[aIndex] + (isRelative ? currentPoint.x : 0);
         y = args[aIndex + 1] + (isRelative ? currentPoint.y : 0);
-        currentPoint = { x, y };
-        startPoint = { x, y };
+        currentPoint = {x, y};
+        startPoint = {x, y};
         aIndex += 2;
         cmd = isRelative ? 'l' : 'L';
         C = cmd.toUpperCase();
@@ -153,12 +153,10 @@ parsePathData = function (d) {
             x: currentPoint.x,
             y: currentPoint.y
           },
-          {
-            x,
-            y
-          }
+          {x,
+          y}
         ]);
-        currentPoint = { x, y };
+        currentPoint = {x, y};
         aIndex += 2;
       } else if (C === "H") {
         x = args[aIndex] + (isRelative ? currentPoint.x : 0);
@@ -214,12 +212,10 @@ parsePathData = function (d) {
             x: x2,
             y: y2
           },
-          {
-            x,
-            y
-          }
+          {x,
+          y}
         ]);
-        currentPoint = { x, y };
+        currentPoint = {x, y};
         aIndex += 6;
       } else if (C === "Q") {
         x1 = args[aIndex] + (isRelative ? currentPoint.x : 0);
@@ -235,12 +231,10 @@ parsePathData = function (d) {
             x: x1,
             y: y1
           },
-          {
-            x,
-            y
-          }
+          {x,
+          y}
         ]);
-        currentPoint = { x, y };
+        currentPoint = {x, y};
         aIndex += 4;
       } else {
         console.warn("SVG 解析器遇到未完全支持的指令:", C);
@@ -259,7 +253,7 @@ parsePathData = function (d) {
   return segments;
 };
 
-getNameFromNode = function (node) {
+getNameFromNode = function(node) {
   var child, j, len, ref, titleEl;
   if (!node) {
     return "";
@@ -280,8 +274,8 @@ getNameFromNode = function (node) {
 };
 
 export default {
-  parse: function (svgString, targetParentGroup = null) {
-    var allLines, allPureFills, allTexts, clearTransform, collectLines, doc, parser, parts, ref, ref1, root, rootGroup, rootName, targetX, targetY, transX, transY, traverse, vHeight, vMinX, vMinY, vWidth, viewBoxStr;
+  parse: function(svgString, targetParentGroup = null) {
+    var allLines, allPureFills, clearTransform, collectLines, doc, parser, parts, ref, ref1, root, rootGroup, rootName, targetX, targetY, transX, transY, traverse, vHeight, vMinX, vMinY, vWidth, viewBoxStr;
     parser = new DOMParser();
     doc = parser.parseFromString(svgString, "image/svg+xml");
     root = doc.querySelector("svg");
@@ -300,7 +294,7 @@ export default {
     data.elPaper.add(rootGroup);
     viewBoxStr = root.getAttribute("viewBox");
     if (viewBoxStr) {
-      parts = viewBoxStr.split(/[\s,]+/).filter(function (s) {
+      parts = viewBoxStr.split(/[\s,]+/).filter(function(s) {
         return s;
       });
       if (parts.length >= 4) {
@@ -320,8 +314,7 @@ export default {
       }
     }
     allPureFills = [];
-    allTexts = [];
-    traverse = function (node, parentGroup) {
+    traverse = function(node, parentGroup) {
       var closingLine, content, d, disSq, endPt, fill, fillGroupEl, firstLine, fontSize, generatedLines, group, lastLine, nodeName, pureFillEl, segments, shapeGroup, startPt, stroke, strokeLinecap, strokeWidth, strokeWidthVal, tag, textEl, textGroup, transform, tspans, x, y, yBaseline;
       if (node.nodeType !== 1) {
         return;
@@ -342,14 +335,14 @@ export default {
           }
         });
         data.elPaper.add(group);
-        Array.from(node.children).forEach(function (child) {
+        Array.from(node.children).forEach(function(child) {
           return traverse(child, group);
         });
         return;
       }
       if (tag === "text") {
         tspans = Array.from(node.querySelectorAll("tspan"));
-        content = tspans.length > 0 ? tspans.map(function (t) {
+        content = tspans.length > 0 ? tspans.map(function(t) {
           return t.textContent;
         }).join("\n") : node.textContent || "";
         if (!content.trim()) {
@@ -369,9 +362,6 @@ export default {
           }
         });
         data.elPaper.add(textGroup);
-        if (parentGroup) {
-          textGroup.joinGroup(parentGroup);
-        }
         textEl = new SvgText({
           prop: {
             name: nodeName,
@@ -389,8 +379,6 @@ export default {
           }
         });
         data.elPaper.add(textEl);
-        textEl.joinGroup(textGroup);
-        allTexts.push(textEl);
         return;
       }
       d = "";
@@ -431,7 +419,7 @@ export default {
       });
       data.elPaper.add(shapeGroup);
       generatedLines = [];
-      segments.forEach(function (pointsArr) {
+      segments.forEach(function(pointsArr) {
         var lineEl;
         if (pointsArr.length === 2 && pointsArr[0].x === pointsArr[1].x && pointsArr[0].y === pointsArr[1].y) {
           return;
@@ -509,21 +497,21 @@ export default {
           data.elPaper.add(fillGroupEl);
           allPureFills.push(pureFillEl);
           if (stroke === "none" || !node.hasAttribute("stroke")) {
-            return generatedLines.forEach(function (l) {
+            return generatedLines.forEach(function(l) {
               return l.isActive = false;
             });
           }
         }
       }
     };
-    Array.from(root.children).forEach(function (child) {
+    Array.from(root.children).forEach(function(child) {
       return traverse(child, rootGroup);
     });
-
+    
     // 统一烘焙 Transform（Bake）以解决平移时的“流星锤”错位问题
     allLines = [];
-    collectLines = function (g) {
-      return g.prop.elements.forEach(function (el) {
+    collectLines = function(g) {
+      return g.prop.elements.forEach(function(el) {
         if (el.type === "line") {
           return allLines.push(el);
         } else if (el.type === "group") {
@@ -532,38 +520,27 @@ export default {
       });
     };
     collectLines(rootGroup);
-
+    
     // 将所有的点按全局矩阵换算为绝对坐标
-    allLines.forEach(function (line) {
+    allLines.forEach(function(line) {
       return line.prop.points = line.getGlobalPoints();
     });
-
+    
     // 同时将 PureFill 中深拷贝的局部点也按外层容器的全局矩阵转换为绝对坐标
-    allPureFills.forEach(function (pureFill) {
+    allPureFills.forEach(function(pureFill) {
       var matrix;
       matrix = pureFill.getGlobalMatrix();
-      return pureFill.prop.elements.forEach(function (subLine) {
-        return subLine.prop.points = subLine.prop.points.map(function (p) {
+      return pureFill.prop.elements.forEach(function(subLine) {
+        return subLine.prop.points = subLine.prop.points.map(function(p) {
           return pureFill.localToGlobal(p, matrix);
         });
       });
     });
-
-    // 统一将文字也换算为绝对坐标
-    allTexts.forEach(function (textEl) {
-      var pt;
-      pt = textEl.localToGlobal({
-        x: textEl.prop.x,
-        y: textEl.prop.y
-      });
-      textEl.prop.x = pt.x;
-      textEl.prop.y = pt.y;
-    });
-
+    
     // 剥离除文字外的所有 transform 包装
-    clearTransform = function (g) {
+    clearTransform = function(g) {
       g.prop.transform = null;
-      return g.prop.elements.forEach(function (el) {
+      return g.prop.elements.forEach(function(el) {
         if (el.type === "group") {
           return clearTransform(el);
         } else if (el.type !== "text") {
@@ -572,7 +549,7 @@ export default {
       });
     };
     clearTransform(rootGroup);
-
+    
     // 解析完毕后，由于 getBoundingBox 的天然计算附带写缓存效果，这一句就相当于顺便把整个组树全部刷新了
     rootGroup.update();
     return rootGroup;

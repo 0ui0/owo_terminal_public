@@ -7,6 +7,7 @@ import aiContext from "../titleMenu/aiContext.js"
 import getColor from "./getColor.js"
 import chatData from "../chat/chatData.js"
 import comData from "../../comData/comData.js"
+import Setting from "../setting/setting.js"
 
 export default () => {
   // 项目 load/save 后遍历所有队列刷新时光机状态
@@ -144,6 +145,19 @@ export default () => {
               }
             }
           }, trs("菜单栏/操作/打开数据目录", { cn: "打开数据目录", en: "Open Data Directory" })),
+
+          m(Box, {
+            isBtn: true,
+            style: { padding: "10px", textAlign: "left" },
+            onclick: () => {
+              v.attrs.delete()
+              Notice.launch({
+                sign: "setting_main",
+                tip: trs("输入栏/提示/设置中心", { cn: "设置中心", en: "Settings" }),
+                content: Setting
+              })
+            }
+          }, trs("菜单栏/操作/系统设置", { cn: "系统设置", en: "System Settings" })),
 
           m("div", { style: { height: "1px", background: "rgba(255,255,255,0.1)", margin: "5px 0" } }),
 

@@ -7,17 +7,17 @@ import findRegions from "../../tools/findRegions/main.js";
 
 playDebug = false;
 
-closedSite = function (site1, site2, r = 1) {
+closedSite = function(site1, site2, r = 1) {
   return (site1.x - site2.x) ** 2 + (site1.y - site2.y) ** 2 <= r ** 2;
 };
 
-sleep = function (time) {
-  return new Promise(function (resolve) {
+sleep = function(time) {
+  return new Promise(function(resolve) {
     return setTimeout(resolve, time);
   });
 };
 
-animateLines = async function (lines) {
+animateLines = async function(lines) {
   var j, k, len, len1, line;
   for (j = 0, len = lines.length; j < len; j++) {
     line = lines[j];
@@ -34,7 +34,7 @@ animateLines = async function (lines) {
 };
 
 export default {
-  alignPoints: function (eles1, eles2, element, element2) {
+  alignPoints: function(eles1, eles2, element, element2) {
     var alignNum, alignPoint, dist1, dist2, dist3, dist4, ele1, ele2, j, k, len, len1, ref, ref1, ref2, ref3, ref4, ref5, ref6, ref7;
     alignNum = 1;
     if (eles1.length > 0 && eles2.length > 0) {
@@ -78,7 +78,7 @@ export default {
           }
         }
       }
-      return console.log({ eles1, eles2 });
+      return console.log({eles1, eles2});
     } else if (eles1.length > 0 && eles2.length === 0) {
       console.log("对齐3条线");
       alignPoint = eles1[0].e();
@@ -110,7 +110,7 @@ export default {
       }
     }
   },
-  combineElements: function (element, element2, newRegion) {
+  combineElements: function(element, element2, newRegion) {
     var index;
     if (!element.isIntersectBoundingBox(element2)) {
       return false;
@@ -153,7 +153,7 @@ export default {
     }
     return false;
   },
-  splitPaper: async function (elements) {
+  splitPaper: async function(elements) {
     var delIndex, element, element2, fillGroup, fillGroup2, fn, gIdx, gIdx2, group, group2, i, index, index2, intersectionPoints, j, k, l, len, len1, len2, len3, line, n, newEl, newElements1, newElements2, ref, results, split1, split2, splitCount, t1, t2;
     elements = elements || data.elPaper.getList();
     index = elements.length - 1;
@@ -187,14 +187,14 @@ export default {
             continue;
           }
         }
-
+        
         //删除首尾一致的一次和二次线
         if (element.s().x === element.e().x && element.s().y === element.e().y) {
           if (element.getPoints().length <= 3) {
-            [...element.prop.fillGroups].forEach(function (fillGroup) {
+            [...element.prop.fillGroups].forEach(function(fillGroup) {
               return element.exitFillGroup(fillGroup);
             });
-            [...element.prop.fillGroupInners].forEach(function (fillGroup) {
+            [...element.prop.fillGroupInners].forEach(function(fillGroup) {
               return element.exitFillGroupInner(fillGroup);
             });
             element.remove();
@@ -212,11 +212,6 @@ export default {
             if (element === element2) {
               continue;
             }
-
-            if (element2.type !== "line") {
-              continue;
-            }
-
             if (element2.prop.parentGroup !== data.presentGroup) {
               continue;
             }
@@ -232,7 +227,9 @@ export default {
               index = elements.length - 1
               break
             */
-
+            if (element2.type !== "line") {
+              continue;
+            }
             if (splitCount > 50) {
               splitCount = 0;
               console.error("超出切割限制");
@@ -275,7 +272,7 @@ export default {
                 element2.prop.fillGroupInners.forEach((fillGroup) => {
                   return element2.exitFillGroupInner(fillGroup);
                 });
-
+                
                 //t1 = element.getProjectionT(intersectionPoints[0])
                 //t2 = element2.getProjectionT(intersectionPoints[0])
                 t1 = intersectionPoints[0].t1;
@@ -336,9 +333,9 @@ export default {
       }
       if (element.type === "fillGroup") {
         fillGroup = element;
-        fn = async (elements, elements2, fillGroup, fillGroup2) => {
+        fn = async(elements, elements2, fillGroup, fillGroup2) => {
           //elements是填充组的elements，elements2是画布elements
-          return (await (async (isIntersect, gIndex, intersectionPoints, t1, t2, newElements1, newElements2, element, element2) => {
+          return (await (async(isIntersect, gIndex, intersectionPoints, t1, t2, newElements1, newElements2, element, element2) => {
             var childRegion, condition, defaultRegion, ele2, haveRegion, item, len3, len4, len5, len6, len7, len8, n, newRegion, o, p, paperElements, q, ref, s, searchRegions, splitCount2, t, tmparr1, tmparr2, tmparr3;
             paperElements = data.elPaper.elements;
             defaultRegion = [...elements];
@@ -377,7 +374,7 @@ export default {
                   if (element.estimateLength() < 2 ** 2 && element2.estimateLength() < 2 ** 2) {
                     continue;
                   }
-
+                  
                   //合并线
                   if (this.combineElements(element, element2, elements)) {
                     gIndex = elements.length;
@@ -481,7 +478,7 @@ export default {
               await sleep(1000);
               await animateLines(newRegion);
             }
-
+            
             //把子区域元素加入
             tmparr3 = [];
             if (playDebug) {
@@ -513,7 +510,7 @@ export default {
                   console.log(">>>放入2组相交元素开始");
                   await sleep(1000);
                 }
-                elements2.forEach(function (element2) {
+                elements2.forEach(function(element2) {
                   if (newRegion.indexOf(element2) === -1) {
                     newRegion.push(element2);
                     return tmparr1.push(element2);
@@ -609,7 +606,7 @@ export default {
                 data.elPaper.remove(fillGroup2.prop.pureFill);
               }
               data.bucketTool.fill(null, fillGroup.prop.fill, newRegion, false);
-
+              
               //data.bucketTool.fill null,"blue",newRegion
               fillGroup.break();
               if (fillGroup2) {

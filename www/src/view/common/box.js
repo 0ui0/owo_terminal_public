@@ -128,9 +128,8 @@ export default function() {  /*
         //placeholder:v.attrs.placeholder
         autocomplete: "off",
         ...v.attrs.ext
-      }, [
-        v.attrs.isSwitch ? m("",
-        {
+      }, v.attrs.isSwitch ? [
+        m("", {
           style: {
             display: "inline-block",
             margin: "0.2rem",
@@ -141,9 +140,9 @@ export default function() {  /*
             transition: "all 0.5s ease",
             marginLeft: _this.data.value ? "58%" : "0.2rem"
           }
-        }) : void 0,
+        }),
         ...v.children
-      ]);
+      ] : v.children);
     }
   };
 };

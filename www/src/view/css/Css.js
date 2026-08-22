@@ -29,52 +29,8 @@ export default function () {
           color: ${getColor('yellow_1').back};
           text-decoration: none;
         }
-        input::placeholder, textarea::placeholder {
-          color: ${getColor('gray_4').front};
-          opacity: 1;
-        }
-        textarea{
-          border:0.1rem solid ${getColor('gray_8').front};
-          border-radius:3rem;
-          background: ${getColor('gray_8').back};
-        }
-        textarea:focus{
-          outline:0.1rem solid ${getColor('yellow_1').back};
-        }
-        select{
-          border: 0.1rem solid ${getColor('gray_8').front};
-          border-radius:3rem;
-        }
-        input[type=submit]{
-          background: ${getColor('gray_8').front};
-          outline:none;
-          border: 0.1rem solid ${getColor('gray_8').front};
-          cursor:pointer;
-          color:#666;
-          border-radius:3rem;
-          font-size:1.55rem;
-        }
-        input[type=text]{
-          border: 0.1rem solid ${getColor('gray_8').front};
-          border-radius:3rem;
-          background: ${getColor('gray_8').back};
-        }
-        input[type=text]:focus{
-          outline:0.1rem solid ${getColor('main').back};
-        }
-        button{
-          background: ${getColor('gray_8').front};
-          outline:none;
-          border: 0.1rem solid ${getColor('gray_8').front};
-          cursor:pointer;
-          color:#666;
-          border-radius:3rem;
-          font-size:1.55rem;
-        }
-        button:hover{
-          background:#eeeeee99;
           
-        }
+        
 
         *::-webkit-scrollbar {
           width: 1rem;

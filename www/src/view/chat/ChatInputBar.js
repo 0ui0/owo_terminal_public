@@ -15,6 +15,7 @@ import ChatCwdConfig from "./ChatCwdConfig.js"
 import debugHistory from "../../historyPanel/historyPanelData.js"
 import HelpMenu from "../common/HelpMenu.js"
 import getColor from "../common/getColor.js"
+import ChatModelSelector from "./ChatModelSelector.js"
 
 const updateListSession = async (listId, updates) => {
   chatData.initSessionState(listId, updates);
@@ -183,7 +184,6 @@ export default () => {
     e.target.value = "";
   }
 
-  let showAiList = false
   let showToolsList = false
   let documentClickFn = null
   let documentClickFnTools = null
@@ -257,18 +257,19 @@ export default () => {
               borderBottomRightRadius: 0,
             },
             ext: {
-              onclick: (e) => {
-                e.stopPropagation()
-                showAiList = !showAiList
-                if (showAiList) {
-                  document.addEventListener("click", documentClickFn = () => {
-                    showAiList = false
-                    m.redraw()
-                    document.removeEventListener("click", documentClickFn)
-                  })
-                }
+              onclick: () => {
+                Notice.launch({
+                  sign: "switch_model_dialog_" + targetChatListId,
+                  tip: trs("输入栏/提示/选择与管理模型", { cn: "选择与切换模型", en: "Select & Switch Model" }),
+                  content: ChatModelSelector,
+                  contentAttrs: {
+                    targetChatListId,
+                    targetSession,
+                    updateListSession
+                  }
+                })
               }
-            },
+            }
 
           }, [
             m("span", {
@@ -282,183 +283,9 @@ export default () => {
                 whiteSpace: "nowrap"
               }
             }, [
-              (settingData.options.get("ai_aiList")?.find(m => m.id === targetSession.currentModelId)?.name) || "ai"
+              (settingData.options.get("ai_aiList")?.find(m => m.id === targetSession.currentModelId)?.name) || "请选择模型"
             ]),
-            m.trust(window.iconPark.getIcon("Down")),
-
-            showAiList ? m("", {
-              style: {
-                position: "absolute",
-                top: "1.5rem",
-                right: "-0.5rem",
-                background: getColor('gray_4').back,
-                color: getColor('gray_4').front,
-                padding: "0.2rem 1rem",
-                borderRadius: "0.5rem",
-                display: "flex",
-                flexDirection: "column",
-                zIndex: 10,
-                maxHeight: "10rem",
-                overflowY: "auto"
-              }
-            }, [
-              settingData.options.get("ai_aiList")?.filter(m => m.switch).map((model) => {
-                return m(Tag, {
-                  isBtn: true,
-                  ext: {
-                    onclick: async (e) => {
-                      e.stopPropagation()
-
-                      // 弹窗让用户勾选切换选项
-                      let coverPrompt = true   // 是否覆盖初始提示词（默认勾选）
-                      let clearContext = false // 是否清空临时上下文并插入历史阅读提示（默认不勾选）
-
-                      const switchOptions = await new Promise(resolve => {
-                        Notice.launch({
-                          sign: "switchModel_confirm_" + targetChatListId,
-                          tip: trs("输入栏/提示/切换模型", { cn: "切换模型", en: "Switch Model" }),
-                          hideBtn: 0,
-                          content: {
-                            view: () => m("div", {
-                              style: {
-                                margin: "0 1rem 1rem",
-                                minWidth: "30rem",
-                                maxWidth: "80vw",
-                                fontSize: "1.5rem",
-                                color: getColor('gray_6').front,
-                                display: "flow-root"
-                              }
-                            }, [
-                              // 标题（用字号强调，不用粗体）
-                              m("div", {
-                                style: {
-                                  fontSize: "1.6rem",
-                                  margin: "1rem 1rem 1.5rem",
-                                  color: getColor('gray_6').front
-                                }
-                              }, trs("输入栏/提示/切换到模型", { cn: `切换到模型「${model.name}」`, en: `Switch to model "${model.name}"` })),
-
-                              // 选项1：覆盖初始提示词（默认勾选）
-                              m("div", {
-                                style: {
-                                  display: "flex",
-                                  alignItems: "center",
-                                  margin: "0 1rem 1rem",
-                                  borderRadius: "3rem",
-                                  background: getColor('gray_3').back
-                                }
-                              }, [
-                                m("span", {
-                                  style: {
-                                    margin: "0.8rem 1rem",
-                                    flex: 1,
-                                    color: getColor('gray_3').front
-                                  }
-                                }, trs("输入栏/选项/覆盖初始提示词", { cn: "覆盖初始提示词", en: "Override initial prompt" })),
-                                m(Box, {
-                                  color: "main",
-                                  isSwitch: true,
-                                  value: coverPrompt,
-                                  style: {
-                                    margin: "0.8rem 1rem"
-                                  },
-                                  onclick: (el, e, v, box_this) => {
-                                    coverPrompt = box_this.data.value
-                                    m.redraw()
-                                  }
-                                })
-                              ]),
-
-                              // 选项2：清空临时上下文并插入历史阅读提示（默认不勾选）
-                              m("div", {
-                                style: {
-                                  display: "flex",
-                                  alignItems: "center",
-                                  margin: "0 1rem",
-                                  borderRadius: "3rem",
-                                  background: getColor('gray_3').back
-                                }
-                              }, [
-                                m("span", {
-                                  style: {
-                                    margin: "0.8rem 1rem",
-                                    flex: 1,
-                                    color: getColor('gray_3').front
-                                  }
-                                }, trs("输入栏/选项/清空上下文阅读历史", { cn: "清空临时上下文列表，并插入一条让模型阅读历史消息的提示", en: "Clear temp context and insert a prompt to read history" })),
-                                m(Box, {
-                                  color: "main",
-                                  isSwitch: true,
-                                  value: clearContext,
-                                  style: {
-                                    margin: "0.8rem 1rem"
-                                  },
-                                  onclick: (el, e, v, box_this) => {
-                                    clearContext = box_this.data.value
-                                    m.redraw()
-                                  }
-                                })
-                              ])
-                            ])
-                          },
-                          confirm(box, closeTabFn) {
-                            resolve({ coverPrompt, clearContext })
-                            return undefined // 自动关闭
-                          },
-                          cancel(box, closeTabFn) {
-                            resolve(null)
-                            return undefined // 自动关闭
-                          }
-                        })
-                      })
-
-                      // 用户取消则不切换
-                      if (!switchOptions) {
-                        showAiList = false
-                        chatData.inputDom.focus()
-                        return
-                      }
-
-                      try {
-                        let res = await settingData.fnCall("switchModel", [{
-                          listId: targetChatListId,
-                          modelId: model.id,
-                          options: {
-                            coverPrompt: switchOptions.coverPrompt,
-                            clearContext: switchOptions.clearContext
-                          }
-                        }])
-                        if (!res.ok) {
-                          Notice.launch({
-                            msg: res.msg
-                          })
-                        } else {
-                          updateListSession(targetChatListId, { currentModelId: model.id })
-                        }
-                      } catch (err) {
-                        console.error(err)
-                      }
-
-                      showAiList = false
-                      chatData.inputDom.focus()
-
-                    },
-                  },
-                  styleExt: {
-                    minWidth: "10rem",
-                    padding: 0,
-                    margin: 0,
-                    background: "transparent",
-                    color: getColor('gray_4').front,
-                    borderBottom: `0.2rem solid ${getColor('main').back}`,
-                    borderRadius: "0",
-                    fontSize: "1.3rem"
-                  }
-                }, model.name.slice(0, 10))
-              }),
-
-            ]) : null,
-
+            m.trust(window.iconPark.getIcon("Down"))
           ]),
 
           m(IconTag, {

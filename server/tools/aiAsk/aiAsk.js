@@ -28,6 +28,10 @@ import joiToText from "../joiToText.js";
 
 import tempPath from "../tempPath.js";
 
+import {
+  Jimp
+} from "jimp";
+
 //console.log JSON.stringify(joiToJSON(sendTemplate.joi()),null,"\t")
 
 // 用于推断流式输出缺少 index 的工具调用分段
@@ -706,7 +710,7 @@ ${item.output}
 `.trim();
   }
 
-  prepareMessages(useMsgProtocol, config, toolTipObj) { //第一个参数为true才传后两个
+  async prepareMessages(useMsgProtocol, config, toolTipObj) { //第一个参数为true才传后两个
     var filteredAsks, formatMsg, messages, processAttachment;
     formatMsg = (ask, index) => {
       var rawContent, tmp, tmpStr;
@@ -749,8 +753,8 @@ ${yaml.dump(tmp)}</readOnlyMetaData>`.trim();
         return tmpStr;
       }
     };
-    processAttachment = (ask, rawContent) => {
-      var attachId, attachment, base64Data, bitmap, err, filePath, j, lastIndex, len, match, mimeType, parts, ref, ref1, ref2, tagRegex, usedAttachIds;
+    processAttachment = async(ask, rawContent) => {
+      var attachId, attachment, base64Data, bitmap, err, filePath, j, jimpImage, lastIndex, len, match, mimeType, parts, ref, ref1, ref2, tagRegex, usedAttachIds;
       if (((ref = ask.attachments) != null ? ref.length : void 0) > 0) {
         parts = [];
         usedAttachIds = [];
@@ -775,11 +779,16 @@ ${yaml.dump(tmp)}</readOnlyMetaData>`.trim();
               usedAttachIds.push(attachment.id);
               try {
                 filePath = attachment.url.startsWith('/') ? attachment.url.startsWith('/attachment/') ? pathLib.join(this.mediaDir, pathLib.basename(attachment.url)) : attachment.url : pathLib.resolve(`${this.mediaDir // 绝对路径
-                }/${attachment.url}`);
+}/${attachment.url}`);
                 if (fs.existsSync(filePath)) {
                   bitmap = fs.readFileSync(filePath);
                   base64Data = Buffer.from(bitmap).toString('base64');
-                  mimeType = `image/${pathLib.extname(filePath).slice(1) || 'png'}`;
+                  try {
+                    jimpImage = (await Jimp.read(bitmap));
+                    mimeType = jimpImage.mime || "image/jpeg";
+                  } catch (error1) {
+                    mimeType = "image/jpeg";
+                  }
                   parts.push({
                     type: "image_url",
                     image_url: {
@@ -826,7 +835,12 @@ ${yaml.dump(tmp)}</readOnlyMetaData>`.trim();
               if (fs.existsSync(filePath)) {
                 bitmap = fs.readFileSync(filePath);
                 base64Data = Buffer.from(bitmap).toString('base64');
-                mimeType = `image/${pathLib.extname(filePath).slice(1) || 'png'}`;
+                try {
+                  jimpImage = (await Jimp.read(bitmap));
+                  mimeType = jimpImage.mime || "image/jpeg";
+                } catch (error1) {
+                  mimeType = "image/jpeg";
+                }
                 parts.push({
                   type: "image_url",
                   image_url: {
@@ -865,11 +879,11 @@ ${yaml.dump(tmp)}</readOnlyMetaData>`.trim();
         break  */
 
     //转化asks到messages
-    messages = filteredAsks.map((ask, index) => {
+    messages = (await Promise.all(filteredAsks.map(async(ask, index) => {
       var fnCallCache, foldedResults, latestToolCallIds, msg, rawContent, ref, tmpAsk, tmpIdx;
       // 如果是协议模式，需要根据ask追加元数据
       rawContent = useMsgProtocol ? formatMsg(ask, index) : ask.content;
-      rawContent = processAttachment(ask, rawContent);
+      rawContent = (await processAttachment(ask, rawContent));
       if (useMsgProtocol) {
         
         // 处理工具折叠
@@ -947,7 +961,7 @@ id为${fnCallCache.cacheid}
         msg.tool_call_id = ask.tool_call_id;
       }
       return msg;
-    });
+    })));
     if (useMsgProtocol) {
       // 剥离 memory 拼接，只保留最轻量的 PromptZero 核心设定
       messages[0].content = this.buildPromptZero(config, toolTipObj);
@@ -1088,7 +1102,7 @@ id为${fnCallCache.cacheid}
             type: "json_object"
           }
         } : void 0),
-        messages: this.messages = config.messages || this.prepareMessages(false)
+        messages: this.messages = config.messages || (await this.prepareMessages(false))
       };
       if (streamFn || (((ref = this.userConfig) != null ? ref.stream : void 0) != null)) {
         sendConfig.stream = streamFn ? Boolean(streamFn) : Boolean(this.userConfig.stream);
@@ -1481,7 +1495,7 @@ id为${fnCallCache.cacheid}
       
       //开始逻辑
       this.fnCallCachePoolTick();
-      this.messages = this.prepareMessages(true, config, config.toolTipObj || toolTipObj);
+      this.messages = (await this.prepareMessages(true, config, config.toolTipObj || toolTipObj));
       if (config.retry == null) {
         config.retry = 0;
       }

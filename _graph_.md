@@ -621,16 +621,235 @@ graph TD
 
 ## 2026/08/17 08:12 - path/polygon/rect 全图元包围盒精准解析终极落地
 
-## 2026/08/17 08:58 - svgParser 内部闭环方案终极落地 (0 侵入 group.js)
+## 2026/08/22 14:13 - AI 模型配置向导与设置中心 UI 深度重构
 
 ```mermaid
 graph TD
-    A[svgParser.js 内部自闭环架构] --> B[1. allTexts.forEach: 烘焙文字舞台绝对物理坐标]
-    A --> C[2. data.elPaper.elements.forEach: 彻底剥离全量图元 transform]
-    A --> D[3. removeEmptyGroups(): 递归清理无图元空组, 消除父组污染]
-    A --> E[4. 全面遍历 group.update(): 刷新纯物理包围盒]
-    B & C & D & E --> F[文字居中 + 蓝色虚线框 100% 严密对齐贴合, 完全等价于手动创建组]
+    A[需求: 新建模型拦截为向导 + 2026最新大模型预设 + 设置中心 UI 重构 + 启动无模型引导] --> B{三层架构落地}
+    
+    B --> C[1. 主流厂商数据库 settingAiProviders.js]
+    C --> C1[DeepSeek: deepseek-v4-pro, flash, flash-vision-exp, r1]
+    C --> C2[OpenAI: gpt-5.6-sol, terra, luna, o4-mini, o3, gpt-4o]
+    C --> C3[Google Gemini: gemini-3.7-flash, 3.6-flash, 3.1-pro, 3.5-flash-lite]
+    C --> C4[通义千问: qwen3.8-max, qwen3.7-plus, qwen3.5-turbo, qwen-vl-plus]
+    C --> C5[智谱 GLM: glm-5.3, glm-5.2, glm-5-turbo, glm-5v-turbo]
+    C --> C6[月之暗面: kimi-k3, kimi-k3-thinking, kimi-k3-code]
+    C --> C7[自定义模式: 自由输入 Base URL 与模型 ID]
+
+    B --> D[2. 向导弹窗组件 settingModelWizard.js]
+    D --> D1[FormItem + AutoForm + select 范式: 兼具快捷预设点选与 100% 自由编辑覆盖]
+    D --> D2[自动补全配置契约: switch: 1, preTokens: 1000000, system: 0, prompt: '']
+    D --> D3[Notice 说明书契约: 自适应居中 + 校验拦截]
+
+    B --> E[3. 设置中心 UI 深度重构 setting.js & main.js 引导]
+    E --> E1[样式设计指南落实: 零 CSS 类名, 全行内样式, 属性垂直换行, m('', ...) 简写, rem 单位]
+    E --> E2[同色系配色公理: 统一采用 getColor 守恒配对, 自适应经典/花园/海风三大主题]
+    E --> E3[模型列表重构: 卡片圆点指示器 + FormItem/AutoForm 编辑 + 向导唤起 + Ollama 导入]
+    E --> E4[main.js 启动引导: 拉取 options 后检测 ai_aiList, 若为空则自动唤起向导]
 ```
+
+## 2026/08/22 16:12 - 设置中心样式彻底清空与纯血 Box 规范重塑
+
+```mermaid
+graph TD
+    A[需求: 根据新版样式设计指南重写 setting.js 样式, 先清空旧样式再写新样式] --> B{清空与重塑闭环}
+    
+    B --> C[1. 彻底清除历史旧样式]
+    C --> C1[清除所有硬编码颜色: #333, #eee, #ff6b6b, #8d8d8d, rgba 杂色]
+    C --> C2[清除手写边框 border, boxShadow 以及多重 padding 冲突]
+    C --> C3[清除所有 m('div', ...) 标签, 全量转为 m('', ...)]
+
+    B --> D[2. 纯血 Box 与成套色彩注入]
+    D --> D1[侧边栏 Group1: 纯净 Box 胶囊, 选中态 main 亮起, 未选中态 gray_3 沉底]
+    D --> D2[顶部二级 Tab Group2: 水平可滚动 Box 胶囊导航]
+    D --> D3[卡片底板 Group3: gray_3 纯色底板 + 1.5rem 圆角 + 零冗余边框]
+    D --> D4[表单控件: 输入框/文本域统一下沉到 gray_3/gray_4 深度, 胶囊开关受控动效]
+
+    B --> E[3. 交互闭环与向导集成]
+    E --> E1[添加模型: 联动 launchModelWizard 弹出向导]
+    E --> E2[Ollama 导入: Box 按钮弹窗直连并刷新列表]
+    E --> E3[宠物包与闲暇动作: 统一 Tag 紧凑排版与 Notice 确认删除]
+```
+
+## 2026/08/22 16:15 - 设置中心 1/2/3 级导航层级结构重构 (参考 admin_main 规范)
+
+```mermaid
+graph TD
+    A[需求: 导航层级调整, 1级和2级导航置于左侧边栏, 3级导航置于右侧顶部] --> B{双区导航分流}
+    
+    B --> C[1. 左侧边栏 (Sidebar)]
+    C --> C1[Group1 (1级分类): 大项胶囊, 点击激活并展开其下的 Group2 子项]
+    C --> C2[Group2 (2级分类): 缩进内嵌于所属 Group1 下方, 点击切换 activeGroup2]
+    C --> C3[联动重置: 切换 Group1/2 时自动向下级联选中首个可用 Group3]
+
+    B --> D[2. 右侧主区域 (Main Content)]
+    D --> D1[顶部栏: 水平可滚动 Group3 (3级分类) 胶囊 Tab, 点击精准切换]
+    D --> D2[下方卡片: 仅渲染当前选中的 activeGroup3 所属的设置卡片与字段]
+    D --> D3[消除多组平铺的视觉冗余, 实现高内聚、模块化的设置项聚焦]
+```
+
+## 2026/08/22 16:18 - 自动保存等 0/1 开关项正则判定与按钮组件重塑
+
+```mermaid
+graph TD
+    A[现象: 自动保存 (global_projectAutoSave) 渲染为 number 输入框而非开关] --> B{根因: switchRegex 严格首尾锚定失效}
+    B --> C[原正则 /^(is|use...)|(switch...)$/ 未涵盖 '自动保存' 中文]
+    C --> D[虽然 value 为 1, 但未能命中布尔开关判定 -> 降级为普通数字输入框]
+    
+    E[修复方案] --> F[放宽 switchRegex 涵盖 /is|use|enable|auto|save|switch|mode|开关|保存|自动/i]
+    F --> G[且只要 value 为 0 或 1 配合开关关键词 -> 强制识别为 isBool]
+    G --> H[自动保存精准渲染为圆角滑动胶囊开关, 点击平滑切换 0/1 并消除数字输入框]
+```
+
+## 2026/08/22 16:23 - 移动端与窄窗口分栏响应式自适应 (参考 admin_main 范式)
+
+```mermaid
+graph TD
+    A[需求: 左右分栏适配手机端或窄窗口, 参考 admin_main / admin_menu 范式] --> B{双态布局引擎}
+    
+    B --> C[1. 动态尺寸感知]
+    C --> C1[通过 oncreate/onupdate 测量真实 DOM 宽度 (containerWidth) 结合 window.innerWidth / Mob 状态]
+    C --> C2[动态推导 isMob 状态 (宽度 < 550px / window.innerWidth < 650px)]
+
+    B --> D[2. 桌面宽窗口模式 (isMob = false)]
+    D --> D1[经典左右双分栏: 左侧 18rem 固定边栏 (1级+2级), 右侧主区 (3级顶部Tab + 卡片)]
+
+    B --> E[3. 移动端/窄窗口模式 (isMob = true)]
+    E --> E1[单列流式堆叠: 顶部栏左侧增加汉堡菜单按钮 HamburgerButton]
+    E --> E2[抽屉浮层: 点击汉堡按钮展开绝对定位的高层级 1级+2级 菜单抽屉, 选中后自动收起]
+    E --> E3[空间释放: 消除侧边栏对卡片内容的横向挤压, 3级 Tab 与设置卡片撑满 100% 视口]
+```
+
+## 2026/08/22 16:26 - Box / Tag 组件 onclick 回调签名 (dom, e) 参数修正
+
+```mermaid
+graph TD
+    A[错误: setting.js:1572 TypeError: xt.stopPropagation is not a function] --> B{根因: box.js 传参机制}
+    B --> C[box.js L82 中: base.onclick(this, e, v, _this)]
+    C --> D[第 1 个参数为当前 DOM 元素 this, 第 2 个参数才是 Event 事件对象 e]
+    D --> E[箭头函数错将首参命名为 e -> 对 DOM 元素调用 e.stopPropagation() 引发异常]
+    
+    F[修复方案] --> G[修正为 (dom, e) 参数签名: if (e && e.stopPropagation) e.stopPropagation()]
+    G --> H[全面消除汉堡菜单与模型删除 Tag 上的 TypeError, 移动端抽屉丝滑唤起]
+```
+
+## 2026/08/22 16:52 - 大模型添加向导统一为独立自包含保存提交模式
+
+```mermaid
+graph TD
+    A[需求: 统一简化, 所有启动向导均视作独立启动] --> B{向导自包含提交引擎}
+    B --> C[1. 数据收集与校验: 收集 name/model/url/apiKey/prompt 等]
+    B --> D[2. 统一先 pull: 执行 settingData.options.pull 获取后端带有有效 optionId 的全量配置表]
+    B --> E[3. 插入模型: 将 newModelObj 追加进 ai_aiList.value]
+    B --> F[4. 独立提交落库: 调用 cmdOptions 提交并严格验证 saveRes.ok]
+    
+    F --> G1{提交成功?}
+    G1 -- 是 --> H1[关闭向导, 弹出绿色成功提示, 并通知外部 onSuccess 触发 pull 同步刷新]
+    G1 -- 否 --> H2[弹出粉色错误原因提示, 保持窗口打开供用户修正参数]
+```
+
+## 2026/08/22 17:05 - 模型选择器独立组件化 (ChatModelSelector) 与 Notice 解耦调用
+
+```mermaid
+graph TD
+    A[架构优化: 拒绝外置散装函数, 封装为标准 Mithril 组件] --> B[新建 ChatModelSelector.js 独立组件]
+    
+    B --> C[1. 职责自治: 内部维护 selectedModelId / coverPrompt / clearContext 状态]
+    B --> D[2. 声明式 UI: 严格遵循样式指南, 顶部添加向导入口, 中间模型单选列表, 底部配置胶囊开关]
+    B --> E[3. 协议绑定: oninit 中通过 vnode.attrs.noticeConfig 绑定确认回调与 switchModel RPC 通信]
+    
+    F[ChatInputBar.js] --> G[IconTag 点击事件行内声明: Notice.launch content: ChatModelSelector, 极简解耦]
+```
+
+## 2026/08/22 17:15 - ChatModelSelector 样式彻底重塑与设计指南完全对齐
+
+```mermaid
+graph TD
+    A[重构: 清空并按《样式设计指南.md》重新构建 ChatModelSelector] --> B{核心设计准则对齐}
+    
+    B --> C[1. 经典圆角: 容器、列表项、开关滑块全部统一为 3rem 经典大圆角]
+    B --> D[2. 字号阶梯: 标题 L3 1.6rem, 列表项/正文 Base 1.5rem, 模型ID Caption 1.2rem]
+    B --> E[3. 视觉纯净: 移除所有 fontWeight:bold 粗体与非标字号 (1.1/1.3/1.4rem), 改用字号与透明度强调]
+    B --> F[4. 自然撑开: 消除写死 minWidth 限制, 宽度由内容流式自适应撑开]
+```
+
+## 2026/08/22 17:18 - Notice 标题栏文字按钮自适应宽度与胶囊圆角修复
+
+```mermaid
+graph TD
+    A[现象: confirmWords 传入中文 '确认切换' 时文字竖向折行溢出圆形按钮] --> B{根因: noticeBox.js 样式写死}
+    B --> C[原样式固定 width: 2.5rem, height: 2.5rem 且 borderRadius: 50%]
+    C --> D[当注入多个汉字时无横向空间且无 whiteSpace: nowrap -> 汉字垂直挤出]
+    
+    E[修复方案] --> F[根据是否存在文字动态设置 width: auto / padding: 0 0.8rem / whiteSpace: nowrap]
+    F --> G[圆角智能判定: 纯图标状态严格保持 borderRadius: 50% 完美正圆; 存在文本时自适应 3rem 胶囊圆角]
+    G --> H[消除文字纵向折行挤爆按钮问题, 图标与文字两态视觉均达标]
+```
+
+## 2026/08/22 17:24 - 设置中心 (setting.js) 样式彻底重塑与设计指南完全对齐
+
+```mermaid
+graph TD
+    A[重构: 设置中心全量样式按《样式设计指南.md》重塑] --> B{核心设计原则对齐}
+    
+    B --> C[1. 经典圆角: 输入框/选择框/大卡片/小标签/滑动开关外框全部统一为 3rem 经典圆角]
+    B --> D[2. 字号阶梯: 模块大标 L2 1.8rem, 侧栏一级类目 L3 1.6rem, 字段/选项 Base 1.5rem, 描述 Caption 1.2rem]
+    B --> E[3. 视觉纯净: 移除所有 1.3/1.4rem 非标字号与粗体设置, 统一透明度 0.6 辅助说明]
+    B --> F[4. 主题配色守恒: 严格遵循成套 getColor(name).back/front 搭配]
+```
+
+## 2026/08/22 17:35 - 设置中心响应式基准尺寸优化（方案1）
+
+```mermaid
+graph TD
+    A[问题: 切换到较少内容的 Tab 时窗口回缩至 <550px, 误触发汉堡菜单] --> B{根因: isMob 依赖内容动态容器宽度}
+    B --> C[修复 1: 根容器锁定桌面端基准尺寸 width: min 68rem, 90vw, height: min 52rem, 80vh]
+    B --> D[修复 2: isMob 判定解耦, 基于 window.innerWidth < 650 或 window.Mob]
+    C --> E[效果: PC 桌面端左侧栏稳健常驻绝不忽胖忽瘦; 手机端自然自适应呈现精致抽屉导航]
+```
+
+## 2026/08/22 17:37 - 设置中心操作按钮统一为 50% 正圆形图标按钮
+
+```mermaid
+graph TD
+    A[问题: 角色包与闲暇动作删除/排序按钮因 Tag 默认外边距导致视觉偏位未垂直居中] --> B{根因: Tag 默认 padding 与 margin 改变了圆形比例}
+    B --> C[重构 1: 角色包删除按钮升级为 3.2rem 正圆形 Box + Close 居中图标]
+    B --> D[重构 2: 动作列表上移/下移/删除按钮统一为 2.8rem 正圆形 Box]
+    C --> E[效果: 完美居中对齐, 正圆比例纯正, 交互质感大幅提升]
+```
+
+## 2026/08/22 17:39 - publish.js 增加发布前交互式版本号自增与确认
+
+```mermaid
+graph TD
+    A[运行 publish.js] --> B[1. 读取 package.json 当前版本号 vMajor.Minor.Patch]
+    B --> C[2. 自动计算下一个 patch 版本号 (vParts[2] + 1)]
+    C --> D{3. 交互提示确认: Enter=自动升号, 输入=自定义, n=保持原版}
+    D -- Enter --> E[更新 package.json 为 nextVersion 并保存]
+    D -- 自定义 --> F[更新 package.json 为输入版本号并保存]
+    D -- n --> G[保持当前版本号不变]
+    E --> H[4. 启动 Vite 构建与后续发布流程 (Tag/Commit 全部同步最新版本)]
+    F --> H
+    G --> H
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
