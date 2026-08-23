@@ -2,7 +2,7 @@ import Joi from "joi"
 import fs from "fs/promises"
 import pathLib from "path"
 import waitConfirm from "../../waitConfirm.js"
-import appManager from "../../../apps/appManager.js"
+import comData from "../../../comData/comData.js"
 import { v4 as uuidV4 } from "uuid"
 import workDirTool from "../../workDirTool.js"
 import { trs } from "../../i18n.js"
@@ -16,6 +16,28 @@ const ActionType = {
   ADD: "add",
   DELETE: "delete",
   UPDATE: "update"
+}
+
+function computeLineDiffStats(orig, prop) {
+  const origLines = orig ? orig.split(/\r?\n/) : []
+  const propLines = prop ? prop.split(/\r?\n/) : []
+  if (origLines.length === 0) return { addLines: propLines.length, delLines: 0 }
+  if (propLines.length === 0) return { addLines: 0, delLines: origLines.length }
+
+  const origSet = new Set(origLines)
+  const propSet = new Set(propLines)
+  let add = 0, del = 0
+  for (let l of propLines) {
+    if (!origSet.has(l)) add++
+  }
+  for (let l of origLines) {
+    if (!propSet.has(l)) del++
+  }
+  if (add === 0 && del === 0 && orig !== prop) {
+    add = 1
+    del = 1
+  }
+  return { addLines: add, delLines: del }
 }
 
 /**
@@ -183,18 +205,43 @@ function applyHunksToContent(originalContent, hunks) {
   return docLines.join(eol)
 }
 
+function extractCommentInfo(rawComment) {
+  if (!rawComment) return { diff: null, notes: null, comment: null }
+  let diff = null
+  let notes = null
+  let remaining = rawComment
+
+  const diffMatch = remaining.match(/批准修改的 Diff 变动详情如下：\s*```diff\s*([\s\S]*?)```/)
+  if (diffMatch) {
+    diff = diffMatch[1].trim()
+    remaining = remaining.replace(diffMatch[0], "").trim()
+  }
+
+  const notesMatch = remaining.match(/具体行批注反馈如下：\s*([\s\S]*?)(?=(?:$|\n\n))/)
+  if (notesMatch) {
+    notes = notesMatch[1].trim()
+    remaining = remaining.replace(notesMatch[0], "").trim()
+  }
+
+  return {
+    diff: diff || null,
+    notes: notes || null,
+    comment: remaining || null
+  }
+}
+
 // ==========================================
 // filePatcherBetter 工具主体定义
 // ==========================================
 
 export default {
-  name: "文件补丁工具增强版",
+  name: "文件增删改工具增强版",
   id: "filePatcherBetter",
 
   async fn(argObj, metaData) {
     const { value, error } = this.joi().validate(argObj)
     if (error) {
-      return "错误：" + error.details[0].message
+      return { ok: false, msg: error.details[0].message }
     }
 
     const { patch, reason } = value
@@ -203,24 +250,26 @@ export default {
     // 1. 解析 Codex Patch 文本流
     const actions = parsePatch(patch)
     if (!actions || actions.length === 0) {
-      return "错误：未能从输入中解析出任何有效的 Patch 指令。请确保格式符合 Codex Patch 规范（*** Begin Patch ... *** End Patch）。"
+      return { ok: false, msg: "未能从输入中解析出任何有效的 Patch 指令。请确保格式符合 Codex Patch 规范（*** Begin Patch ... *** End Patch）。" }
     }
 
     // 2. 内存预备与路径解析 / 越界检查
     const preparedChanges = []
     for (const act of actions) {
       if (!act.path) {
-        return "错误：补丁中存在未指定文件路径的操作。"
+        return { ok: false, msg: "补丁中存在未指定文件路径的操作。" }
       }
 
       const isAbs = pathLib.isAbsolute(act.path)
       if (!isAbs && !mainDir) {
-        return `错误：当前会话未设置工作目录，补丁中的相对路径 "${act.path}" 无法解析。请先配置工作目录，或者在补丁中使用绝对路径。`
+        return { ok: false, msg: `当前会话未设置工作目录，补丁中的相对路径 "${act.path}" 无法解析。请先配置工作目录，或者在补丁中使用绝对路径。` }
       }
 
       const resolvedPath = isAbs ? act.path : pathLib.resolve(mainDir, act.path)
-      if (mainDir && !workDirTool.isInProject(resolvedPath, metaData.listId)) {
-        return `错误：文件路径 "${resolvedPath}" 超出了允许的工作目录范围。`
+      const workDirs = workDirTool.getWorkDirs(metaData.listId)
+      const isInProject = workDirs.some(dir => resolvedPath === dir.path || resolvedPath.startsWith(dir.path + pathLib.sep))
+      if (mainDir && !isInProject) {
+        return { ok: false, msg: `文件路径 "${resolvedPath}" 超出了允许的工作目录范围。` }
       }
 
       if (act.type === ActionType.ADD) {
@@ -245,15 +294,17 @@ export default {
         })
       } else if (act.type === ActionType.UPDATE) {
         let originalContent = ""
+        let readTimestamp = 0
         try {
           const stat = await fs.stat(resolvedPath)
+          readTimestamp = stat.mtimeMs
           const cached = fileState.get(resolvedPath)
           if (cached && stat.mtimeMs > cached.timestamp) {
-            return `⚠️ 安全拦截：文件 ${act.path} 自上次读取以来已被外部修改过。\n为防止覆盖最新改动，请先使用 fileOpener 重新读取文件！`
+            return { ok: false, msg: `⚠️ 安全拦截：文件 ${act.path} 自上次读取以来已被外部修改过。\n为防止覆盖最新改动，请先使用 fileOpener 重新读取文件！` }
           }
           originalContent = await fs.readFile(resolvedPath, "utf-8")
         } catch (err) {
-          return `读取文件失败 ${act.path}: ${err.message}`
+          return { ok: false, msg: `读取文件失败 ${act.path}: ${err.message}` }
         }
 
         try {
@@ -263,87 +314,124 @@ export default {
             path: resolvedPath,
             relativePath: act.path,
             originalContent,
-            proposedContent
+            proposedContent,
+            readTimestamp
           })
         } catch (err) {
-          return `应用补丁失败 [${act.path}]: ${err.message}`
+          return { ok: false, msg: `应用补丁失败 [${act.path}]: ${err.message}` }
         }
       }
     }
 
-    // 3. 逐个文件依次弹出独立 Diff 窗口供用户逐项严谨审查与独立落盘 (100% 保持代码审查习惯)
-    const results = []
+    // 1. 为每个变更计算行变动统计并赋予唯一标识
+    for (let idx = 0; idx < preparedChanges.length; idx++) {
+      const change = preparedChanges[idx]
+      const stats = computeLineDiffStats(change.originalContent, change.proposedContent)
+      change.addLines = stats.addLines
+      change.delLines = stats.delLines
+      change.fileId = `file_${idx}_${uuidV4().slice(0, 8)}`
+      change.status = "pending"
+    }
+
+    // 2. 仅在确定用户设置了白名单且普通 waitConfirm 会被跳过时，前置触发不会走白名单的高危删除拦截
+    if (comData.data.get()?.chatLists?.find(l => l.id === metaData.listId)?.skipConfirmTools?.includes(this.id)) {
+      for (const delChange of preparedChanges.filter(c => c.type === ActionType.DELETE)) {
+        const { ok, comment } = await waitConfirm({
+          type: "tip",
+          title: `⚠️ 高危操作拦截：删除文件确认: ${pathLib.basename(delChange.path)}`,
+          content: `${reason}\n\n检测到当前已开启免确认，但即将【永久删除】文件：${delChange.relativePath}。\n删除为高危操作，请再次核验并批准。`,
+          listId: metaData.listId,
+          ext: { identifier: "danger:fileDelete" }
+        })
+        if (!ok) {
+          delChange.status = "rejected"
+          delChange.rejectReason = comment || "用户拒绝删除文件"
+        }
+      }
+    }
+
+    const pendingReviewChanges = preparedChanges.filter(c => c.status !== "rejected")
+    const confirmId = uuidV4()
+
+    let userConfirm = { ok: true, comment: "" }
+    if (pendingReviewChanges.length > 0) {
+      userConfirm = await waitConfirm({
+        id: confirmId,
+        type: "tip",
+        title: `核对代码变更 (${preparedChanges.length} 个文件)`,
+        content: reason,
+        listId: metaData.listId,
+        ext: {
+          identifier: "app:editor",
+          toolId: this.id,
+          reason: reason,
+          confirmId: confirmId,
+          files: preparedChanges.map(c => ({
+            fileId: c.fileId,
+            path: c.path,
+            relativePath: c.relativePath,
+            type: c.type,
+            addLines: c.addLines,
+            delLines: c.delLines,
+            originalContent: c.originalContent,
+            proposedContent: c.proposedContent,
+            status: c.status || "pending",
+            diff: null,
+            notes: null,
+            comment: ""
+          }))
+        }
+      })
+    }
+
+    // 3. 聚合决议并逐个落盘
+    const fileResults = []
+    const reviewedFiles = userConfirm.ext?.files || []
 
     for (let idx = 0; idx < preparedChanges.length; idx++) {
       const change = preparedChanges[idx]
-      const fileProgress = preparedChanges.length > 1 ? ` [${idx + 1}/${preparedChanges.length}]` : ""
-      const confirmId = uuidV4()
-
-      let title = ""
-      let promptText = ""
-      let appId = null
-
-      if (change.type === ActionType.DELETE) {
-        // 删除文件：无需 Diff 对比，直接采用普通标准弹窗询问
-        title = `删除文件确认${fileProgress}: ${pathLib.basename(change.path)}`
-        promptText = `${reason}\n\n即将删除文件: ${change.relativePath}，请确认是否允许删除。`
-      } else {
-        // 新增或修改文件：启动独立 Monaco Diff 编辑器窗口供肉眼核对代码
-        appId = `editor_patcher_${uuidV4().slice(0, 8)}`
-        if (change.type === ActionType.ADD) {
-          title = `新建文件确认${fileProgress}: ${pathLib.basename(change.path)}`
-          promptText = `${reason}\n\n即将新建文件: ${change.relativePath}，请在编辑器中核对预览内容并批准。`
-        } else {
-          title = `核对代码变更${fileProgress}: ${pathLib.basename(change.path)}`
-          promptText = `${reason}\n\n` + trs("工具/提示/请在编辑器中核核对代码", {
-            cn: "请在编辑器中核对代码并批准/拒绝修改",
-            en: "Please review the code in the editor and approve/reject changes"
-          })
-        }
-
-        const launchRes = await appManager.launch("editor", {
-          appId: appId,
-          data: {
-            filePath: change.path,
-            originalContent: change.originalContent,
-            proposedContent: change.proposedContent,
-            isDiff: true,
-            confirmId: confirmId,
-            reason: reason
-          }
+      const reviewed = reviewedFiles.find(f => f.fileId === change.fileId || f.path === change.path)
+      
+      // 如果全局被拒绝，或者该文件被标记为 rejected / pending
+      if (!(userConfirm.ok && reviewed?.status === "approved")) {
+        fileResults.push({
+          path: change.relativePath,
+          status: "rejected",
+          reason: change.rejectReason || "用户拒绝操作",
+          ...(reviewed?.comment && { comment: reviewed.comment }),
+          ...(reviewed?.notes && { notes: reviewed.notes }),
+          ...(reviewed?.diff && { diff: reviewed.diff })
         })
-        if (!launchRes.ok) {
-          results.push(`启动编辑器失败 [${change.relativePath}]: ${launchRes.msg}`)
-          continue
-        }
-      }
-
-      // 等待用户对当前文件独立核对与决策
-      const userConfirm = await waitConfirm({
-        id: confirmId,
-        type: "tip",
-        title: title,
-        content: promptText,
-        listId: metaData.listId
-      })
-
-      // 如果启动了临时 Diff 窗口，无论批准与否均关闭
-      if (appId) {
-        await appManager.close(appId)
-      }
-
-      if (!userConfirm.ok) {
-        results.push(`• [拒绝] ${change.relativePath}: 用户拒绝了该文件的操作 (原因: ${userConfirm.comment || "未提供"})`)
         continue
       }
 
-      // 用户批准当前文件：物理落盘并闭环刷新该文件状态锁
+      // 用户批准当前文件：物理落盘并执行乐观锁校验
       try {
         if (change.type === ActionType.DELETE) {
           await fs.unlink(change.path)
           fileState.set(change.path, { timestamp: 0, content: "", startLine: 0, endLine: 0 })
-          results.push(`• [已删除] ${change.relativePath}`)
+          fileResults.push({
+            path: change.relativePath,
+            status: "applied",
+            action: "deleted"
+          })
         } else {
+          if (change.type === ActionType.UPDATE) {
+            try {
+              const currentStat = await fs.stat(change.path)
+              if (currentStat.mtimeMs > change.readTimestamp) {
+                fileResults.push({
+                  path: change.relativePath,
+                  status: "failed",
+                  error: `⚠️ 写入中断：在等待审批期间，该文件已被其它并发请求覆盖或被外部程序修改。为防止代码被抹除，本次写入已被强制拒绝！请要求 AI 重新读取最新代码后再重试。`
+                })
+                continue
+              }
+            } catch (err) {
+              // 忽略 stat 错误
+            }
+          }
+
           await fs.mkdir(pathLib.dirname(change.path), { recursive: true })
           await fs.writeFile(change.path, change.proposedContent, "utf-8")
           const newStat = await fs.stat(change.path).catch(() => ({ mtimeMs: Date.now() }))
@@ -354,22 +442,39 @@ export default {
             endLine: 0
           })
 
-          let fileMsg = `• [已应用] ${change.relativePath}`
-          if (userConfirm.comment) {
-            if (userConfirm.comment.includes("批准修改的 Diff") || userConfirm.comment.includes("具体行批注")) {
-              fileMsg += `\n\n${userConfirm.comment}`
-            } else {
-              fileMsg += ` (用户备注: ${userConfirm.comment})`
-            }
-          }
-          results.push(fileMsg)
+          fileResults.push({
+            path: change.relativePath,
+            status: "applied",
+            action: change.type,
+            ...(reviewed?.diff && { diff: reviewed.diff }),
+            ...(reviewed?.notes && { notes: reviewed.notes }),
+            ...(reviewed?.comment && { comment: reviewed.comment })
+          })
         }
       } catch (err) {
-        results.push(`• [写入失败] ${change.relativePath}: ${err.message}`)
+        fileResults.push({
+          path: change.relativePath,
+          status: "failed",
+          error: `写入失败: ${err.message}`
+        })
       }
     }
 
-    return `补丁执行完成：\n\n${results.join("\n\n")}`
+    const allDiffs = fileResults.map(f => f.diff).filter(Boolean).join("\n\n")
+    const anyFailed = fileResults.some(f => f.status === "failed")
+    const anyRejected = fileResults.some(f => f.status === "rejected")
+
+    let msg = "补丁执行完成"
+    if (anyFailed) msg = "部分文件操作失败"
+    else if (anyRejected) msg = "部分文件被用户拒绝"
+
+    return {
+      ok: !anyFailed && !anyRejected,
+      msg,
+      diff: allDiffs || null,
+      globalComment: userConfirm.comment || null,
+      files: fileResults
+    }
   },
 
   joi() {
@@ -394,12 +499,10 @@ export default {
 
   getDoc() {
     return `
-      原汁原味的 VS Code Codex Patch 补丁引擎 (filePatcherBetter)。
-      接收标准的 Git Diff 纯文本补丁流，单次调用即可同时处理多个文件的更新、新增与删除：
-      1. 纯文本流协议，极致节省 Token；
-      2. 内存三级自适应容错（精准匹配 + 宽松缩进匹配）；
-      3. 单文件自动拉起 Monaco Diff 审查，多文件列表批量审核；
-      4. 严格落盘控制与 fileState 状态锁原子同步。
+      git diff版本文件补丁工具，提供增、删、改功能
+      可批处理多文件
+      内存三级自适应容错（精准匹配 + 宽松缩进匹配）
+      单文件自动拉起 Monaco Diff 审查，多文件列表批量审核
     `
   }
 }

@@ -33,10 +33,10 @@ export default {
 
     try {
       await projectManager.save(filePath)
-      
+
       if (ioServer.io) {
         ioServer.io.emit("project:state", { path: filePath })
-        ioServer.io.emit("notice", trs("系统/消息/操作成功"))
+        ioServer.io.emit("notice", trs("系统/消息/操作成功") + ",已保存owo存档")
       }
 
       return { ok: true, path: filePath }

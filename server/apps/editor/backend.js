@@ -66,10 +66,10 @@ export default {
 
           if (stat && app.data.mtime && stat.mtimeMs !== app.data.mtime) {
             if (!args.force) {
-              return { 
-                ok: false, 
-                code: "MODIFIED_EXTERNALLY", 
-                msg: "文件在外部已被修改，直接保存将覆盖外部的修改！" 
+              return {
+                ok: false,
+                code: "MODIFIED_EXTERNALLY",
+                msg: "文件在外部已被修改，直接保存将覆盖外部的修改！"
               }
             }
           }

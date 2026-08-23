@@ -97,15 +97,9 @@ export default {
     return Math.abs(el.scrollHeight - el.scrollTop - el.clientHeight) < 30
   },
   scrollChatListTobottom(listId) {
-    requestAnimationFrame(() => {
-      const el = this.getChatListDom(listId)
-      if (el) {
-        el.scrollTo({
-          top: el.scrollHeight,
-          behavior: "instant"
-        })
-      }
-    })
+    const el = this.getChatListDom(listId)
+    if (!el) return;
+    el.scrollTop = el.scrollHeight;
   },
   topChat: null,
   getHistoryList(listId) {

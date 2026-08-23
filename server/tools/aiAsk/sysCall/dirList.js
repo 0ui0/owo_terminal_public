@@ -30,7 +30,11 @@ export default {
         type: "tip",
         content: `路径：${resolvedPath}`,
         title: "是否允许在工作目录外执行 dirList 工具？",
-        listId: metaData.listId
+        listId: metaData.listId,
+        ext: {
+          identifier: `tool:${this.id}`,
+          toolId: this.id
+        }
       })
       if (!userConfirm.ok) return `用户拒绝访问项目外目录：${resolvedPath}。原因：${userConfirm.comment || "未提供"}`
       if (userConfirm.comment) commentSuffix = userConfirm.comment

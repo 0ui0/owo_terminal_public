@@ -67,7 +67,11 @@ export default {
       type: "tip",
       title: "⚠️ 确认上下文压缩",
       content: "即将执行上下文压缩，此操作会【物理清空】当前会话的全部历史记录与工具调用细节！是否确认执行？",
-      listId: metaData?.listId || 0
+      listId: metaData?.listId || 0,
+      ext: {
+        identifier: `tool:${this.id}`,
+        toolId: this.id
+      }
     })
     if (!userConfirm.ok) {
       return `已取消上下文压缩，会话历史保持不变。原因：${userConfirm.comment || "未提供"}`
@@ -235,34 +239,34 @@ ${summaryText}
   joi() {
     return Joi.object({
       memory: Joi.object({
-        when: Joi.string().max(30).required().description("必填 总结时间"),
-        where: Joi.string().max(30).required().description("必填 总结地点"),
-        who: Joi.string().max(30).required().description("必填 总结人物"),
-        why: Joi.string().max(150).required().description("必填 阶段任务起因"),
-        how: Joi.string().max(150).required().description("必填 阶段任务经过"),
-        what: Joi.string().max(150).required().description("必填 阶段任务结果"),
+        when: Joi.string().max(1000).required().description("必填 总结时间"),
+        where: Joi.string().max(1000).required().description("必填 总结地点"),
+        who: Joi.string().max(1000).required().description("必填 总结人物"),
+        why: Joi.string().max(2000).required().description("必填 阶段任务起因"),
+        how: Joi.string().max(2000).required().description("必填 阶段任务经过"),
+        what: Joi.string().max(2000).required().description("必填 阶段任务结果"),
       }).required().description("必填 阶段性任务总结"),
       focus: Joi.array().items(
         Joi.object({
-          target: Joi.string().max(100).required().description("必填 关注对象的类型（如：文件名a.js、终端id等）"),
+          target: Joi.string().max(500).required().description("必填 关注对象的类型（如：文件名a.js、终端id等）"),
           step: Joi.string().min(1).max(100).required().description("必填 对应任务清单步骤"),
           code: Joi.object({
             lineS: Joi.number().integer().min(0).max(1000000).required().description("必填 开始行号"),
             lineE: Joi.number().integer().min(0).max(1000000).required().description("必填 结束行号"),
-            content: Joi.string().max(200).required().description("必填 代码片段，没有代码填写：无代码")
+            content: Joi.string().max(10000).required().description("必填 代码片段，没有代码填写：无代码")
           }).required().description("必填 关注代码"),
           comments: Joi.array().items(
             Joi.object({
               order: Joi.number().integer().min(1).max(100).required().description("必填 推论序列号"),
-              since: Joi.string().max(150).required().description("必填 【因为】引用记录"),
-              therefore: Joi.string().max(150).required().description("必填 【所以】"),
-              by: Joi.string().max(50).required().description("必填 【依据】公理或定理"),
-              comment: Joi.string().max(150).required().description("必填 备注"),
+              since: Joi.string().max(500).required().description("必填 【因为】引用记录"),
+              therefore: Joi.string().max(500).required().description("必填 【所以】"),
+              by: Joi.string().max(500).required().description("必填 【依据】公理或定理"),
+              comment: Joi.string().max(1000).required().description("必填 备注"),
             })
           ).required().description("必填 逻辑推理")
         })
       ).required().description("必填 阶段性关注点"),
-      todo: Joi.string().required().description("必填 接下来要做什么（明确下一步要执行的任务或计划）")
+      todo: Joi.string().max(2000).required().description("必填 接下来要做什么（明确下一步要执行的任务或计划）")
     }).required()
   },
   getDoc() {

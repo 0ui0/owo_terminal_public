@@ -9,6 +9,7 @@ import archiveDb from "../db/archiveDb.js"
 import migrations from "./owoMigrations.js"
 import tempPath from "../tools/tempPath.js"
 import options from "../config/options.js"
+import lspManager from "../tools/lsp/LspServerManager.js"
 
 class ProjectManager {
   constructor() {
@@ -262,6 +263,26 @@ class ProjectManager {
           })
         }
       }
+
+      // --- 4. 触发 LSP 环境清理 ---
+      setTimeout(async () => {
+        try {
+          const allLists = comData.data?.get?.()?.chatLists || [];
+          const activeDirs = [];
+
+          for (const list of allLists) {
+            if (Array.isArray(list.workDirs)) {
+              for (const d of list.workDirs) {
+                if (d?.path) activeDirs.push(d.path);
+              }
+            }
+          }
+
+          await lspManager.retainOnlyWorkspaces(activeDirs).catch(() => {});
+        } catch (e) {
+          console.warn("[ProjectManager] Load LSP 环境清理失败:", e);
+        }
+      }, 0);
 
       this.currentProjectPath = filePath
       this.isDirty = false

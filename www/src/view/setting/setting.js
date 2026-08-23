@@ -1557,9 +1557,10 @@ export default () => {
           style: {
             display: "flex",
             flexDirection: isMob ? "column" : "row",
-            width: isMob ? "100%" : "min(68rem, 90vw)",
-            height: isMob ? "auto" : "min(52rem, 80vh)",
-            maxHeight: "85vh",
+            width: "100%",
+            height: "100%",
+            minWidth: isMob ? "auto" : "50rem",
+            minHeight: isMob ? "auto" : "38rem",
             color: getColor("gray_1").front,
             background: getColor("gray_1").back,
             overflow: "hidden",

@@ -71,6 +71,15 @@ export default () => {
     }
   }
 
+  // 清除主工作目录（从列表中移除 type === "main" 的项）
+  const clearMainCwd = async (listId, cwdList, e) => {
+    if (e) e.stopPropagation()
+    const next = cwdList.filter(item => item.type !== "main")
+    await save(listId, next)
+    chatData.updateTmStatus(listId)
+    Notice.launch({ msg: trs("工作目录/已清除主目录", { cn: "已清除主工作目录喵！", en: "Main working directory cleared!" }) })
+  }
+
   // 添加辅助工作目录（追加到数组尾部，直接添加）
   const addAuxCwd = async (listId, cwdList) => {
     try {
@@ -108,7 +117,7 @@ export default () => {
     const index = auxList.findIndex(item => item === auxItem)
     const target = auxList[index + dir]
     if (!target) return
-    ;[auxItem.order, target.order] = [target.order, auxItem.order]
+      ;[auxItem.order, target.order] = [target.order, auxItem.order]
     await save(listId, cwdList)
     m.redraw()
   }
@@ -126,26 +135,26 @@ export default () => {
           style: {
             display: "flex",
             flexDirection: "column",
-            gap: "0.8rem",
+            gap: "1.2rem",
             margin: "1rem 1.5rem 1.5rem 1.5rem",
             maxHeight: "60vh",
-            overflowY: "auto"
+            overflowY: "auto",
+            color: getColor("gray_1").front
           }
         },
         [
-          // ===== 主工作目录：独立配置卡片 =====
+          // ===== 主工作目录：配置卡片 =====
           m(Box,
             {
-              isBtn: true,
-              color: "main",
+              color: "gray_4",
               style: {
-                display: "flex",
-                flexWrap: "wrap",
-                alignItems: "center",
-                gap: "0.6rem",
-                borderRadius: "0.8rem",
+                borderRadius: "3rem",
                 margin: "0",
-                padding: "0.8rem 1rem"
+                padding: "1.2rem 1.5rem",
+                display: "flex",
+                alignItems: "center",
+                gap: "1rem",
+                cursor: "pointer"
               },
               onclick: () => setMainCwd(listId, cwdList)
             },
@@ -153,121 +162,194 @@ export default () => {
               m("",
                 {
                   style: {
-                    flexShrink: 0
+                    flexShrink: 0,
+                    display: "flex",
+                    alignItems: "center"
                   }
                 },
-                trs("工作目录/主标签", { cn: "主工作目录", en: "Main Working Directory" })
+                m.trust(window.iconPark.getIcon("FolderOpen", { size: "1.6rem", fill: "currentColor" }))
               ),
               m("",
                 {
                   style: {
-                    wordBreak: "break-word"
+                    flex: "1 1 auto",
+                    minWidth: 0,
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "0.2rem"
                   }
                 },
-                mainCwd?.path || trs("工作目录/未设置", { cn: "未设置（点击配置）", en: "Not set (click to configure)" })
-              )
-            ]
-          ),
-
-          // ===== 辅助工作目录：列表 =====
-          m("",
-            {
-              style: {
-                color: getColor('gray_4').front
-              }
-            },
-            trs("工作目录/辅助标题", { cn: "辅助工作目录", en: "Auxiliary Working Directories" })
-          ),
-
-          auxList.length === 0
-            ? m(Box,
-              {
-                style: {
-                  textAlign: "center",
-                  color: getColor('gray_4').front,
-                  borderRadius: "0.8rem",
-                  margin: "0"
-                }
-              },
-              trs("工作目录/辅助空", { cn: "暂无辅助工作目录，点击下方按钮添加喵", en: "No auxiliary directories yet. Click below to add." })
-            )
-            : auxList.map((item, index) => m(Box,
-              {
-                key: index,
-                style: {
-                  display: "flex",
-                  flexWrap: "wrap",
-                  alignItems: "center",
-                  gap: "0.6rem",
-                  background: getColor('gray_3').back,
-                  borderRadius: "0.8rem",
-                  margin: "0"
-                }
-              },
-              [
-                m("",
-                  {
-                    style: {
-                      flex: "1 1 100%",
-                      wordBreak: "break-word",
-                      color: getColor('gray_1').front
-                    }
-                  },
-                  item.path
-                ),
-                m(Tag,
+                [
+                  m("div",
+                    {
+                      style: {
+                        fontSize: "1.5rem"
+                      }
+                    },
+                    trs("工作目录/主标签", { cn: "主工作目录", en: "Main Working Directory" })
+                  ),
+                  m("div",
+                    {
+                      style: {
+                        fontSize: "1.2rem",
+                        opacity: 0.7,
+                        wordBreak: "break-word"
+                      }
+                    },
+                    mainCwd?.path || trs("工作目录/未设置", { cn: "未设置（点击配置）", en: "Not set (click to configure)" })
+                  )
+                ]
+              ),
+              mainCwd
+                ? m(Tag,
                   {
                     styleExt: {
                       background: "transparent",
                       cursor: "pointer",
                       flexShrink: 0,
-                      marginLeft: "auto"
+                      margin: 0,
+                      marginLeft: "auto",
+                      color: "#ff6b6b"
                     },
                     ext: {
-                      onclick: () => moveAuxCwd(listId, cwdList, item, -1)
+                      onclick: (e) => clearMainCwd(listId, cwdList, e)
                     }
                   },
-                  m.trust(window.iconPark.getIcon("Up", { size: "1.1rem", fill: getColor('gray_4').front }))
-                ),
-                m(Tag,
-                  {
-                    styleExt: {
-                      background: "transparent",
-                      cursor: "pointer",
-                      flexShrink: 0
-                    },
-                    ext: {
-                      onclick: () => moveAuxCwd(listId, cwdList, item, 1)
-                    }
-                  },
-                  m.trust(window.iconPark.getIcon("Down", { size: "1.1rem", fill: getColor('gray_4').front }))
-                ),
-                m(Tag,
-                  {
-                    styleExt: {
-                      color: "#ff6b6b",
-                      background: "rgba(255,107,107,0.15)",
-                      cursor: "pointer",
-                      flexShrink: 0
-                    },
-                    ext: {
-                      onclick: () => removeAuxCwd(listId, cwdList, item)
-                    }
-                  },
-                  trs("工作目录/删除", { cn: "删除", en: "Remove" })
+                  m.trust(window.iconPark.getIcon("Delete", { size: "1.3rem", fill: "#ff6b6b" }))
                 )
-              ]
-            )),
+                : null
+            ]
+          ),
 
+          // ===== 辅助工作目录：分区标题 =====
+          m("",
+            {
+              style: {
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                padding: "0 0.5rem"
+              }
+            },
+            [
+              m("span",
+                {
+                  style: {
+                    fontSize: "1.6rem"
+                  }
+                },
+                trs("工作目录/辅助标题", { cn: "辅助工作目录", en: "Auxiliary Working Directories" })
+              ),
+              m(Tag,
+                {
+                  color: "gray_2",
+                  styleExt: {
+                    margin: 0,
+                    fontSize: "1.2rem"
+                  }
+                },
+                `${auxList.length}`
+              )
+            ]
+          ),
+
+          // ===== 辅助工作目录：列表 =====
+          auxList.length === 0
+            ? m(Box,
+              {
+                color: "gray_4",
+                style: {
+                  borderRadius: "3rem",
+                  margin: "0",
+                  padding: "1.2rem 1rem",
+                  textAlign: "center",
+                  opacity: 0.7
+                }
+              },
+              trs("工作目录/辅助空", { cn: "暂无辅助工作目录，点击下方按钮添加喵", en: "No auxiliary directories yet. Click below to add." })
+            )
+            : auxList.map((item) => m(Box,
+                {
+                  key: item.path,
+                  color: "gray_4",
+                  style: {
+                    borderRadius: "3rem",
+                    margin: "0",
+                    padding: "0.8rem 1.2rem",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "0.6rem"
+                  }
+                },
+                [
+                  m("div",
+                    {
+                      style: {
+                        flex: "1 1 auto",
+                        minWidth: 0,
+                        wordBreak: "break-word",
+                        fontSize: "1.4rem"
+                      }
+                    },
+                    item.path
+                  ),
+                  m(Tag,
+                    {
+                      styleExt: {
+                        background: "transparent",
+                        cursor: "pointer",
+                        flexShrink: 0,
+                        margin: 0
+                      },
+                      ext: {
+                        onclick: () => moveAuxCwd(listId, cwdList, item, -1)
+                      }
+                    },
+                    m.trust(window.iconPark.getIcon("Up", { size: "1.1rem", fill: "currentColor" }))
+                  ),
+                  m(Tag,
+                    {
+                      styleExt: {
+                        background: "transparent",
+                        cursor: "pointer",
+                        flexShrink: 0,
+                        margin: 0
+                      },
+                      ext: {
+                        onclick: () => moveAuxCwd(listId, cwdList, item, 1)
+                      }
+                    },
+                    m.trust(window.iconPark.getIcon("Down", { size: "1.1rem", fill: "currentColor" }))
+                  ),
+                  m(Tag,
+                    {
+                      styleExt: {
+                        background: "transparent",
+                        cursor: "pointer",
+                        flexShrink: 0,
+                        margin: 0,
+                        color: "#ff6b6b"
+                      },
+                      ext: {
+                        onclick: () => removeAuxCwd(listId, cwdList, item)
+                      }
+                    },
+                    m.trust(window.iconPark.getIcon("Delete", { size: "1.2rem", fill: "#ff6b6b" }))
+                  )
+                ]
+              ))
+          ,
+
+          // ===== 添加辅助工作目录按钮 =====
           m(Box,
             {
               isBtn: true,
               color: "gray_3",
               style: {
-                textAlign: "center",
-                borderRadius: "0.8rem",
+                borderRadius: "3rem",
                 margin: "0",
-                padding: "0.6rem"
+                padding: "1rem",
+                textAlign: "center"
               },
               onclick: () => addAuxCwd(listId, cwdList)
             },

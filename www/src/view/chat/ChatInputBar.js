@@ -16,11 +16,13 @@ import debugHistory from "../../historyPanel/historyPanelData.js"
 import HelpMenu from "../common/HelpMenu.js"
 import getColor from "../common/getColor.js"
 import ChatModelSelector from "./ChatModelSelector.js"
+import ChatSendParams from "./ChatSendParams.js"
 
 const updateListSession = async (listId, updates) => {
   chatData.initSessionState(listId, updates);
-  await settingData.fnCall("updateListConfig", [listId, updates]);
+  const res = await settingData.fnCall("updateListConfig", [listId, updates]);
   m.redraw();
+  return res;
 }
 
 export default () => {
@@ -218,7 +220,6 @@ export default () => {
 
       let showThinkStrength = targetSession.thinkControl && targetSession.enableThinking
 
-
       return m("", {
         style: {
           display: "flex",
@@ -230,7 +231,7 @@ export default () => {
             display: "flex",
             marginBottom: "0.5rem",
             flexWrap: "wrap",
-            gap: "0.5rem 0",
+            gap: "0.5rem",
             alignItems: "center"
           }
         }, [
@@ -239,79 +240,91 @@ export default () => {
             bgColor: getColor('pink_1').back,
             fgColor: getColor('pink_1').front,
             styleExt: {
-              marginRight: "0.5rem",
+              margin: 0,
+              marginLeft: 0,
+              marginRight: 0
             },
             ext: {
               onclick: (e) => submitFn(e, listId)
             }
           }, trs("输入栏/按钮/发送", { cn: "发送", en: "Send" })),
 
-          m(IconTag, {
-            bgColor: getColor('yellow_1').back,
-
-            iconName: "RobotOne",
-            styleExt: {
-              position: "relative",
-              marginRight: 0,
-              borderTopRightRadius: 0,
-              borderBottomRightRadius: 0,
-            },
-            ext: {
-              onclick: () => {
-                Notice.launch({
-                  sign: "switch_model_dialog_" + targetChatListId,
-                  tip: trs("输入栏/提示/选择与管理模型", { cn: "选择与切换模型", en: "Select & Switch Model" }),
-                  content: ChatModelSelector,
-                  contentAttrs: {
-                    targetChatListId,
-                    targetSession,
-                    updateListSession
-                  }
-                })
-              }
+          // 模型选择 + 终端 连体组合
+          m("div", {
+            style: {
+              display: "inline-flex",
+              alignItems: "center"
             }
-
           }, [
-            m("span", {
-              style: {
-                marginRight: "0.2rem",
-                maxWidth: "8rem",
-                display: "inline-block",
-                verticalAlign: "bottom",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                whiteSpace: "nowrap"
+            m(IconTag, {
+              bgColor: getColor('yellow_1').back,
+              iconName: "RobotOne",
+              styleExt: {
+                position: "relative",
+                margin: 0,
+                marginLeft: 0,
+                marginRight: 0,
+                borderTopRightRadius: 0,
+                borderBottomRightRadius: 0,
+              },
+              ext: {
+                onclick: () => {
+                  Notice.launch({
+                    sign: "switch_model_dialog_" + targetChatListId,
+                    tip: trs("输入栏/提示/选择与管理模型", { cn: "选择与切换模型", en: "Select & Switch Model" }),
+                    content: ChatModelSelector,
+                    contentAttrs: {
+                      targetChatListId,
+                      targetSession,
+                      updateListSession
+                    }
+                  })
+                }
               }
             }, [
-              (settingData.options.get("ai_aiList")?.find(m => m.id === targetSession.currentModelId)?.name) || "请选择模型"
+              m("span", {
+                style: {
+                  marginRight: "0.2rem",
+                  maxWidth: "8rem",
+                  display: "inline-block",
+                  verticalAlign: "bottom",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap"
+                }
+              }, [
+                (settingData.options.get("ai_aiList")?.find(m => m.id === targetSession.currentModelId)?.name) || "请选择模型"
+              ]),
+              m.trust(window.iconPark.getIcon("Down"))
             ]),
-            m.trust(window.iconPark.getIcon("Down"))
-          ]),
 
-          m(IconTag, {
-            iconName: "Terminal",
-            bgColor: getColor('main').back,
-            styleExt: {
-              marginLeft: 0,
-              borderTopLeftRadius: 0,
-              borderBottomLeftRadius: 0,
-            },
-            ext: {
-              onclick: async () => {
-                settingData.fnCall("appLaunch", ["terminal"])
+            m(IconTag, {
+              iconName: "Terminal",
+              bgColor: getColor('main').back,
+              styleExt: {
+                margin: 0,
+                marginLeft: 0,
+                marginRight: 0,
+                borderTopLeftRadius: 0,
+                borderBottomLeftRadius: 0,
+              },
+              ext: {
+                onclick: async () => {
+                  settingData.fnCall("appLaunch", ["terminal"])
+                }
               }
-            }
-          }, trs("输入栏/按钮/终端", { cn: "终端", en: "Terminal" })),
-
-
-
-
-
+            }, trs("输入栏/按钮/终端", { cn: "终端", en: "Terminal" }))
+          ]),
 
           m(IconTag, {
             iconName: "Setting",
             bgColor: getColor('gray_2').back,
             fgColor: getColor('gray_2').front,
+            styleExt: {
+              margin: 0,
+              marginLeft: 0,
+              marginRight: 0
+            },
             ext: {
               onclick: () => {
                 Notice.launch({
@@ -320,21 +333,19 @@ export default () => {
                 })
               }
             }
-
           }, trs("输入栏/按钮/设置", { cn: "设置", en: "Settings" })),
-
-
 
           m(Tag, {
             color: "gray_2",
             styleExt: {
-              marginLeft: "0",
+              margin: 0,
+              marginLeft: 0,
+              marginRight: 0,
               justifyContent: "center",
               alignItems: "center",
               display: "flex"
             }
           }, [
-
             m(Box, {
               color: "main",
               isSwitch: true,
@@ -343,167 +354,176 @@ export default () => {
                 margin: "0",
                 marginRight: "0.5rem"
               },
+              onbeforeupdate(vnode) {
+                vnode.state.data.value = targetSession.tokenCompressSwitch
+              },
               onclick: async (el, e, v, box_this) => {
-                await updateListSession(targetChatListId, { tokenCompressSwitch: box_this.data.value })
+                await updateListSession(targetChatListId, { tokenCompressSwitch: !targetSession.tokenCompressSwitch })
               }
             }),
-
-
             trs("输入栏/按钮/压缩", { cn: "压缩", en: "Compress" })
           ]),
 
-
-          // 单独美化复选框为小圆点，增加 flex 确保对齐
+          // 思考控制与强度组合
           m("div", {
-            title: trs("输入栏/提示/思考控制", { cn: "思考控制: 只有勾选后，深度思考字段才会传给模型", en: "Think Control: Only when checked, enableThinking field will be sent to AI" }),
             style: {
-              display: "inline-block",
-              verticalAlign: "middle", // 垂直对齐核心
-              width: "1.2rem",
-              height: "1.2rem",
-              borderRadius: "50%",
-              background: targetSession.thinkControl ? getColor('yellow_1').back : getColor('gray_8').back,
-              marginRight: "0.5rem",
-              cursor: "pointer",
-              transition: "all 0.3s ease",
-              boxShadow: targetSession.thinkControl ? `0 0 0.5rem ${getColor('yellow_1').back}` : "none",
-              border: `0.1rem solid ${getColor('gray_4').front}55`,
-            },
-            onclick: async (e) => {
-              await updateListSession(targetChatListId, { thinkControl: !targetSession.thinkControl })
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "0.4rem"
             }
-          }),
-
-
-          m(IconTag, {
-            iconName: "Brain",
-            bgColor: targetSession.thinkControl
-              ? (targetSession.enableThinking ? getColor('yellow_1').back : getColor('gray_2').back)
-              : getColor('gray_4').back,
-            fgColor: targetSession.thinkControl
-              ? (targetSession.enableThinking ? getColor('yellow_1').front : getColor('gray_2').front)
-              : getColor('gray_4').front,
-            styleExt: {
-              opacity: targetSession.thinkControl ? 1 : 0.5,
-              cursor: targetSession.thinkControl ? "pointer" : "not-allowed",
-
-              ...(showThinkStrength ? {
-                borderRadius: "10rem 0 0 10rem",
-                marginRight: "0",
-              } : null)
-            },
-            ext: {
-              onclick: async () => {
-                if (!targetSession.thinkControl) return
-                await updateListSession(targetChatListId, { enableThinking: !targetSession.enableThinking })
-              }
-            }
-          }, trs("输入栏/按钮/思考", { cn: "思考", en: "Thinking" })),
-
-          showThinkStrength
-            ? m(IconTag, {
-              iconName: "SignalStrength",
-              bgColor: getColor('gray_2').back,
-              fgColor: getColor('gray_2').front,
-              styleExt: {
-                marginLeft: "0",
-                borderRadius: "0 10rem 10rem 0",
-                position: "relative",
+          }, [
+            // 单独美化复选框为小圆点
+            m("div", {
+              title: trs("输入栏/提示/思考控制", { cn: "思考控制: 只有勾选后，深度思考字段才会传给模型", en: "Think Control: Only when checked, enableThinking field will be sent to AI" }),
+              style: {
+                display: "inline-block",
+                verticalAlign: "middle",
+                width: "1.2rem",
+                height: "1.2rem",
+                borderRadius: "50%",
+                background: targetSession.thinkControl ? getColor('yellow_1').back : getColor('gray_8').back,
+                margin: 0,
+                cursor: "pointer",
+                transition: "all 0.3s ease",
+                boxShadow: targetSession.thinkControl ? `0 0 0.5rem ${getColor('yellow_1').back}` : "none",
+                border: `0.1rem solid ${getColor('gray_4').front}55`,
               },
-              ext: {
-                onclick: (e) => {
-                  e.stopPropagation()
-                  showThinkStrengthList = !showThinkStrengthList
-                  if (showThinkStrengthList) {
-                    showThinkStrengthClickFn = function () {
-                      showThinkStrengthList = false
-                      m.redraw()
-                      document.removeEventListener("click", showThinkStrengthClickFn)
-                    }
-                    document.addEventListener("click", showThinkStrengthClickFn, {
-                      passive: false,
-                    })
-                  }
-
-                },
+              onclick: async (e) => {
+                await updateListSession(targetChatListId, { thinkControl: !targetSession.thinkControl })
               }
+            }),
 
+            m("div", {
+              style: {
+                display: "inline-flex",
+                alignItems: "center"
+              }
             }, [
-
-              m("span", {
-                style: {
-                  marginLeft: "0.2rem",
-                  marginRight: "0.2rem",
-                  fontSize: "1.2rem",
-                  verticalAlign: "middle"
+              m(IconTag, {
+                iconName: "Brain",
+                bgColor: targetSession.thinkControl
+                  ? (targetSession.enableThinking ? getColor('yellow_1').back : getColor('gray_2').back)
+                  : getColor('gray_4').back,
+                fgColor: targetSession.thinkControl
+                  ? (targetSession.enableThinking ? getColor('yellow_1').front : getColor('gray_2').front)
+                  : getColor('gray_4').front,
+                styleExt: {
+                  margin: 0,
+                  marginLeft: 0,
+                  marginRight: 0,
+                  opacity: targetSession.thinkControl ? 1 : 0.5,
+                  cursor: targetSession.thinkControl ? "pointer" : "not-allowed",
+                  ...(showThinkStrength ? {
+                    borderRadius: "10rem 0 0 10rem"
+                  } : null)
+                },
+                ext: {
+                  onclick: async () => {
+                    if (!targetSession.thinkControl) return
+                    await updateListSession(targetChatListId, { enableThinking: !targetSession.enableThinking })
+                  }
                 }
+              }, trs("输入栏/按钮/思考", { cn: "思考", en: "Thinking" })),
 
-              }, [
-
-                trs("输入栏/配置/强度", {
-                  cn: "强度",
-                  en: "Strength"
-                }) + ({ low: 1, medium: 2, high: 3 }[targetSession.thinkStrength] || 2),
-              ]),
-
-              m.trust(window.iconPark.getIcon("Down")),
-
-
-
-              showThinkStrengthList
-                ? m("", {
-                  style: {
-                    position: "absolute",
-                    top: "1.5rem",
-                    right: "-0.5rem",
-                    background: getColor('gray_4').back,
-                    color: getColor('gray_4').front,
-                    padding: "0.2rem 1rem",
-                    borderRadius: "0.5rem",
-                    display: "flex",
-                    flexDirection: "column",
-                    zIndex: 10,
+              showThinkStrength
+                ? m(IconTag, {
+                  iconName: "SignalStrength",
+                  bgColor: getColor('gray_2').back,
+                  fgColor: getColor('gray_2').front,
+                  styleExt: {
+                    margin: 0,
+                    marginLeft: 0,
+                    marginRight: 0,
+                    borderRadius: "0 10rem 10rem 0",
+                    position: "relative",
+                  },
+                  ext: {
+                    onclick: (e) => {
+                      e.stopPropagation()
+                      showThinkStrengthList = !showThinkStrengthList
+                      if (showThinkStrengthList) {
+                        showThinkStrengthClickFn = function () {
+                          showThinkStrengthList = false
+                          m.redraw()
+                          document.removeEventListener("click", showThinkStrengthClickFn)
+                        }
+                        document.addEventListener("click", showThinkStrengthClickFn, {
+                          passive: false,
+                        })
+                      }
+                    },
                   }
                 }, [
-                  [{ level: "low", num: 1 }, { level: "medium", num: 2 }, { level: "high", num: 3 }].map((v) => {
-                    const isActive = (targetSession.thinkStrength || "medium") === v.level
-                    return m(Tag, {
-                      isBtn: true,
-                      ext: {
-                        onclick: async (e) => {
-                          e.stopPropagation()
-                          await updateListSession(targetChatListId, { thinkStrength: v.level })
-                          chatData.inputDom.focus()
-                          showThinkStrengthList = false
-                        },
-                      },
-                      styleExt: {
-                        minWidth: "10rem",
-                        padding: 0,
-                        margin: 0,
-                        background: "transparent",
-                        color: isActive ? getColor('main').back : getColor('gray_4').front,
-                        borderBottom: `0.2rem solid ${getColor('main').back}`,
-                        borderRadius: "0",
-                        textAlign: "left"
-                      }
-                    }, trs("输入栏/配置/强度", {
+                  m("span", {
+                    style: {
+                      marginLeft: "0.2rem",
+                      marginRight: "0.2rem",
+                      fontSize: "1.2rem",
+                      verticalAlign: "middle"
+                    }
+                  }, [
+                    trs("输入栏/配置/强度", {
                       cn: "强度",
                       en: "Strength"
-                    }) + v.num)
-                  }),
-                ])
-                : null
-            ]) : null,
+                    }) + ({ low: 1, medium: 2, high: 3 }[targetSession.thinkStrength] || 2),
+                  ]),
+                  m.trust(window.iconPark.getIcon("Down")),
 
-
-
+                  showThinkStrengthList
+                    ? m("", {
+                      style: {
+                        position: "absolute",
+                        top: "1.5rem",
+                        right: "-0.5rem",
+                        background: getColor('gray_4').back,
+                        color: getColor('gray_4').front,
+                        padding: "0.2rem 1rem",
+                        borderRadius: "0.5rem",
+                        display: "flex",
+                        flexDirection: "column",
+                        zIndex: 10,
+                      }
+                    }, [
+                      [{ level: "low", num: 1 }, { level: "medium", num: 2 }, { level: "high", num: 3 }].map((v) => {
+                        const isActive = (targetSession.thinkStrength || "medium") === v.level
+                        return m(Tag, {
+                          isBtn: true,
+                          ext: {
+                            onclick: async (e) => {
+                              e.stopPropagation()
+                              await updateListSession(targetChatListId, { thinkStrength: v.level })
+                              chatData.inputDom.focus()
+                              showThinkStrengthList = false
+                            },
+                          },
+                          styleExt: {
+                            minWidth: "10rem",
+                            padding: 0,
+                            margin: 0,
+                            background: "transparent",
+                            color: isActive ? getColor('main').back : getColor('gray_4').front,
+                            borderBottom: `0.2rem solid ${getColor('main').back}`,
+                            borderRadius: "0",
+                            textAlign: "left"
+                          }
+                        }, trs("输入栏/配置/强度", {
+                          cn: "强度",
+                          en: "Strength"
+                        }) + v.num)
+                      }),
+                    ])
+                    : null
+                ]) : null
+            ])
+          ]),
 
           m(IconTag, {
             iconName: "MagicWand",
             bgColor: getColor('main').back,
             styleExt: {
+              margin: 0,
               marginLeft: 0,
+              marginRight: 0,
               position: "relative",
             },
             ext: {
@@ -596,7 +616,9 @@ export default () => {
             bgColor: getColor('gray_2').back,
             fgColor: getColor('gray_2').front,
             styleExt: {
+              margin: 0,
               marginLeft: 0,
+              marginRight: 0
             },
             ext: {
               onclick: async () => {
@@ -605,11 +627,7 @@ export default () => {
                 })
               }
             }
-
           }, ""),
-
-
-
 
           //回复
           session.call ?
@@ -617,6 +635,11 @@ export default () => {
               iconName: "Message",
               bgColor: getColor('yellow_1').back,
               fgColor: getColor('yellow_1').front,
+              styleExt: {
+                margin: 0,
+                marginLeft: 0,
+                marginRight: 0
+              },
               ext: {
                 onclick: async () => {
                   session.call = null;
@@ -626,7 +649,6 @@ export default () => {
               (session.call.uuid + "").slice(0, 7) //回复
             ]) : null,
 
-
           (() => {
             const targetList = comData.getChatList(targetChatListId);
             return targetList?.replying ?
@@ -634,9 +656,13 @@ export default () => {
                 iconName: "PauseOne",
                 bgColor: getColor('gray_2').back,
                 fgColor: getColor('gray_2').front,
+                styleExt: {
+                  margin: 0,
+                  marginLeft: 0,
+                  marginRight: 0
+                },
                 ext: {
                   onclick: async () => {
-
                     try {
                       let tmp = await m.request({
                         url: `/api/aiAsk/stop`,
@@ -665,38 +691,27 @@ export default () => {
             iconName: "SoapBubble",
             bgColor: getColor('gray_2').back,
             fgColor: getColor('gray_2').front,
+            styleExt: {
+              margin: 0,
+              marginLeft: 0,
+              marginRight: 0
+            },
             ext: {
               onclick: async () => {
-                /*
-                Notice.launch({
-                  tip: "喵宅苑",
-                  content() {
-                    return {
-                      view() {
-                        return m("iframe", {
-                          style: {
-                            width: "30rem",
-                            height: "53rem"
-                          },
-                          src: "https://iw-i.com",
-                          frameborder: 0,
-                          allowFullscreen: true,
-                        })
-                      }
-                    }
-                  }
-                })
-                */
                 settingData.fnCall("appLaunch", ["browser", { data: { url: "https://iw-i.com" } }])
               }
             }
           }, trs("聊天界面/词汇/反馈")),
 
-
           m(IconTag, {
             iconName: "ApplicationMenu",
             bgColor: getColor('gray_2').back,
             fgColor: getColor('gray_2').front,
+            styleExt: {
+              margin: 0,
+              marginLeft: 0,
+              marginRight: 0
+            },
             ext: {
               onclick: async () => {
                 Notice.launch({
@@ -708,27 +723,15 @@ export default () => {
             }
           }, trs("聊天界面/词汇/应用")),
 
-          /* m(IconTag, {
-            iconName: "Planet",
-            bgColor: "#636363",
-            fgColor: "#333",
-            ext: {
-              onclick: async () => {
-                Notice.launch({
-                  tip: "浏览器",
-                  content: Browser
-                })
-              }
-            }
-          }, "浏览器"), */
-
-
-
-
           m(IconTag, {
             iconName: "FolderOpen",
             bgColor: targetSession.workDirs.find(item => item.type === "main") ? getColor('yellow_1').back : getColor('gray_2').back,
             fgColor: targetSession.workDirs.find(item => item.type === "main") ? getColor('gray_8').front : getColor('gray_2').front,
+            styleExt: {
+              margin: 0,
+              marginLeft: 0,
+              marginRight: 0
+            },
             ext: {
               onclick: () => {
                 Notice.launch({
@@ -747,6 +750,11 @@ export default () => {
             iconName: targetSession.tmStatus.isReady ? "History" : "FileLock",
             bgColor: targetSession.tmStatus.isReady ? getColor('green_1').back : getColor('red_1').back,
             fgColor: targetSession.tmStatus.isReady ? getColor('green_1').front : getColor('red_1').front,
+            styleExt: {
+              margin: 0,
+              marginLeft: 0,
+              marginRight: 0
+            },
             ext: {
               onclick: async () => {
                 const mainDir = targetSession.workDirs.find(item => item.type === "main")?.path
@@ -776,7 +784,9 @@ export default () => {
             bgColor: getColor('gray_2').back,
             fgColor: getColor('gray_2').front,
             styleExt: {
-              marginLeft: "0.5rem",
+              margin: 0,
+              marginLeft: 0,
+              marginRight: 0
             },
             ext: {
               onclick: () => {
@@ -792,6 +802,31 @@ export default () => {
             style: { display: "none" },
             onchange: (e) => uploadAttachment(e, listId)
           }),
+
+          m(IconTag, {
+            iconName: "More",
+            bgColor: targetSession.thinkControl ? getColor('yellow_1').back : getColor('gray_2').back,
+            fgColor: targetSession.thinkControl ? getColor('yellow_1').front : getColor('gray_2').front,
+            styleExt: {
+              margin: 0,
+              marginLeft: 0,
+              marginRight: 0
+            },
+            ext: {
+              onclick: () => {
+                Notice.launch({
+                  sign: "chat_send_params_modal_" + targetChatListId,
+                  tip: trs("输入栏/提示/更多参数配置", { cn: "更多参数配置", en: "More Parameters" }),
+                  content: ChatSendParams,
+                  contentAttrs: {
+                    targetChatListId,
+                    targetSession,
+                    updateListSession
+                  }
+                })
+              }
+            }
+          }, trs("输入栏/按钮/更多", { cn: "更多", en: "More" })),
 
         ]),
 

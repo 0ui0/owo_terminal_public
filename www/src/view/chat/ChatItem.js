@@ -22,7 +22,7 @@ import ChatiTmRestoreDialog from "./ChatiTmRestoreDialog.js"
 import Row from "../../class/row.js"
 
 const ReasoningBlock = () => {
-  let show = false;
+  let show = true; //默认展开深度思考
   let scrollThrottleTimer = null;
   let isAtBottom = true;
   return {
@@ -45,7 +45,7 @@ const ReasoningBlock = () => {
           borderLeft: `2px solid ${getColor('gray_8').front + '1a'}`,
           color: getColor('gray_4').front,
 
-          maxWidth: "50rem",
+          maxWidth: "70rem",
           overflowX: "hidden",
           position: "relative",
 
@@ -473,7 +473,7 @@ export default ChatItem = () => {
                             float: showMind ? "unset" : "right",
                             whiteSpace: showMind ? "wrap" : "nowrap",
                             fontSize: "0.8rem",
-                            maxHeight: "10rem",
+                            maxHeight: "20rem",
                             overflow: "auto",
                           },
                           onscroll(e) {

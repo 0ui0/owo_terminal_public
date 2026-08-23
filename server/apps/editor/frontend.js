@@ -3,12 +3,12 @@ import editorData from "./editorData.js"
 
 // Editor App 前端组件 (Closure Version)
 export default ({ appId, m, Notice, ioSocket, comData, commonData, chatData, settingData, Box, Tag, getColor }) => {
-  // 💡 跨窗口内存持久化：在全局共享单例上挂载并初始化 sendDiff 与 openFileAfterAccept 状态
-  if (editorData.sendDiff === undefined) {
-    editorData.sendDiff = true
+  // 💡 跨窗口共享状态：在前端全局唯一的 commonData 上挂载并初始化
+  if (commonData.editorSendDiff === undefined) {
+    commonData.editorSendDiff = true
   }
-  if (editorData.openFileAfterAccept === undefined) {
-    editorData.openFileAfterAccept = true
+  if (commonData.editorOpenFileAfterAccept === undefined) {
+    commonData.editorOpenFileAfterAccept = false
   }
 
   // === Private State ===
@@ -21,6 +21,7 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, chatData, set
   let originalContent = ""
   let proposedContent = ""
   let confirmId = null
+  let fileId = null
   let pendingLine = 0 // 打开文件后待定位的行号（0 表示无需定位）
   let localComment = ""
   let isConflictDiff = false
@@ -488,93 +489,131 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, chatData, set
       content = newContent
       isDiff = false
       isDirty = false
+      // 💡 批量审批的临时 diff 窗口（经 ChatBatchReview「打开编辑器」或 waitConfirm autoLaunch 打开，携带 fileId）：
+      // 批准后应销毁自身，否则会残留为普通编辑窗口，叠加「同时打开」新窗口导致多开
+      const isBatchTempDiff = !!fileId
       if (confirmId) {
-        let parts = []
-
-        if (editorData.sendDiff && diffChanges.length > 0) {
+        let diffBlock = ""
+        if (commonData.editorSendDiff && diffChanges.length > 0) {
           const originalLines = originalContent.split("\n")
           const modifiedLines = proposedContent.split("\n")
-          let diffText = ""
+          const diffLines = []
           diffChanges.forEach(change => {
-            diffText += `@@ -${change.originalStartLineNumber},${change.originalEndLineNumber - change.originalStartLineNumber + 1} +${change.modifiedStartLineNumber},${change.modifiedEndLineNumber - change.modifiedStartLineNumber + 1} @@\n`
+            diffLines.push(`@@ -${change.originalStartLineNumber},${change.originalEndLineNumber - change.originalStartLineNumber + 1} +${change.modifiedStartLineNumber},${change.modifiedEndLineNumber - change.modifiedStartLineNumber + 1} @@`)
             if (change.originalEndLineNumber >= change.originalStartLineNumber) {
               for (let l = change.originalStartLineNumber; l <= change.originalEndLineNumber; l++) {
-                diffText += `-${originalLines[l - 1]}\n`
+                diffLines.push(`-${originalLines[l - 1]}`)
               }
             }
             if (change.modifiedEndLineNumber >= change.modifiedStartLineNumber) {
               for (let l = change.modifiedStartLineNumber; l <= change.modifiedEndLineNumber; l++) {
-                diffText += `+${modifiedLines[l - 1]}\n`
+                diffLines.push(`+${modifiedLines[l - 1]}`)
               }
             }
           })
 
-          if (diffText) {
-            const diffBlock = `\`\`\`diff\n${diffText}\`\`\``
-            parts.push(`批准修改的 Diff 变动详情如下：\n${diffBlock}`)
+          if (diffLines.length > 0) {
+            diffBlock = `\`\`\`diff\n${diffLines.join("\n")}\n\`\`\``
           }
         }
 
+        let notesText = ""
         if (annotations.length > 0) {
-          const notes = annotations.map(a => `- 行 L${a.startLine}-L${a.endLine}: ${a.comment}`).join("\n")
-          parts.push(`具体行批注反馈如下：\n${notes}`)
+          notesText = annotations.map(a => `- 行 L${a.startLine}-L${a.endLine}: ${a.comment}`).join("\n")
         }
 
-        if (localComment && localComment.trim()) {
-          parts.push(localComment.trim())
-        }
-
-        let finalComment = parts.join("\n\n")
+        const editorComment = localComment ? localComment.trim() : ""
 
         await comData.data.edit(data => {
           data.chatLists.forEach(list => {
             const cmd = list.confirmCmds.find(c => c.id === confirmId);
             if (cmd) {
-              cmd.comment = finalComment
-              cmd.confirm = "yes"
+              // 💡 批量文件审查模式支持
+              if (Array.isArray(cmd.ext?.files) && (fileId || filePath)) {
+                const targetFile = cmd.ext.files.find(f => (fileId && f.fileId === fileId) || (filePath && f.path === filePath))
+                if (targetFile) {
+                  targetFile.status = "approved"
+                  targetFile.diff = diffBlock || null
+                  targetFile.notes = notesText || null
+                  targetFile.comment = editorComment
+                }
+              } else {
+                let parts = []
+                if (diffBlock) parts.push(`批准修改的 Diff 变动详情如下：\n${diffBlock}`)
+                if (notesText) parts.push(`具体行批注反馈如下：\n${notesText}`)
+                if (editorComment) parts.push(editorComment)
+                cmd.comment = parts.join("\n\n")
+                cmd.confirm = "yes"
+              }
             }
           })
         })
         confirmId = null
+        fileId = null
         localComment = ""
         annotations = []
       }
-      if (editorData.openFileAfterAccept && filePath) {
-        settingData.fnCall("appLaunch", ["editor", { data: { filePath: filePath, content: newContent, singleInstance: true } }])
+      if (isBatchTempDiff) {
+        // 临时 diff 窗口：先按「同时打开」开关决定是否新开编辑窗口，再关闭自身
+        if (commonData.editorOpenFileAfterAccept && filePath) {
+          settingData.fnCall("appLaunch", ["editor", { data: { filePath: filePath, content: newContent, singleInstance: true } }])
+        }
+        settingData.fnCall("appClose", [appId])
+      } else {
+        // 单文件场景（editorPatcher showDiff）：原地恢复普通编辑，保留窗口
+        if (commonData.editorOpenFileAfterAccept && filePath) {
+          settingData.fnCall("appLaunch", ["editor", { data: { filePath: filePath, content: newContent, singleInstance: true } }])
+        }
+        updateEditor()
       }
-      updateEditor()
     } else {
       Notice.launch({ msg: res.msg })
     }
   }
 
   const handleReject = async () => {
+    // 💡 批量审批的临时 diff 窗口（fileId 有值）：拒绝后应销毁自身，避免残留为普通编辑窗口
+    const isBatchTempDiff = !!fileId
     if (confirmId) {
-      let parts = []
+      let notesText = ""
       if (annotations.length > 0) {
-        const notes = annotations.map(a => `- 行 L${a.startLine}-L${a.endLine}: ${a.comment}`).join("\n")
-        parts.push(`具体行批注反馈如下：\n${notes}`)
+        notesText = annotations.map(a => `- 行 L${a.startLine}-L${a.endLine}: ${a.comment}`).join("\n")
       }
-      if (localComment && localComment.trim()) {
-        parts.push(localComment.trim())
-      }
-      let finalComment = parts.join("\n\n")
+      const editorComment = localComment ? localComment.trim() : ""
+
       await comData.data.edit(data => {
         data.chatLists.forEach(list => {
           const cmd = list.confirmCmds.find(c => c.id === confirmId);
           if (cmd) {
-            cmd.comment = finalComment
-            cmd.confirm = "no"
+            if (Array.isArray(cmd.ext?.files) && (fileId || filePath)) {
+              const targetFile = cmd.ext.files.find(f => (fileId && f.fileId === fileId) || (filePath && f.path === filePath))
+              if (targetFile) {
+                targetFile.status = "rejected"
+                targetFile.notes = notesText || null
+                targetFile.comment = editorComment || "用户在编辑器中拒绝此文件修改"
+              }
+            } else {
+              let parts = []
+              if (notesText) parts.push(`具体行批注反馈如下：\n${notesText}`)
+              if (editorComment) parts.push(editorComment)
+              cmd.comment = parts.join("\n\n")
+              cmd.confirm = "no"
+            }
           }
         })
       })
       confirmId = null
+      fileId = null
       localComment = ""
       annotations = []
     }
-    isDiff = false
-    updateEditor()
-    Notice.launch({ msg: "操作已取消" })
+    if (isBatchTempDiff) {
+      // 临时 diff 窗口：拒绝后关闭自身（拒绝不新开窗口）
+      settingData.fnCall("appClose", [appId])
+    } else {
+      isDiff = false
+      updateEditor()
+    }
   }
 
   // === Actions ===
@@ -741,6 +780,7 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, chatData, set
         originalContent = d.originalContent || ""
         proposedContent = d.proposedContent || ""
         confirmId = d.confirmId || null
+        fileId = d.fileId || null
         isConflictDiff = d.isConflictDiff || false
         annotations = d.annotations || []
         reason = d.reason || ""
@@ -771,7 +811,7 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, chatData, set
           // 避免 appGuiRestore 的 app:launch 重新 import frontend.js 执行组件工厂，
           // 覆盖 commonData.appsData 注册表为未挂载的新实例（container=null），导致 open 刷新静默失败
           // 🔄 并配合 await sleep 确保警告窗口在置顶后弹出，避免被原窗口遮住
-          ;(async () => {
+          ; (async () => {
             await settingData.fnCall("appActive", [existingAppId])
             await new Promise(resolve => setTimeout(resolve, 100))
 
@@ -1010,13 +1050,13 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, chatData, set
                       {
                         color: "pink_1",
                         isSwitch: true,
-                        value: editorData.sendDiff,
+                        value: commonData.editorSendDiff,
                         style: {
                           margin: "0",
                           marginRight: "0.5rem"
                         },
                         onclick: (el, e, v, box_this) => {
-                          editorData.sendDiff = box_this.data.value
+                          commonData.editorSendDiff = box_this.data.value
                           redraw()
                         }
                       }
@@ -1041,13 +1081,13 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, chatData, set
                       {
                         color: "pink_1",
                         isSwitch: true,
-                        value: editorData.openFileAfterAccept,
+                        value: commonData.editorOpenFileAfterAccept,
                         style: {
                           margin: "0",
                           marginRight: "0.5rem"
                         },
                         onclick: (el, e, v, box_this) => {
-                          editorData.openFileAfterAccept = box_this.data.value
+                          commonData.editorOpenFileAfterAccept = box_this.data.value
                           redraw()
                         }
                       }

@@ -655,8 +655,7 @@ export default () => {
               }
             }
             if (listDom) {
-              listDom.scrollTop = listDom.scrollHeight
-              scrollTop = listDom.scrollTop
+              chatData.scrollChatListTobottom(targetListId !== null ? targetListId : chatList.id)
             }
           }
         }, [

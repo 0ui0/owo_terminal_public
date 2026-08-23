@@ -754,32 +754,32 @@ ${yaml.dump(tmp)}</readOnlyMetaData>`.trim();
       }
     };
     processAttachment = async(ask, rawContent) => {
-      var attachId, attachment, base64Data, bitmap, err, filePath, j, jimpImage, lastIndex, len, match, mimeType, parts, ref, ref1, ref2, tagRegex, usedAttachIds;
+      var attachId, attachment, base64Data, bitmap, body, err, filePath, j, jimpImage, lastIndex, len, match, metaIdx, mimeType, parts, ref, ref1, ref2, ref3, tagRegex, usedAttachIds;
       if (((ref = ask.attachments) != null ? ref.length : void 0) > 0) {
+        metaIdx = typeof rawContent === 'string' ? rawContent.indexOf('<readOnlyMetaData>') : -1;
+        body = metaIdx !== -1 ? rawContent.slice(0, metaIdx) : rawContent;
         parts = [];
         usedAttachIds = [];
         lastIndex = 0;
-        // 1. 首先解析正文中的显式标签
-        if (typeof rawContent === 'string') {
+        // 仅在正文区域解析显式标签
+        if (typeof body === 'string') {
           tagRegex = /\[attachid:([^\]]+)\]/g;
-          while ((match = tagRegex.exec(rawContent)) !== null) {
-            // 添加标签前的文本
+          while ((match = tagRegex.exec(body)) !== null) {
             if (match.index > lastIndex) {
               parts.push({
                 type: "text",
-                text: rawContent.slice(lastIndex, match.index)
+                text: body.slice(lastIndex, match.index)
               });
             }
-            // 查找匹配的附件
             attachId = match[1];
             attachment = ask.attachments.find((a) => {
               return a.id === attachId || a.id === attachId.split('.')[0];
             });
             if (attachment && attachment.type === 'image') {
               usedAttachIds.push(attachment.id);
+              usedAttachIds.push(attachId);
               try {
-                filePath = attachment.url.startsWith('/') ? attachment.url.startsWith('/attachment/') ? pathLib.join(this.mediaDir, pathLib.basename(attachment.url)) : attachment.url : pathLib.resolve(`${this.mediaDir // 绝对路径
-}/${attachment.url}`);
+                filePath = attachment.url.startsWith('/') ? attachment.url.startsWith('/attachment/') ? pathLib.join(this.mediaDir, pathLib.basename(attachment.url)) : attachment.url : pathLib.resolve(`${this.mediaDir}/${attachment.url}`);
                 if (fs.existsSync(filePath)) {
                   bitmap = fs.readFileSync(filePath);
                   base64Data = Buffer.from(bitmap).toString('base64');
@@ -817,19 +817,18 @@ ${yaml.dump(tmp)}</readOnlyMetaData>`.trim();
             }
             lastIndex = tagRegex.lastIndex;
           }
-          // 添加剩余文本
-          if (lastIndex < rawContent.length) {
+          if (lastIndex < body.length) {
             parts.push({
               type: "text",
-              text: rawContent.slice(lastIndex)
+              text: body.slice(lastIndex)
             });
           }
         }
         ref1 = ask.attachments;
-        // 2. 自动追加未被引用的图片附件 (确保即便没插入标签，AI 也能看到)
+        // 自动追加未被引用的图片附件
         for (j = 0, len = ref1.length; j < len; j++) {
           attachment = ref1[j];
-          if (attachment.type === 'image' && (ref2 = attachment.id, indexOf.call(usedAttachIds, ref2) < 0)) {
+          if (attachment.type === 'image' && (ref2 = attachment.id, indexOf.call(usedAttachIds, ref2) < 0) && (ref3 = attachment.id.split('.')[0], indexOf.call(usedAttachIds, ref3) < 0)) {
             try {
               filePath = attachment.url.startsWith('/') ? attachment.url.startsWith('/attachment/') ? pathLib.join(this.mediaDir, pathLib.basename(attachment.url)) : attachment.url : pathLib.resolve(`${this.mediaDir}/${attachment.url}`);
               if (fs.existsSync(filePath)) {
@@ -855,6 +854,12 @@ ${yaml.dump(tmp)}</readOnlyMetaData>`.trim();
           }
         }
         if (parts.length > 0) {
+          if (metaIdx !== -1) {
+            parts.push({
+              type: "text",
+              text: rawContent.slice(metaIdx)
+            });
+          }
           return parts;
         }
       }
@@ -1136,8 +1141,10 @@ id为${fnCallCache.cacheid}
         sendConfig.tool_choice = config.toolChoice;
       }
       if (config.thinkControl === true) {
-        sendConfig.enable_thinking = config.enableThinking ? true : false;
-        sendConfig.reasoning_effort = config.thinkStrength;
+        // sendConfig.enable_thinking = if config.enableThinking then true else false
+        if (config.enableThinking) {
+          sendConfig.reasoning_effort = config.thinkStrength;
+        }
       }
       // 调试：将请求报文写入 tmp 目录 (增加防抖避免频繁写入)
       writeDebugConfig(JSON.stringify(sendConfig, null, 2));

@@ -681,7 +681,6 @@ export default function () {
               handleTabDown(e, tab, realTabs, attrs.onSetTabOrder)
             }
           }, [
-            console.log(tab),
             m("span", {
               style: {
                 overflow: "hidden",

@@ -1,7 +1,7 @@
 {
   "name": "owo-terminal",
   "productName": "owo-terminal",
-  "version": "1.1.34",
+  "version": "1.1.35",
   "type": "module",
   "main": "app.js",
   "description": "Super cute terminal",
@@ -145,7 +145,7 @@
     "mermaid": "^11.14.0",
     "mithril": "^2.3.7",
     "typescript": "^6.0.3",
-    "typescript-language-server": "^5.1.3",
+    "typescript-language-server": "^6.0.0",
     "vite": "^7.1.9"
   }
 }

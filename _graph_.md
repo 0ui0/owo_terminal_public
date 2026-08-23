@@ -833,6 +833,136 @@ graph TD
     G --> H
 ```
 
+## 2026/08/22 17:46 - 角色包制作 App (avatarMaker) 重构为纯手绘 4 步向导模式
+
+```mermaid
+graph TD
+    A[需求: 不使用封装组件, 严格遵循样式设计指南纯手绘角色包制作向导] --> B[重构 server/apps/avatarMaker/frontend.js]
+    
+    B --> C[1. 零组件纯手绘: 抛弃 Box/Tag/AutoForm, 全量原生 m + 严格垂直属性]
+    B --> D[2. 经典大圆角: 按钮/卡片/输入框/药丸选择器/终端全统一 3rem 胶囊圆角]
+    B --> E[3. 标准字号阶梯: L2 1.8rem, L3 1.6rem, Base 1.5rem, Caption 1.2rem (去除粗体)]
+    B --> F[4. 4步工作流向导: 模式选择 -> 目录素材 -> API配置 -> 提示词与制作]
+    
+    F --> G[Step 1: 5大模式卡片单选与SOP动态说明]
+    F --> H[Step 2: 输出目录与智能高亮素材路径]
+    F --> I[Step 3: 火山/阿里双平台快捷服务商与API密钥配置]
+    F --> J[Step 4: 提示词输入 + 21款原生表情Tag快捷填入 + 实时终端运行日志]
+```
+
+## 2026/08/22 17:50 - 修复角色包制作 App 水平滚动条溢出问题
+
+```mermaid
+graph TD
+    A[现象: 弹窗底部出现粉色横向滚动条] --> B{根因: content-box + padding: 1.5rem 导致容器宽度 100%+3rem 溢出}
+    B --> C[修复 1: 根容器锁定 width: min 58rem, 90vw + boxSizing: border-box + overflowX: hidden]
+    B --> D[修复 2: 终端日志框添加 boxSizing: border-box + wordBreak: break-all]
+    C --> E[效果: 水平滚动条彻底消失, 弹窗尺寸紧凑舒适]
+```
+
+## 2026/08/22 17:52 - 严格精确还原旧版制作模式与SOP流程说明文案
+
+```mermaid
+graph TD
+    A[指令: 制作模式描述使用旧版描述, 一个字都不能改] --> B[查找 Git HEAD 历史中模式文本与SOP机制描述]
+    B --> C[0a: 静态半身表情图片 (基于半身素材绘制新表情立绘)]
+    B --> D[0b: 静态全身动作图片 (基于全身素材绘制新动作立绘)]
+    B --> E[1: 表情特写视频 (靠近镜头做表情并拉远)]
+    B --> F[2a: 全身动作视频 - 首尾相同 (适合微动或循环待机)]
+    B --> G[2b: 全身动作视频 - 首尾不同 (适合从静立过渡到指定动作)]
+    B --> H[SOP流程说明: 完整保留 1/2/3 条机制步骤文本与⚙️图标]
+    C & D & E & F & G & H --> I[全量一字不改替换写入并生效]
+```
+
+## 2026/08/22 17:57 - 模型配置下拉选单联动、最新接口模型更新与提交前统一校验
+
+```mermaid
+graph TD
+    A[需求 1: 模型配置提供下拉菜单选择或自定义输入] --> B[引入 MODEL_PRESETS 预设库]
+    A2[需求 2: 重新搜索并更新最新的模型接口和型号] --> B
+    A3[需求 3: 步骤流转不作中间拦截, 校验统一移至提交前执行] --> C[重构校验逻辑]
+    
+    B --> D[火山方舟: Doubao-Seedream 图像 / Doubao-Seaweed 视频 / ep-接入点]
+    B --> E[阿里百炼: wan2.6-image / wanx2.1-imageedit / wan2.7-kf2v / wan2.1-kf2v-plus]
+    B --> F[手绘 select 下拉选框 + input 双向联动]
+    
+    C --> G[顶部步骤条与下一步按钮支持自由穿梭切换]
+    C --> H[Step 4 点击开始制作时统一校验, 缺项自动跳转至对应步骤并标红提示]
+```
+
+## 2026/08/22 18:05 - 角色包向导 Step 3 引入手绘双 Tab (图片 API / 视频 API)
+
+```mermaid
+graph TD
+    A[反馈: 视频制作 API 配置不见了] --> B{根因: 原先根据 Step 1 模式对视频卡片做了条件隐藏}
+    B --> C[方案 1: Step 3 顶部增加手绘胶囊 Tab 切换]
+    C --> D[Tab 1: 🖼️ 图片生成 API (服务商 + URL + Key + Model)]
+    C --> E[Tab 2: 🎬 视频生成 API (服务商 + URL + Key + Model)]
+    D & E --> F[解耦查看: 无论当前处于何种模式, 用户均可随时自由切换查看与配置两套独立接口]
+```
+
+## 2026/08/22 18:31 - _mind_.html 升级为 macOS 10.11 (El Capitan) 设计语言样式
+
+```mermaid
+graph TD
+    A[指令: 将 style 标签升级为 macOS 10.11 设计语言规范] --> B[重构 _mind_.html 头部 style]
+    B --> C[字体体系: -apple-system / PingFang SC / San Francisco]
+    B --> D[经典质感: #ececec 背景, #ffffff 卡片, 0.15 细边框 + 3px 系统蓝顶部标记]
+    B --> E[圆角与阴影: 6px 经典圆角 + 细腻分层毛玻璃/投影层次]
+    B --> F[检查器与终端: n-focus 左侧 3px 浅蓝装饰, n-graph 深色 SF Mono 代码块]
+```
+
+## 2026/08/22 18:32 - _mind_.html 引入 Mermaid CDN 自动矢量渲染解析器
+
+```mermaid
+graph TD
+    A[需求: _mind_.html 浏览器中打开时能够直接预览网点图] --> B[引入 mermaid@10 官方 CDN]
+    B --> C[注入 DOMContentLoaded 自动提取 n-graph 文本]
+    C --> D[过滤 ```mermaid 标记并通过 mermaid.render 异步生成 SVG]
+    D --> E[效果: 浏览器双击打开 _mind_.html 即刻呈现精美深色交互式矢量拓扑图]
+```
+
+## 2026/08/22 18:35 - 模型下拉框移除冗余占位项
+
+```mermaid
+graph TD
+    A[需求: 移除 ⚡ 快速选择推荐模型 占位项] --> B[编辑 server/apps/avatarMaker/frontend.js]
+    B --> C[清理图片与视频 select 中的空 option]
+    C --> D[效果: 下拉菜单纯净呈现官方模型列表, 选即填入输入框]
+```
+
+## 2026/08/22 18:37 - 严格遵照设计指南: 彻底消除写死宽高, 回归 auto 自然撑开
+
+```mermaid
+graph TD
+    A[准则: 宽度不设置默认auto, 高度不设置随内容撑开] --> B[编辑 server/apps/avatarMaker/frontend.js]
+    B --> C[彻底移除根容器 width: min 58rem, 90vw]
+    B --> D[彻底移除 minHeight: 26rem 与强制限制]
+    C & D --> E[效果: 完全遵从自然文档流, 随 Notice 弹窗缩放 100% 紧密跟随自适应充满]
+```
+
+## 2026/08/22 20:08 - 重构 processAttachment: 正文与协议元数据正交隔离
+
+```mermaid
+graph TD
+    A[根因: 元数据中含 title: attachid, 全局正则导致二次匹配] --> B[编辑 server/tools/aiAsk/aiAsk.coffee]
+    B --> C[1. 依据 readOnlyMetaData 切分 bodyContent 与 metaContent]
+    B --> D[2. 正则仅在 bodyContent 内查找并生成 image_url]
+    B --> E[3. 生成 parts 后将 metaContent 拼回最后一个 text 块末尾]
+    C & D & E --> F[效果: 彻底阻断元数据二次扫描, 单图精准单次注入]
+```
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

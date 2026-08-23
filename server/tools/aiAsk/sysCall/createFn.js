@@ -49,7 +49,11 @@ export default {
         type: "text",
         content: fnStr,
         title: `是否创建文件 ${value.id}.js`,
-        listId: currentListId
+        listId: currentListId,
+        ext: {
+          identifier: `tool:${this.id}`,
+          toolId: this.id
+        }
       })
 
       if (!userConfirm.ok) {

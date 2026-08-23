@@ -87,7 +87,8 @@ import {
   Mail,
   Error,
   Success,
-  Attention
+  Attention,
+  More
 } from '@icon-park/svg';
 
 let iconPark = {
@@ -179,7 +180,8 @@ let iconPark = {
   Mail,
   Error,
   Success,
-  Attention
+  Attention,
+  More
 };
 
 export default {

@@ -45,7 +45,11 @@ export default {
         type: "tip",
         content: `路径：${resolvedPath}`,
         title: "是否允许在工作目录外执行 fileOpener 工具？",
-        listId: metaData.listId
+        listId: metaData.listId,
+        ext: {
+          identifier: `tool:${this.id}`,
+          toolId: this.id
+        }
       })
       if (!userConfirm.ok) {
         return `用户拒绝访问项目外文件：${resolvedPath}。原因：${userConfirm.comment || "未提供"}`
@@ -169,7 +173,7 @@ export default {
       const rangeInfo = `读取 L${startIdx + 1} - L${startIdx + resultLines.length} (文件共 ${totalLines} 行 / 大小 ${kbSize})${commentSuffix}`
       const indicators = []
 
-      indicators.push(`> [!TIP] 每行开头的数字是行号（格式：\`行号: 内容\`），用于定位代码位置。使用 filePatcher 替换时，target 和 replace 参数中**不要包含行号前缀**，只需提供实际的代码内容。`)
+      indicators.push(`> [!TIP] 每行开头的数字是行号（格式：\`行号: 内容\`），用于定位代码位置。使用补丁工具替换时，target 和 replace 参数中**不要包含行号前缀**，只需提供实际的代码内容。`)
 
       if (startIdx + resultLines.length < totalLines) {
         indicators.push(`> [!NOTE] 后续行已截断，翻页请指定 startLine: ${startIdx + resultLines.length + 1}`)

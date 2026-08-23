@@ -9,122 +9,151 @@ export default (
     commonData,
     iconPark,
     getColor,
-    Box,
-    Tag,
     trs,
-    settingData,
-    AutoForm,
-    FormItem
+    settingData
   }
 ) => {
+  let currentStep = 1 // 1: 制作模式, 2: 路径与素材, 3: API配置, 4: 提示词与执行
   let logs = []
   const maxLogs = 100
   let initialized = false
-  let activeTab = "image" // "image" or "video" API tab
   let mode = "0a" // "0a", "0b", "1", "2a", "2b"
   let modeCategory = "image" // "image" or "video"
-  let showApiKey = false
 
   let imageProvider = "volcengine" // "volcengine" or "dashscope"
   let videoProvider = "volcengine" // "volcengine" or "dashscope"
 
-  // Pet Package Expressions preset library mapped directly from statics/petPkgs/default/pet filenames
+  let activeTab = "image" // "image" or "video"
+  let showImageApiKey = false
+  let showVideoApiKey = false
+
+  // 21 款默认表情预设
   const presetPrompts = [
-    { label: "😊 微笑 (smile)", prompt: "微笑，表情柔和幸福，嘴角上扬" },
-    { label: "😄 闭眼笑 (smileEye)", prompt: "双眼笑成弯月，闭眼开心微笑" },
-    { label: "😁 露齿笑 (grin)", prompt: "露齿大笑，心情十分愉快" },
-    { label: "😃 欢快露齿笑 (grinHappy)", prompt: "欢快大笑，露齿微笑，神采飞扬" },
-    { label: "😅 尴尬露齿笑 (grinEmbarrassed)", prompt: "尴尬地露齿苦笑，双颊带微红" },
-    { label: "😡 生气怒视 (angry)", prompt: "生气怒视，眉毛下压紧锁，表情愤怒" },
-    { label: "😬 咬牙 (clenchedTeeth)", prompt: "咬牙切齿，面部神情紧绷" },
-    { label: "🤬 愤怒咬牙 (clenchedTeethAngry)", prompt: "愤怒咬牙，双眼瞪大愤怒，非常生气" },
-    { label: "😰 尴尬咬牙 (clenchedTeethEmbarrassed)", prompt: "尴尬咬牙，汗颜，眼神躲闪" },
-    { label: "😭 伤心流泪 (crySad)", prompt: "伤心流泪，眼角带泪花，非常难过" },
-    { label: "🥹 喜极而泣 (cryHappy)", prompt: "喜极而泣，眼中带泪，满脸感动微笑" },
-    { label: "😞 悲伤沮丧 (sad)", prompt: "低头沮丧，眼神失落悲伤" },
-    { label: "😗 嘟嘴 (pout)", prompt: "嘟起小嘴，表达不满与娇嗔" },
-    { label: "😚 闭眼嘟嘴 (poutEye)", prompt: "闭上双眼嘟嘴，神情傲娇俏皮" },
-    { label: "🥺 委屈嘟嘴 (poutSad)", prompt: "委屈嘟嘴，眼神哀求失落" },
-    { label: "😦 迷茫嘟嘴 (poutSlacken)", prompt: "迷茫发呆嘟嘴，神情茫然" },
-    { label: "😨 紧张慌张 (nervous)", prompt: "紧张慌张，眼神不安，双颊微汗" },
-    { label: "😐 发呆放空 (slacken)", prompt: "眼神放空发呆，神情呆滞" },
-    { label: "😶 深度发呆 (slackenMore)", prompt: "深度发呆放空，张着小嘴发愣" },
-    { label: "🎅 圣诞节日风 (chrimas)", prompt: "头戴圣诞帽，表情欢快喜庆" },
-    { label: "🎄 圣诞闭眼笑 (chrimasEye)", prompt: "头戴圣诞帽，闭眼欢快微笑，充满节日气氛" }
+    { label: "😊 微笑", prompt: "微笑，表情柔和幸福，嘴角上扬" },
+    { label: "😄 闭眼笑", prompt: "双眼笑成弯月，闭眼开心微笑" },
+    { label: "😁 露齿笑", prompt: "露齿大笑，心情十分愉快" },
+    { label: "😃 欢快笑", prompt: "欢快大笑，露齿微笑，神采飞扬" },
+    { label: "😅 尴尬苦笑", prompt: "尴尬地露齿苦笑，双颊带微红" },
+    { label: "😡 生气怒视", prompt: "生气怒视，眉毛下压紧锁，表情愤怒" },
+    { label: "😬 咬牙紧张", prompt: "咬牙切齿，面部神情紧绷" },
+    { label: "🤬 愤怒咬牙", prompt: "愤怒咬牙，双眼瞪大愤怒，非常生气" },
+    { label: "😰 尴尬汗颜", prompt: "尴尬咬牙，汗颜，眼神躲闪" },
+    { label: "😭 伤心流泪", prompt: "伤心流泪，眼角带泪花，非常难过" },
+    { label: "🥹 喜极而泣", prompt: "喜极而泣，眼中带泪，满脸感动微笑" },
+    { label: "😞 悲伤低落", prompt: "低头沮丧，眼神失落悲伤" },
+    { label: "😗 嘟嘴娇嗔", prompt: "嘟起小嘴，表达不满与娇嗔" },
+    { label: "😚 闭眼嘟嘴", prompt: "闭上双眼嘟嘴，神情傲娇俏皮" },
+    { label: "🥺 委屈巴巴", prompt: "委屈嘟嘴，眼神哀求失落" },
+    { label: "😦 迷茫放空", prompt: "迷茫发呆嘟嘴，神情茫然" },
+    { label: "😨 紧张慌张", prompt: "紧张慌张，眼神不安，双颊微汗" },
+    { label: "😐 发呆呆滞", prompt: "眼神放空发呆，神情呆滞" },
+    { label: "😶 深度发愣", prompt: "深度发呆放空，张着小嘴发愣" },
+    { label: "🎅 圣诞节日", prompt: "头戴圣诞帽，表情欢快喜庆" },
+    { label: "🎄 圣诞闭眼", prompt: "头戴圣诞帽，闭眼欢快微笑，充满节日气氛" }
   ]
 
-  // Separated configuration groups
-  let pathOptions = [
-    {
-      name: "最终输出目录",
-      description: "生成的成品存放目录（例如 /xxx/主题包名称/）",
-      value: "",
-      key: "outputDir"
+  // 最新服务商及推荐模型库 (支持下拉选单与手动输入联动)
+  const MODEL_PRESETS = {
+    volcengine: {
+      name: "火山方舟 (Volcengine)",
+      imageDefaultUrl: "https://ark.cn-beijing.volces.com/api/v3/images/generations",
+      imageModels: [
+        { label: "doubao-seedream-3-0-t2i-241128 (豆包图像生成)", value: "doubao-seedream-3-0-t2i-241128" },
+        { label: "doubao-image-i2i (豆包图生图)", value: "doubao-image-i2i" },
+        { label: "ep-自定义推理接入点 (在下方填入 ep-xxx)", value: "" }
+      ],
+      videoDefaultUrl: "https://ark.cn-beijing.volces.com/api/v3/contents/generations/tasks",
+      videoModels: [
+        { label: "doubao-seaweed-241128 (豆包视频生成)", value: "doubao-seaweed-241128" },
+        { label: "ep-自定义推理接入点 (在下方填入 ep-xxx)", value: "" }
+      ]
     },
-    {
-      name: "全身像素材路径",
-      description: "静态全身绿幕图片绝对路径",
-      value: "",
-      key: "fullBodyBase"
-    },
-    {
-      name: "半身像素材路径",
-      description: "静态半身绿幕图片绝对路径",
-      value: "",
-      key: "halfBodyBase"
+    dashscope: {
+      name: "阿里百炼 (DashScope)",
+      imageDefaultUrl: "https://dashscope.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation",
+      imageModels: [
+        { label: "wan2.6-image (通义万相 2.6 多模态生图/图生图)", value: "wan2.6-image" },
+        { label: "wanx2.1-imageedit (万相 2.1 图像编辑与图生图)", value: "wanx2.1-imageedit" },
+        { label: "wanx2.1-i2i-turbo (万相 2.1 Turbo 极速图生图)", value: "wanx2.1-i2i-turbo" },
+        { label: "wanx-v1 (通义万相 1.0 经典版)", value: "wanx-v1" },
+        { label: "自定义模型 (在下方手动输入)", value: "" }
+      ],
+      videoDefaultUrl: "https://dashscope.aliyuncs.com/api/v1/services/aigc/video-generation/video-synthesis",
+      videoModels: [
+        { label: "wan2.7-kf2v (通义万相 2.7 首尾帧生视频 - 最新推荐)", value: "wan2.7-kf2v" },
+        { label: "wan2.2-kf2v-flash (万相 2.2 首尾帧极速生成)", value: "wan2.2-kf2v-flash" },
+        { label: "wan2.1-kf2v-plus (万相 2.1 首尾帧生视频 Plus)", value: "wan2.1-kf2v-plus" },
+        { label: "wan2.1-t2v-turbo (万相 2.1 文生视频 Turbo)", value: "wan2.1-t2v-turbo" },
+        { label: "自定义模型 (在下方手动输入)", value: "" }
+      ]
     }
-  ]
-
-  let imageOptions = [
-    {
-      name: "图片 API URL",
-      description: "大模型图片生成接口 URL (右侧提供一键填入默认官方地址按钮)",
-      value: "",
-      key: "imageApiUrl"
-    },
-    {
-      name: "图片 API Key",
-      description: "大模型图片生成 API Key",
-      value: "",
-      key: "imageApiKey",
-      isPassword: true
-    },
-    {
-      name: "图片生成模型 (Model)",
-      description: "图片模型接入点 Endpoint 名称 (火山: ep-xxx / 阿里: wanx2.1-i2i-turbo)",
-      value: "",
-      key: "imageModel"
-    }
-  ]
-
-  let videoOptions = [
-    {
-      name: "视频 API URL",
-      description: "大模型视频生成接口 URL (右侧提供一键填入默认官方地址按钮)",
-      value: "",
-      key: "videoApiUrl"
-    },
-    {
-      name: "视频 API Key",
-      description: "大模型视频生成 API Key",
-      value: "",
-      key: "videoApiKey",
-      isPassword: true
-    },
-    {
-      name: "视频生成模型 (Model)",
-      description: "视频模型接入点 Endpoint 名称 (火山: ep-xxx / 阿里: wanx2.1-kf2v-plus)",
-      value: "",
-      key: "videoModel"
-    }
-  ]
-
-  let promptOption = {
-    name: "表情与动作提示词",
-    description: "具体的表情或动作描述，例如：傲娇坏笑、闭眼微笑、手舞足蹈等",
-    value: "",
-    key: "prompt"
   }
+
+  // 配置项字段
+  let configFields = {
+    outputDir: "",
+    fullBodyBase: "",
+    halfBodyBase: "",
+    imageApiUrl: "https://ark.cn-beijing.volces.com/api/v3/images/generations",
+    imageApiKey: "",
+    imageModel: "doubao-seedream-3-0-t2i-241128",
+    videoApiUrl: "https://ark.cn-beijing.volces.com/api/v3/contents/generations/tasks",
+    videoApiKey: "",
+    videoModel: "doubao-seaweed-241128",
+    prompt: ""
+  }
+
+  // 模式定义 (完全采用旧版原始文案与机制说明，一个字都不改)
+  const modeDefinitions = [
+    {
+      id: "0a",
+      category: "image",
+      label: "静态半身表情图片 (基于半身素材绘制新表情立绘)",
+      sopSteps: [
+        "1. 系统基于你提供的「半身像素材」，结合「提示词」，调用图片生成 API 绘制全新的半身表情图。",
+        "2. 生成的静态图片直接保存至输出目录（如 final_expression_image.png），不进行任何视频插帧或 FFmpeg 合成。适合制作静态头像与对话框表情包。"
+      ]
+    },
+    {
+      id: "0b",
+      category: "image",
+      label: "静态全身动作图片 (基于全身素材绘制新动作立绘)",
+      sopSteps: [
+        "1. 系统基于你提供的「全身像素材」，结合「提示词」，调用图片生成 API 绘制完成指定新动作的静态全身姿势图。",
+        "2. 生成的静态姿势图直接保存至输出目录（如 final_pose_image.png），不合成视频。适合制作立绘插画与静态动作素材。"
+      ]
+    },
+    {
+      id: "1",
+      category: "video",
+      label: "表情特写视频 (靠近镜头做表情并拉远)",
+      sopSteps: [
+        "1. 系统会基于你提供的「半身像素材」，结合「提示词」，通过图片生成 API 生成一张全新的半身表情图。",
+        "2. 生成新图后，自动调用视频模型合成两段镜头过渡视频：从「默认全身站姿」镜头拉近至「表情半身特写」，再由「表情半身特写」拉远退回「默认全身站姿」。",
+        "3. 使用 ffmpeg 拼接两段视频并绿幕化输出。适合制作情绪反应和特写动作。"
+      ]
+    },
+    {
+      id: "2a",
+      category: "video",
+      label: "全身动作视频 - 首尾相同 (适合微动或循环待机)",
+      sopSteps: [
+        "1. 系统不需要额外画图，直接使用现成的「全身像素材」作为视频的开始帧与结束帧。",
+        "2. 直接调用视频生成模型对全身图进行动作合成，生成首尾姿势完全相同、中间带有微动姿势的绿幕视频。",
+        "3. 适合生成微动呼吸、站立待机、小幅度手势等能够完美首尾相接、支持循环播放的画面。"
+      ]
+    },
+    {
+      id: "2b",
+      category: "video",
+      label: "全身动作视频 - 首尾不同 (适合从静立过渡到指定动作)",
+      sopSteps: [
+        "1. 视频的首帧为默认站姿，尾帧为新动作。系统会先基于「全身像素材」加「提示词」，通过图片生成 API 绘制一张完成指定动作的全身尾帧图。",
+        "2. 获得尾帧图后，调用视频生成模型进行动作补间，合成从「默认正常站立」变化过渡到「指定结束动作」的绿幕动作视频。",
+        "3. 适合做大幅度的动作转折、技能释放或者大幅度姿势演绎。"
+      ]
+    }
+  ]
 
   const getFullConfigData = (safeOnly = false) => {
     const configData = {
@@ -132,82 +161,69 @@ export default (
       modeCategory,
       imageProvider,
       videoProvider,
-      prompt: (promptOption.value || "").trim(),
-      outputDir: (pathOptions.find(o => o.key === "outputDir")?.value || "").trim(),
-      fullBodyBase: (pathOptions.find(o => o.key === "fullBodyBase")?.value || "").trim(),
-      halfBodyBase: (pathOptions.find(o => o.key === "halfBodyBase")?.value || "").trim(),
-      imageApiUrl: (imageOptions.find(o => o.key === "imageApiUrl")?.value || "").trim(),
-      imageModel: (imageOptions.find(o => o.key === "imageModel")?.value || "").trim(),
-      videoApiUrl: (videoOptions.find(o => o.key === "videoApiUrl")?.value || "").trim(),
-      videoModel: (videoOptions.find(o => o.key === "videoModel")?.value || "").trim()
+      prompt: (configFields.prompt || "").trim(),
+      outputDir: (configFields.outputDir || "").trim(),
+      fullBodyBase: (configFields.fullBodyBase || "").trim(),
+      halfBodyBase: (configFields.halfBodyBase || "").trim(),
+      imageApiUrl: (configFields.imageApiUrl || "").trim(),
+      imageModel: (configFields.imageModel || "").trim(),
+      videoApiUrl: (configFields.videoApiUrl || "").trim(),
+      videoModel: (configFields.videoModel || "").trim()
     }
     if (!safeOnly) {
-      configData.imageApiKey = (imageOptions.find(o => o.key === "imageApiKey")?.value || "").trim()
-      configData.videoApiKey = (videoOptions.find(o => o.key === "videoApiKey")?.value || "").trim()
+      configData.imageApiKey = (configFields.imageApiKey || "").trim()
+      configData.videoApiKey = (configFields.videoApiKey || "").trim()
     }
     return configData
   }
 
   const initOptionValues = (vnode) => {
-    if (initialized || !vnode.attrs.data) {
-      return
-    }
-    const allOpts = [...pathOptions, ...imageOptions, ...videoOptions, promptOption]
-    allOpts.forEach(opt => {
-      const rawVal = vnode.attrs.data[opt.key]
-      if (rawVal !== undefined) {
-        opt.value = typeof rawVal === "string" ? rawVal.trim() : (rawVal || "")
+    if (initialized || !vnode.attrs.data) return
+    const raw = vnode.attrs.data
+    Object.keys(configFields).forEach(k => {
+      if (raw[k] !== undefined) {
+        configFields[k] = typeof raw[k] === "string" ? raw[k].trim() : (raw[k] || "")
       }
     })
-    if (vnode.attrs.data.mode) mode = vnode.attrs.data.mode
-    if (vnode.attrs.data.imageProvider) imageProvider = vnode.attrs.data.imageProvider
-    if (vnode.attrs.data.videoProvider) videoProvider = vnode.attrs.data.videoProvider
+    if (raw.mode) mode = raw.mode
+    if (raw.imageProvider) imageProvider = raw.imageProvider
+    if (raw.videoProvider) videoProvider = raw.videoProvider
 
-    if (mode === "0a" || mode === "0b") {
-      modeCategory = "image"
-    } else {
-      modeCategory = "video"
-    }
+    if (mode === "0a" || mode === "0b") modeCategory = "image"
+    else modeCategory = "video"
+
     initialized = true
   }
 
-  const validateForm = () => {
+  // 提交前统一完整校验（若未填完整，返回错误信息及对应的步骤编号）
+  const validateAllBeforeSubmit = () => {
     const config = getFullConfigData(false)
 
-    if (!config.outputDir) return "请填写「最终输出目录」"
-    if (!config.prompt) return "请填写「表情与动作提示词」"
+    if (!mode) return { step: 1, msg: "请选择制作模式" }
+    if (!config.outputDir) return { step: 2, msg: "请填写「最终输出目录」" }
 
-    if (mode === "0a") {
-      if (!config.halfBodyBase) return "静态半身表情模式需填写「半身像素材路径」"
-      if (!config.imageApiUrl) return "静态半身表情模式需填写「图片 API URL」"
-      if (!config.imageApiKey) return "静态半身表情模式需填写「图片 API Key」"
-      if (!config.imageModel) return "静态半身表情模式需填写「图片生成模型」"
-      return null
-    } else if (mode === "0b") {
-      if (!config.fullBodyBase) return "静态全身动作模式需填写「全身像素材路径」"
-      if (!config.imageApiUrl) return "静态全身动作模式需填写「图片 API URL」"
-      if (!config.imageApiKey) return "静态全身动作模式需填写「图片 API Key」"
-      if (!config.imageModel) return "静态全身动作模式需填写「图片生成模型」"
-      return null
+    if (mode === "0a" || mode === "1") {
+      if (!config.halfBodyBase) return { step: 2, msg: "当前模式需填写「半身像素材路径」" }
+    }
+    if (mode === "0b" || mode === "2a" || mode === "2b") {
+      if (!config.fullBodyBase) return { step: 2, msg: "当前模式需填写「全身像素材路径」" }
     }
 
-    if (!config.videoApiUrl) return "请填写「视频 API URL」"
-    if (!config.videoApiKey) return "请填写「视频 API Key」"
-    if (!config.videoModel) return "请填写「视频生成模型 (Model)」"
+    const needImage = (mode === "0a" || mode === "0b" || mode === "1" || mode === "2b")
+    const needVideo = (mode === "1" || mode === "2a" || mode === "2b")
 
-    if (mode === "1") {
-      if (!config.halfBodyBase) return "表情特写视频模式需填写「半身像素材路径」"
-      if (!config.imageApiUrl) return "表情特写视频模式需填写「图片 API URL」"
-      if (!config.imageApiKey) return "表情特写视频模式需填写「图片 API Key」"
-      if (!config.imageModel) return "表情特写视频模式需填写「图片生成模型」"
-    } else if (mode === "2a") {
-      if (!config.fullBodyBase) return "全身动作视频模式需填写「全身像素材路径」"
-    } else if (mode === "2b") {
-      if (!config.fullBodyBase) return "全身动作视频模式需填写「全身像素材路径」"
-      if (!config.imageApiUrl) return "模式2b绘制尾帧需填写「图片 API URL」"
-      if (!config.imageApiKey) return "模式2b绘制尾帧需填写「图片 API Key」"
-      if (!config.imageModel) return "模式2b绘制尾帧需填写「图片生成模型」"
+    if (needImage) {
+      if (!config.imageApiUrl) return { step: 3, msg: "请填写「图片 API URL」" }
+      if (!config.imageApiKey) return { step: 3, msg: "请填写「图片 API Key」" }
+      if (!config.imageModel) return { step: 3, msg: "请填写「图片生成模型 (Model)」" }
     }
+    if (needVideo) {
+      if (!config.videoApiUrl) return { step: 3, msg: "请填写「视频 API URL」" }
+      if (!config.videoApiKey) return { step: 3, msg: "请填写「视频 API Key」" }
+      if (!config.videoModel) return { step: 3, msg: "请填写「视频生成模型 (Model)」" }
+    }
+
+    if (!config.prompt) return { step: 4, msg: "请填写「表情与动作提示词」" }
 
     return null
   }
@@ -244,13 +260,13 @@ export default (
       ])
 
       if (saveRes && saveRes.ok) {
-        Notice.launch({ msg: "✅ 配置导出成功！" })
-        logs.push(`✅ 配置已成功导出至: ${saveDialogRes.filePath}`)
+        Notice.launch({ msg: "配置导出成功", color: "green" })
+        logs.push(`配置已导出至: ${saveDialogRes.filePath}`)
       } else {
-        Notice.launch({ msg: `❌ 导出失败: ${saveRes?.msg || "写入失败"}` })
+        Notice.launch({ msg: `导出失败: ${saveRes?.msg || "写入失败"}`, color: "pink" })
       }
     } catch (err) {
-      Notice.launch({ msg: `❌ 导出失败: ${err.message}` })
+      Notice.launch({ msg: `导出失败: ${err.message}`, color: "pink" })
     }
   }
 
@@ -272,44 +288,34 @@ export default (
 
       if (readRes && readRes.ok && readRes.data) {
         const imported = JSON.parse(readRes.data)
-        const allOpts = [...pathOptions, ...imageOptions, ...videoOptions, promptOption]
-        allOpts.forEach(opt => {
-          if (imported[opt.key] !== undefined) {
-            const val = imported[opt.key]
-            opt.value = typeof val === "string" ? val.trim() : (val || "")
+        Object.keys(configFields).forEach(k => {
+          if (imported[k] !== undefined) {
+            configFields[k] = typeof imported[k] === "string" ? imported[k].trim() : (imported[k] || "")
           }
         })
         if (imported.mode) mode = imported.mode
         if (imported.imageProvider) imageProvider = imported.imageProvider
         if (imported.videoProvider) videoProvider = imported.videoProvider
 
-        if (mode === "0a" || mode === "0b") {
-          modeCategory = "image"
-        } else {
-          modeCategory = "video"
-        }
+        if (mode === "0a" || mode === "0b") modeCategory = "image"
+        else modeCategory = "video"
 
-        Notice.launch({ msg: "✅ 配置文件导入成功！" })
-        logs.push(`✅ 配置文件已加载: ${dialogRes.filePath}`)
+        Notice.launch({ msg: "配置文件导入成功", color: "green" })
+        logs.push(`配置文件已加载: ${dialogRes.filePath}`)
         m.redraw()
       } else {
-        Notice.launch({ msg: `❌ 读取失败: ${readRes?.msg || "文件内容为空"}` })
+        Notice.launch({ msg: `读取失败: ${readRes?.msg || "文件内容为空"}`, color: "pink" })
       }
     } catch (err) {
-      Notice.launch({ msg: `❌ 导入失败: ${err.message}` })
+      Notice.launch({ msg: `导入失败: ${err.message}`, color: "pink" })
     }
   }
 
   const instanceInterface = {
-    onDispatch: (
-      msg,
-      callback
-    ) => {
+    onDispatch: (msg, callback) => {
       if (msg.action === "log") {
         logs.push(msg.args.message)
-        if (logs.length > maxLogs) {
-          logs.shift()
-        }
+        if (logs.length > maxLogs) logs.shift()
         m.redraw()
       } else if (msg.action === "requestConfig") {
         const safeOnly = msg.args?.safeOnly !== false
@@ -324,842 +330,1357 @@ export default (
         return
       }
 
-      if (callback) {
-        callback(
-          {
-            ok: true,
-            msg: "操作成功"
-          }
-        )
-      }
+      if (callback) callback({ ok: true, msg: "操作成功" })
     }
   }
 
   const init = () => {
-    myAppData.addTool(
-      "commonData",
-      commonData
-    )
-    myAppData.registerInstances(
-      appId,
-      instanceInterface
-    )
+    myAppData.addTool("commonData", commonData)
+    myAppData.registerInstances(appId, instanceInterface)
     if (commonData.registerApp) {
-      commonData.registerApp(
-        appId,
-        myAppData
-      )
+      commonData.registerApp(appId, myAppData)
     }
   }
   init()
 
   return {
     onremove() {
-      myAppData.unregisterInstances(
-        appId,
-        commonData
-      )
+      myAppData.unregisterInstances(appId, commonData)
     },
     view(vnode) {
       initOptionValues(vnode)
 
-      const imageModeList = [
-        {
-          label: "静态半身表情图片 (基于半身素材绘制新表情立绘)",
-          value: "0a"
-        },
-        {
-          label: "静态全身动作图片 (基于全身素材绘制新动作立绘)",
-          value: "0b"
-        }
+      const steps = [
+        { num: 1, title: "模式选择" },
+        { num: 2, title: "素材目录" },
+        { num: 3, title: "API配置" },
+        { num: 4, title: "提示词生成" }
       ]
 
-      const videoModeList = [
-        {
-          label: "表情特写视频 (靠近镜头做表情并拉远)",
-          value: "1"
-        },
-        {
-          label: "全身动作视频 - 首尾相同 (适合微动或循环待机)",
-          value: "2a"
-        },
-        {
-          label: "全身动作视频 - 首尾不同 (适合从静立过渡到指定动作)",
-          value: "2b"
-        }
-      ]
+      const activeImagePreset = MODEL_PRESETS[imageProvider] || MODEL_PRESETS.volcengine
+      const activeVideoPreset = MODEL_PRESETS[videoProvider] || MODEL_PRESETS.volcengine
 
       return m("",
         {
           style: {
             display: "flex",
             flexDirection: "column",
-            width: "100%",
-            background: getColor("gray_1").back,
+            gap: "1.2rem",
             color: getColor("gray_1").front,
-            padding: window.Mob ? "0.8rem" : "1.5rem",
-            boxSizing: "border-box"
+            background: getColor("gray_1").back,
+            padding: "1.5rem"
           }
         },
         [
-          // 1. Sticky Header at the top (Action Buttons + Console Log Box)
-          m("",
-            {
-              style: {
-                position: "sticky",
-                top: 0,
-                zIndex: 20,
-                background: getColor("gray_1").back,
-                paddingBottom: "1rem",
-                marginBottom: "1rem"
-              }
-            },
-            [
-              // Action Buttons Row: Pure Box components with natural width in natural flow
-              m("",
-                {
-                  style: {
-                    display: "flex",
-                    flexWrap: "wrap",
-                    gap: "0.6rem",
-                    marginBottom: "1rem"
-                  }
-                },
-                [
-                  m(Box,
-                    {
-                      color: "main",
-                      isBtn: true,
-                      onclick: async () => {
-                        const err = validateForm()
-                        if (err) {
-                          Notice.launch({
-                            msg: `⚠️ 表单未填写完整: ${err}`,
-                            type: "error"
-                          })
-                          logs.push(`❌ 提交被阻断: ${err}`)
-                          m.redraw()
-                          return
-                        }
-
-                        logs.push(
-                          "⏳ 正在提交任务到主控 AI..."
-                        )
-                        try {
-                          await settingData.fnCall(
-                            "appDispatch",
-                            [
-                              appId,
-                              "commitTask",
-                              { config: getFullConfigData(true) }
-                            ]
-                          )
-                          logs.push(
-                            "✅ 任务已提交给主控 AI，请在聊天窗口查看任务进度。"
-                          )
-                        } catch (e) {
-                          logs.push(
-                            `❌ 提交失败: ${e.message}`
-                          )
-                        }
-                      }
-                    },
-                    "开始制作"
-                  ),
-                  m(Box,
-                    {
-                      color: "pink_1",
-                      isBtn: true,
-                      onclick: async () => {
-                        logs.push(
-                          "🛑 正在发送停止信号..."
-                        )
-                        try {
-                          await settingData.fnCall(
-                            "appDispatch",
-                            [
-                              appId,
-                              "cancelTask",
-                              {}
-                            ]
-                          )
-                          logs.push(
-                            "✅ 已成功发送停止指令。"
-                          )
-                        } catch (e) {
-                          logs.push(
-                            `❌ 停止失败: ${e.message}`
-                          )
-                        }
-                      }
-                    },
-                    "停止任务"
-                  ),
-                  m(Box,
-                    {
-                      color: "main",
-                      isBtn: true,
-                      onclick: exportConfig
-                    },
-                    "📤 导出配置"
-                  ),
-                  m(Box,
-                    {
-                      color: "gray_3",
-                      isBtn: true,
-                      onclick: importConfig
-                    },
-                    "📥 导入配置"
-                  )
-                ]
-              ),
-
-              // Console Log Box
-              m("",
-                {
-                  style: {
-                    background: "#0f0f11",
-                    color: "#00ff66",
-                    border: `1.5px solid ${getColor("gray_4").front}22`,
-                    padding: "1.2rem",
-                    height: "14rem",
-                    overflowY: "auto",
-                    fontFamily: "monospace",
-                    fontSize: "1.2rem",
-                    whiteSpace: "pre-wrap",
-                    borderRadius: "1.2rem",
-                    boxShadow: "0 6px 16px rgba(0,0,0,0.4), inset 0 0 1rem rgba(0,0,0,0.5)"
-                  }
-                },
-                logs.length === 0
-                  ? [m("div", { style: { color: "#666", fontStyle: "italic" } }, "等待任务开始，运行日志将在这里实时输出...")]
-                  : logs.map(line => m("",
-                    {
-                      style: {
-                        marginBottom: "0.5rem"
-                      }
-                    },
-                    line
-                  ))
-              )
-            ]
-          ),
-
-          // 2. Middle Forms Container (Natural Flowing Options)
+          // 顶部向导步骤导航条 (可自由点击任意步骤，不作中途强制拦截)
           m("",
             {
               style: {
                 display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                background: getColor("gray_3").back,
+                borderRadius: "3rem",
+                padding: "0.6rem 1rem",
+                gap: "0.5rem",
+                overflowX: "auto"
+              }
+            },
+            steps.map((s) => {
+              const isCurrent = currentStep === s.num
+
+              return m("",
+                {
+                  key: `step-bar-${s.num}`,
+                  style: {
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "0.6rem",
+                    padding: "0.6rem 1.2rem",
+                    borderRadius: "3rem",
+                    background: isCurrent ? getColor("main").back : "transparent",
+                    color: isCurrent ? getColor("main").front : getColor("gray_3").front,
+                    cursor: "pointer",
+                    flexShrink: 0,
+                    transition: "all 0.25s"
+                  },
+                  onclick: () => {
+                    currentStep = s.num
+                  }
+                },
+                [
+                  m("",
+                    {
+                      style: {
+                        width: "2rem",
+                        height: "2rem",
+                        borderRadius: "50%",
+                        background: isCurrent ? getColor("main").front : getColor("gray_4").front,
+                        color: isCurrent ? getColor("main").back : getColor("gray_3").back,
+                        display: "inline-flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        fontSize: "1.2rem"
+                      }
+                    },
+                    s.num
+                  ),
+                  m("span",
+                    {
+                      style: {
+                        fontSize: "1.5rem"
+                      }
+                    },
+                    s.title
+                  )
+                ]
+              )
+            })
+          ),
+
+          // 主体步骤内容区
+          m("",
+            {
+              style: {
+                background: getColor("gray_3").back,
+                borderRadius: "3rem",
+                padding: "1.5rem",
+                display: "flex",
                 flexDirection: "column",
-                marginBottom: "1.5rem"
+                gap: "1.2rem"
               }
             },
             [
-              // Section 1: API 配置
-              m(Box,
-                {
-                  color: "main"
-                },
-                "API 配置"
-              ),
-              m("div",
-                {
-                  style: {
-                    display: "inline-flex",
-                    background: getColor("gray_3").back,
-                    borderRadius: "1.5rem",
-                    padding: "0.3rem",
-                    margin: "0.8rem 0.5rem 1.2rem 0.5rem",
-                    gap: "0.2rem",
-                    width: "fit-content"
-                  }
-                },
-                [
-                  m("div",
-                    {
-                      style: {
-                        padding: "0.4rem 1.5rem",
-                        borderRadius: "1.2rem",
-                        background: activeTab === "image" ? getColor("main").back : "transparent",
-                        color: activeTab === "image" ? getColor("main").front : getColor("gray_1").front,
-                        cursor: "pointer",
-                        fontSize: "0.95rem",
-                        fontWeight: "bold",
-                        transition: "all 0.2s"
+              // === STEP 1: 制作模式选择 ===
+              currentStep === 1 ?
+                m("",
+                  {
+                    style: {
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: "1rem"
+                    }
+                  },
+                  [
+                    m("",
+                      {
+                        style: {
+                          fontSize: "1.8rem",
+                          color: getColor("gray_3").front,
+                          marginBottom: "0.5rem"
+                        }
                       },
-                      onclick: () => {
-                        activeTab = "image"
-                      }
-                    },
-                    "图片 API"
-                  ),
-                  m("div",
-                    {
-                      style: {
-                        padding: "0.4rem 1.5rem",
-                        borderRadius: "1.2rem",
-                        background: activeTab === "video" ? getColor("main").back : "transparent",
-                        color: activeTab === "video" ? getColor("main").front : getColor("gray_1").front,
-                        cursor: "pointer",
-                        fontSize: "0.95rem",
-                        fontWeight: "bold",
-                        transition: "all 0.2s"
+                      "请选择角色包制作模式"
+                    ),
+                    m("",
+                      {
+                        style: {
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: "0.8rem"
+                        }
                       },
-                      onclick: () => {
-                        activeTab = "video"
-                      }
-                    },
-                    "视频 API"
-                  )
-                ]
-              ),
-
-              // API Provider Selector inside API Configuration Card
-              m(FormItem,
-                {
-                  label: activeTab === "image" ? "图片 API 服务商平台" : "视频 API 服务商平台",
-                  description: "选择对应平台，下方 API URL 可点击「填入默认地址」一键填充"
-                },
-                [
-                  m("div",
-                    {
-                      style: {
-                        display: "flex",
-                        flexDirection: "row",
-                        gap: "0.6rem",
-                        margin: "0.5rem"
-                      }
-                    },
-                    [
-                      m(Tag,
-                        {
-                          isBtn: true,
-                          color: (activeTab === "image" ? imageProvider : videoProvider) === "volcengine" ? "main" : "sliver",
-                          styleExt: {
-                            padding: "0.4rem 1rem",
-                            fontSize: "0.9rem",
-                            cursor: "pointer"
-                          },
-                          onclick: () => {
-                            if (activeTab === "image") {
-                              imageProvider = "volcengine"
-                            } else {
-                              videoProvider = "volcengine"
+                      modeDefinitions.map(mItem => {
+                        const isSelected = mode === mItem.id
+                        return m("",
+                          {
+                            key: mItem.id,
+                            style: {
+                              background: isSelected ? `${getColor("main").back}22` : getColor("gray_4").back,
+                              border: isSelected ? `0.15rem solid ${getColor("main").back}` : "0.15rem solid transparent",
+                              borderRadius: "3rem",
+                              padding: "1.2rem 1.6rem",
+                              cursor: "pointer",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "space-between",
+                              transition: "all 0.25s"
+                            },
+                            onclick: () => {
+                              mode = mItem.id
+                              modeCategory = mItem.category
                             }
-                            m.redraw()
-                          }
-                        },
-                        "🌋 火山方舟 (Volcengine Ark)"
-                      ),
-                      m(Tag,
-                        {
-                          isBtn: true,
-                          color: (activeTab === "image" ? imageProvider : videoProvider) === "dashscope" ? "main" : "sliver",
-                          styleExt: {
-                            padding: "0.4rem 1rem",
-                            fontSize: "0.9rem",
-                            cursor: "pointer"
                           },
-                          onclick: () => {
-                            if (activeTab === "image") {
-                              imageProvider = "dashscope"
-                            } else {
-                              videoProvider = "dashscope"
-                            }
-                            m.redraw()
-                          }
-                        },
-                        "🟠 阿里百炼 (DashScope 通义万相)"
-                      )
-                    ]
-                  )
-                ]
-              ),
-
-              // Render active tab options with FormItem (API URL includes Box button for auto filling)
-              m("",
-                {
-                  style: {
-                    display: "flex",
-                    flexDirection: "column"
-                  }
-                },
-                (activeTab === "image" ? imageOptions : videoOptions).map((opt) => {
-                  const isUrlInput = opt.key === "imageApiUrl" || opt.key === "videoApiUrl"
-                  return m.fragment(
-                    {
-                      key: opt.key
-                    },
-                    [
-                      m(FormItem,
-                        {
-                          label: opt.name,
-                          description: opt.description
-                        },
-                        [
-                          opt.isPassword
-                            ? m("div",
+                          [
+                            m("",
                               {
                                 style: {
                                   display: "flex",
-                                  flexDirection: "row",
                                   alignItems: "center",
-                                  gap: "0.6rem",
-                                  margin: "0.5rem"
+                                  gap: "0.8rem",
+                                  flex: 1
                                 }
                               },
                               [
-                                m("input",
+                                m("span",
                                   {
-                                    type: showApiKey ? "text" : "password",
                                     style: {
-                                      flex: "1",
-                                      height: "40px",
-                                      boxSizing: "border-box",
-                                      border: "1.5px solid " + getColor("确认框输入边框"),
-                                      outline: "none",
-                                      background: getColor("确认框输入背景"),
-                                      padding: "0.4rem 0.8rem",
-                                      color: getColor("确认框输入文字"),
-                                      fontFamily: "inherit",
-                                      borderRadius: "1rem",
-                                      fontSize: "0.95rem"
-                                    },
-                                    placeholder: "请输入 API Key...",
-                                    value: opt.value,
-                                    oninput: (e) => {
-                                      opt.value = e.target.value
-                                    }
-                                  }
-                                ),
-                                m(Box,
-                                  {
-                                    color: "main",
-                                    isBtn: true,
-                                    onclick: () => {
-                                      showApiKey = !showApiKey
-                                      m.redraw()
+                                      fontSize: "1.5rem",
+                                      color: getColor("gray_4").front
                                     }
                                   },
-                                  showApiKey ? "隐藏" : "显示"
+                                  mItem.label
                                 )
                               ]
-                            )
-                            : isUrlInput
-                              ? m("div",
-                                {
-                                  style: {
-                                    display: "flex",
-                                    flexDirection: "row",
-                                    alignItems: "center",
-                                    gap: "0.6rem"
-                                  }
-                                },
-                                [
-                                  m("div",
-                                    {
-                                      style: {
-                                        flex: "1"
-                                      }
-                                    },
-                                    [
-                                      m(AutoForm,
-                                        {
-                                          dataObj: opt,
-                                          dataName: "value",
-                                          extEditMode: false
-                                        }
-                                      )
-                                    ]
-                                  ),
-                                  m(Box,
-                                    {
-                                      color: "main",
-                                      isBtn: true,
-                                      onclick: () => {
-                                        const provider = opt.key === "imageApiUrl" ? imageProvider : videoProvider
-                                        opt.value = provider === "dashscope" ? "https://dashscope.aliyuncs.com/api/v1" : "https://ark.cn-beijing.volces.com/api/v3"
-                                        m.redraw()
-                                      }
-                                    },
-                                    "填入默认地址"
-                                  )
-                                ]
-                              )
-                              : m(AutoForm,
-                                {
-                                  dataObj: opt,
-                                  dataName: "value",
-                                  extEditMode: false
+                            ),
+                            m("",
+                              {
+                                style: {
+                                  width: "2rem",
+                                  height: "2rem",
+                                  borderRadius: "50%",
+                                  border: `0.2rem solid ${isSelected ? getColor("main").back : getColor("gray_4").front}`,
+                                  display: "flex",
+                                  alignItems: "center",
+                                  justifyContent: "center",
+                                  flexShrink: 0
                                 }
-                              )
-                        ]
-                      )
-                    ]
-                  )
-                })
-              ),
+                              },
+                              isSelected ?
+                                m("",
+                                  {
+                                    style: {
+                                      width: "1rem",
+                                      height: "1rem",
+                                      borderRadius: "50%",
+                                      background: getColor("main").back
+                                    }
+                                  }
+                                ) : null
+                            )
+                          ]
+                        )
+                      })
+                    ),
 
-              // Section 2: 素材与目录选择
-              m(Box,
-                {
-                  color: "main"
-                },
-                "素材与输出目录选择"
-              ),
+                    // 模式流程运行说明卡片 (完全还原旧版说明)
+                    m("",
+                      {
+                        style: {
+                          marginTop: "0.5rem",
+                          padding: "1.4rem 1.8rem",
+                          borderRadius: "3rem",
+                          background: getColor("gray_4").back,
+                          fontSize: "1.2rem",
+                          lineHeight: "1.6",
+                          color: getColor("gray_4").front,
+                          opacity: 0.85,
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: "0.4rem"
+                        }
+                      },
+                      [
+                        m("div",
+                          {
+                            style: {
+                              fontSize: "1.3rem",
+                              marginBottom: "0.2rem"
+                            }
+                          },
+                          "⚙️ 运行机制与系统流程："
+                        ),
+                        ...(modeDefinitions.find(d => d.id === mode)?.sopSteps || []).map(stepTxt => {
+                          return m("div", stepTxt)
+                        })
+                      ]
+                    )
+                  ]
+                ) : null,
 
-              // Combined AutoForm with native select button side by side
-              m("",
-                {
-                  style: {
-                    display: "flex",
-                    flexDirection: "column"
-                  }
-                },
-                pathOptions.map((opt) => {
-                  return m.fragment(
-                    {
-                      key: opt.key
-                    },
-                    [
-                      m(FormItem,
+              // === STEP 2: 路径与素材设定 ===
+              currentStep === 2 ?
+                m("",
+                  {
+                    style: {
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: "1.2rem"
+                    }
+                  },
+                  [
+                    m("",
+                      {
+                        style: {
+                          fontSize: "1.8rem",
+                          color: getColor("gray_3").front,
+                          marginBottom: "0.5rem"
+                        }
+                      },
+                      "设置输出目录与基础素材"
+                    ),
+
+                    // 最终输出目录
+                    m("",
+                      {
+                        style: {
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: "0.5rem"
+                        }
+                      },
+                      [
+                        m("label",
+                          {
+                            style: {
+                              fontSize: "1.5rem",
+                              color: getColor("gray_1").front
+                            }
+                          },
+                          "最终输出目录 *"
+                        ),
+                        m("",
+                          {
+                            style: {
+                              display: "flex",
+                              gap: "0.8rem",
+                              alignItems: "center"
+                            }
+                          },
+                          [
+                            m("input",
+                              {
+                                value: configFields.outputDir,
+                                placeholder: "例如: /Users/xxx/Desktop/myPetPkg/",
+                                style: {
+                                  flex: 1,
+                                  padding: "0.8rem 1.2rem",
+                                  borderRadius: "3rem",
+                                  border: "none",
+                                  outline: "none",
+                                  background: getColor("gray_4").back,
+                                  color: getColor("gray_4").front,
+                                  fontSize: "1.5rem"
+                                },
+                                oninput: (e) => configFields.outputDir = e.target.value
+                              }
+                            ),
+                            m("",
+                              {
+                                style: {
+                                  padding: "0.8rem 1.5rem",
+                                  borderRadius: "3rem",
+                                  background: getColor("main").back,
+                                  color: getColor("main").front,
+                                  cursor: "pointer",
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  gap: "0.4rem",
+                                  flexShrink: 0
+                                },
+                                onclick: async () => {
+                                  const res = await settingData.fnCall("appOpenDialog", [{
+                                    title: "选择最终输出目录",
+                                    properties: ["openDirectory"]
+                                  }])
+                                  if (res && res.ok && res.filePath) {
+                                    configFields.outputDir = res.filePath
+                                    m.redraw()
+                                  }
+                                }
+                              },
+                              [
+                                m.trust(iconPark.getIcon("FolderOpen", { size: "1.4rem", fill: getColor("main").front })),
+                                m("span", "浏览目录")
+                              ]
+                            )
+                          ]
+                        ),
+                        m("span",
+                          {
+                            style: {
+                              fontSize: "1.2rem",
+                              color: getColor("gray_4").front,
+                              opacity: 0.6
+                            }
+                          },
+                          "生成的全部表情图片与绿幕视频成品将保存在该目录下。"
+                        )
+                      ]
+                    ),
+
+                    // 全身像素材路径 (根据模式高亮提示)
+                    m("",
+                      {
+                        style: {
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: "0.5rem",
+                          opacity: (mode === "0b" || mode === "2a" || mode === "2b") ? 1 : 0.6
+                        }
+                      },
+                      [
+                        m("label",
+                          {
+                            style: {
+                              fontSize: "1.5rem",
+                              color: getColor("gray_1").front
+                            }
+                          },
+                          `全身像素材路径 ${(mode === "0b" || mode === "2a" || mode === "2b") ? "*" : "(当前模式可选)"}`
+                        ),
+                        m("",
+                          {
+                            style: {
+                              display: "flex",
+                              gap: "0.8rem",
+                              alignItems: "center"
+                            }
+                          },
+                          [
+                            m("input",
+                              {
+                                value: configFields.fullBodyBase,
+                                placeholder: "静态全身绿幕图片绝对路径 (.png)",
+                                style: {
+                                  flex: 1,
+                                  padding: "0.8rem 1.2rem",
+                                  borderRadius: "3rem",
+                                  border: "none",
+                                  outline: "none",
+                                  background: getColor("gray_4").back,
+                                  color: getColor("gray_4").front,
+                                  fontSize: "1.5rem"
+                                },
+                                oninput: (e) => configFields.fullBodyBase = e.target.value
+                              }
+                            ),
+                            m("",
+                              {
+                                style: {
+                                  padding: "0.8rem 1.5rem",
+                                  borderRadius: "3rem",
+                                  background: getColor("gray_4").back,
+                                  color: getColor("gray_4").front,
+                                  cursor: "pointer",
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  gap: "0.4rem",
+                                  flexShrink: 0
+                                },
+                                onclick: async () => {
+                                  const res = await settingData.fnCall("appOpenDialog", [{
+                                    title: "选择全身像素材",
+                                    filters: [{ name: "Images", extensions: ["png", "jpg", "webp"] }]
+                                  }])
+                                  if (res && res.ok && res.filePath) {
+                                    configFields.fullBodyBase = res.filePath
+                                    m.redraw()
+                                  }
+                                }
+                              },
+                              [
+                                m.trust(iconPark.getIcon("Picture", { size: "1.4rem", fill: getColor("gray_4").front })),
+                                m("span", "选择文件")
+                              ]
+                            )
+                          ]
+                        )
+                      ]
+                    ),
+
+                    // 半身像素材路径
+                    m("",
+                      {
+                        style: {
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: "0.5rem",
+                          opacity: (mode === "0a" || mode === "1") ? 1 : 0.6
+                        }
+                      },
+                      [
+                        m("label",
+                          {
+                            style: {
+                              fontSize: "1.5rem",
+                              color: getColor("gray_1").front
+                            }
+                          },
+                          `半身像素材路径 ${(mode === "0a" || mode === "1") ? "*" : "(当前模式可选)"}`
+                        ),
+                        m("",
+                          {
+                            style: {
+                              display: "flex",
+                              gap: "0.8rem",
+                              alignItems: "center"
+                            }
+                          },
+                          [
+                            m("input",
+                              {
+                                value: configFields.halfBodyBase,
+                                placeholder: "静态半身绿幕图片绝对路径 (.png)",
+                                style: {
+                                  flex: 1,
+                                  padding: "0.8rem 1.2rem",
+                                  borderRadius: "3rem",
+                                  border: "none",
+                                  outline: "none",
+                                  background: getColor("gray_4").back,
+                                  color: getColor("gray_4").front,
+                                  fontSize: "1.5rem"
+                                },
+                                oninput: (e) => configFields.halfBodyBase = e.target.value
+                              }
+                            ),
+                            m("",
+                              {
+                                style: {
+                                  padding: "0.8rem 1.5rem",
+                                  borderRadius: "3rem",
+                                  background: getColor("gray_4").back,
+                                  color: getColor("gray_4").front,
+                                  cursor: "pointer",
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  gap: "0.4rem",
+                                  flexShrink: 0
+                                },
+                                onclick: async () => {
+                                  const res = await settingData.fnCall("appOpenDialog", [{
+                                    title: "选择半身像素材",
+                                    filters: [{ name: "Images", extensions: ["png", "jpg", "webp"] }]
+                                  }])
+                                  if (res && res.ok && res.filePath) {
+                                    configFields.halfBodyBase = res.filePath
+                                    m.redraw()
+                                  }
+                                }
+                              },
+                              [
+                                m.trust(iconPark.getIcon("Picture", { size: "1.4rem", fill: getColor("gray_4").front })),
+                                m("span", "选择文件")
+                              ]
+                            )
+                          ]
+                        )
+                      ]
+                    )
+                  ]
+                ) : null,
+
+              // === STEP 3: API 服务配置 ===
+              currentStep === 3 ?
+                m("",
+                  {
+                    style: {
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: "1.2rem"
+                    }
+                  },
+                  [
+                    m("",
+                      {
+                        style: {
+                          fontSize: "1.8rem",
+                          color: getColor("gray_3").front,
+                          marginBottom: "0.5rem"
+                        }
+                      },
+                      "配置模型生成接口 (API)"
+                    ),
+
+                    // Step 3 顶部 Tab 切换胶囊 (图片 API / 视频 API)
+                    m("",
+                      {
+                        style: {
+                          display: "inline-flex",
+                          background: getColor("gray_4").back,
+                          borderRadius: "3rem",
+                          padding: "0.4rem",
+                          gap: "0.4rem",
+                          width: "fit-content",
+                          marginBottom: "0.5rem"
+                        }
+                      },
+                      [
+                        { id: "image", label: "🖼️ 图片生成 API" },
+                        { id: "video", label: "🎬 视频生成 API" }
+                      ].map(t => {
+                        const isTabActive = activeTab === t.id
+                        return m("",
+                          {
+                            key: t.id,
+                            style: {
+                              padding: "0.6rem 1.6rem",
+                              borderRadius: "3rem",
+                              background: isTabActive ? getColor("main").back : "transparent",
+                              color: isTabActive ? getColor("main").front : getColor("gray_4").front,
+                              cursor: "pointer",
+                              fontSize: "1.4rem",
+                              transition: "all 0.2s"
+                            },
+                            onclick: () => {
+                              activeTab = t.id
+                            }
+                          },
+                          t.label
+                        )
+                      })
+                    ),
+
+                    // 图片 API 配置面板
+                    activeTab === "image" ?
+                      m("",
                         {
-                          label: opt.name,
-                          description: opt.description
+                          style: {
+                            background: getColor("gray_4").back,
+                            borderRadius: "3rem",
+                            padding: "1.5rem",
+                            display: "flex",
+                            flexDirection: "column",
+                            gap: "1.2rem"
+                          }
                         },
                         [
-                          m("div",
+                          // 图片服务商选择
+                          m("",
                             {
                               style: {
                                 display: "flex",
-                                flexDirection: "row",
                                 alignItems: "center",
-                                gap: "0.6rem"
+                                gap: "0.8rem",
+                                flexWrap: "wrap"
                               }
                             },
                             [
-                              m("div",
+                              m("span", { style: { fontSize: "1.4rem" } }, "图片服务商:"),
+                              [
+                                { id: "volcengine", name: "火山方舟 (Volcengine)" },
+                                { id: "dashscope", name: "阿里百炼 (DashScope)" }
+                              ].map(p => {
+                                const isActive = imageProvider === p.id
+                                return m("",
+                                  {
+                                    key: p.id,
+                                    style: {
+                                      padding: "0.5rem 1.2rem",
+                                      borderRadius: "3rem",
+                                      background: isActive ? getColor("main").back : getColor("gray_3").back,
+                                      color: isActive ? getColor("main").front : getColor("gray_3").front,
+                                      cursor: "pointer",
+                                      fontSize: "1.3rem",
+                                      transition: "all 0.2s"
+                                    },
+                                    onclick: () => {
+                                      imageProvider = p.id
+                                      const preset = MODEL_PRESETS[p.id]
+                                      if (preset) {
+                                        configFields.imageApiUrl = preset.imageDefaultUrl
+                                        configFields.imageModel = preset.imageModels[0]?.value || ""
+                                      }
+                                    }
+                                  },
+                                  p.name
+                                )
+                              })
+                            ]
+                          ),
+
+                          // 图片 API URL
+                          m("",
+                            {
+                              style: {
+                                display: "flex",
+                                flexDirection: "column",
+                                gap: "0.4rem"
+                              }
+                            },
+                            [
+                              m("label", { style: { fontSize: "1.3rem", opacity: 0.8 } }, "图片 API 接口地址 (URL)"),
+                              m("input",
+                                {
+                                  value: configFields.imageApiUrl,
+                                  placeholder: "https://...",
+                                  style: {
+                                    padding: "0.8rem 1.2rem",
+                                    borderRadius: "3rem",
+                                    border: "none",
+                                    outline: "none",
+                                    background: getColor("gray_3").back,
+                                    color: getColor("gray_3").front,
+                                    fontSize: "1.5rem"
+                                  },
+                                  oninput: (e) => configFields.imageApiUrl = e.target.value
+                                }
+                              )
+                            ]
+                          ),
+
+                          // 图片 API Key
+                          m("",
+                            {
+                              style: {
+                                display: "flex",
+                                flexDirection: "column",
+                                gap: "0.4rem"
+                              }
+                            },
+                            [
+                              m("label", { style: { fontSize: "1.3rem", opacity: 0.8 } }, "图片 API 密钥 (Key)"),
+                              m("",
                                 {
                                   style: {
-                                    flex: "1"
+                                    position: "relative",
+                                    display: "flex",
+                                    alignItems: "center"
                                   }
                                 },
                                 [
-                                  m(AutoForm,
+                                  m("input",
                                     {
-                                      dataObj: opt,
-                                      dataName: "value",
-                                      extEditMode: false
+                                      type: showImageApiKey ? "text" : "password",
+                                      value: configFields.imageApiKey,
+                                      placeholder: "sk-...",
+                                      style: {
+                                        width: "100%",
+                                        padding: "0.8rem 1.2rem",
+                                        paddingRight: "3.5rem",
+                                        borderRadius: "3rem",
+                                        border: "none",
+                                        outline: "none",
+                                        background: getColor("gray_3").back,
+                                        color: getColor("gray_3").front,
+                                        fontSize: "1.5rem"
+                                      },
+                                      oninput: (e) => configFields.imageApiKey = e.target.value
                                     }
+                                  ),
+                                  m("",
+                                    {
+                                      style: {
+                                        position: "absolute",
+                                        right: "1rem",
+                                        cursor: "pointer"
+                                      },
+                                      onclick: () => showImageApiKey = !showImageApiKey
+                                    },
+                                    [
+                                      m.trust(showImageApiKey ?
+                                        iconPark.getIcon("PreviewOpen", { size: "1.6rem", fill: getColor("gray_3").front }) :
+                                        iconPark.getIcon("PreviewClose", { size: "1.6rem", fill: getColor("gray_3").front })
+                                      )
+                                    ]
                                   )
                                 ]
-                              ),
-                              m(Box,
+                              )
+                            ]
+                          ),
+
+                          // 图片 Model (下拉选单 + 自定义输入)
+                          m("",
+                            {
+                              style: {
+                                display: "flex",
+                                flexDirection: "column",
+                                gap: "0.4rem"
+                              }
+                            },
+                            [
+                              m("label", { style: { fontSize: "1.3rem", opacity: 0.8 } }, "图片生成模型 (Model / Endpoint)"),
+                              m("select",
                                 {
-                                  color: "main",
-                                  isBtn: true,
-                                  onclick: async () => {
-                                    try {
-                                      const res = await settingData.fnCall(
-                                        "appOpenDialog",
-                                        [
-                                          opt.key === "outputDir"
-                                            ? {
-                                              title: "选择输出目录",
-                                              properties: [
-                                                "openDirectory"
-                                              ]
-                                            }
-                                            : {
-                                              title: `选择${opt.name}`,
-                                              filters: [
-                                                {
-                                                  name: "Images",
-                                                  extensions: [
-                                                    "png",
-                                                    "jpg",
-                                                    "jpeg"
-                                                  ]
-                                                }
-                                              ]
-                                            }
-                                        ]
-                                      )
-                                      if (res && res.ok && res.filePath) {
-                                        opt.value = res.filePath
-                                        m.redraw()
-                                      }
-                                    } catch (err) {
-                                      console.error(err)
+                                  style: {
+                                    padding: "0.8rem 1.2rem",
+                                    borderRadius: "3rem",
+                                    border: "none",
+                                    outline: "none",
+                                    background: getColor("gray_3").back,
+                                    color: getColor("gray_3").front,
+                                    fontSize: "1.4rem",
+                                    cursor: "pointer",
+                                    marginBottom: "0.4rem"
+                                  },
+                                  onchange: (e) => {
+                                    if (e.target.value) {
+                                      configFields.imageModel = e.target.value
                                     }
                                   }
                                 },
-                                "选择"
+                                [
+                                  activeImagePreset.imageModels.map(mOpt => {
+                                    return m("option", { value: mOpt.value, selected: configFields.imageModel === mOpt.value }, mOpt.label)
+                                  })
+                                ]
+                              ),
+                              m("input",
+                                {
+                                  value: configFields.imageModel,
+                                  placeholder: "可在此手动输入模型名称或 ep-xxx 推理接入点",
+                                  style: {
+                                    padding: "0.8rem 1.2rem",
+                                    borderRadius: "3rem",
+                                    border: "none",
+                                    outline: "none",
+                                    background: getColor("gray_3").back,
+                                    color: getColor("gray_3").front,
+                                    fontSize: "1.5rem"
+                                  },
+                                  oninput: (e) => configFields.imageModel = e.target.value
+                                }
                               )
                             ]
                           )
                         ]
-                      )
-                    ]
-                  )
-                })
-              ),
+                      ) : null,
 
-              // Section 3: 任务参数
-              m(Box,
-                {
-                  color: "main"
-                },
-                "生成任务参数"
-              ),
-
-              // Custom Generation Mode Selector with Category Tab Switcher inside FormItem
-              m(FormItem,
-                {
-                  label: "制作模式",
-                  description: "切换图片或视频模式，选择对应的表情与动作生成规则"
-                },
-                [
-                  m("div",
-                    {
-                      style: {
-                        display: "flex",
-                        flexDirection: "column",
-                        gap: "0.8rem",
-                        padding: "1rem 1.2rem",
-                        background: getColor("确认框输入背景"),
-                        borderRadius: "1rem",
-                        border: "1.5px solid " + getColor("确认框输入边框"),
-                        margin: "0.5rem"
-                      }
-                    },
-                    [
-                      // Mode Category Pill Switcher (图片模式 vs 视频模式)
-                      m("div",
+                    // 视频 API 配置面板
+                    activeTab === "video" ?
+                      m("",
                         {
                           style: {
-                            display: "inline-flex",
-                            background: getColor("gray_3").back,
-                            borderRadius: "1.2rem",
-                            padding: "0.25rem",
-                            marginBottom: "0.5rem",
-                            gap: "0.2rem",
-                            width: "fit-content"
+                            background: getColor("gray_4").back,
+                            borderRadius: "3rem",
+                            padding: "1.5rem",
+                            display: "flex",
+                            flexDirection: "column",
+                            gap: "1.2rem"
                           }
                         },
                         [
-                          m("div",
+                          // 视频服务商选择
+                          m("",
                             {
                               style: {
-                                padding: "0.3rem 1.2rem",
-                                borderRadius: "1rem",
-                                background: modeCategory === "image" ? getColor("main").back : "transparent",
-                                color: modeCategory === "image" ? getColor("main").front : getColor("gray_1").front,
-                                cursor: "pointer",
-                                fontSize: "0.9rem",
-                                fontWeight: "bold",
-                                transition: "all 0.2s"
-                              },
-                              onclick: () => {
-                                modeCategory = "image"
-                                if (mode !== "0a" && mode !== "0b") {
-                                  mode = "0a"
-                                }
+                                display: "flex",
+                                alignItems: "center",
+                                gap: "0.8rem",
+                                flexWrap: "wrap"
                               }
                             },
-                            "图片模式 (静态)"
+                            [
+                              m("span", { style: { fontSize: "1.4rem" } }, "视频服务商:"),
+                              [
+                                { id: "volcengine", name: "火山方舟 (Volcengine)" },
+                                { id: "dashscope", name: "阿里百炼 (DashScope)" }
+                              ].map(p => {
+                                const isActive = videoProvider === p.id
+                                return m("",
+                                  {
+                                    key: p.id,
+                                    style: {
+                                      padding: "0.5rem 1.2rem",
+                                      borderRadius: "3rem",
+                                      background: isActive ? getColor("main").back : getColor("gray_3").back,
+                                      color: isActive ? getColor("main").front : getColor("gray_3").front,
+                                      cursor: "pointer",
+                                      fontSize: "1.3rem",
+                                      transition: "all 0.2s"
+                                    },
+                                    onclick: () => {
+                                      videoProvider = p.id
+                                      const preset = MODEL_PRESETS[p.id]
+                                      if (preset) {
+                                        configFields.videoApiUrl = preset.videoDefaultUrl
+                                        configFields.videoModel = preset.videoModels[0]?.value || ""
+                                      }
+                                    }
+                                  },
+                                  p.name
+                                )
+                              })
+                            ]
                           ),
-                          m("div",
+
+                          // 视频 API URL
+                          m("",
                             {
                               style: {
-                                padding: "0.3rem 1.2rem",
-                                borderRadius: "1rem",
-                                background: modeCategory === "video" ? getColor("main").back : "transparent",
-                                color: modeCategory === "video" ? getColor("main").front : getColor("gray_1").front,
-                                cursor: "pointer",
-                                fontSize: "0.9rem",
-                                fontWeight: "bold",
-                                transition: "all 0.2s"
-                              },
-                              onclick: () => {
-                                modeCategory = "video"
-                                if (mode === "0a" || mode === "0b") {
-                                  mode = "1"
-                                }
+                                display: "flex",
+                                flexDirection: "column",
+                                gap: "0.4rem"
                               }
                             },
-                            "视频模式 (绿幕动态)"
+                            [
+                              m("label", { style: { fontSize: "1.3rem", opacity: 0.8 } }, "视频 API 接口地址 (URL)"),
+                              m("input",
+                                {
+                                  value: configFields.videoApiUrl,
+                                  placeholder: "https://...",
+                                  style: {
+                                    padding: "0.8rem 1.2rem",
+                                    borderRadius: "3rem",
+                                    border: "none",
+                                    outline: "none",
+                                    background: getColor("gray_3").back,
+                                    color: getColor("gray_3").front,
+                                    fontSize: "1.5rem"
+                                  },
+                                  oninput: (e) => configFields.videoApiUrl = e.target.value
+                                }
+                              )
+                            ]
+                          ),
+
+                          // 视频 API Key
+                          m("",
+                            {
+                              style: {
+                                display: "flex",
+                                flexDirection: "column",
+                                gap: "0.4rem"
+                              }
+                            },
+                            [
+                              m("label", { style: { fontSize: "1.3rem", opacity: 0.8 } }, "视频 API 密钥 (Key)"),
+                              m("",
+                                {
+                                  style: {
+                                    position: "relative",
+                                    display: "flex",
+                                    alignItems: "center"
+                                  }
+                                },
+                                [
+                                  m("input",
+                                    {
+                                      type: showVideoApiKey ? "text" : "password",
+                                      value: configFields.videoApiKey,
+                                      placeholder: "sk-...",
+                                      style: {
+                                        width: "100%",
+                                        padding: "0.8rem 1.2rem",
+                                        paddingRight: "3.5rem",
+                                        borderRadius: "3rem",
+                                        border: "none",
+                                        outline: "none",
+                                        background: getColor("gray_3").back,
+                                        color: getColor("gray_3").front,
+                                        fontSize: "1.5rem"
+                                      },
+                                      oninput: (e) => configFields.videoApiKey = e.target.value
+                                    }
+                                  ),
+                                  m("",
+                                    {
+                                      style: {
+                                        position: "absolute",
+                                        right: "1rem",
+                                        cursor: "pointer"
+                                      },
+                                      onclick: () => showVideoApiKey = !showVideoApiKey
+                                    },
+                                    [
+                                      m.trust(showVideoApiKey ?
+                                        iconPark.getIcon("PreviewOpen", { size: "1.6rem", fill: getColor("gray_3").front }) :
+                                        iconPark.getIcon("PreviewClose", { size: "1.6rem", fill: getColor("gray_3").front })
+                                      )
+                                    ]
+                                  )
+                                ]
+                              )
+                            ]
+                          ),
+
+                          // 视频 Model (下拉选单 + 自定义输入)
+                          m("",
+                            {
+                              style: {
+                                display: "flex",
+                                flexDirection: "column",
+                                gap: "0.4rem"
+                              }
+                            },
+                            [
+                              m("label", { style: { fontSize: "1.3rem", opacity: 0.8 } }, "视频生成模型 (Model / Endpoint)"),
+                              m("select",
+                                {
+                                  style: {
+                                    padding: "0.8rem 1.2rem",
+                                    borderRadius: "3rem",
+                                    border: "none",
+                                    outline: "none",
+                                    background: getColor("gray_3").back,
+                                    color: getColor("gray_3").front,
+                                    fontSize: "1.4rem",
+                                    cursor: "pointer",
+                                    marginBottom: "0.4rem"
+                                  },
+                                  onchange: (e) => {
+                                    if (e.target.value) {
+                                      configFields.videoModel = e.target.value
+                                    }
+                                  }
+                                },
+                                [
+                                  activeVideoPreset.videoModels.map(mOpt => {
+                                    return m("option", { value: mOpt.value, selected: configFields.videoModel === mOpt.value }, mOpt.label)
+                                  })
+                                ]
+                              ),
+                              m("input",
+                                {
+                                  value: configFields.videoModel,
+                                  placeholder: "可在此手动输入模型名称或 ep-xxx 推理接入点",
+                                  style: {
+                                    padding: "0.8rem 1.2rem",
+                                    borderRadius: "3rem",
+                                    border: "none",
+                                    outline: "none",
+                                    background: getColor("gray_3").back,
+                                    color: getColor("gray_3").front,
+                                    fontSize: "1.5rem"
+                                  },
+                                  oninput: (e) => configFields.videoModel = e.target.value
+                                }
+                              )
+                            ]
                           )
                         ]
-                      ),
+                      ) : null
+                  ]
+                ) : null,
 
-                      // Mode Radio Options based on selected Mode Category
-                      (modeCategory === "image" ? imageModeList : videoModeList).map(item => {
-                        const isChecked = mode === item.value
-                        return m("label",
+              // === STEP 4: 提示词与执行 ===
+              currentStep === 4 ?
+                m("",
+                  {
+                    style: {
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: "1.2rem"
+                    }
+                  },
+                  [
+                    m("",
+                      {
+                        style: {
+                          fontSize: "1.8rem",
+                          color: getColor("gray_3").front,
+                          marginBottom: "0.5rem"
+                        }
+                      },
+                      "设置表情动作描述并开始制作"
+                    ),
+
+                    // 提示词输入框
+                    m("",
+                      {
+                        style: {
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: "0.5rem"
+                        }
+                      },
+                      [
+                        m("label",
+                          {
+                            style: {
+                              fontSize: "1.5rem",
+                              color: getColor("gray_1").front
+                            }
+                          },
+                          "表情或动作提示词 *"
+                        ),
+                        m("textarea",
+                          {
+                            value: configFields.prompt,
+                            placeholder: "输入角色的表情或动作细节，例如：微笑，表情柔和幸福，嘴角上扬...",
+                            rows: 3,
+                            style: {
+                              padding: "1rem 1.2rem",
+                              borderRadius: "1.5rem",
+                              border: "none",
+                              outline: "none",
+                              background: getColor("gray_4").back,
+                              color: getColor("gray_4").front,
+                              fontSize: "1.5rem",
+                              lineHeight: "1.5",
+                              resize: "vertical"
+                            },
+                            oninput: (e) => configFields.prompt = e.target.value
+                          }
+                        )
+                      ]
+                    ),
+
+                    // 原生表情快捷 Tag 胶囊
+                    m("",
+                      {
+                        style: {
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: "0.6rem"
+                        }
+                      },
+                      [
+                        m("span",
+                          {
+                            style: {
+                              fontSize: "1.2rem",
+                              color: getColor("gray_4").front,
+                              opacity: 0.8
+                            }
+                          },
+                          "💡 默认角色包 (default/pet) 快捷预设 (点击一键填入)："
+                        ),
+                        m("",
                           {
                             style: {
                               display: "flex",
-                              alignItems: "center",
-                              gap: "0.8rem",
-                              cursor: "pointer",
-                              fontSize: "0.95rem",
-                              color: getColor("确认框输入文字"),
-                              padding: "0.2rem 0"
+                              flexWrap: "wrap",
+                              gap: "0.5rem"
                             }
                           },
-                          [
-                            m("input[type=radio]",
+                          presetPrompts.map(item => {
+                            const isSelected = configFields.prompt === item.prompt
+                            return m("",
                               {
-                                name: "generationMode",
-                                value: item.value,
-                                checked: isChecked,
-                                onchange: (e) => {
-                                  mode = e.target.value
-                                },
+                                key: item.label,
                                 style: {
+                                  padding: "0.5rem 1.2rem",
+                                  borderRadius: "3rem",
+                                  background: isSelected ? getColor("main").back : getColor("gray_4").back,
+                                  color: isSelected ? getColor("main").front : getColor("gray_4").front,
                                   cursor: "pointer",
-                                  width: "1.1rem",
-                                  height: "1.1rem",
-                                  accentColor: getColor("main").back
+                                  fontSize: "1.2rem",
+                                  transition: "all 0.2s"
+                                },
+                                onclick: () => {
+                                  configFields.prompt = item.prompt
                                 }
-                              }
-                            ),
-                            m("span",
+                              },
                               item.label
                             )
-                          ]
+                          })
                         )
-                      }),
+                      ]
+                    )
+                  ]
+                ) : null
+            ]
+          ),
 
-                      // Mode Process Guide
-                      m("div",
-                        {
-                          style: {
-                            marginTop: "1rem",
-                            paddingTop: "0.8rem",
-                            borderTop: `1.5px dashed ${getColor("gray_4").front}1c`,
-                            fontSize: "0.9rem",
-                            lineHeight: "1.6",
-                            color: getColor("gray_1").front,
-                            opacity: "0.85"
-                          }
-                        },
-                        [
-                          mode === "0a" ? m("", [
-                            m("div", { style: { fontWeight: "bold", marginBottom: "0.3rem" } }, "⚙️ 运行机制与系统流程："),
-                            m("div", "1. 系统基于你提供的「半身像素材」，结合「提示词」，调用图片生成 API 绘制全新的半身表情图。"),
-                            m("div", "2. 生成的静态图片直接保存至输出目录（如 final_expression_image.png），不进行任何视频插帧或 FFmpeg 合成。适合制作静态头像与对话框表情包。")
-                          ]) : void 0,
-                          mode === "0b" ? m("", [
-                            m("div", { style: { fontWeight: "bold", marginBottom: "0.3rem" } }, "⚙️ 运行机制与系统流程："),
-                            m("div", "1. 系统基于你提供的「全身像素材」，结合「提示词」，调用图片生成 API 绘制完成指定新动作的静态全身姿势图。"),
-                            m("div", "2. 生成的静态姿势图直接保存至输出目录（如 final_pose_image.png），不合成视频。适合制作立绘插画与静态动作素材。")
-                          ]) : void 0,
-                          mode === "1" ? m("", [
-                            m("div", { style: { fontWeight: "bold", marginBottom: "0.3rem" } }, "⚙️ 运行机制与系统流程："),
-                            m("div", "1. 系统会基于你提供的「半身像素材」，结合「提示词」，通过图片生成 API 生成一张全新的半身表情图。"),
-                            m("div", "2. 生成新图后，自动调用视频模型合成两段镜头过渡视频：从「默认全身站姿」镜头拉近至「表情半身特写」，再由「表情半身特写」拉远退回「默认全身站姿」。"),
-                            m("div", "3. 使用 ffmpeg 拼接两段视频并绿幕化输出。适合制作情绪反应和特写动作。")
-                          ]) : void 0,
-                          mode === "2a" ? m("", [
-                            m("div", { style: { fontWeight: "bold", marginBottom: "0.3rem" } }, "⚙️ 运行机制与系统流程："),
-                            m("div", "1. 系统不需要额外画图，直接使用现成的「全身像素材」作为视频的开始帧与结束帧。"),
-                            m("div", "2. 直接调用视频生成模型对全身图进行动作合成，生成首尾姿势完全相同、中间带有微动姿势的绿幕视频。"),
-                            m("div", "3. 适合生成微动呼吸、站立待机、小幅度手势等能够完美首尾相接、支持循环播放的画面。")
-                          ]) : void 0,
-                          mode === "2b" ? m("", [
-                            m("div", { style: { fontWeight: "bold", marginBottom: "0.3rem" } }, "⚙️ 运行机制与系统流程："),
-                            m("div", "1. 视频的首帧为默认站姿，尾帧为新动作。系统会先基于「全身像素材」加「提示词」，通过图片生成 API 绘制一张完成指定动作的全身尾帧图。"),
-                            m("div", "2. 获得尾帧图后，调用视频生成模型进行动作补间，合成从「默认正常站立」变化过渡到「指定结束动作」的绿幕动作视频。"),
-                            m("div", "3. 适合做大幅度的动作转折、技能释放或者大幅度姿势演绎。")
-                          ]) : void 0
-                        ]
-                      )
-                    ]
-                  )
-                ]
-              ),
-
-              // Render Prompt Option with Tag Preset Quick Bar (Mapped 1:1 from petPkgs/default/pet filenames)
+          // 底部向导步骤控制栏与操作按钮
+          m("",
+            {
+              style: {
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                flexWrap: "wrap",
+                gap: "0.8rem",
+                marginTop: "0.5rem"
+              }
+            },
+            [
+              // 左侧：导入与导出
               m("",
                 {
                   style: {
                     display: "flex",
-                    flexDirection: "column"
+                    gap: "0.8rem"
                   }
                 },
                 [
-                  m(FormItem,
+                  m("",
                     {
-                      label: promptOption.name,
-                      description: promptOption.description
+                      style: {
+                        padding: "0.8rem 1.5rem",
+                        borderRadius: "3rem",
+                        background: getColor("gray_3").back,
+                        color: getColor("gray_3").front,
+                        cursor: "pointer",
+                        fontSize: "1.4rem",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "0.4rem"
+                      },
+                      onclick: importConfig
                     },
                     [
-                      m(AutoForm,
-                        {
-                          dataObj: promptOption,
-                          dataName: "value",
-                          extEditMode: false
-                        }
-                      ),
-                      // Preset Prompts Quick Bar using Tag component
-                      m("div",
-                        {
-                          style: {
-                            display: "flex",
-                            flexDirection: "column",
-                            gap: "0.4rem",
-                            margin: "0.8rem 0.5rem 0.2rem 0.5rem"
-                          }
-                        },
-                        [
-                          m("div",
-                            {
-                              style: {
-                                fontSize: "0.85rem",
-                                color: getColor("gray_1").front,
-                                opacity: "0.8",
-                                fontWeight: "bold"
-                              }
-                            },
-                            "💡 默认角色包 (default/pet) 表情预设 (点击 Tag 一键填入)："
-                          ),
-                          m("div",
-                            {
-                              style: {
-                                display: "flex",
-                                flexWrap: "wrap",
-                                gap: "0.2rem"
-                              }
-                            },
-                            presetPrompts.map(item => {
-                              const isSelected = promptOption.value === item.prompt
-                              return m(Tag,
-                                {
-                                  isBtn: true,
-                                  color: isSelected ? "main" : "sliver",
-                                  styleExt: {
-                                    margin: "0.2rem",
-                                    fontSize: "0.85rem",
-                                    cursor: "pointer"
-                                  },
-                                  onclick: () => {
-                                    promptOption.value = item.prompt
-                                    m.redraw()
-                                  }
-                                },
-                                item.label
-                              )
-                            })
-                          )
-                        ]
-                      )
+                      m.trust(iconPark.getIcon("Download", { size: "1.4rem", fill: getColor("gray_3").front })),
+                      m("span", "导入配置")
+                    ]
+                  ),
+                  m("",
+                    {
+                      style: {
+                        padding: "0.8rem 1.5rem",
+                        borderRadius: "3rem",
+                        background: getColor("gray_3").back,
+                        color: getColor("gray_3").front,
+                        cursor: "pointer",
+                        fontSize: "1.4rem",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "0.4rem"
+                      },
+                      onclick: exportConfig
+                    },
+                    [
+                      m.trust(iconPark.getIcon("Upload", { size: "1.4rem", fill: getColor("gray_3").front })),
+                      m("span", "导出配置")
                     ]
                   )
                 ]
+              ),
+
+              // 右侧：上一步 / 下一步 / 开始制作 (支持自由切换)
+              m("",
+                {
+                  style: {
+                    display: "flex",
+                    gap: "0.8rem"
+                  }
+                },
+                [
+                  currentStep > 1 ?
+                    m("",
+                      {
+                        style: {
+                          padding: "0.8rem 1.8rem",
+                          borderRadius: "3rem",
+                          background: getColor("gray_4").back,
+                          color: getColor("gray_4").front,
+                          cursor: "pointer",
+                          fontSize: "1.5rem",
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: "0.4rem"
+                        },
+                        onclick: () => currentStep--
+                      },
+                      "上一步"
+                    ) : null,
+
+                  currentStep < 4 ?
+                    m("",
+                      {
+                        style: {
+                          padding: "0.8rem 2rem",
+                          borderRadius: "3rem",
+                          background: getColor("main").back,
+                          color: getColor("main").front,
+                          cursor: "pointer",
+                          fontSize: "1.5rem",
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: "0.4rem"
+                        },
+                        onclick: () => {
+                          currentStep++
+                        }
+                      },
+                      [
+                        m("span", "下一步"),
+                        m.trust(iconPark.getIcon("Right", { size: "1.4rem", fill: getColor("main").front }))
+                      ]
+                    ) :
+                    m("",
+                      {
+                        style: {
+                          display: "flex",
+                          gap: "0.8rem"
+                        }
+                      },
+                      [
+                        m("",
+                          {
+                            style: {
+                              padding: "0.8rem 2.2rem",
+                              borderRadius: "3rem",
+                              background: getColor("main").back,
+                              color: getColor("main").front,
+                              cursor: "pointer",
+                              fontSize: "1.5rem",
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: "0.4rem"
+                            },
+                            onclick: async () => {
+                              // 提交前统一完整校验
+                              const validationError = validateAllBeforeSubmit()
+                              if (validationError) {
+                                currentStep = validationError.step
+                                Notice.launch({ msg: `⚠️ ${validationError.msg}`, color: "pink" })
+                                logs.push(`❌ 提交被拦截 (步骤 ${validationError.step}): ${validationError.msg}`)
+                                m.redraw()
+                                return
+                              }
+
+                              logs.push("⏳ 正在提交任务到主控 AI...")
+                              try {
+                                await settingData.fnCall("appDispatch", [
+                                  appId,
+                                  "commitTask",
+                                  { config: getFullConfigData(true) }
+                                ])
+                                logs.push("✅ 任务已提交给主控 AI，请在聊天窗口查看任务进度。")
+                                Notice.launch({ msg: "角色包制作任务已启动", color: "green" })
+                              } catch (e) {
+                                logs.push(`❌ 提交失败: ${e.message}`)
+                                Notice.launch({ msg: `提交失败: ${e.message}`, color: "pink" })
+                              }
+                            }
+                          },
+                          [
+                            m.trust(iconPark.getIcon("Play", { size: "1.4rem", fill: getColor("main").front })),
+                            m("span", "开始制作")
+                          ]
+                        ),
+                        m("",
+                          {
+                            style: {
+                              padding: "0.8rem 1.8rem",
+                              borderRadius: "3rem",
+                              background: getColor("pink_1").back,
+                              color: getColor("pink_1").front,
+                              cursor: "pointer",
+                              fontSize: "1.5rem",
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: "0.4rem"
+                            },
+                            onclick: async () => {
+                              logs.push("🛑 正在发送停止信号...")
+                              try {
+                                await settingData.fnCall("appDispatch", [appId, "cancelTask", {}])
+                                logs.push("✅ 已成功发送停止指令。")
+                                Notice.launch({ msg: "已发送停止指令", color: "yellow" })
+                              } catch (e) {
+                                logs.push(`❌ 停止失败: ${e.message}`)
+                              }
+                            }
+                          },
+                          [
+                            m.trust(iconPark.getIcon("Square", { size: "1.4rem", fill: getColor("pink_1").front })),
+                            m("span", "停止任务")
+                          ]
+                        )
+                      ]
+                    )
+                ]
               )
             ]
+          ),
+
+          // 底部控制台日志窗口 (手绘 3rem 圆角极客终端风格)
+          m("",
+            {
+              style: {
+                background: "#0f0f11",
+                color: "#00ff66",
+                border: `0.1rem solid ${getColor("gray_4").front}22`,
+                padding: "1.2rem 1.6rem",
+                height: "12rem",
+                boxSizing: "border-box",
+                overflowX: "hidden",
+                overflowY: "auto",
+                fontFamily: "monospace",
+                fontSize: "1.2rem",
+                whiteSpace: "pre-wrap",
+                wordBreak: "break-all",
+                borderRadius: "3rem",
+                boxShadow: "0 0.6rem 1.6rem rgba(0,0,0,0.35), inset 0 0 1rem rgba(0,0,0,0.5)"
+              }
+            },
+            logs.length === 0
+              ? [m("div", { style: { color: "#666", fontStyle: "italic" } }, "等待任务开始，运行日志将在这里实时输出...")]
+              : logs.map(line => m("", { style: { marginBottom: "0.3rem" } }, line))
           )
         ]
       )

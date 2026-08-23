@@ -16,6 +16,7 @@ export default class LspClient extends EventEmitter {
     this.idCounter = 1;
     this.buffer = Buffer.alloc(0);
     this.callbacks = new Map();
+    this.diagnosticsMap = new Map(); // uri -> Diagnostic[]
     this.isInitialized = false;
     this.capabilities = null;
   }
@@ -27,7 +28,8 @@ export default class LspClient extends EventEmitter {
     this.process = spawn(this.command, this.args, {
       stdio: ['pipe', 'pipe', 'pipe'],
       cwd: this.options.cwd || process.cwd(),
-      env: { ...process.env, ...this.options.env }
+      env: { ...process.env, ...this.options.env },
+      shell: process.platform === 'win32'
     });
 
     return new Promise((resolve, reject) => {
@@ -81,6 +83,8 @@ export default class LspClient extends EventEmitter {
   }
 
   _handleMessage(message) {
+    // 截断打印收到的数据，防刷屏
+    console.log(`[LSP-Trace-IN] ${JSON.stringify(message).substring(0, 300)}`);
     if (message.id !== undefined) {
       const callback = this.callbacks.get(message.id);
       if (callback) {
@@ -92,8 +96,29 @@ export default class LspClient extends EventEmitter {
         }
       }
     } else if (message.method) {
+      // 捕获 LSP 实时诊断通知 (publishDiagnostics)
+      if (message.method === 'textDocument/publishDiagnostics' && message.params) {
+        const { uri, diagnostics } = message.params;
+        if (uri) {
+          this.diagnosticsMap.set(uri, diagnostics || []);
+        }
+      }
       this.emit('notification', message);
     }
+  }
+
+  /**
+   * 获取指定文件或所有文件的诊断信息
+   */
+  getDiagnostics(uri) {
+    if (uri) {
+      return this.diagnosticsMap.get(uri) || [];
+    }
+    const all = [];
+    for (const [fileUri, diags] of this.diagnosticsMap.entries()) {
+      all.push({ uri: fileUri, diagnostics: diags });
+    }
+    return all;
   }
 
   /**
@@ -108,6 +133,7 @@ export default class LspClient extends EventEmitter {
       method,
       params
     };
+    console.log(`[LSP-Trace-OUT] REQ ${id}: ${method}`);
     return new Promise((resolve, reject) => {
       this.callbacks.set(id, { resolve, reject });
       this._write(message);
@@ -124,6 +150,7 @@ export default class LspClient extends EventEmitter {
       method,
       params
     };
+    console.log(`[LSP-Trace-OUT] NOTIF: ${method}`);
     this._write(message);
   }
 
@@ -137,11 +164,30 @@ export default class LspClient extends EventEmitter {
     }
   }
 
+  /**
+   * 优雅停机 (Graceful Shutdown)
+   */
   async stop() {
     if (this.process) {
-      this.process.kill();
-      this.process = null;
-      this.isInitialized = false;
+      try {
+        if (this.isInitialized) {
+          // 发送 shutdown 请求，带 2s 超时防挂起
+          const shutdownPromise = this.sendRequest('shutdown', null);
+          const timeoutPromise = new Promise(resolve => setTimeout(resolve, 2000));
+          await Promise.race([shutdownPromise, timeoutPromise]);
+          this.sendNotification('exit', null);
+        }
+      } catch (err) {
+        // 忽略停机阶段的通信错误
+      } finally {
+        if (this.process) {
+          this.process.kill();
+          this.process = null;
+        }
+        this.isInitialized = false;
+        this.callbacks.clear();
+        this.diagnosticsMap.clear();
+      }
     }
   }
 }

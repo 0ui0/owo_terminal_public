@@ -15,6 +15,8 @@ export default function getDefaultComData() {
         thinkStrength: "medium",
         workDirs: [],
         tokenCompressSwitch: true,
+        autoLaunchEditor: false,
+        skipConfirmTools: [],
         replying: false,
         streamChunks: "",
         streamDisplayContent: "",

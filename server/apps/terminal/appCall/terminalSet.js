@@ -166,7 +166,11 @@ export default {
       content: fullCommand,
       argsDesc: autoMarkdownTable,
       title: `是否执行命令？【${termModeDesc}】(运行路径: ${targetCwd})`,
-      listId: currentListId
+      listId: currentListId,
+      ext: {
+        identifier: "app:terminal",
+        toolId: this.id
+      }
     })
 
     if (!userConfirm.ok) {

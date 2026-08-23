@@ -2,6 +2,8 @@ import Box from "../common/box.js"
 import comData from "../../comData/comData.js"
 import getColor from "../common/getColor.js"
 import format from "../common/format.js"
+import settingData from "../setting/settingData.js"
+import ChatBatchReview from "./ChatBatchReview.js"
 
 export default () => {
   let localComment = ""
@@ -13,6 +15,14 @@ export default () => {
     view({ attrs, children }) {
       let confirmCmd = attrs.confirmCmd
       let chatList = attrs.chatList
+
+      // 💡 批量文件审查模式分流
+      if (Array.isArray(confirmCmd?.ext?.files) && confirmCmd.ext.files.length > 0) {
+        return m(ChatBatchReview, { confirmCmd, chatList })
+      }
+
+      const isEditorConfirm = confirmCmd?.ext?.identifier === "app:editor"
+
       return m("", {
         style: {
           display: "flex",
@@ -109,9 +119,26 @@ export default () => {
           style: {
             display: "flex",
             justifyContent: "flex-end",
-            alignItems: "center"
+            alignItems: "center",
+            gap: "0.5rem"
           }
         }, [
+          isEditorConfirm ? m(Box, {
+            style: {
+              marginRight: "auto",
+              background: getColor("main").back,
+              color: getColor("main").front
+            },
+            isBtn: true,
+            async onclick() {
+              if (settingData?.fnCall) {
+                const appType = confirmCmd.ext?.identifier?.split(":")[1] || "editor"
+                await settingData.fnCall("appLaunch", [appType, {
+                  data: confirmCmd.ext
+                }])
+              }
+            }
+          }, "打开编辑器") : null,
           m(Box, {
             style: {
               marginRight: "0",

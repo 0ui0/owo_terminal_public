@@ -28,7 +28,11 @@ export default {
       title: "安全警告：执行浏览器 JS 脚本",
       content: code,
       argsDesc: argsDesc || `AI 正在请求在浏览器实例 (${appId}) 的页面中执行这段 JavaScript 脚本。这属于高危操作，请仔细审查脚本内容是否安全！`,
-      listId: argObj.listId || 0
+      listId: argObj.listId || 0,
+      ext: {
+        identifier: "app:browser",
+        toolId: this.id
+      }
     })
 
     if (!userConfirm.ok) {

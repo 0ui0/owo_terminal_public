@@ -43,7 +43,18 @@ export default {
       type: "tip",
       title: trs("editorPatcher/核对内容变更标题", { cn: "核对内容变更", en: "Check Content Change" }),
       content: `${reason}\n\n` + trs("editorPatcher/核对内容变更正文", { cn: "请核对 AI 提议的修改并在编辑器中批准/拒绝", en: "Please check the AI proposed changes and approve/reject in the editor" }),
-      listId: argObj.listId || 0
+      listId: argObj.listId || 0,
+      ext: {
+        identifier: "app:editor",
+        toolId: this.id,
+        appId,
+        filePath,
+        originalContent: currentContent,
+        proposedContent,
+        isDiff: true,
+        confirmId,
+        reason
+      }
     })
 
     await appManager.dispatch(appId, "showDiff", {
