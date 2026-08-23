@@ -8,15 +8,10 @@ import workDirTool from "../../workDirTool.js"
 import { trs } from "../../i18n.js"
 import fileState from "../../fileState.js"
 
-// ==========================================
-// VS Code Codex Patch 状态机与解析引擎
-// ==========================================
-
-const ActionType = {
-  ADD: "add",
-  DELETE: "delete",
-  UPDATE: "update"
-}
+import {
+  ActionType,
+  processPatch
+} from "../../fileTools/parser.js"
 
 function computeLineDiffStats(orig, prop) {
   const origLines = orig ? orig.split(/\r?\n/) : []
@@ -38,171 +33,6 @@ function computeLineDiffStats(orig, prop) {
     del = 1
   }
   return { addLines: add, delLines: del }
-}
-
-/**
- * 解析 Codex Patch 纯文本流
- * @param {string} patchText 
- */
-function parsePatch(patchText) {
-  const lines = patchText.split(/\r?\n/)
-  let i = 0
-
-  // 1. 定位 *** Begin Patch (若无则从头开始)
-  while (i < lines.length && !lines[i].trim().startsWith("*** Begin Patch")) {
-    i++
-  }
-  if (i < lines.length && lines[i].trim().startsWith("*** Begin Patch")) {
-    i++
-  }
-
-  const actions = []
-  let currentAction = null
-
-  while (i < lines.length) {
-    const line = lines[i]
-    const trimmed = line.trim()
-
-    if (trimmed.startsWith("*** End Patch")) {
-      break
-    }
-
-    if (trimmed.startsWith("*** Update File:")) {
-      const filePath = trimmed.replace("*** Update File:", "").trim()
-      currentAction = { type: ActionType.UPDATE, path: filePath, hunks: [] }
-      actions.push(currentAction)
-      i++
-      continue
-    }
-
-    if (trimmed.startsWith("*** Add File:")) {
-      const filePath = trimmed.replace("*** Add File:", "").trim()
-      currentAction = { type: ActionType.ADD, path: filePath, contentLines: [] }
-      actions.push(currentAction)
-      i++
-      continue
-    }
-
-    if (trimmed.startsWith("*** Delete File:")) {
-      const filePath = trimmed.replace("*** Delete File:", "").trim()
-      currentAction = { type: ActionType.DELETE, path: filePath }
-      actions.push(currentAction)
-      i++
-      continue
-    }
-
-    if (!currentAction) {
-      i++
-      continue
-    }
-
-    if (currentAction.type === ActionType.ADD) {
-      // 提取新增文件的行 (+ 开头或普通行)
-      if (line.startsWith("+")) {
-        currentAction.contentLines.push(line.slice(1))
-      } else {
-        currentAction.contentLines.push(line)
-      }
-      i++
-      continue
-    }
-
-    if (currentAction.type === ActionType.UPDATE) {
-      if (trimmed.startsWith("@@")) {
-        const hunk = { delLines: [], insLines: [], contextLines: [] }
-        currentAction.hunks.push(hunk)
-        i++
-        while (i < lines.length) {
-          const hLine = lines[i]
-          const hTrimmed = hLine.trim()
-          if (hTrimmed.startsWith("@@") || hTrimmed.startsWith("***")) {
-            break
-          }
-          if (hLine.startsWith("-")) {
-            hunk.delLines.push(hLine.slice(1))
-          } else if (hLine.startsWith("+")) {
-            hunk.insLines.push(hLine.slice(1))
-          } else {
-            // 上下文行 (空格开头或普通行)
-            const ctx = hLine.startsWith(" ") ? hLine.slice(1) : hLine
-            hunk.delLines.push(ctx)
-            hunk.insLines.push(ctx)
-          }
-          i++
-        }
-        continue
-      }
-    }
-
-    i++
-  }
-
-  return actions
-}
-
-/**
- * 宽松缩进与模糊自适应 Hunk 应用算法
- * @param {string} originalContent 
- * @param {Array} hunks 
- */
-function applyHunksToContent(originalContent, hunks) {
-  const eol = originalContent.includes("\r\n") ? "\r\n" : "\n"
-  let docLines = originalContent.split(eol)
-
-  for (let hIdx = 0; hIdx < hunks.length; hIdx++) {
-    const hunk = hunks[hIdx]
-    const delLines = hunk.delLines
-    const insLines = hunk.insLines
-
-    if (delLines.length === 0 && insLines.length === 0) continue
-
-    // 策略 1: 逐行精确匹配
-    let matchIdx = -1
-    for (let i = 0; i <= docLines.length - delLines.length; i++) {
-      let matched = true
-      for (let j = 0; j < delLines.length; j++) {
-        if (docLines[i + j] !== delLines[j]) {
-          matched = false
-          break
-        }
-      }
-      if (matched) {
-        matchIdx = i
-        break
-      }
-    }
-
-    // 策略 2: 宽松空白与缩进匹配 (Whitespace Flexible)
-    if (matchIdx === -1) {
-      const trimmedDoc = docLines.map(l => l.trim())
-      const trimmedDel = delLines.map(l => l.trim())
-
-      for (let i = 0; i <= trimmedDoc.length - trimmedDel.length; i++) {
-        let matched = true
-        for (let j = 0; j < trimmedDel.length; j++) {
-          if (trimmedDoc[i + j] !== trimmedDel[j]) {
-            matched = false
-            break
-          }
-        }
-        if (matched) {
-          matchIdx = i
-          break
-        }
-      }
-    }
-
-    if (matchIdx === -1) {
-      throw new Error(`第 ${hIdx + 1} 个 @@ Hunk 匹配失败。未能找到对应的原代码片段：\n${delLines.join("\n")}`)
-    }
-
-    // 执行内存替换
-    const before = docLines.slice(0, matchIdx)
-    const after = docLines.slice(matchIdx + delLines.length)
-    docLines = [...before, ...insLines, ...after]
-  }
-
-  return docLines.join(eol)
 }
 
 function extractCommentInfo(rawComment) {
@@ -247,40 +77,127 @@ export default {
     const { patch, reason } = value
     const mainDir = workDirTool.getMainWorkDir(metaData.listId)
 
-    // 1. 解析 Codex Patch 文本流
-    const actions = parsePatch(patch)
-    if (!actions || actions.length === 0) {
+    // 1. 使用 VS Code 官方解析引擎解析并应用 Codex Patch
+    let commit
+    const fileCache = new Map()
+    try {
+      const openFn = async (p) => {
+        const isAbs = pathLib.isAbsolute(p)
+        const resolvedPath = isAbs ? p : (mainDir ? pathLib.resolve(mainDir, p) : p)
+
+        let content = ""
+        let readTimestamp = 0
+        try {
+          const stat = await fs.stat(resolvedPath)
+          readTimestamp = stat.mtimeMs
+          content = await fs.readFile(resolvedPath, "utf-8")
+        } catch (e) {
+          // 忽略文件不存在或读取错误
+        }
+
+        fileCache.set(p, { resolvedPath, originalContent: content, readTimestamp })
+        return { getText: () => content, path: p }
+      }
+
+      commit = await processPatch(patch, openFn)
+    } catch (err) {
+      return { ok: false, msg: `Patch 解析失败: ${err.message}` }
+    }
+
+    if (!commit || Object.keys(commit.changes).length === 0) {
       return { ok: false, msg: "未能从输入中解析出任何有效的 Patch 指令。请确保格式符合 Codex Patch 规范（*** Begin Patch ... *** End Patch）。" }
     }
 
     // 2. 内存预备与路径解析 / 越界检查
     const preparedChanges = []
-    for (const act of actions) {
-      if (!act.path) {
-        return { ok: false, msg: "补丁中存在未指定文件路径的操作。" }
+    const prepareFailedResults = []
+    const workDirs = workDirTool.getWorkDirs(metaData.listId)
+    const changesEntries = Object.entries(commit.changes)
+
+    // 前置批量项目外越界检查
+    const outOfProjectSet = new Set()
+    for (const [relativePath, change] of changesEntries) {
+      const isAbsP = pathLib.isAbsolute(relativePath)
+      const resolvedP = isAbsP ? relativePath : (mainDir ? pathLib.resolve(mainDir, relativePath) : null)
+      if (resolvedP && mainDir) {
+        const inProj = workDirs.some(dir => resolvedP === dir.path || resolvedP.startsWith(dir.path + pathLib.sep))
+        if (!inProj) {
+          outOfProjectSet.add(resolvedP)
+        }
+      }
+    }
+
+    let outOfProjectConfirm = { ok: true, comment: "" }
+    if (outOfProjectSet.size > 0) {
+      const outList = Array.from(outOfProjectSet)
+      const isSingle = outList.length === 1
+      outOfProjectConfirm = await waitConfirm({
+        type: "tip",
+        title: isSingle ? "是否允许在工作目录外执行 filePatcherBetter 工具？" : `⚠️ 是否允许访问工作目录外的 ${outList.length} 个文件？`,
+        content: isSingle ? `路径：${outList[0]}` : `检测到本次操作涉及以下 ${outList.length} 个工作目录外文件：\\n${outList.map(p => `• ${p}`).join("\\n")}`,
+        listId: metaData.listId,
+        ext: { identifier: `tool:${this.id}`, toolId: this.id }
+      })
+    }
+
+    // 将官方 commit.changes 转换为本系统的审批流对象
+    for (const [relativePath, change] of changesEntries) {
+      if (!relativePath) {
+        prepareFailedResults.push({
+          path: "unknown",
+          status: "failed",
+          error: "补丁中存在未指定文件路径的操作。"
+        })
+        continue
       }
 
-      const isAbs = pathLib.isAbsolute(act.path)
+      const isAbs = pathLib.isAbsolute(relativePath)
       if (!isAbs && !mainDir) {
-        return { ok: false, msg: `当前会话未设置工作目录，补丁中的相对路径 "${act.path}" 无法解析。请先配置工作目录，或者在补丁中使用绝对路径。` }
+        prepareFailedResults.push({
+          path: relativePath,
+          status: "failed",
+          error: `当前会话未设置工作目录，补丁中的相对路径 "${relativePath}" 无法解析。请先配置工作目录，或者在补丁中使用绝对路径。`
+        })
+        continue
       }
 
-      const resolvedPath = isAbs ? act.path : pathLib.resolve(mainDir, act.path)
-      const workDirs = workDirTool.getWorkDirs(metaData.listId)
+      const resolvedPath = isAbs ? relativePath : pathLib.resolve(mainDir, relativePath)
       const isInProject = workDirs.some(dir => resolvedPath === dir.path || resolvedPath.startsWith(dir.path + pathLib.sep))
-      if (mainDir && !isInProject) {
-        return { ok: false, msg: `文件路径 "${resolvedPath}" 超出了允许的工作目录范围。` }
+      if (mainDir && !isInProject && !outOfProjectConfirm.ok) {
+        prepareFailedResults.push({
+          path: relativePath,
+          status: "rejected",
+          reason: outOfProjectConfirm.comment ? `用户拒绝访问项目外文件：${resolvedPath}。\\n用户拒绝理由/备注：${outOfProjectConfirm.comment}` : `用户拒绝访问项目外文件：${resolvedPath}。`,
+          ...(outOfProjectConfirm.comment && { comment: outOfProjectConfirm.comment })
+        })
+        continue
       }
 
-      if (act.type === ActionType.ADD) {
+      // 安全校验与实体转换
+      if (change.type === ActionType.ADD) {
+        let fileExists = false
+        try {
+          await fs.stat(resolvedPath)
+          fileExists = true
+        } catch (e) { }
+
+        if (fileExists) {
+          prepareFailedResults.push({
+            path: relativePath,
+            status: "failed",
+            error: `⚠️ 安全拦截：文件 ${relativePath} 已存在。新增文件指令（*** Add File ***）禁止覆盖已有文件。`
+          })
+          continue
+        }
+
         preparedChanges.push({
           type: ActionType.ADD,
           path: resolvedPath,
-          relativePath: act.path,
+          relativePath: relativePath,
           originalContent: "",
-          proposedContent: act.contentLines.join("\n")
+          proposedContent: change.newContent || ""
         })
-      } else if (act.type === ActionType.DELETE) {
+      } else if (change.type === ActionType.DELETE) {
         let originalContent = ""
         try {
           originalContent = await fs.readFile(resolvedPath, "utf-8")
@@ -288,38 +205,34 @@ export default {
         preparedChanges.push({
           type: ActionType.DELETE,
           path: resolvedPath,
-          relativePath: act.path,
+          relativePath: relativePath,
           originalContent,
           proposedContent: ""
         })
-      } else if (act.type === ActionType.UPDATE) {
-        let originalContent = ""
-        let readTimestamp = 0
-        try {
-          const stat = await fs.stat(resolvedPath)
-          readTimestamp = stat.mtimeMs
-          const cached = fileState.get(resolvedPath)
-          if (cached && stat.mtimeMs > cached.timestamp) {
-            return { ok: false, msg: `⚠️ 安全拦截：文件 ${act.path} 自上次读取以来已被外部修改过。\n为防止覆盖最新改动，请先使用 fileOpener 重新读取文件！` }
-          }
-          originalContent = await fs.readFile(resolvedPath, "utf-8")
-        } catch (err) {
-          return { ok: false, msg: `读取文件失败 ${act.path}: ${err.message}` }
+      } else if (change.type === ActionType.UPDATE) {
+        const cached = fileCache.get(relativePath) || {}
+        const readTimestamp = cached.readTimestamp || 0
+        const originalContent = cached.originalContent || ""
+
+        const stateCache = fileState.get(resolvedPath)
+        if (stateCache && readTimestamp > 0 && readTimestamp > stateCache.timestamp) {
+          // 文件在上一次被大模型认知后，外部被修改
+          prepareFailedResults.push({
+            path: relativePath,
+            status: "failed",
+            error: `⚠️ 安全拦截：文件 ${relativePath} 自上次读取以来已被外部修改过。\\n为防止覆盖最新改动，请先使用 fileOpener 重新读取文件！`
+          })
+          continue
         }
 
-        try {
-          const proposedContent = applyHunksToContent(originalContent, act.hunks)
-          preparedChanges.push({
-            type: ActionType.UPDATE,
-            path: resolvedPath,
-            relativePath: act.path,
-            originalContent,
-            proposedContent,
-            readTimestamp
-          })
-        } catch (err) {
-          return { ok: false, msg: `应用补丁失败 [${act.path}]: ${err.message}` }
-        }
+        preparedChanges.push({
+          type: ActionType.UPDATE,
+          path: resolvedPath,
+          relativePath: relativePath,
+          originalContent,
+          proposedContent: change.newContent || "",
+          readTimestamp
+        })
       }
     }
 
@@ -391,7 +304,7 @@ export default {
     for (let idx = 0; idx < preparedChanges.length; idx++) {
       const change = preparedChanges[idx]
       const reviewed = reviewedFiles.find(f => f.fileId === change.fileId || f.path === change.path)
-      
+
       // 如果全局被拒绝，或者该文件被标记为 rejected / pending
       if (!(userConfirm.ok && reviewed?.status === "approved")) {
         fileResults.push({
@@ -399,8 +312,8 @@ export default {
           status: "rejected",
           reason: change.rejectReason || "用户拒绝操作",
           ...(reviewed?.comment && { comment: reviewed.comment }),
-          ...(reviewed?.notes && { notes: reviewed.notes }),
-          ...(reviewed?.diff && { diff: reviewed.diff })
+          ...(reviewed?.notes && { notes: reviewed.notes })
+          // 💡 拒绝场景（无论单文件拒绝还是总框拒绝）一律不回传 diff，避免误导 AI 以为变更已生效
         })
         continue
       }
@@ -460,12 +373,14 @@ export default {
       }
     }
 
-    const allDiffs = fileResults.map(f => f.diff).filter(Boolean).join("\n\n")
-    const anyFailed = fileResults.some(f => f.status === "failed")
-    const anyRejected = fileResults.some(f => f.status === "rejected")
+    const allFinalFiles = [...fileResults, ...prepareFailedResults]
+    const allDiffs = allFinalFiles.map(f => f.diff).filter(Boolean).join("\n\n")
+    const anyFailed = allFinalFiles.some(f => f.status === "failed")
+    const anyRejected = allFinalFiles.some(f => f.status === "rejected")
 
     let msg = "补丁执行完成"
-    if (anyFailed) msg = "部分文件操作失败"
+    if (anyFailed && anyRejected) msg = "部分文件操作失败，部分文件被用户拒绝"
+    else if (anyFailed) msg = "部分文件操作失败"
     else if (anyRejected) msg = "部分文件被用户拒绝"
 
     return {
@@ -473,7 +388,7 @@ export default {
       msg,
       diff: allDiffs || null,
       globalComment: userConfirm.comment || null,
-      files: fileResults
+      files: allFinalFiles
     }
   },
 
