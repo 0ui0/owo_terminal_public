@@ -6,9 +6,11 @@ import comData from "../../comData/comData.js"
 import getColor from "../common/getColor.js"
 import settingData from "../setting/settingData.js"
 import DiffFoldView from "../common/DiffFoldView.js"
+import chatData from "./chatData.js"
 
 export default () => {
   let localGlobalComment = ""
+  let lastAutoScrollTime = 0
   const expandedDiffs = {}
 
   // 批注查看与删除组件（「查看批注」弹窗主体）
@@ -314,6 +316,20 @@ export default () => {
 
       return m("",
         {
+          oncreate(vnode) {
+            if (chatData.chatListScrollAtBottom(chatList?.id)) {
+              chatData.scrollChatListTobottom(chatList?.id)
+            }
+          },
+          onupdate(vnode) {
+            if (chatData.chatListScrollAtBottom(chatList?.id)) {
+              const now = Date.now()
+              if (now - lastAutoScrollTime > 500) {
+                lastAutoScrollTime = now
+                chatData.scrollChatListTobottom(chatList?.id)
+              }
+            }
+          },
           style: {
             display: "flex",
             flexDirection: "column",
@@ -855,9 +871,13 @@ export default () => {
                   isBtn: true,
                   style: {
                     marginRight: "0",
-                    background: allDecided ? getColor("确认框按钮执行背景") : getColor("gray_2").back,
-                    color: allDecided ? getColor("确认框按钮执行文字") : getColor("gray_2").front,
-                    cursor: allDecided ? "pointer" : "not-allowed"
+                    background: getColor("确认框按钮执行背景"),
+                    color: getColor("确认框按钮执行文字"),
+                    opacity: allDecided ? 1 : 0.38,
+                    filter: allDecided ? "none" : "grayscale(80%)",
+                    cursor: allDecided ? "pointer" : "not-allowed",
+                    boxShadow: allDecided ? "0 2px 6px rgba(0,0,0,0.15)" : "none",
+                    transition: "all 0.2s ease"
                   },
                   async onclick() {
                     if (!allDecided) return
@@ -872,6 +892,7 @@ export default () => {
                           }
                         }
                       })
+                      chatData.scrollChatListTobottom(chatList.id)
                     } catch (err) {
                       console.error("执行修改失败:", err)
                     }

@@ -30,7 +30,6 @@ export default () => {
   let boxEl = null
   let resizeObserver = null
   let atBottom = true
-  let userHasScrolledUp = false
   let lastScrollTopVal = 0
   let lastDataLength = 0
   let currentChatListId = null
@@ -382,13 +381,7 @@ export default () => {
                 }
               }
 
-              // 物理判定：只要 scrollTop 减小（用户向上划），立刻标记用户主动上划
-              if (newScrollTop < lastScrollTopVal) {
-                userHasScrolledUp = true
-              }
-              if (isNowAtBottom) {
-                userHasScrolledUp = false
-              }
+
               lastScrollTopVal = newScrollTop
 
               scrollTop = newScrollTop
@@ -587,11 +580,10 @@ export default () => {
               },
               listId: attrs.listId,
               onupdate() {
-                // 思考流/打字流持续推进：只要用户没有主动向上划，持续保持吸底
-                if (!userHasScrolledUp) {
+                // 思考流/打字流持续推进：只要处于贴底缓冲区且满足 500ms 节流窗口，给用户留足向上滚动的操作窗口期
+                if (chatData.chatListScrollAtBottom(attrs.listId)) {
                   const now = Date.now()
-                  // 1秒节流（只触发第一次），给用户充足的向上滚动的操作窗口期
-                  if (now - lastAutoScrollTime > 1000) {
+                  if (now - lastAutoScrollTime > 500) {
                     lastAutoScrollTime = now
                     chatData.scrollChatListTobottom(attrs.listId)
                   }

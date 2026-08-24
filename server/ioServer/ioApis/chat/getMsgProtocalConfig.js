@@ -421,6 +421,10 @@ export default function (json) {
           }
         }
         if (reasoningChunk) list.streamReasoningChunks += reasoningChunk;
+
+        //我想把把滚动条拉到底部的逻辑改到这里来，你看看靠谱吗
+        //io.emit(chat:scrollToBottom)
+
       })
     },
 

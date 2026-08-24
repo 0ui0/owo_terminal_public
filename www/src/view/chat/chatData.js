@@ -91,15 +91,24 @@ export default {
     if (el) return el
     return null
   },
-  chatListScrollAtBottom(listId) {
+  userHasScrolledUp: false,
+  chatListScrollAtBottom(listId, buffer = 120) {
     const el = this.getChatListDom(listId)
     if (!el) return true
-    return Math.abs(el.scrollHeight - el.scrollTop - el.clientHeight) < 30
+    return (el.scrollHeight - el.scrollTop - el.clientHeight) <= buffer
   },
   scrollChatListTobottom(listId) {
-    const el = this.getChatListDom(listId)
-    if (!el) return;
-    el.scrollTop = el.scrollHeight;
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        const el = this.getChatListDom(listId)
+        if (el) {
+          el.scrollTo({
+            top: el.scrollHeight,
+            behavior: "instant"
+          })
+        }
+      })
+    })
   },
   topChat: null,
   getHistoryList(listId) {

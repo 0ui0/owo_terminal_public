@@ -4,9 +4,11 @@ import getColor from "../common/getColor.js"
 import format from "../common/format.js"
 import settingData from "../setting/settingData.js"
 import ChatBatchReview from "./ChatBatchReview.js"
+import chatData from "./chatData.js"
 
 export default () => {
   let localComment = ""
+  let lastAutoScrollTime = 0
 
   return {
     oninit(vnode) {
@@ -24,6 +26,20 @@ export default () => {
       const isEditorConfirm = confirmCmd?.ext?.identifier === "app:editor"
 
       return m("", {
+        oncreate(vnode) {
+          if (chatData.chatListScrollAtBottom(chatList?.id)) {
+            chatData.scrollChatListTobottom(chatList?.id)
+          }
+        },
+        onupdate(vnode) {
+          if (chatData.chatListScrollAtBottom(chatList?.id)) {
+            const now = Date.now()
+            if (now - lastAutoScrollTime > 500) {
+              lastAutoScrollTime = now
+              chatData.scrollChatListTobottom(chatList?.id)
+            }
+          }
+        },
         style: {
           display: "flex",
           flexDirection: "column",

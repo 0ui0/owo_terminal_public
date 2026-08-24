@@ -1620,3 +1620,27 @@ graph TD
   <n-mem>[记忆：在长官的指示下，我对 filePatcher.js 进行了“极致原样替换”的重构（属于精准流派）。彻底删除了其中的模糊缩进匹配、行级重构等冗余容错逻辑，将其变为了只保留换行符容错的极简 String.replace，强迫 AI 以后精确输出代码块。这与 filePatcherBetter.js（重度容错流派）形成了两极格局。]</n-mem>
   <n-tasks>[总任务：原样替换重构 filePatcher.js(已执行)]</n-tasks>
 </note-main>
+
+<n-main>
+  <n-time>[时间:2026/08/24 23:14:00]</n-time>
+  <n-mem>[记忆：在啦沐达长官的指导下，修复了审批确认框弹出及高度撑大时自动滚底失效的问题。1. 根因确证：审批框（ChatConfirm / ChatBatchReview）独立挂载于消息列表尾部，此前既未接入 ResizeObserver 测高，也没有 oncreate/onupdate 滚底生命周期；当多文件审批框生成或展开 Diff 时，容器 scrollHeight 暴增脱离底部 150px 缓冲区，导致后续 AI 思考与输出时触发防打扰判定而停止自动滚底；2. 修复方案：在 ChatConfirm.js 与 ChatBatchReview.js 根容器挂载 oncreate（初始化立即贴底）与 onupdate（500ms 节流安全贴底），并在点击「执行」按钮提交时主动调用 scrollChatListTobottom 恢复底部锁定。]</n-mem>
+  <n-tasks>[总任务：1. 确证审批框脱离滚底范畴(已完成) 2. 审批框组件补齐 500ms 节流生命周期(已完成) 3. 提交执行主动拉底(已完成) 4. 追加记忆笔记(已完成)]</n-tasks>
+  <n-ul>
+    <n-li>[任务1/2: 升级 ChatConfirm.js]
+      <n-focus>[关注1: 文件 www/src/view/chat/ChatConfirm.js, 摘要: 引入 chatData, 注入 oncreate 与带 500ms 节流的 onupdate, 执行按钮触发 scrollChatListTobottom。]</n-focus>
+    </n-li>
+    <n-li>[任务2/2: 升级 ChatBatchReview.js]
+      <n-focus>[关注2: 文件 www/src/view/chat/ChatBatchReview.js, 摘要: 引入 chatData, 根节点挂载 oncreate 与 500ms 节流 onupdate, 执行按钮联动滚底。]</n-focus>
+    </n-li>
+  </n-ul>
+  <n-graph>
+```mermaid
+graph TD
+    A["审批确认框出现 / 展开 Diff 撑高"] --> B["ChatConfirm / ChatBatchReview 补齐生命周期"]
+    B --> C["oncreate: 若原先在底部立即贴底展现完整框体"]
+    B --> D["onupdate: 500ms 节流自适应滚底, 兼顾用户上滑操作窗口"]
+    B --> E["点击「执行」: 立即主动触发 scrollChatListTobottom 恢复锁定"]
+    C & D & E --> F["效果: 彻底解决审批后 AI 思考框展开导致滚动条卡在上方的问题"]
+```
+  </n-graph>
+</n-main>
