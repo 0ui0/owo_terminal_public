@@ -66,6 +66,7 @@ export default {
         tmStatus: { gitOk: false, isReady: false },
         unreadCount: 0,
         chatListDom: null,
+        isAtBottom: true, // 全局拉底状态锁，真实反映用户物理上的阅读意图
         ...initConfig
       };
     } else {
@@ -92,10 +93,15 @@ export default {
     return null
   },
   userHasScrolledUp: false,
-  chatListScrollAtBottom(listId, buffer = 120) {
+  checkDomScrollAtBottom(listId, buffer = 120) {
     const el = this.getChatListDom(listId)
     if (!el) return true
     return (el.scrollHeight - el.scrollTop - el.clientHeight) <= buffer
+  },
+  chatListScrollAtBottom(listId) {
+    // 行业标准：所有的组件不再使用高度差即时探测是否在底部，而是直接读取本状态锁。
+    // 因为组件新增内容本身就会导致高度突变，会造成探测误判。
+    return this.getSessionState(listId).isAtBottom !== false;
   },
   scrollChatListTobottom(listId) {
     requestAnimationFrame(() => {

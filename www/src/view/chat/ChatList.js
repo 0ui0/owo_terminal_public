@@ -25,20 +25,14 @@ export default () => {
 
   let scrollTop = 0
   let viewportHeight = 800
-  let lastScrollHeight = 0
   let tasksEl = null
   let boxEl = null
   let resizeObserver = null
-  let atBottom = true
-  let lastScrollTopVal = 0
-  let lastDataLength = 0
-  let currentChatListId = null
+  let activeListId = null
   let listDom = null
   let isHovered = false
   let isHoveredTop = false
-  let lastScrollTime = 0
   let lastAutoScrollTime = 0
-  let lastHeadId = null
 
   // 缓存依赖 Key 与计算产物
   let lastCacheKey = ""
@@ -223,18 +217,13 @@ export default () => {
 
         if (changes.length === 0) return
 
-        // 实时判断是否在底部（不用闭包 atBottom 变量，避免 scroll 事件异步更新导致的滞后）
-        let isReallyAtBottom = true
-        if (listDom) {
-          isReallyAtBottom = Math.abs(listDom.scrollHeight - listDom.scrollTop - listDom.clientHeight) < 30
-        }
-
         // 阶段2: 统一计算补偿量，一次性修改 scrollTop
         if (listDom) {
           let totalCompensation = 0
           for (let change of changes) {
             if (change.delta === 0) continue
-            if (isReallyAtBottom || change.aboveViewport) {
+            // 直接读取全局状态锁，来决定是否要把变动高度补偿到底部。不再受限于瞬间撑大的高度误导
+            if (chatData.chatListScrollAtBottom(activeListId) || change.aboveViewport) {
               totalCompensation += change.delta
             }
           }
@@ -263,9 +252,7 @@ export default () => {
       })
 
       const listId = vnode.attrs.chatList.id
-      currentChatListId = listId
-      lastDataLength = 0
-      atBottom = true
+      activeListId = listId
       try {
         chatData.initChatLists(listId)
 
@@ -287,7 +274,9 @@ export default () => {
     },
 
     view({ attrs }) {
-      let chatList = attrs.chatList
+      const chatList = attrs.chatList
+      const listId = chatList.id
+      const session = chatData.getSessionState(listId)
 
       // 动态计算 Header 高度
       const headerHeight = (tasksEl ? tasksEl.offsetHeight : 0) + (boxEl ? boxEl.offsetHeight : 0)
@@ -321,16 +310,53 @@ export default () => {
             overflowY: "auto",
             overflowAnchor: "none",
           },
+          onscroll: async (e) => {
+            const dom = e.target
+            const newScrollTop = dom.scrollTop
+
+            // 触顶自动拉取上一页数据
+            if (newScrollTop === 0) {
+              const rows = chatData.chatLists[listId]
+              if (rows && !rows.isToEnd()) {
+                const oldScrollHeight = dom.scrollHeight
+                rows.clickFn()
+                await rows.pull()
+                chatData.getHistoryList(listId)
+                m.redraw()
+                requestAnimationFrame(() => {
+                  dom.scrollTop = dom.scrollHeight - oldScrollHeight
+                })
+              }
+            }
+
+            // 统一结算口：只有在此处真实依靠高度差来更新状态锁，记录用户真实的阅读意图
+            if (chatData.checkDomScrollAtBottom(listId) !== session.isAtBottom) {
+              session.isAtBottom = !session.isAtBottom
+            }
+
+            // 💡 滚回底部闭环：如果重新回到最底部且存在未读累积，立即补拉最新消息
+            if (session.isAtBottom && session.unreadCount > 0) {
+              session.unreadCount = 0
+              const rows = chatData.chatLists[listId]
+              if (rows) {
+                rows.pull().then(() => {
+                  chatData.getHistoryList(listId)
+                  m.redraw()
+                  chatData.scrollChatListTobottom(listId)
+                })
+              }
+            }
+
+            scrollTop = newScrollTop
+            viewportHeight = dom.clientHeight
+            m.redraw()
+          },
           oncreate(scrollVnode) {
             listDom = scrollVnode.dom
             viewportHeight = scrollVnode.dom.clientHeight
             scrollTop = scrollVnode.dom.scrollTop
             const dom = scrollVnode.dom
-            const listId = chatList.id
-            chatData.getSessionState(listId).chatListDom = scrollVnode.dom
-
-            // 初始判定是否在底部
-            atBottom = chatData.chatListScrollAtBottom(listId)
+            session.chatListDom = scrollVnode.dom
 
             requestAnimationFrame(() => {
               dom.scrollTop = dom.scrollHeight
@@ -341,66 +367,17 @@ export default () => {
                 scrollTop = dom.scrollTop
               })
             })
-
-            scrollVnode.dom.addEventListener("scroll", async () => {
-              const targetListId = currentChatListId !== null ? currentChatListId : chatList.id
-              const session = chatData.getSessionState(targetListId)
-              const newScrollTop = scrollVnode.dom.scrollTop
-              const distToBottom = dom.scrollHeight - newScrollTop - dom.clientHeight
-
-              // 触顶自动拉取上一页数据
-              if (newScrollTop === 0 && targetListId !== null) {
-                const rows = chatData.chatLists[targetListId]
-                if (rows && !rows.isToEnd()) {
-                  const oldScrollHeight = dom.scrollHeight
-                  rows.clickFn()
-                  await rows.pull()
-                  chatData.getHistoryList(targetListId)
-                  m.redraw()
-                  requestAnimationFrame(() => {
-                    dom.scrollTop = dom.scrollHeight - oldScrollHeight
-                  })
-                }
-              }
-
-              const isNowAtBottom = chatData.chatListScrollAtBottom(targetListId)
-              if (isNowAtBottom !== atBottom) {
-                atBottom = isNowAtBottom
-              }
-
-              // 💡 滚回底部闭环：如果重新回到最底部且存在未读累积，立即补拉最新消息
-              if (isNowAtBottom && session.unreadCount > 0) {
-                session.unreadCount = 0
-                const rows = chatData.chatLists[targetListId]
-                if (rows) {
-                  rows.pull().then(() => {
-                    chatData.getHistoryList(targetListId)
-                    m.redraw()
-                    chatData.scrollChatListTobottom(targetListId)
-                  })
-                }
-              }
-
-
-              lastScrollTopVal = newScrollTop
-
-              scrollTop = newScrollTop
-              viewportHeight = scrollVnode.dom.clientHeight
-              m.redraw()
-            })
           },
           onupdate(scrollVnode) {
             const dom = scrollVnode.dom
             listDom = scrollVnode.dom
-            const listId = chatList.id
-            chatData.getSessionState(listId).chatListDom = scrollVnode.dom
+            session.chatListDom = scrollVnode.dom
 
             // 切换会话时重置状态
-            if (currentChatListId !== listId) {
-              currentChatListId = listId
-              lastDataLength = 0
-              atBottom = true
-              chatData.getSessionState(listId).unreadCount = 0
+            if (activeListId !== listId) {
+              activeListId = listId
+              session.isAtBottom = true
+              session.unreadCount = 0
               chatData.initChatLists(listId)
               chatData.chatLists[listId].pull().then(() => {
                 chatData.getHistoryList(listId)
@@ -601,7 +578,7 @@ export default () => {
         ]),
 
         // 回到底部按钮
-        !atBottom ? m(".back-to-bottom", {
+        !session.isAtBottom ? m(".back-to-bottom", {
           style: {
             position: "absolute",
             bottom: "1.5rem",
@@ -610,7 +587,7 @@ export default () => {
             height: "2.4rem",
             borderRadius: "50%",
             zIndex: 100,
-            background: chatData.getSessionState(currentChatListId !== null ? currentChatListId : chatList.id).unreadCount > 0
+            background: session.unreadCount > 0
               ? (isHovered ? "#FFC107ee" : "#FFC107cc")
               : (isHovered ? getColor('右上角按钮背景') + "ee" : getColor('右上角按钮背景') + "cc"),
             color: getColor('右上角按钮文字'),
@@ -628,31 +605,29 @@ export default () => {
           onmouseleave() { isHovered = false },
           onclick: async (e) => {
             if (e && e.stopPropagation) e.stopPropagation()
-            const targetListId = currentChatListId !== null ? currentChatListId : chatList.id
-            const session = chatData.getSessionState(targetListId)
             const hadUnread = session.unreadCount > 0
-            atBottom = true
+            session.isAtBottom = true
             session.unreadCount = 0
             isHovered = false
-            lastScrollTime = Date.now()
-            if (hadUnread && targetListId !== null) {
-              const rows = chatData.chatLists[targetListId]
+
+            if (hadUnread) {
+              const rows = chatData.chatLists[listId]
               if (rows) {
                 rows.pull().then(() => {
-                  chatData.getHistoryList(targetListId)
+                  chatData.getHistoryList(listId)
                   m.redraw()
-                  chatData.scrollChatListTobottom(targetListId)
+                  chatData.scrollChatListTobottom(listId)
                 })
                 return
               }
             }
             if (listDom) {
-              chatData.scrollChatListTobottom(targetListId !== null ? targetListId : chatList.id)
+              chatData.scrollChatListTobottom(listId)
             }
           }
         }, [
-          m.trust(window.iconPark.getIcon("Down", { size: "1.2rem", fill: chatData.getSessionState(currentChatListId !== null ? currentChatListId : chatList.id).unreadCount > 0 ? "#555" : getColor('右上角按钮文字') })),
-          chatData.getSessionState(currentChatListId !== null ? currentChatListId : chatList.id).unreadCount > 0 ? m(".unread-badge", {
+          m.trust(window.iconPark.getIcon("Down", { size: "1.2rem", fill: session.unreadCount > 0 ? "#555" : getColor('右上角按钮文字') })),
+          session.unreadCount > 0 ? m(".unread-badge", {
             style: {
               position: "absolute",
               top: "-4px",
@@ -669,7 +644,7 @@ export default () => {
               minWidth: "1rem",
               textAlign: "center"
             }
-          }, chatData.getSessionState(currentChatListId !== null ? currentChatListId : chatList.id).unreadCount > 99 ? "99+" : chatData.getSessionState(currentChatListId !== null ? currentChatListId : chatList.id).unreadCount) : null
+          }, session.unreadCount > 99 ? "99+" : session.unreadCount) : null
         ]) : null,
 
         // 回到顶部按钮
