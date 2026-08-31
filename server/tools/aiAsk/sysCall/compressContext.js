@@ -62,22 +62,6 @@ export default {
       return "拒绝执行：当前会话历史已经是压缩后的极净状态。为了防止陷入死循环，严禁在没有产生新的用户交互前重复调用 compressContext 整理工具！请立即转向执行用户的实际任务"
     }
 
-    // 压缩前用户确认：参考 filePatcher 的 waitConfirm 模式，破坏性操作前必须先征得用户同意
-    const userConfirm = await waitConfirm({
-      type: "tip",
-      title: "⚠️ 确认上下文压缩",
-      content: "即将执行上下文压缩，此操作会【物理清空】当前会话的全部历史记录与工具调用细节！是否确认执行？",
-      listId: metaData?.listId || 0,
-      ext: {
-        identifier: `tool:${this.id}`,
-        toolId: this.id
-      }
-    })
-    if (!userConfirm.ok) {
-      return `已取消上下文压缩，会话历史保持不变。原因：${userConfirm.comment || "未提供"}`
-    }
-
-    try {
       // 1. 收集此前累积在内存中的所有长期单次记忆（上限 100 条）
       let archivedMemoriesText = ""
       if (aiAskInstance.memorys && aiAskInstance.memorys.length > 0) {
@@ -146,6 +130,24 @@ ${archivedMemoriesText}
 【最新阶段性总结 (大模型所写)】：
 ${summaryText}
 ========================================`
+
+    // 压缩前用户确认：参考 filePatcher 的 waitConfirm 模式，破坏性操作前必须先征得用户同意
+    const userConfirm = await waitConfirm({
+      type: "tip",
+      title: "⚠️ 确认上下文压缩",
+      content: "即将执行上下文压缩，此操作会【物理清空】当前会话的全部历史记录与工具调用细节！是否确认执行？",
+      argsDesc: "<details><summary>点击查看即将归档的上下文摘要</summary>\n\n" + contentText + "\n</details>",
+      listId: metaData?.listId || 0,
+      ext: {
+        identifier: `tool:${this.id}`,
+        toolId: this.id
+      }
+    })
+    if (!userConfirm.ok) {
+      return `已取消上下文压缩，会话历史保持不变。原因：${userConfirm.comment || "未提供"}`
+    }
+
+    try {
 
       // 调用 aiAskInstance 的 prePareAsk 方法以安全填充契约化字段，并将 role 设为 user 解决严格模型的交替限制
       const archiveAsk = aiAskInstance.prePareAsk(trs("角色/用户"), "user", contentText, {

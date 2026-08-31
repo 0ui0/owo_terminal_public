@@ -1644,3 +1644,109 @@ graph TD
 ```
   </n-graph>
 </n-main>[时间:2026/08/25 09:02:00] [记忆: 收到啦沐达确认，准备修改滚动策略，将瞬时高度探测改为基于onscroll维护的全局状态锁，避免弹窗等由于DOM撑大导致的滚底失效] [任务: 1.修改chatData.js, 2.修改ChatList.js, 3.修改ChatConfirm.js, ChatBatchReview.js和ChatItem.js的探测条件(待执行)]
+
+<n-main>
+  <n-time>[时间:2026/08/25 22:16:30]</n-time>
+  <n-mem>[记忆：在啦沐达长官的指导下，优化了角色包制作向导 (server/apps/avatarMaker/frontend.js) 中的模型选择交互并内置了全模态大模型。1. 根因确证：先前下拉菜单在渲染 options 时，直接判定 configFields.imageModel === mOpt.value，当用户在下方手动输入自定义模型或接入点时，由于自定义项 value 为空字符串无法匹配，原生 select 标签因无任何 option 命中 selected 而默认视觉回退显示第一项。2. 交互与选中态优化：为图片与视频模型下拉菜单引入了 isCustom 动态判定逻辑（!preset.models.some(m => m.value === currentModel)），在 option 遍历时，若当前模型为自定义内容，则自动将「自定义」选项高亮选中；同时在 onchange 切换到自定义时若当前为预设值则自动清空输入框。3. 全模态模型内置：在火山方舟 (Volcengine) 的图片生成模型库与视频生成模型库中，均内置了最新的全模态大模型 doubao-seedance-1-5-pro-251215，便于长官即点即用。4. 语法与逻辑检查：node -c 校验 100% 通过。]</n-mem>
+  <n-tasks>[总任务：1. 优化下拉菜单自定义输入联动(已执行) 2. 火山方舟图片与视频库内置doubao-seedance-1-5-pro-251215(已执行) 3. 追加记忆笔记(已执行)]</n-tasks>
+  <n-ul>
+    <n-li>[任务1/2: 修复下拉菜单自定义选中态]
+      <n-focus>[关注1:文件 server/apps/avatarMaker/frontend.js, 行号1080-1340, 摘要:引入 isCustom 动态判定，在自定义输入时下拉菜单精准保持选中「自定义」项，彻底消除跳回第一项的视觉偏差。]</n-focus>
+    </n-li>
+    <n-li>[任务2/2: 内置全模态模型]
+      <n-focus>[关注2:文件 server/apps/avatarMaker/frontend.js, 行号55-75, 摘要:在火山方舟 imageModels 和 videoModels 中同步新增 doubao-seedance-1-5-pro-251215。]</n-focus>
+    </n-li>
+  </n-ul>
+  <n-graph>
+```mermaid
+graph TD
+    A["反馈: 自定义输入时 select 跳回默认项 + 内置 1.5 Pro 全模态模型"] --> B["分析根因: option.selected 缺乏对自定义非预设值的兜底判定"]
+    B --> C["编辑 server/apps/avatarMaker/frontend.js"]
+    C --> D["1. MODEL_PRESETS: 火山图片与视频库内置 doubao-seedance-1-5-pro-251215"]
+    C --> E["2. 引入 isCustom 动态计算: 非预设值自动高亮自定义选项"]
+    C --> F["3. onchange 优化: 切换自定义项时若为预设值自动清空以便录入"]
+    D & E & F --> G["node -c 语法校验通过"]
+    G --> H["效果: 自定义输入稳定显示自定义项, 视觉与数据 100% 统一"]
+```
+  </n-graph>
+</n-main>
+
+<n-main>
+  <n-time>[时间:2026/08/25 22:22:20]</n-time>
+  <n-mem>[记忆：根据长官指示，修正了角色包制作向导 (server/apps/avatarMaker/frontend.js) 中火山方舟 (Volcengine) 的预设默认 API 根地址。1. 根因确证：先前前端预置的火山图片地址与视频地址误带了具体的接口子路径 (/images/generations 与 /contents/generations/tasks)，而 volcengine.js 在发送实际请求时会依据 API 规则追加对应 endpoint，导致发送了双重路径发生 404 InvalidAction 报错；2. 修正方案：严格按照长官裁决，不进行任何不可控的后端模糊清洗，尊重透明透传原则，仅精准将火山方舟前端预设库中的 imageDefaultUrl、videoDefaultUrl 以及初始化默认值由带子路径的长串修正为标准 BaseURL: https://ark.cn-beijing.volces.com/api/v3，百炼配置保持不变；3. 语法验证：node -c 校验 100% 通过。]</n-mem>
+  <n-tasks>[总任务：1. 修正火山方舟预设API根地址(已执行) 2. 语法校验(已执行) 3. 追加记忆笔记(已执行)]</n-tasks>
+  <n-ul>
+    <n-li>[任务1/1: 修正火山方舟默认 BaseURL]
+      <n-focus>[关注1:文件 server/apps/avatarMaker/frontend.js, 行号55-105, 摘要:将火山方舟预置 imageDefaultUrl、videoDefaultUrl 及初始 configFields 统一修正为标准 BaseURL: https://ark.cn-beijing.volces.com/api/v3。]</n-focus>
+    </n-li>
+  </n-ul>
+  <n-graph>
+```mermaid
+graph TD
+    A["执行火山生成报错 404: /images/generations/images/generations"] --> B["排查定位: 前端预置地址多写了具体接口子路径"]
+    B --> C["遵循长官裁决: 坚决不做私有清洗, 保证透明透传, 纠正内置预设"]
+    C --> D["编辑 server/apps/avatarMaker/frontend.js"]
+    D --> E["火山 imageDefaultUrl / videoDefaultUrl -> https://ark.cn-beijing.volces.com/api/v3"]
+    E --> F["node -c 语法校验通过"]
+    F --> G["效果: 选择火山服务商时填入标准 BaseURL, 后端请求路径精准合法"]
+```
+  </n-graph>
+</n-main>
+
+<n-main>
+  <n-time>[时间:2026/08/25 22:24:20]</n-time>
+  <n-mem>[记忆：根据啦沐达长官指示，对角色包制作向导 (server/apps/avatarMaker/frontend.js) 中的模型下拉菜单选项进行了全面视觉净化。清除了全部模型选项中冗余的中文括号注释、用途说明以及“最新推荐”等修饰后缀，所有官方预设选项 label 100% 纯净呈现完整官方模型标识符本身（例如 doubao-seedance-1-5-pro-251215、doubao-seedream-3-0-t2i-241128、wan2.7-kf2v 等），排版简洁极客，无任何多余干扰。node -c 校验通过。]</n-mem>
+  <n-tasks>[总任务：1. 净化模型下拉框label为纯净模型名(已执行) 2. 语法校验(已执行) 3. 追加记忆笔记(已执行)]</n-tasks>
+  <n-ul>
+    <n-li>[任务1/1: 模型选项 label 净化]
+      <n-focus>[关注1:文件 server/apps/avatarMaker/frontend.js, 行号55-95, 摘要:去除全部中文说明与修饰词，直接输出完整模型字符串。]</n-focus>
+    </n-li>
+  </n-ul>
+  <n-graph>
+```mermaid
+graph TD
+    A["反馈: 去除冗余中文括号与推荐修饰"] --> B["编辑 server/apps/avatarMaker/frontend.js"]
+    B --> C["净化火山与百炼全部预设模型 label 为纯净模型名"]
+    C --> D["node -c 语法校验通过"]
+    D --> E["效果: 下拉菜单干练直观, 纯净呈现官方模型字符串"]
+```
+  </n-graph>
+</n-main>
+
+<n-main>
+  <n-time>[时间:2026/08/25 22:44:55]</n-time>
+  <n-mem>[记忆：在啦沐达长官的严格指导下，对角色包制作两大 AI 工具 (avatarMakeImage / avatarMakeVideo) 进行了安全收敛与动态覆盖能力的精确重构：1. 确认拦截与备注双向透传：接入 waitConfirm 机制，弹窗中精准展示提示词、底图/首尾帧素材、输出目标、服务商、模型与接口地址；无论用户同意还是拒绝，均完整提取并透传 userConfirm.comment 备注回馈给 AI；2. 安全与动态覆盖收敛：严格按照长官指示，绝不画蛇添足，apiKey 与 provider 严密限制在前端向导安全表单中读取，仅在 Joi 与参数层开放 apiUrl 和 model 两个可选覆盖入参（不传时自动使用内部表单配置）；3. 容错引导：若 API 发生地址或模型错误，错误响应中会明确友好提示用户可在下次调用时提供新的 apiUrl 或 model 参数覆盖重试；4. node -c 语法校验 100% 通过。]</n-mem>
+  <n-tasks>[总任务：1. avatarMakeImage/Video 仅保留 apiUrl 和 model 覆盖(已执行) 2. 保证 apiKey 仅从表单安全读取(已执行) 3. 语法校验(已执行) 4. 追加记忆笔记(已执行)]</n-tasks>
+  <n-ul>
+    <n-li>[任务1/2: 覆盖参数精简收敛]
+      <n-focus>[关注1:文件 server/apps/avatarMaker/appCall/avatarMakeImage.js 与 avatarMakeVideo.js, 摘要:仅保留 apiUrl 与 model 可选覆盖入参，剔除 apiKey/provider 冗余参数，apiKey 100% 从前端表单安全读取。]</n-focus>
+    </n-li>
+    <n-li>[任务2/2: waitConfirm 与错误引导]
+      <n-focus>[关注2:文件 server/apps/avatarMaker/appCall/avatarMakeImage.js 与 avatarMakeVideo.js, 摘要:弹窗展示当前生效的 apiUrl/model，错误时提示长官中途传入新 apiUrl/model 进行覆盖。]</n-focus>
+    </n-li>
+  </n-ul>
+  <n-graph>
+```mermaid
+graph TD
+    A["主控 AI 调用生图/视频工具"] --> B["获取参数 + 读取前端表单 config"]
+    B --> C["计算生效配置: apiUrl/model 支持动态覆盖, apiKey 严格取自表单"]
+    C --> D["触发 waitConfirm 弹窗 (展示生效地址与模型)"]
+    D -->|"用户同意 (可带备注)"| E["执行 API 调用并向 AI 返回结果与备注"]
+    D -->|"用户拒绝 (可带备注)"| F["向 AI 返回用户拒绝原因与备注"]
+    E -->|"若 API 报错 (如 404/InvalidModel)"| G["返回友好错误提示, 引导长官中途提供新的 apiUrl/model 覆盖重试"]
+```
+  </n-graph>
+</n-main>
+<n-main><n-time>[时间:2026/08/25 23:38:00]</n-time><n-mem>[记忆：啦沐达长官要求在 avatarMaker 中新增制作模式「模式②c（全身动作视频 - 单图生成）」，仅提供单张全身图和描述文本直接生成动作视频。我已完成全部配置与 SOP 的开发与注册。]</n-mem><n-tasks>[总任务：1.新增模式②c全身动作视频-单图生成(已完成)]</n-tasks><n-ul><n-li>[任务1/1:新增模式②c]<n-focus>[关注1:server/apps/avatarMaker/frontend.js,注册mode: 2c,更新校验与素材表单][关注2:server/apps/avatarMaker/backend.js,增加mode 2c的SOP生成逻辑][关注3:server/apps/avatarMaker/appCall/avatarGetGuide.js,更新AI开发指南为6大模式]</n-focus></n-li></n-ul><n-graph>```mermaid
+graph TD
+A[用户需求:单图全身动作视频] --> B[新增模式2c: 全身动作视频 - 单图生成]
+B --> C[frontend.js 注册模式与表单校验]
+B --> D[backend.js 注入 SOP 指南: avatarMakeVideo只传firstFramePath]
+B --> E[avatarGetGuide.js 同步 6 大制作模式文档]
+```</n-graph></n-main>
+<n-main><n-time>[时间:2026/08/26 03:14:00]</n-time><n-mem>[记忆：啦沐达长官发现原始绿幕MP4视频被自动删除，要求彻底移除清理逻辑。我已从 avatarMakeVideo.js 中移除了 unlinkSync 删除代码，并将原始 MP4 优雅保存为 {目标名}_raw.mp4 供长官随时查阅与存档。]</n-mem><n-tasks>[总任务：1.移除原始MP4自动清理逻辑(已完成)]</n-tasks><n-ul><n-li>[任务1/1:移除清理逻辑]<n-focus>[关注1:server/apps/avatarMaker/appCall/avatarMakeVideo.js,移除fs.unlinkSync(rawVideoPath),将原始MP4保存为{baseName}_raw.mp4并在data中返回rawVideoPath]</n-focus></n-li></n-ul><n-graph>```mermaid
+graph TD
+A[用户要求保留原始中间视频] --> B[定位 avatarMakeVideo.js 第158行 unlinkSync]
+B --> C[删除 unlinkSync 清理代码]
+C --> D[重命名并持久化保存为 {name}_raw.mp4]
+```</n-graph></n-main>

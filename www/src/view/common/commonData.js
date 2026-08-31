@@ -70,6 +70,10 @@ export default {
   // 全局按键状态（快捷键系统维护，供各组件读取当前按下的键）
   pressKeys: [],
 
+  // 全局界面缩放系数（内存维护，默认1）
+  zoomFactor: 1,
+  updateFontSize: null,
+
   // === Editor App 全局共享配置 ===
   editorSendDiff: true,               // 点击批准时是否发回Diff给AI
   editorOpenFileAfterAccept: false,    // 批准后是否自动打开该文件继续编辑

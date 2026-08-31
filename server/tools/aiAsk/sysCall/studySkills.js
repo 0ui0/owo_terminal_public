@@ -90,7 +90,7 @@ export default {
 
         const skillObj = {
           id: item.id,
-          path: pathLib.relative(projectRoot, item.path),
+          path: item.path,
           description,
           content // 留作搜索比对
         }

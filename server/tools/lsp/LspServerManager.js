@@ -56,7 +56,14 @@ class LspServerManager {
    * 为指定文件获取对应 Client，若未启动则启动之 (按 mainDir 工作区隔离)
    */
   async getClientForFile(filePath = "", mainDir = null) {
-    let ext = path.extname(filePath || "").toLowerCase();
+    let isDir = false;
+    try {
+      if (filePath && fsSync.existsSync(filePath) && fsSync.statSync(filePath).isDirectory()) {
+        isDir = true;
+      }
+    } catch (e) {}
+
+    let ext = isDir ? "" : path.extname(filePath || "").toLowerCase();
     // 若未提供具体文件扩展名，根据工作区主目录特征自动探测主语言
     if (!ext && mainDir && fsSync.existsSync(mainDir)) {
       if (fsSync.existsSync(path.join(mainDir, 'tsconfig.json'))) {

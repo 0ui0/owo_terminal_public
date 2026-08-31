@@ -13,7 +13,7 @@ export default {
     const { value, error } = this.joi().validate(argObj)
     if (error) return "错误：" + error.details[0].message
 
-    let { appId, waitSec, commands, minimized } = value
+    let { appId, waitSec, commands, minimized, force } = value
 
     // 强制安全校验 1：多命令流水线中，除了最后一条，前面的子命令必须提供有效的连接符 op
     for (let i = 0; i < commands.length - 1; i++) {
@@ -225,17 +225,17 @@ export default {
         return "权限不足：该终端不属于当前智能体会话列表。"
       }
 
-      // 显式指定终端的运行状态拦截保护
+      // 显式指定终端的运行状态拦截保护（force=true 时强制放行，用于向 SSH 等交互会话注入命令）
       const procRes = await appManager.dispatch(termApp.id, "checkRunningProcess")
-      if (procRes?.hasRunningProcess) {
-        return `无法执行：目标终端 (appId="${termApp.id}") 当前正在运行前台程序或服务进程（如开发服务器/Vim/交互环境等）。\n为保护服务不被中断，已阻止直接输入。\n如需在新终端中执行命令，请传入 appId="-1"；如确实需要向当前运行中的程序发送输入/控制指令，请确认后再操作。`
+      if (procRes?.hasRunningProcess && !force) {
+        return `无法执行：目标终端 (appId="${termApp.id}") 当前正在运行前台程序或服务进程（如开发服务器/Vim/交互环境等）。\n为保护服务不被中断，已阻止直接输入。\n如需在新终端中执行命令，请传入 appId="-1"；如需强制向当前会话发送指令，请设置 force: true（注意：可能干扰正在运行的程序）。`
       }
 
       const session = terminalBackend.getSession(termApp.id)
       const lastLine = (terminalBackend.cleanTerminalContent(session?.content || "")).trim().split("\n").pop() || ""
       const suspendedMatch = lastLine.match(/\b(dquote|quote|bquote|cmdand|cmdor|pipe|heredoc|subsh|cursh)>\s*$/)
-      if (suspendedMatch) {
-        return `无法执行：目标终端 (appId="${termApp.id}") 当前处于未闭合的语法等待状态 (\`${suspendedMatch[0]}\`，例如未闭合的引号或多行输入)。\n终端当前末行输出为:\n\`${lastLine}\`\n请根据情况决策：如需取消当前未完成的输入并重置提示符，可向该终端发送 Ctrl+C (如传入 command: "\\x03")；如需在全新终端中执行，请传入 appId="-1"。`
+      if (suspendedMatch && !force) {
+        return `无法执行：目标终端 (appId="${termApp.id}") 当前处于未闭合的语法等待状态 (\`${suspendedMatch[0]}\`，例如未闭合的引号或多行输入)。\n终端当前末行输出为:\n\`${lastLine}\`\n请根据情况决策：如需取消当前未完成的输入并重置提示符，可向该终端发送 Ctrl+C (如传入 command: "\\x03")；如需在全新终端中执行，请传入 appId="-1"；如需强制发送，请设置 force: true。`
       }
 
       // 更新工具上下文
@@ -323,7 +323,8 @@ export default {
         })
       ).min(1).required().description("必填，结构化终端命令流水线数组（用于生成审查表格并在后台拼接命令）"),
       waitSec: Joi.number().default(10).description("最大等待秒数，默认10（产生输出后静默2.5秒会提前返回）"),
-      minimized: Joi.boolean().default(false).description("是否以最小化窗口运行")
+      minimized: Joi.boolean().default(false).description("是否以最小化窗口运行"),
+      force: Joi.boolean().default(false).description("强制发送开关：当目标终端正在运行前台程序（如SSH会话/Vim/开发服务器等）或处于未闭合语法等待状态时，设置为 true 可强制写入命令（注意：可能干扰正在运行的程序，请谨慎使用）")
     })
   },
 
@@ -349,6 +350,11 @@ export default {
         ]
       }
       使用 terminalGet 工具翻页
+
+      【force 强制发送开关】
+      默认情况下，若目标终端正在运行前台程序（SSH、Vim、开发服务器等）或处于未闭合语法等待状态（如 dquote>），
+      terminalSet 会拒绝执行以保护正在运行的程序。当明确需要向此类会话注入命令时（如向已登录的 SSH 会话发指令），
+      可设置 force: true 绕过拦截强制发送。注意：强制发送可能干扰正在运行的程序或导致输入错乱，请务必谨慎使用。
     `
   }
 }

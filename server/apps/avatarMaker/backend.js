@@ -133,6 +133,20 @@ function buildSopPrompt(appId, config) {
    - lastFramePath: "${targetPoseImg}"
    - prompt: "${videoPrompt}"
    - outputPath: "${finalVideo}"`
+  } else if (config.mode === "2c") {
+    modeDesc = "模式②c（全身动作视频 - 单图生成）"
+    const finalVideo = path.join(finalDir, `${exprKey}_final.webm`)
+    const videoPrompt = `角色在绿幕前做"${prompt}"的全身动作。画面平滑丝滑，保持绿幕背景。`
+
+    modeGuide = `【模式②c 执行 SOP 步骤】
+1. 调用 avatarMakeVideo 工具直接基于单张全身像生成动作视频（不传尾帧）：
+   - appId: "${appId}"
+   - firstFramePath: "${config.fullBodyBase || ""}"
+   - lastFramePath: ""
+   - prompt: "${videoPrompt}"
+   - concatWith: null
+   - outputPath: "${finalVideo}"
+2. ⏸️【人机交互确认】视频生成完成后，将生成的 WebM 视频反馈给用户检查。`
   }
 
   const sysMsg = `[appid:${appId}] 请根据以下配置与 SOP 严格执行角色包制作任务：

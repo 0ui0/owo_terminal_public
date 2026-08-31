@@ -71,8 +71,10 @@ export default () => {
       chatData.saveHistory(trimmedInput)
     }
 
-    // 空消息拦截：无文本、无附件、无引用时，禁止发送
-    if (!trimmedInput && (!session.attachments || session.attachments.length === 0) && (!session.quotes || session.quotes.length === 0)) {
+    const hasStageExt = targetSession.workStage && targetSession.workStage !== '无附加';
+
+    // 空消息拦截：无文本、无附件、无引用时，禁止发送 (如果有附带阶段指令则放行)
+    if (!trimmedInput && !hasStageExt && (!session.attachments || session.attachments.length === 0) && (!session.quotes || session.quotes.length === 0)) {
       return;
     }
 
@@ -80,9 +82,36 @@ export default () => {
 
     // Retrieve routing context
 
+    let currentInput = chatData.inputText;
+
+    // 匹配类似 [xxx:yyy] 的标签结构，不过于限定特定的关键词白名单
+    const quoteRegex = /\[[a-zA-Z0-9_]+:[^\]]+\]/ig;
+    if (quoteRegex.test(currentInput)) {
+      const quoteTip = trs("输入栏/提示/引用检测", { 
+        cn: "若用户在正文中引用了类似[appid:msg]格式的相关标记，请优先使用工具阅读引用内容。", 
+        en: "If the user quotes tags like [appid:msg] in the text, please use tools to read the cited content first." 
+      });
+      if (currentInput.trim()) {
+        currentInput += `\n\n[系统附加指令]：${quoteTip}`;
+      } else {
+        currentInput = `[系统附加指令]：${quoteTip}`;
+      }
+    }
+
+    if (hasStageExt) {
+      const currentStageOpt = chatData.getStageOptions().find(opt => opt.value === targetSession.workStage);
+      if (currentStageOpt && currentStageOpt.text) {
+        if (currentInput.trim()) {
+          currentInput += `\n\n[系统附加指令]：当前处于${targetSession.workStage}模式，${currentStageOpt.text}`;
+        } else {
+          currentInput = `[系统附加指令]：当前处于${targetSession.workStage}模式，${currentStageOpt.text}`;
+        }
+      }
+    }
+
     const payload = {
       ...session,
-      inputText: chatData.inputText,
+      inputText: currentInput,
       targetChatListId: targetChatListId,
     };
 
@@ -235,19 +264,60 @@ export default () => {
             alignItems: "center"
           }
         }, [
-          m(IconTag, {
-            iconName: "Send",
-            bgColor: getColor('pink_1').back,
-            fgColor: getColor('pink_1').front,
-            styleExt: {
-              margin: 0,
-              marginLeft: 0,
-              marginRight: 0
-            },
-            ext: {
-              onclick: (e) => submitFn(e, listId)
+          // 发送按钮胶囊组合
+          m("div", {
+            style: {
+              display: "inline-flex",
+              alignItems: "stretch"
             }
-          }, trs("输入栏/按钮/发送", { cn: "发送", en: "Send" })),
+          }, [
+            m(IconTag, {
+              iconName: "Send",
+              bgColor: getColor('pink_1').back,
+              fgColor: getColor('pink_1').front,
+              styleExt: {
+                margin: 0,
+                marginLeft: 0,
+                marginRight: 0,
+                borderTopRightRadius: 0,
+                borderBottomRightRadius: 0,
+              },
+              ext: {
+                onclick: (e) => submitFn(e, listId)
+              }
+            }, trs("输入栏/按钮/发送", { cn: "发送", en: "Send" })),
+
+            m(IconTag, {
+              iconName: "Down",
+              bgColor: getColor('pink_1').back,
+              fgColor: getColor('pink_1').front,
+              styleExt: {
+                margin: 0,
+                marginLeft: 0,
+                marginRight: 0,
+                borderTopLeftRadius: 0,
+                borderBottomLeftRadius: 0,
+                paddingLeft: "0.5rem",
+                paddingRight: "0.5rem",
+                borderLeft: `1px solid ${getColor('pink_1').front}33`
+              },
+              ext: {
+                onclick: async () => {
+                  const ChatSendMenu = (await import("./ChatSendMenu.js")).default;
+                  Notice.launch({
+                    sign: "send_menu_dialog_" + targetChatListId,
+                    tip: trs("输入栏/提示/发送设置", { cn: "发送模式设置", en: "Send Settings" }),
+                    content: ChatSendMenu,
+                    contentAttrs: {
+                      targetChatListId,
+                      targetSession,
+                      updateListSession
+                    }
+                  })
+                }
+              }
+            })
+          ]),
 
           // 模型选择 + 终端 连体组合
           m("div", {

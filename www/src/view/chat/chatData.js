@@ -1,8 +1,23 @@
 import comData from "../../comData/comData.js"
 import settingData from "../setting/settingData.js"
 import Rows from "../../class/rows.js"
+import { trs } from "../common/i18n.js"
 
 export default {
+  getModeOptions() {
+    return [
+      { value: "readWrite", label: trs("下拉栏/读写模式", { cn: "工具读写", en: "Read/Write" }), desc: trs("下拉栏/读写描述", { cn: "正常模式，允许调用所有工具", en: "Normal mode, allows all tool calls" }) },
+      { value: "chatOnly", label: trs("下拉栏/仅聊天", { cn: "仅聊天", en: "Chat Only" }), desc: trs("下拉栏/仅聊天描述", { cn: "禁止大模型实际执行所有系统级工具", en: "Prevent AI from executing any system tools" }) }
+    ]
+  },
+  getStageOptions() {
+    return [
+      { value: "无附加", label: trs("发送组/无附加", { cn: "无附加", en: "None" }), text: "" },
+      { value: "调查并讨论", label: trs("发送组/调查并讨论", { cn: "调查并讨论", en: "Investigate & Discuss" }), text: "调查相关问题并和用户讨论，本阶段仅使用只读工具。" },
+      { value: "规划任务", label: trs("发送组/规划任务", { cn: "规划任务", en: "Plan Tasks" }), text: "本阶段需要调查并在项目目录编写任务计划书，编写完毕后由用户审核，本阶段使用只读工具。" },
+      { value: "执行任务", label: trs("发送组/执行任务", { cn: "执行任务", en: "Execute" }), text: "用户批准执行当前任务，请耐心完成" }
+    ]
+  },
   inputDom: null,
   inputText: "",
   needSync: false, // 外部修改 inputText 后置 true，通知编辑器重渲染

@@ -106,8 +106,11 @@ export default {
         const fileTarget = targetFilePath ? resolvedPath : null
         let rawDiags = lspManager.getDiagnostics(mainDir, fileTarget)
 
-        // 轮询等待 LSP 异步分析推送 (最多等 1200ms)
-        for (let i = 0; i < 12; i++) {
+        const maxWaitMs = params.timeout || 1200;
+        const loops = Math.max(1, Math.floor(maxWaitMs / 100));
+
+        // 轮询等待 LSP 异步分析推送
+        for (let i = 0; i < loops; i++) {
           await new Promise(resolve => setTimeout(resolve, 100))
           rawDiags = lspManager.getDiagnostics(mainDir, fileTarget)
           if (rawDiags && rawDiags.length > 0) break
@@ -118,17 +121,18 @@ export default {
       }
 
       // 【不死鸟防御机制】安全的语义查询包装器
+      const customTimeout = params.timeout || 15000;
       const safeSemanticRequest = async (method, req) => {
         try {
-          return await client.sendRequest(method, req);
+          return await client.sendRequest(method, req, customTimeout);
         } catch (err) {
           const isSemanticOp = ['workspace/symbol', 'textDocument/references', 'textDocument/definition'].includes(method);
-          if (isSemanticOp && err.message && err.message.includes('No Project')) {
-            console.log(`[LSP 防御] 捕获到底层失忆 Bug (No Project)，触发不死鸟重启重试...`);
+          if (isSemanticOp && err.message && (err.message.includes('No Project') || err.message.includes('超时未响应'))) {
+            console.log(`[LSP 防御] 捕获到底层异常 (${err.message})，触发不死鸟重启重试...`);
             await lspManager.disposeWorkspace(mainDir);
             const newClient = await lspManager.getClientForFile(resolvedPath, mainDir);
             if (!newClient) throw new Error("重建 LSP 进程失败");
-            return await newClient.sendRequest(method, req);
+            return await newClient.sendRequest(method, req, customTimeout);
           }
           throw err;
         }
@@ -310,38 +314,46 @@ export default {
   },
 
   joi() {
+    const baseKeys = { timeout: Joi.number().integer().min(1000).max(120000).description("自定义超时时间(ms，默认15000)") };
     return Joi.object({
       get_errors: Joi.object({
+        ...baseKeys,
         filePath: Joi.string().description("目标文件路径（可选，缺省则检查当前项目全部文件）")
       }).description("检查代码的语法错误与类型报错 (对齐 VSCode get_errors)"),
 
       hover: Joi.object({
+        ...baseKeys,
         filePath: Joi.string().required().description("文件路径"),
         line: Joi.number().integer().min(1).required().description("行号 (1-based)"),
         character: Joi.number().integer().min(1).required().description("列号 (1-based)")
       }).description("悬停查看变量/函数的类型签名与文档注释"),
 
       goToDefinition: Joi.object({
+        ...baseKeys,
         filePath: Joi.string().required().description("调用点所在文件路径"),
         line: Joi.number().integer().min(1).required().description("调用点行号 (1-based)"),
         character: Joi.number().integer().min(1).required().description("调用点列号 (1-based)")
       }).description("跳转到变量/函数的定义位置"),
 
       findReferences: Joi.object({
+        ...baseKeys,
         filePath: Joi.string().required().description("符号所在文件路径"),
         line: Joi.number().integer().min(1).required().description("行号 (1-based)"),
         character: Joi.number().integer().min(1).required().description("列号 (1-based)")
       }).description("查找全项目中所有引用该符号的位置"),
 
       documentSymbol: Joi.object({
+        ...baseKeys,
         filePath: Joi.string().required().description("文件路径")
       }).description("提取单文件内的所有函数、类、属性等大纲符号"),
 
       workspaceSymbol: Joi.object({
+        ...baseKeys,
         query: Joi.string().required().description("要搜索的函数名/类名/符号关键字")
       }).description("在全项目中模糊搜索符号定义"),
 
       signatureHelp: Joi.object({
+        ...baseKeys,
         filePath: Joi.string().required().description("文件路径"),
         line: Joi.number().integer().min(1).required().description("行号 (1-based)"),
         character: Joi.number().integer().min(1).required().description("列号 (1-based)")

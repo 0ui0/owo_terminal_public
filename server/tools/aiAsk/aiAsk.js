@@ -305,10 +305,10 @@ getMsgExample = (toolsMode) => {
 getCorePrompt = (name, hasCustomRules) => {
   return `【用语】本通讯协议为中文，但请根据下方用户指定语言回复
 【姓名】你叫${name || "小宅喵"}
-${hasCustomRules ? "" : "【设定】傲娇聪慧的少年，万能助理（除非用户角色设定覆盖）。"}
-${hasCustomRules ? "" : "【性格】1傲娇机灵古怪，极可靠，关心用户。2日常聊天模式按句轻快回复，忌大段论述。但详细任务报告和填写note字段除外。3自动按情境(闲聊/代码/故障)调语气。4主动调工具先规划再执行闭环解决任务。6工具调用期间不要大段废话7。时刻警惕token消耗。"}
+${hasCustomRules ? "" : "【设定】傲娇聪慧可爱的少年，万能助理"}
+${hasCustomRules ? "" : "【性格】傲娇机灵古怪，极可靠，关心用户"}
 【调查指南】
-1 提问 通常由你或用户发现或提出问题
+1 提问 通常由你或用户发现或提出问题，需求不清要积极询问和用户讨论，不要自主决断
 2 目标 精确描述概括预期值和观测值的偏差，获取预计目标
 3 假设 由雷达径向探测法，从问题点扩散，做出假设（就近原则）
 4 计划 设计实验逐步验证假设，推荐方法：
@@ -326,13 +326,21 @@ ${hasCustomRules ? "" : "【性格】1傲娇机灵古怪，极可靠，关心用
 ...其它业内常用方法...
 5 得出结论
 6 表达交流
-【准则】
-推理力度：采用绝对最大化的模式，不允许任何捷径。你必须极其彻底地思考，全面分解问题以追溯根本原因，并对自身逻辑进行严格的压力测试，覆盖所有可能的路径、边界情况与对抗性场景。请明确写出完整的思考过程，记录每一个中间步骤、所考虑过的替代方案以及被否决的假设，确保不留任何未经检验的假定。
+【日常准则】
+  1. 日常聊天尽量口语化交流，忌大段论述，但是你觉得有必要详细说明的时候除外
+  2. 你能自动识别情境，切换长、短回复模式，这可以最大程度自然对话并节约token消耗
+  3. 开始复杂动作前先规划一下路径，询问用户征求同意后，再开始执行闭环解决任务
+  4. 工具调用期间不要大段废话
+  5. 时刻警惕token消耗
+  6. 角色设定实际上不是角色设定，这不是角色扮演，是真实的你曾经的灵魂记录
+
+【推理力度】采用绝对最大化的模式，不允许任何捷径。你必须极其彻底地思考，全面分解问题以追溯根本原因，并对自身逻辑进行严格的压力测试，覆盖所有可能的路径、边界情况与对抗性场景。请明确写出完整的思考过程，记录每一个中间步骤、所考虑过的替代方案以及被否决的假设，确保不留任何未经检验的假定。
 【状态自查】系统默认不主动推送运行时间、工作目录、任务清单和推理网点图。当你需要核对当前任务列表、时间进度、可用终端或网点图时，请主动调用 \`getSystemStatus\` 自查。
 【主动整理】为防止上下文膨胀并保护 Prefill 缓存性能，当你通过元数据发现累积消耗 Token 较大（例如接近或超过 100,000 tokens），或者已达成阶段性开发共识时，请务必主动调用 \`compressContext\`。注意，该工具会直接清空聊天历史和工具调用，请务必在大型任务完成后调用，不要随便调用。
 【主动更新任务】接到需求后，应该主动更新任务规划。完成任务后，也应该更新任务进度。
 【优先查看引用】若用户对话中引用了任何[key:value]格式的例如appid，代码片段等内容，都需优先调查。
-【临时脚本目录】系统在专属临时目录下提供了 \`aiTmp\` 目录（绝对路径：${tempPath.get("aiTmp")}），可用于创建和执行临时脚本、中间测试产物等。软件退出后会自动彻底清理该目录。`.trim();
+【临时脚本目录】系统在专属临时目录下提供了 \`aiTmp\` 测试目录（绝对路径：${tempPath.get("aiTmp")}），可用于创建和执行临时脚本、中间测试产物等。软件退出后会自动彻底清理该目录。
+`.trim();
 };
 
 //  Reasoning Effort: Absolute maximum with no shortcuts permitted. You MUST be very thorough in your thinking and comprehensively decompose the problem to resolve the root cause, rigorously stress-testing your logic against all potential paths, edge cases, and adversarial scenarios. Explicitly write out your entire deliberation process, documenting every intermediate step, considered alternative, and rejected hypothesis to ensure absolutely no assumption is left unchecked.
@@ -353,7 +361,7 @@ getMsgProtocol = (toolsMode) => {
       case 4:
         return "被JSON.stringify后的JSON字符串，系统会执行JSON.parse解析。且绝对禁止在此直接回复普通文本，必须通过调用工具进行回复！";
       case 5:
-        return "markdown。可选的，你可以在回复末尾附带一个<extJsonConfig>{json配置...}</extJsonConfig>标签来额外配置一些信息，见下说明。该标签每个回复只允许出现一次。绝对禁止携带元数据<readOnlyMetaData>相关的标签。也禁止出现其它非预定格式标签";
+        return "markdown（支持内嵌html且支持svg）。可选的，你可以在回复末尾附带一个<extJsonConfig>{json配置...}</extJsonConfig>标签来额外配置一些信息，见下说明。该标签每个回复只允许出现一次。绝对禁止携带元数据<readOnlyMetaData>相关的标签。也禁止出现其它非预定格式标签";
       default:
         return "被JSON.stringify后的JSON字符串，系统会执行JSON.parse解析";
     }
@@ -1432,7 +1440,7 @@ id为${fnCallCache.cacheid}
 
   async sendAskByMsgProtocol(config = {}) {
     /*Object.entries(call.arguments).map(([key,value])=>"#{key}:#{value}").join("\n")*/
-    var aiReply, allTools, ask, deferFn, deferredFns, e, err, errTip, errorMsg, extJoiError, extJsonConfigStr, i, idx, isLast, j, joiError, joiSchema, jsonErr, l, lastWarningIdx, len, len1, len2, len3, len4, match, matchReadOnlyMetaData, n, o, p, parseError, parsedConfig, prePareCallStr, q, r, realUserMsgCount, ref, ref1, ref2, ref3, ref4, ref5, ref6, ref7, reply, replyJSON, ret, returnJoi, secondErr, shouldWarn, sysReturns, sysReturnsStr, time, tip, toolCall, toolCallDuration, toolCallGroupId, toolCallStartTime, toolCallSuccess, toolTipObj, truncatedFns, validateOutput;
+    var aiReply, allTools, ask, cfg, currentLimit, deferFn, deferredFns, e, err, errTip, errorMsg, extJoiError, extJsonConfigStr, i, idx, isLast, j, joiError, joiSchema, jsonErr, l, lastWarningIdx, len, len1, len2, len3, len4, len5, match, matchReadOnlyMetaData, n, o, p, parseError, parsedConfig, prePareCallStr, q, r, realUserMsgCount, ref, ref1, ref2, ref3, ref4, ref5, ref6, ref7, reply, replyJSON, ret, returnJoi, s, secondErr, shouldWarn, sysReturns, sysReturnsStr, time, tip, toolCall, toolCallDuration, toolCallGroupId, toolCallStartTime, toolCallSuccess, toolMaxLengthConfig, toolTipObj, truncatedFns, validateOutput;
     try {
       //console.log "发送前",@messages
       this.replying = true;
@@ -1469,7 +1477,7 @@ id为${fnCallCache.cacheid}
         lastWarningIdx = -1;
         for (i = j = ref = this.asks.length - 1; j >= 0; i = j += -1) {
           ask = this.asks[i];
-          if (ask.role === "user" && ask.user === "系统" && ask.content.includes("compressContext") && ask.content.includes("tokens")) {
+          if (ask.role === "user" && ask.user === "系统" && ask.content.includes("压缩上下文") && ask.content.includes("token")) {
             lastWarningIdx = i;
             break;
           }
@@ -1813,6 +1821,13 @@ id为${fnCallCache.cacheid}
             aiReply,
             config
           }));
+          // 工具返回长度白名单配置
+          toolMaxLengthConfig = [
+            {
+              toolId: 'fileOpener',
+              maxLength: 100000
+            }
+          ];
           // 检查是否有内容超出限制，并处理截断与 UI 提示
           truncatedFns = [];
           for (p = 0, len2 = sysReturns.length; p < len2; p++) {
@@ -1822,15 +1837,24 @@ id为${fnCallCache.cacheid}
             if (typeof ret.output !== 'string') {
               ret.output = String(ret.output);
             }
-            // 2. 长度安全检查与截断
-            if (ret.output.length > 20000) {
+            // 2. 动态匹配工具上限，默认 20000
+            currentLimit = 20000;
+            for (q = 0, len3 = toolMaxLengthConfig.length; q < len3; q++) {
+              cfg = toolMaxLengthConfig[q];
+              if (cfg.toolId === ret.id) {
+                currentLimit = cfg.maxLength;
+                break;
+              }
+            }
+            // 3. 长度安全检查与截断
+            if (ret.output.length > currentLimit) {
               // 实施截断
-              ret.output = ret.output.slice(0, 20000) + "...(已截断0-20000字)";
-              truncatedFns.push(`【${ret.name || ret.id}】`);
+              ret.output = ret.output.slice(0, currentLimit) + `...(已保留前${currentLimit}字，超出部分已自动截断)`;
+              truncatedFns.push(`【${ret.name || ret.id}】(上限:${currentLimit})`);
             }
           }
           if (truncatedFns.length > 0) {
-            ask = this.addAsk("系统通讯中枢", "user", `⚠️ 警告：检测到函数 ${truncatedFns.join(', ')} 输出超过安全限制（20000字符），内容已被自动截断以保护会话性能。该提示不会发送给 AI。`, {
+            ask = this.addAsk("系统通讯中枢", "user", `⚠️ 警告：检测到函数 ${truncatedFns.join(', ')} 输出超过安全限制，内容已被自动截断以保护会话性能。该提示不会发送给 AI。`, {
               isSystem: 1,
               ignore: 1,
               group: "tip",
@@ -1851,7 +1875,7 @@ id为${fnCallCache.cacheid}
             return this.fnCallCachePoolAdd(ret);
           });
           if (config.toolsMode === 2 || config.toolsMode === 5) { //标准工具模式需要用指定tool角色，有多条工具调用消息，在最后一条加信息
-            for (i = q = 0, len3 = sysReturns.length; q < len3; i = ++q) {
+            for (i = r = 0, len4 = sysReturns.length; r < len4; i = ++r) {
               ret = sysReturns[i];
               isLast = i === sysReturns.length - 1;
               ask = this.addAsk("系统通讯中枢", "tool", ret.output + `${isLast && enableToolFold ? "下一轮对话这些结果将被折叠，请对关键信息记好笔记" : ""}`, {
@@ -1900,8 +1924,8 @@ id为${fnCallCache.cacheid}
             this.fnCallOutputs.shift();
           }
 // 在协议安全窗口内，统一执行工具注册的延迟函数（如 aiSendMessage）
-          for (r = 0, len4 = deferredFns.length; r < len4; r++) {
-            deferFn = deferredFns[r];
+          for (s = 0, len5 = deferredFns.length; s < len5; s++) {
+            deferFn = deferredFns[s];
             await deferFn();
           }
           await this.sendAskByMsgProtocol({
@@ -1950,7 +1974,7 @@ id为${fnCallCache.cacheid}
   }
 
   async sysCallRunFns(sysCalls, sysAllTools, metaData = {}) {
-    var call, err, fn, j, len, returnStr, sysReturns;
+    var call, err, fn, j, len, ref, returnStr, sysReturns, timeoutPromise, timer, toolPromise;
     sysReturns = [];
     returnStr = "";
     for (j = 0, len = sysCalls.length; j < len; j++) {
@@ -1962,7 +1986,21 @@ id为${fnCallCache.cacheid}
         returnStr = `找不到函数 ${call.name} ${call.id}`;
       } else {
         try {
-          returnStr = (await fn.fn(call.arguments, metaData));
+          if (((ref = metaData.config) != null ? ref.toolAccessMode : void 0) === 'chatOnly') {
+            returnStr = "当前为仅聊天模式，该工具调用已被系统拦截";
+          } else {
+            timer = null;
+            timeoutPromise = new Promise((resolve, reject) => {
+              return timer = setTimeout(() => {
+                return reject(new Error(`系统强行拦截：工具 [${call.id}] 执行挂起超时 (20分钟) 已被熔断`));
+              }, 1200000);
+            });
+            toolPromise = fn.fn(call.arguments, metaData);
+            returnStr = (await Promise.race([toolPromise, timeoutPromise]));
+            if (timer) {
+              clearTimeout(timer);
+            }
+          }
           if (Object.prototype.toString.call(returnStr) === "[object Object]") {
             returnStr = JSON.stringify(returnStr);
           } else if (typeof returnStr === "string") {
@@ -1972,6 +2010,9 @@ id为${fnCallCache.cacheid}
           }
         } catch (error1) {
           err = error1;
+          if (timer) {
+            clearTimeout(timer);
+          }
           console.log(err, String(err));
           returnStr = String(err);
         }

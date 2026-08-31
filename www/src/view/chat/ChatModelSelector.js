@@ -7,15 +7,21 @@ import { trs } from "../common/i18n.js"
 import settingData from "../setting/settingData.js"
 import { launchModelWizard } from "../setting/settingModelWizard.js"
 import chatData from "./chatData.js"
+import comData from "../../comData/comData.js"
 
 export default () => {
   let selectedModelId = ""
+  let selectedChatListId = null
   let coverPrompt = true
   let clearContext = false
 
   return {
     oninit({ attrs }) {
-      selectedModelId = attrs.targetSession?.currentModelId || ""
+      const chatLists = comData.data.get().chatLists
+      selectedChatListId = attrs.targetChatListId !== undefined ? attrs.targetChatListId : chatLists[0].id
+
+      const targetSession = attrs.targetSession || chatLists.find(l => l.id === selectedChatListId)
+      selectedModelId = targetSession.currentModelId
 
       const noticeConfig = attrs.noticeConfig
       if (noticeConfig) {
@@ -30,25 +36,24 @@ export default () => {
 
           try {
             let res = await settingData.fnCall("switchModel", [{
-              listId: attrs.targetChatListId,
+              listId: selectedChatListId,
               modelId: selectedModelId,
               options: { coverPrompt, clearContext }
             }])
 
             if (!res.ok) {
               Notice.launch({
-                msg: res.msg || trs("系统/消息/切换失败", { cn: "切换失败", en: "Switch failed" }),
+                msg: res.msg,
                 color: "pink"
               })
               return true
             }
 
             if (attrs.updateListSession) {
-              attrs.updateListSession(attrs.targetChatListId, { currentModelId: selectedModelId })
+              attrs.updateListSession(selectedChatListId, { currentModelId: selectedModelId })
             }
 
-
-            chatData.inputDom?.focus?.()
+            chatData?.inputDom?.focus()
             return undefined
           } catch (err) {
             console.error(err)
@@ -60,7 +65,8 @@ export default () => {
     },
 
     view({ attrs }) {
-      const allModels = (settingData.options.get("ai_aiList") || []).filter(m => m.switch)
+      const allModels = settingData.options.get("ai_aiList").filter(m => m.switch)
+      const chatLists = comData.data.get().chatLists
 
       return m("",
         {
@@ -73,6 +79,51 @@ export default () => {
           }
         },
         [
+          // 无条件显示的会话选择区
+          m("",
+            {
+              style: {
+                display: "flex",
+                flexDirection: "column",
+                gap: "0.5rem"
+              }
+            },
+            [
+              m("span",
+                {
+                  style: {
+                    fontSize: "1.2rem",
+                    color: getColor("gray_1").front,
+                    marginLeft: "0.5rem"
+                  }
+                },
+                trs("组件/提示/选择目标会话", { cn: "目标会话队列", en: "Target Session Queue" })
+              ),
+              m("select",
+                {
+                  value: selectedChatListId,
+                  onchange: (e) => {
+                    selectedChatListId = Number(e.target.value)
+                    const session = chatLists.find(l => l.id === selectedChatListId)
+                    selectedModelId = session.currentModelId
+                  },
+                  style: {
+                    padding: "1rem 1.5rem",
+                    borderRadius: "3rem",
+                    border: "none",
+                    background: getColor("gray_4").back,
+                    color: getColor("gray_4").front,
+                    outline: "none",
+                    fontSize: "1.2rem",
+                    appearance: "none",
+                    cursor: "pointer"
+                  }
+                },
+                chatLists.map(list => m("option", { value: list.id }, `${list.name || '主会话'} (ID: ${list.id})`))
+              )
+            ]
+          ),
+
           // 顶部栏：L3 字号标题与添加模型向导 Tag
           m("",
             {

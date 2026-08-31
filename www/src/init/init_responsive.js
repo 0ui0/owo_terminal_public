@@ -1,4 +1,6 @@
 
+import commonData from "../view/common/commonData.js"
+
 export default function () {
   var _bakPush;
   // 定义全局检测设备类型变量
@@ -26,17 +28,22 @@ export default function () {
     } else {
       window.Mob = false;
     }
+    let baseSize;
     switch (window.DEV) {
       case "mobile":
-        return root.style["font-size"] = Math.ceil(root.clientWidth / (455 / 10)) + "px";
+        baseSize = Math.ceil(root.clientWidth / (455 / 10));
+        break;
       case "wideScreen":
-        return root.style["font-size"] = 11 + "px";
-      case "fullHD":
-        return root.style["font-size"] = 10 + "px";
+        baseSize = 11;
+        break;
       default:
-        return root.style["font-size"] = 10 + "px";
+        baseSize = 10;
+        break;
     }
+    return root.style["font-size"] = (baseSize * commonData.zoomFactor) + "px";
   };
+
+  commonData.updateFontSize = fn;
 
   fn();
 

@@ -56,15 +56,17 @@ export default (
   const MODEL_PRESETS = {
     volcengine: {
       name: "火山方舟 (Volcengine)",
-      imageDefaultUrl: "https://ark.cn-beijing.volces.com/api/v3/images/generations",
+      imageDefaultUrl: "https://ark.cn-beijing.volces.com/api/v3",
       imageModels: [
-        { label: "doubao-seedream-3-0-t2i-241128 (豆包图像生成)", value: "doubao-seedream-3-0-t2i-241128" },
-        { label: "doubao-image-i2i (豆包图生图)", value: "doubao-image-i2i" },
+        { label: "doubao-seedream-3-0-t2i-241128", value: "doubao-seedream-3-0-t2i-241128" },
+        { label: "doubao-image-i2i", value: "doubao-image-i2i" },
+        { label: "doubao-seedance-1-5-pro-251215", value: "doubao-seedance-1-5-pro-251215" },
         { label: "ep-自定义推理接入点 (在下方填入 ep-xxx)", value: "" }
       ],
-      videoDefaultUrl: "https://ark.cn-beijing.volces.com/api/v3/contents/generations/tasks",
+      videoDefaultUrl: "https://ark.cn-beijing.volces.com/api/v3",
       videoModels: [
-        { label: "doubao-seaweed-241128 (豆包视频生成)", value: "doubao-seaweed-241128" },
+        { label: "doubao-seedance-1-5-pro-251215", value: "doubao-seedance-1-5-pro-251215" },
+        { label: "doubao-seaweed-241128", value: "doubao-seaweed-241128" },
         { label: "ep-自定义推理接入点 (在下方填入 ep-xxx)", value: "" }
       ]
     },
@@ -72,18 +74,18 @@ export default (
       name: "阿里百炼 (DashScope)",
       imageDefaultUrl: "https://dashscope.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation",
       imageModels: [
-        { label: "wan2.6-image (通义万相 2.6 多模态生图/图生图)", value: "wan2.6-image" },
-        { label: "wanx2.1-imageedit (万相 2.1 图像编辑与图生图)", value: "wanx2.1-imageedit" },
-        { label: "wanx2.1-i2i-turbo (万相 2.1 Turbo 极速图生图)", value: "wanx2.1-i2i-turbo" },
-        { label: "wanx-v1 (通义万相 1.0 经典版)", value: "wanx-v1" },
+        { label: "wan2.6-image", value: "wan2.6-image" },
+        { label: "wanx2.1-imageedit", value: "wanx2.1-imageedit" },
+        { label: "wanx2.1-i2i-turbo", value: "wanx2.1-i2i-turbo" },
+        { label: "wanx-v1", value: "wanx-v1" },
         { label: "自定义模型 (在下方手动输入)", value: "" }
       ],
       videoDefaultUrl: "https://dashscope.aliyuncs.com/api/v1/services/aigc/video-generation/video-synthesis",
       videoModels: [
-        { label: "wan2.7-kf2v (通义万相 2.7 首尾帧生视频 - 最新推荐)", value: "wan2.7-kf2v" },
-        { label: "wan2.2-kf2v-flash (万相 2.2 首尾帧极速生成)", value: "wan2.2-kf2v-flash" },
-        { label: "wan2.1-kf2v-plus (万相 2.1 首尾帧生视频 Plus)", value: "wan2.1-kf2v-plus" },
-        { label: "wan2.1-t2v-turbo (万相 2.1 文生视频 Turbo)", value: "wan2.1-t2v-turbo" },
+        { label: "wan2.7-kf2v", value: "wan2.7-kf2v" },
+        { label: "wan2.2-kf2v-flash", value: "wan2.2-kf2v-flash" },
+        { label: "wan2.1-kf2v-plus", value: "wan2.1-kf2v-plus" },
+        { label: "wan2.1-t2v-turbo", value: "wan2.1-t2v-turbo" },
         { label: "自定义模型 (在下方手动输入)", value: "" }
       ]
     }
@@ -94,10 +96,10 @@ export default (
     outputDir: "",
     fullBodyBase: "",
     halfBodyBase: "",
-    imageApiUrl: "https://ark.cn-beijing.volces.com/api/v3/images/generations",
+    imageApiUrl: "https://ark.cn-beijing.volces.com/api/v3",
     imageApiKey: "",
     imageModel: "doubao-seedream-3-0-t2i-241128",
-    videoApiUrl: "https://ark.cn-beijing.volces.com/api/v3/contents/generations/tasks",
+    videoApiUrl: "https://ark.cn-beijing.volces.com/api/v3",
     videoApiKey: "",
     videoModel: "doubao-seaweed-241128",
     prompt: ""
@@ -152,6 +154,16 @@ export default (
         "2. 获得尾帧图后，调用视频生成模型进行动作补间，合成从「默认正常站立」变化过渡到「指定结束动作」的绿幕动作视频。",
         "3. 适合做大幅度的动作转折、技能释放或者大幅度姿势演绎。"
       ]
+    },
+    {
+      id: "2c",
+      category: "video",
+      label: "全身动作视频 - 单图生成 (由单张全身图和描述直接生成视频)",
+      sopSteps: [
+        "1. 不需要额外画尾帧图，也不需要首尾相同。系统直接使用「全身像素材」结合「提示词」，调用视频生成模型直接进行动作演绎与生成。",
+        "2. 生成的 WebM 视频将从初始全身姿势开始，根据提示词自由活动演进并绿幕化输出。",
+        "3. 适合生成单次连贯动作、自由特写动作或无需严格首尾封闭的动作片段。"
+      ]
     }
   ]
 
@@ -205,12 +217,12 @@ export default (
     if (mode === "0a" || mode === "1") {
       if (!config.halfBodyBase) return { step: 2, msg: "当前模式需填写「半身像素材路径」" }
     }
-    if (mode === "0b" || mode === "2a" || mode === "2b") {
+    if (mode === "0b" || mode === "2a" || mode === "2b" || mode === "2c") {
       if (!config.fullBodyBase) return { step: 2, msg: "当前模式需填写「全身像素材路径」" }
     }
 
     const needImage = (mode === "0a" || mode === "0b" || mode === "1" || mode === "2b")
-    const needVideo = (mode === "1" || mode === "2a" || mode === "2b")
+    const needVideo = (mode === "1" || mode === "2a" || mode === "2b" || mode === "2c")
 
     if (needImage) {
       if (!config.imageApiUrl) return { step: 3, msg: "请填写「图片 API URL」" }
@@ -706,7 +718,7 @@ export default (
                           display: "flex",
                           flexDirection: "column",
                           gap: "0.5rem",
-                          opacity: (mode === "0b" || mode === "2a" || mode === "2b") ? 1 : 0.6
+                          opacity: (mode === "0b" || mode === "2a" || mode === "2b" || mode === "2c") ? 1 : 0.6
                         }
                       },
                       [
@@ -717,7 +729,7 @@ export default (
                               color: getColor("gray_1").front
                             }
                           },
-                          `全身像素材路径 ${(mode === "0b" || mode === "2a" || mode === "2b") ? "*" : "(当前模式可选)"}`
+                          `全身像素材路径 ${(mode === "0b" || mode === "2a" || mode === "2b" || mode === "2c") ? "*" : "(当前模式可选)"}`
                         ),
                         m("",
                           {
@@ -1081,31 +1093,40 @@ export default (
                             },
                             [
                               m("label", { style: { fontSize: "1.3rem", opacity: 0.8 } }, "图片生成模型 (Model / Endpoint)"),
-                              m("select",
-                                {
-                                  style: {
-                                    padding: "0.8rem 1.2rem",
-                                    borderRadius: "3rem",
-                                    border: "none",
-                                    outline: "none",
-                                    background: getColor("gray_3").back,
-                                    color: getColor("gray_3").front,
-                                    fontSize: "1.4rem",
-                                    cursor: "pointer",
-                                    marginBottom: "0.4rem"
-                                  },
-                                  onchange: (e) => {
-                                    if (e.target.value) {
-                                      configFields.imageModel = e.target.value
+                              (() => {
+                                const isCustom = !activeImagePreset.imageModels.some(mOpt => mOpt.value && mOpt.value === configFields.imageModel)
+                                return m("select",
+                                  {
+                                    style: {
+                                      padding: "0.8rem 1.2rem",
+                                      borderRadius: "3rem",
+                                      border: "none",
+                                      outline: "none",
+                                      background: getColor("gray_3").back,
+                                      color: getColor("gray_3").front,
+                                      fontSize: "1.4rem",
+                                      cursor: "pointer",
+                                      marginBottom: "0.4rem"
+                                    },
+                                    onchange: (e) => {
+                                      if (e.target.value) {
+                                        configFields.imageModel = e.target.value
+                                      } else {
+                                        const isPreset = activeImagePreset.imageModels.some(mOpt => mOpt.value && mOpt.value === configFields.imageModel)
+                                        if (isPreset) {
+                                          configFields.imageModel = ""
+                                        }
+                                      }
                                     }
-                                  }
-                                },
-                                [
-                                  activeImagePreset.imageModels.map(mOpt => {
-                                    return m("option", { value: mOpt.value, selected: configFields.imageModel === mOpt.value }, mOpt.label)
-                                  })
-                                ]
-                              ),
+                                  },
+                                  [
+                                    activeImagePreset.imageModels.map(mOpt => {
+                                      const isSelected = mOpt.value ? (configFields.imageModel === mOpt.value) : isCustom
+                                      return m("option", { value: mOpt.value, selected: isSelected }, mOpt.label)
+                                    })
+                                  ]
+                                )
+                              })(),
                               m("input",
                                 {
                                   value: configFields.imageModel,
@@ -1286,31 +1307,40 @@ export default (
                             },
                             [
                               m("label", { style: { fontSize: "1.3rem", opacity: 0.8 } }, "视频生成模型 (Model / Endpoint)"),
-                              m("select",
-                                {
-                                  style: {
-                                    padding: "0.8rem 1.2rem",
-                                    borderRadius: "3rem",
-                                    border: "none",
-                                    outline: "none",
-                                    background: getColor("gray_3").back,
-                                    color: getColor("gray_3").front,
-                                    fontSize: "1.4rem",
-                                    cursor: "pointer",
-                                    marginBottom: "0.4rem"
-                                  },
-                                  onchange: (e) => {
-                                    if (e.target.value) {
-                                      configFields.videoModel = e.target.value
+                              (() => {
+                                const isCustom = !activeVideoPreset.videoModels.some(mOpt => mOpt.value && mOpt.value === configFields.videoModel)
+                                return m("select",
+                                  {
+                                    style: {
+                                      padding: "0.8rem 1.2rem",
+                                      borderRadius: "3rem",
+                                      border: "none",
+                                      outline: "none",
+                                      background: getColor("gray_3").back,
+                                      color: getColor("gray_3").front,
+                                      fontSize: "1.4rem",
+                                      cursor: "pointer",
+                                      marginBottom: "0.4rem"
+                                    },
+                                    onchange: (e) => {
+                                      if (e.target.value) {
+                                        configFields.videoModel = e.target.value
+                                      } else {
+                                        const isPreset = activeVideoPreset.videoModels.some(mOpt => mOpt.value && mOpt.value === configFields.videoModel)
+                                        if (isPreset) {
+                                          configFields.videoModel = ""
+                                        }
+                                      }
                                     }
-                                  }
-                                },
-                                [
-                                  activeVideoPreset.videoModels.map(mOpt => {
-                                    return m("option", { value: mOpt.value, selected: configFields.videoModel === mOpt.value }, mOpt.label)
-                                  })
-                                ]
-                              ),
+                                  },
+                                  [
+                                    activeVideoPreset.videoModels.map(mOpt => {
+                                      const isSelected = mOpt.value ? (configFields.videoModel === mOpt.value) : isCustom
+                                      return m("option", { value: mOpt.value, selected: isSelected }, mOpt.label)
+                                    })
+                                  ]
+                                )
+                              })(),
                               m("input",
                                 {
                                   value: configFields.videoModel,

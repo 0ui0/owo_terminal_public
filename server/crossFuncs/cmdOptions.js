@@ -86,15 +86,6 @@ export default {
       })
 
       await options.pull();
-      const chatLists = comData.data.get().chatLists || [];
-      
-      // 遍历现存的所有沙盒，全部触发配置更新/重载
-      for (const [id, _] of subAgents.getAll()) {
-        const targetList = chatLists.find(l => l.id === id);
-        if (targetList && targetList.currentModelId) {
-          await subAgents.initAgent(id, targetList.currentModelId);
-        }
-      }
 
       return {
         ok: true,

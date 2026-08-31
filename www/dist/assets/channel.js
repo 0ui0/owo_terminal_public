@@ -1,2 +1,2 @@
-import{aq as o,ar as n}from"./main.js";const t=(r,a)=>o.lang.round(n.parse(r)[a]);export{t as c};
+import{aw as o,ax as n}from"./main.js";const t=(a,r)=>o.lang.round(n.parse(a)[r]);export{t as c};
 //# sourceMappingURL=channel.js.map

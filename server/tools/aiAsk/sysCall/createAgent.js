@@ -32,26 +32,43 @@ export default {
       // 1) 会话管理器/QQ bot：derivedFromModelId 显式指定后台配置（按精确 id 匹配）
       // 2) AI 工具调用：未指定则继承创建者 aiConfig
       const creatorAgent = subAgents.get(listId);
-      const aiBasic = await (async () => {
-        if (derivedFromModelId) {
-          const aiList = await (await import("../../../config/options.js")).default.get("ai_aiList");
-          return aiList.find(m => m.id === derivedFromModelId) || null;
+      
+      // 提炼并归一化配置项，彻底解耦原始数据库对象与内部状态对象
+      let normalizedConfig = {
+        apiKey: "",
+        baseURL: "",
+        model: "",
+        modelId: ""
+      };
+
+      if (derivedFromModelId) {
+        const aiList = await (await import("../../../config/options.js")).default.get("ai_aiList");
+        const found = aiList.find(m => m.id === derivedFromModelId);
+        if (!found) {
+          return {
+            ok: false,
+            msg: `错误：未找到指定的模型配置（derivedFromModelId: ${derivedFromModelId}）。`
+          };
         }
-        if (creatorAgent?.aiConfig) return creatorAgent.aiConfig;
-        return null;
-      })();
-      if (!aiBasic) {
+        normalizedConfig.apiKey = found.apiKey;
+        normalizedConfig.baseURL = found.url; // 后台原始数据字段名为 url
+        normalizedConfig.model = found.model;
+        normalizedConfig.modelId = found.id;
+      } else if (creatorAgent?.aiConfig) {
+        normalizedConfig.apiKey = creatorAgent.aiConfig.apiKey;
+        normalizedConfig.baseURL = creatorAgent.aiConfig.baseURL; // 已实例化的对象字段名为 baseURL
+        normalizedConfig.model = creatorAgent.aiConfig.model;
+        normalizedConfig.modelId = creatorAgent.aiConfig.modelId;
+      } else {
         return {
           ok: false,
-          msg: `错误：未找到模型配置（derivedFromModelId: ${derivedFromModelId || "无"}，父级 ${listId} 亦无可用 aiConfig）。`
+          msg: `错误：未找到模型配置（derivedFromModelId: 无，父级 ${listId} 亦无可用 aiConfig）。`
         };
       }
 
-
       let newListId = 0;
       let currentListId = listId;
-      // 统一模型 id：指定模型时 aiBasic 是 ai_aiList 条目（用 id），继承父级时是 aiConfig（用 modelId）
-      let targetModelId = aiBasic.modelId || aiBasic.id;
+      let targetModelId = normalizedConfig.modelId;
       let toolCallGroupId = metaData?.toolCallGroupId
 
       console.log("智能体tcgid", toolCallGroupId)
@@ -140,9 +157,9 @@ export default {
       const finalPrompt = `${prompt}\n\n${forcedInstruction}`;
 
       const newAgent = new AiAsk({
-        apiKey: aiBasic.apiKey,
-        baseURL: aiBasic.baseURL,
-        model: aiBasic.model,
+        apiKey: normalizedConfig.apiKey,
+        baseURL: normalizedConfig.baseURL,
+        model: normalizedConfig.model,
         name: name,
         prompt: finalPrompt,
         modelId: targetModelId,
@@ -152,9 +169,9 @@ export default {
       // 3. 初始化实例
       // 必须调用 init() 以创建 OpenAI 客户端连接和初始 System Prompt
       await newAgent.init({
-        apiKey: aiBasic.apiKey,
-        baseURL: aiBasic.baseURL,
-        model: aiBasic.model,
+        apiKey: normalizedConfig.apiKey,
+        baseURL: normalizedConfig.baseURL,
+        model: normalizedConfig.model,
         prompt: finalPrompt,
         name: name,
         modelId: targetModelId,

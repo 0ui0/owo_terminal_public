@@ -507,8 +507,13 @@ export default ChatItem = () => {
                     return m("", {
                       oncreate({ dom }) {
                         dom.addEventListener("owo-open-editor", (e) => {
+                          e.stopPropagation(); // 阻断冒泡，防止触发全局兜底
                           if (settingData && settingData.fnCall) {
-                            settingData.fnCall("appLaunch", ["editor", { data: { content: chat.content, readOnly: true } }]);
+                            let textToOpen = chat.content;
+                            if (e.detail && window.__owoFormatCache && window.__owoFormatCache.has(e.detail)) {
+                              textToOpen = window.__owoFormatCache.get(e.detail);
+                            }
+                            settingData.fnCall("appLaunch", ["editor", { data: { content: textToOpen, readOnly: true } }]);
                           }
                         });
                       }
@@ -601,7 +606,7 @@ export default ChatItem = () => {
                       color: getColor('pink_1').back,
                       fontSize: "0.8rem",
                     }
-                  }, `${trs("chatItem/实际消耗", { cn: "实际消耗", en: "actual cost" })}:${chat.ask.totalTokens - (chat.ask.cachedTokens || 0)}`)
+                  }, `${trs("chatItem/实际消耗", { cn: "实际消耗", en: "actual cost" })}:${chat.ask.totalTokens - chat.ask.cachedTokens}`)
                 ] : null
               ])
             ]),

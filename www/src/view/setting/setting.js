@@ -8,6 +8,8 @@ import commonData from "../common/commonData.js"
 import getColor from "../common/getColor.js"
 import comData from "../../comData/comData.js"
 import { launchModelWizard } from "./settingModelWizard.js"
+import chatData from "../chat/chatData.js"
+import ChatModelSelector from "../chat/ChatModelSelector.js"
 
 export default () => {
   let activeGroup1 = ""
@@ -98,7 +100,6 @@ export default () => {
                     if (res.ok) {
                       Notice.launch({
                         msg: trs("设置/消息/角色已切换", { cn: "角色已切换", en: "Character switched" }),
-                        timeout: 2000
                       })
                       m.redraw()
                     }
@@ -492,6 +493,8 @@ export default () => {
     return groups
   }
 
+  let clipboardModel = null
+
   // --- 大模型列表编辑器 ---
   const ModelListEditor = {
     view: ({ attrs }) => {
@@ -566,6 +569,20 @@ export default () => {
                         }
                       },
                       model.model
+                    ),
+                    // 复制按钮
+                    m(Tag,
+                      {
+                        isBtn: true,
+                        color: "gray_3",
+                        styleExt: { marginRight: "0.5rem" },
+                        onclick: (dom, e) => {
+                          if (e && e.stopPropagation) e.stopPropagation()
+                          clipboardModel = JSON.parse(JSON.stringify(model))
+                          delete clipboardModel._expanded
+                        }
+                      },
+                      trs("通用/复制", { cn: "复制", en: "Copy" })
                     ),
                     // 删除按钮
                     m(Tag,
@@ -899,7 +916,27 @@ export default () => {
                   }
                 },
                 trs("设置界面/Ollama/导入按钮")
-              )
+              ),
+              
+              // 粘贴大模型
+              clipboardModel ? m(Box,
+                {
+                  isBtn: true,
+                  color: "main",
+                  style: {
+                    flex: 1,
+                    margin: "0",
+                    borderRadius: "3rem"
+                  },
+                  onclick: () => {
+                    let newModel = JSON.parse(JSON.stringify(clipboardModel))
+                    newModel.name = (newModel.name || "") + " (Copy)"
+                    value.push(newModel)
+                    if (onchange) onchange(value)
+                  }
+                },
+                trs("通用/粘贴", { cn: "粘贴", en: "Paste" })
+              ) : null
             ]
           ),
 
@@ -1394,15 +1431,34 @@ export default () => {
               return value
             }))
 
+            const oldAiList = data.options.get("ai_aiList")
+            const newAiList = cleanData.find(d => d.key === "ai_aiList")?.value
+            let aiConfigChanged = JSON.stringify(oldAiList) !== JSON.stringify(newAiList)
+
             let tmp = await data.fnCall("cmdOptions", [cleanData])
-            Notice.launch({
-              msg: tmp.msg,
-              timeout: 2000,
-              color: "green"
-            })
             await data.options.pull()
             commonData.themeColor = Number(data.options.get("global_themeColor")) || 0
             m.redraw()
+
+            if (aiConfigChanged) {
+              Notice.launch({
+                tip: trs("设置/提示/模型配置已修改", { cn: "模型配置已修改", en: "Model Configuration Modified" }),
+                msg:  tmp.msg + " \n" +trs("设置/提示/缓存穿透确认", { cn: "你修改了模型配置，将同时修改基础提示词。由于上下文前缀缓存需要保证前缀一致，现在前缀已经修改，为了避免缓存穿透，是否立即重新切换并配置模型？", en: "Model config changed. Do you want to re-select model?" }),
+                confirm: async () => {
+                  Notice.launch({
+                    sign: "switch_model_dialog_from_settings",
+                    tip: trs("输入栏/提示/选择与管理模型", { cn: "选择与切换模型", en: "Select & Switch Model" }),
+                    content: ChatModelSelector
+                  })
+                }
+              })
+            } else {
+              Notice.launch({
+                msg: tmp.msg,
+                color: "green"
+              })
+            }
+
             return true
           } catch (err) {
             console.error(err)

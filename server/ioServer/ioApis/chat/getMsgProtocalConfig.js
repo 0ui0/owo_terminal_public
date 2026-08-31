@@ -32,6 +32,7 @@ export default function (json) {
     tokenCompressSwitch: tokenCompressSwitch,
     toolsMode: toolsMode,
     listId: listId,
+    toolAccessMode: chatList.toolAccessMode,
     enableThinking: enableThinking,
     thinkControl: thinkControl,
     thinkStrength: thinkStrength,

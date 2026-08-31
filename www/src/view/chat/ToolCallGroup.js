@@ -2,6 +2,7 @@ import ChatItem from "./ChatItem.js"
 import getColor from "../common/getColor.js"
 import getBlurBg from "../common/getBlurBg.js"
 import Avatar from "./Avatar.js"
+import { trs } from "../common/i18n.js"
 
 export default () => {
   let expanded = false
@@ -14,8 +15,8 @@ export default () => {
       const duration = doneChat?.ask?.toolCallDuration
       const isLoading = !doneChat // 没有"完毕"消息说明还在执行中
 
-      // 提取所有工具名
-      const getToolNames = () => {
+      // 提取所有工具信息
+      const getToolInfo = () => {
         const prepareChat = chats.find(chat => chat.ask?.toolCallStage === "prepare")
         const sysCalls = prepareChat?.ask?.sysCalls || []
         const sysReturns = doneChat?.ask?.sysReturns || []
@@ -25,9 +26,12 @@ export default () => {
           ? sysReturns.map(r => r.name || r.id)
           : sysCalls.map(c => c.name || c.id)
 
-        return names.length > 0 ? ` (${names.join(', ')})` : ''
+        return {
+          namesStr: names.length > 0 ? ` (${names.join(', ')})` : '',
+          count: names.length
+        }
       }
-      const toolNames = getToolNames()
+      const toolInfo = getToolInfo()
 
       return m("", {
         style: {
@@ -72,11 +76,80 @@ export default () => {
                 marginRight: '0.5rem',
               }
             }) : null,
-            (hasError ? '⚠ 工具调用失败' : (isLoading ? '工具调用中...' : '工具调用')) + toolNames,
+            (hasError ? '⚠ ' + trs("聊天/工具/调用失败", { cn: "工具调用失败", en: "Tool Call Failed" }) : (isLoading ? trs("聊天/工具/调用中", { cn: "工具调用中...", en: "Calling Tool..." }) : trs("聊天/工具/调用完成", { cn: "工具调用", en: "Tool Call" }))) + toolInfo.namesStr,
             m('span', { style: { marginLeft: '0.5rem', opacity: 0.7 } },
-              `(${chats.length})${duration ? ` · ${(duration / 1000).toFixed(1)}s` : ''}`
+              `(${toolInfo.count}${trs("聊天/工具/项工具", { cn: "工具", en: "Tools" })} · ${chats.length}${trs("聊天/工具/条消息", { cn: "消息", en: "Msgs" })})${duration ? ` · ${(duration / 1000).toFixed(1)}s` : ''}`
             )
           ]),
+          // 未展开时的简略参数展示（平铺胶囊标签）
+          (!expanded && chats.some(c => c.ask?.toolCallStage === "prepare" && c.ask?.sysCalls?.length > 0)) ? m('', {
+            style: { marginTop: '0.4rem', paddingLeft: '1.2rem', display: 'flex', flexDirection: 'column', gap: '0.4rem', cursor: 'pointer' },
+            onclick: () => { expanded = true }
+          }, 
+            (chats.find(c => c.ask?.toolCallStage === "prepare")?.ask?.sysCalls || []).map(call => {
+              let argsObj = {};
+              try {
+                argsObj = typeof call.arguments === 'string' ? JSON.parse(call.arguments) : (call.arguments || {});
+              } catch (e) {}
+
+              // 深度拍平 JSON 树，只提取所有子叶的 values
+              const getDeepValues = (obj) => {
+                if (typeof obj !== 'object' || obj === null) return [obj];
+                let vals = [];
+                for (let k in obj) {
+                  if (typeof obj[k] === 'object' && obj[k] !== null) {
+                    vals = vals.concat(getDeepValues(obj[k]));
+                  } else {
+                    vals.push(obj[k]);
+                  }
+                }
+                return vals;
+              };
+
+              const argValues = getDeepValues(argsObj).filter(v => v !== undefined && v !== null && String(v).trim() !== '');
+              if (argValues.length === 0) return null;
+
+              return m('', { style: { display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' } }, [
+                m('span', { style: { fontSize: '1.3rem', color: getColor("工具组文字颜色"), opacity: 0.7 } }, call.name || call.id),
+                ...argValues.map(val => {
+                  let valStr = String(val).replace(/\n/g, ' ').replace(/\r/g, '');
+                  if (valStr.length > 25) {
+                    if ((valStr.includes('/') || valStr.includes('\\')) && !valStr.includes('{') && !valStr.includes('<')) {
+                      const parts = valStr.split(/[/\\]/).filter(Boolean);
+                      if (parts.length > 1) {
+                        let basename = parts[parts.length - 1];
+                        if (basename.length > 25) {
+                          basename = basename.substring(0, 15) + '...' + basename.slice(-7);
+                        }
+                        let first = parts[0];
+                        if (first.length > 10) first = first.substring(0, 10);
+                        valStr = first + '/.../' + basename;
+                      } else {
+                        valStr = valStr.substring(0, 25) + '...';
+                      }
+                    } else {
+                      valStr = valStr.substring(0, 25) + '...';
+                    }
+                  }
+                  return m('span', {
+                    style: {
+                      fontSize: '1.2rem',
+                      padding: '0.3rem 0.8rem',
+                      background: 'rgba(128, 128, 128, 0.15)',
+                      borderRadius: '1.2rem',
+                      border: '1px solid rgba(128, 128, 128, 0.2)',
+                      color: getColor("工具组文字颜色"),
+                      whiteSpace: 'nowrap',
+                      maxWidth: '24rem',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis'
+                    }
+                  }, valStr);
+                })
+              ]);
+            }).filter(Boolean)
+          ) : null,
+
           // 展开详情 - 使用 isGroupChild 而不是 isChildren，避免显示【转到】按钮
           expanded ? m('', { style: { marginTop: '0.5rem' } },
             chats.map(chat => m(ChatItem, { key: chat.uuid, chat, isGroupChild: true }))

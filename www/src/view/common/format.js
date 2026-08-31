@@ -13,6 +13,7 @@ import mermaid from "mermaid";
 import commonData from "./commonData.js";
 import getColor from "./getColor.js";
 import abcjs from "abcjs";
+import settingData from "../setting/settingData.js";
 
 
 mermaid.initialize({
@@ -309,16 +310,57 @@ marked.setOptions({
 
 const formatCache = new Map();
 
+if (!window.__owoFormatListenerAdded) {
+  window.__owoFormatListenerAdded = true;
+  document.addEventListener("owo-open-editor", (e) => {
+    if (e.detail && window.__owoFormatCache && window.__owoFormatCache.has(e.detail)) {
+      if (settingData && settingData.fnCall) {
+        settingData.fnCall("appLaunch", ["editor", { data: { content: window.__owoFormatCache.get(e.detail), readOnly: true } }]);
+      }
+    }
+  });
+}
+
 const formatImpl = function (content, type, opt) {
   let code, err, imgCounter;
   if (!content) return "";
-  if (typeof content === "string" && content.length > 15000) {
-    const sliced = content.slice(0, 5000);
+  
+  // --- 调试控制区 ---
+  const FORMAT_MAX_LENGTH = 100000; // TODO: 调试完毕后请改回 100000 
+  const FORMAT_SHOW_LENGTH = 10000;
+  // -----------------
+
+  if (typeof content === "string" && content.length > FORMAT_MAX_LENGTH) {
+    window.__owoFormatCache = window.__owoFormatCache || new Map();
+    const uid = "fmt_" + Date.now() + "_" + Math.floor(Math.random() * 10000);
+    window.__owoFormatCache.set(uid, content);
+    if (window.__owoFormatCache.size > 20) {
+      window.__owoFormatCache.delete(window.__owoFormatCache.keys().next().value);
+    }
+
+    const actualShow = Math.min(content.length, FORMAT_SHOW_LENGTH);
+    const sliced = content.slice(0, actualShow);
     const escaped = sliced.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-    return `<div style="padding: 1rem; background: rgba(255, 107, 107, 0.1); border-left: 4px solid #ff6b6b; margin-bottom: 1rem; font-size: 0.9em; display: flex; justify-content: space-between; align-items: center;">
-      <div><b>性能保护机制：</b>本文本极长（共 ${content.length} 字符），为防止浏览器排版引擎卡死，已在<b>视觉上</b>极度截断为前 5000 字符展示。</div>
-      <button style="padding: 0.4rem 0.8rem; background: rgba(255, 107, 107, 0.2); border: 1px solid #ff6b6b; border-radius: 4px; color: inherit; cursor: pointer; white-space: nowrap; margin-left: 1rem;" onclick="this.dispatchEvent(new CustomEvent('owo-open-editor', { bubbles: true }))">在编辑器中打开全文</button>
-    </div><div style="width: 100%; min-width: 0; max-height: 15rem; overflow-y: auto; font-family: inherit; margin: 0; padding: 0.5rem; box-sizing: border-box; background: transparent; color: inherit; border: 1px solid rgba(127,127,127,0.2); border-radius: 4px; white-space: pre-wrap; word-break: break-all; contain: content;">${escaped}\n\n...... (剩余 ${content.length - 5000} 字符被折叠) ......</div>`;
+    
+    const trsText = window.trs ? window.trs("组件/拦截器/极长文本警告", {
+      cn: `<b>性能保护机制：</b>本文本极长（共 ${content.length} 字符），为防止浏览器排版引擎卡死，已在<b>视觉上</b>极度截断为前 ${actualShow} 字符展示。`,
+      en: `<b>Performance Protection:</b> The text is too long (${content.length} chars). To prevent UI freezing, it's visually truncated to ${actualShow} chars.`
+    }) : `<b>性能保护机制：</b>本文本极长（共 ${content.length} 字符），为防止浏览器排版引擎卡死，已在<b>视觉上</b>极度截断为前 ${actualShow} 字符展示。`;
+
+    const trsBtn = window.trs ? window.trs("组件/拦截器/打开全文", {
+      cn: "在编辑器中打开全文",
+      en: "Open Full Text"
+    }) : "在编辑器中打开全文";
+
+    const trsRemaining = window.trs ? window.trs("组件/拦截器/剩余折叠", {
+      cn: `...... (剩余 ${content.length - actualShow} 字符被折叠) ......`,
+      en: `...... (${content.length - actualShow} chars folded) ......`
+    }) : `...... (剩余 ${content.length - actualShow} 字符被折叠) ......`;
+
+    return `<div style="padding: 1rem; background: ${getColor('gray_4').back}; color: ${getColor('gray_4').front}; border-radius: 1rem; margin-bottom: 1rem; display: flex; flex-wrap: wrap; gap: 1rem; justify-content: space-between; align-items: center;">
+      <div style="flex: 1 1 0%; min-width: 200px;">${trsText}</div>
+      <div style="flex-shrink: 0; padding: 0.5rem 1rem; background: ${getColor('pink_1').back}; color: ${getColor('pink_1').front}; border-radius: 3rem; cursor: pointer; white-space: nowrap;" onclick="this.dispatchEvent(new CustomEvent('owo-open-editor', { bubbles: true, detail: '${uid}' }))">${trsBtn}</div>
+    </div><div style="width: 100%; min-width: 0; font-family: inherit; margin: 0; padding: 1rem; box-sizing: border-box; background: ${getColor('gray_3').back}; color: ${getColor('gray_3').front}; border-radius: 1rem; white-space: pre-wrap; word-break: break-all; contain: content;">${escaped}\n\n${trsRemaining}</div>`;
   }
   if (type === void 0 || type === "markdown" || type === "block" || type === "note" || type === null) {
     if (opt != null ? opt.mini : void 0) {

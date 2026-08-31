@@ -30,6 +30,8 @@ export default {
         if(payload.currentModelId !== undefined) chatList.currentModelId = payload.currentModelId;
         if(payload.sendMode !== undefined) chatList.sendMode = payload.sendMode;
         if(payload.toolsMode !== undefined) chatList.toolsMode = payload.toolsMode;
+        if(payload.toolAccessMode !== undefined) chatList.toolAccessMode = payload.toolAccessMode;
+        if(payload.workStage !== undefined) chatList.workStage = payload.workStage;
         if(payload.enableThinking !== undefined) chatList.enableThinking = payload.enableThinking;
         if(payload.thinkStrength !== undefined) chatList.thinkStrength = payload.thinkStrength;
         if(payload.thinkControl !== undefined) chatList.thinkControl = payload.thinkControl;

@@ -1,4 +1,4 @@
-import AiAsk from "./AiAsk.js";
+import AiAsk from "./aiAsk.js";
 import options from "../../config/options.js";
 import tempPath from "../tempPath.js";
 

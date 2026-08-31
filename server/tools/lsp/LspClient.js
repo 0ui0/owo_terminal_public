@@ -124,7 +124,7 @@ export default class LspClient extends EventEmitter {
   /**
    * 发送 LSP 请求
    */
-  sendRequest(method, params) {
+  sendRequest(method, params, timeoutMs = 30000) {
     if (!this.process) return Promise.reject(new Error("LSP 进程未启动"));
     const id = this.idCounter++;
     const message = {
@@ -135,7 +135,17 @@ export default class LspClient extends EventEmitter {
     };
     console.log(`[LSP-Trace-OUT] REQ ${id}: ${method}`);
     return new Promise((resolve, reject) => {
-      this.callbacks.set(id, { resolve, reject });
+      const timer = setTimeout(() => {
+        if (this.callbacks.has(id)) {
+          this.callbacks.delete(id);
+          reject(new Error(`[LSP] 请求 ${method} 超时未响应 (${timeoutMs}ms)`));
+        }
+      }, timeoutMs);
+
+      this.callbacks.set(id, {
+        resolve: (val) => { clearTimeout(timer); resolve(val); },
+        reject: (err) => { clearTimeout(timer); reject(err); }
+      });
       this._write(message);
     });
   }
