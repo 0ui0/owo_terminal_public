@@ -8,6 +8,7 @@ import options from "../../../config/options.js"
 import { parse as parseBestEffort, disableErrorLogging } from "best-effort-json-parser"
 import yaml from "js-yaml"
 import workDirTool from "../../../tools/workDirTool.js"
+import actorAction from "../../../tools/aiAsk/actorAction.js"
 
 disableErrorLogging()
 
@@ -218,8 +219,14 @@ export default function (json) {
         taskStr += '空\n'
       }
 
+      // 3. 插入可用动效与表情
+      const playFaces = actorAction.getPlayFaces()
+      const faceActions = actorAction.getFaceActions()
+      const petStr = `【你的可用动作与表情】\n- 动作动效(playFace): ${playFaces.join("、")}\n- 静态表情(faceAction): ${faceActions.join("、")}`
+
       parts.push(langMap[lang])
       parts.push(taskStr.trim())
+      parts.push(petStr.trim())
 
       return '\n' + parts.join('\n') + '\n'
     },

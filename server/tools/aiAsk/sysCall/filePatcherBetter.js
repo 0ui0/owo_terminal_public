@@ -9,7 +9,6 @@ import { trs } from "../../i18n.js"
 import fileState from "../../fileState.js"
 
 import {
-  ActionType,
   processPatch
 } from "../../fileTools/parser.js"
 
@@ -174,7 +173,7 @@ export default {
       }
 
       // 安全校验与实体转换
-      if (change.type === ActionType.ADD) {
+      if (change.type === "add") {
         let fileExists = false
         try {
           await fs.stat(resolvedPath)
@@ -191,25 +190,25 @@ export default {
         }
 
         preparedChanges.push({
-          type: ActionType.ADD,
+          type: "add",
           path: resolvedPath,
           relativePath: relativePath,
           originalContent: "",
           proposedContent: change.newContent || ""
         })
-      } else if (change.type === ActionType.DELETE) {
+      } else if (change.type === "delete") {
         let originalContent = ""
         try {
           originalContent = await fs.readFile(resolvedPath, "utf-8")
         } catch (e) { }
         preparedChanges.push({
-          type: ActionType.DELETE,
+          type: "delete",
           path: resolvedPath,
           relativePath: relativePath,
           originalContent,
           proposedContent: ""
         })
-      } else if (change.type === ActionType.UPDATE) {
+      } else if (change.type === "update") {
         const cached = fileCache.get(relativePath) || {}
         const readTimestamp = cached.readTimestamp || 0
         const originalContent = cached.originalContent || ""
@@ -226,7 +225,7 @@ export default {
         }
 
         preparedChanges.push({
-          type: ActionType.UPDATE,
+          type: "update",
           path: resolvedPath,
           relativePath: relativePath,
           originalContent,
@@ -248,7 +247,7 @@ export default {
 
     // 2. 仅在确定用户设置了白名单且普通 waitConfirm 会被跳过时，前置触发不会走白名单的高危删除拦截
     if (comData.data.get()?.chatLists?.find(l => l.id === metaData.listId)?.skipConfirmTools?.includes(this.id)) {
-      for (const delChange of preparedChanges.filter(c => c.type === ActionType.DELETE)) {
+      for (const delChange of preparedChanges.filter(c => c.type === "delete")) {
         const { ok, comment } = await waitConfirm({
           type: "tip",
           title: `⚠️ 高危操作拦截：删除文件确认: ${pathLib.basename(delChange.path)}`,
@@ -320,7 +319,7 @@ export default {
 
       // 用户批准当前文件：物理落盘并执行乐观锁校验
       try {
-        if (change.type === ActionType.DELETE) {
+        if (change.type === "delete") {
           await fs.unlink(change.path)
           fileState.set(change.path, { timestamp: 0, content: "", startLine: 0, endLine: 0 })
           fileResults.push({
@@ -329,7 +328,7 @@ export default {
             action: "deleted"
           })
         } else {
-          if (change.type === ActionType.UPDATE) {
+          if (change.type === "update") {
             try {
               const currentStat = await fs.stat(change.path)
               if (currentStat.mtimeMs > change.readTimestamp) {
@@ -386,7 +385,7 @@ export default {
     return {
       ok: !anyFailed && !anyRejected,
       msg,
-      diff: allDiffs || null,
+      diff: allDiffs || "未开启，请手动检查",
       globalComment: userConfirm.comment || null,
       files: allFinalFiles
     }

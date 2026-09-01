@@ -1,6 +1,22 @@
-import { getFilepathComment } from "./markdown.js";
 import { computeLevenshteinDistance } from "./diff.js";
-import { count, isFalsyOrWhitespace } from "./strings.js";
+
+function getFilepathComment(languageId, filePath) {
+  return "";
+}
+
+function isFalsyOrWhitespace(str) {
+  return !str || str.trim().length === 0;
+}
+
+function count(haystack, needle) {
+  if (!needle) return 0;
+  let cnt = 0, pos = 0;
+  while ((pos = haystack.indexOf(needle, pos)) !== -1) {
+    cnt++;
+    pos += needle.length;
+  }
+  return cnt;
+}
 import { Lines } from "./editGeneration.js";
 import { computeIndentLevel2, getIndentationChar, guessIndentation, transformIndentation } from "./indentationGuesser.js";
 import {
@@ -439,10 +455,10 @@ function find_context_core(lines, context, start) {
 }
 function find_context(path, lines, context, start, eof) {
   path = path.trim();
-  if (lines[0]?.includes(path)) {
+  if (path && lines[0]?.includes(path)) {
     lines = lines.slice(1);
   }
-  if (context[0]?.includes(path)) {
+  if (path && context[0]?.includes(path)) {
     context = context.slice(1);
   }
   if (eof) {
@@ -706,21 +722,5 @@ async function processPatch(text, openFn) {
   return patch_to_commit(patch, orig);
 }
 export {
-  ActionType,
-  DiffError,
-  Fuzz,
-  InvalidContextError,
-  InvalidPatchFormatError,
-  Parser,
-  apply_commit,
-  assemble_changes,
-  identify_files_added,
-  identify_files_affected,
-  identify_files_needed,
-  load_files,
-  patch_to_commit,
-  processPatch,
-  replace_explicit_nl,
-  replace_explicit_tabs,
-  text_to_patch
+  processPatch
 };

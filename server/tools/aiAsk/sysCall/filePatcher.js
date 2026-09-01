@@ -454,7 +454,7 @@ export default {
     return {
       ok: !anyFailed && !anyRejected,
       msg,
-      diff: allDiffs || null,
+      diff: allDiffs || "未开启，请手动检查",
       globalComment: userConfirm.comment || null,
       files: allFinalFiles
     }

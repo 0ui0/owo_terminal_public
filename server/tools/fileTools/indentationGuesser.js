@@ -1,4 +1,10 @@
-import * as strings from "./strings.js";
+function firstNonWhitespaceIndex(str) {
+  for (let i = 0, len = str.length; i < len; i++) {
+    const ch = str.charCodeAt(i);
+    if (ch !== 32 && ch !== 9) return i;
+  }
+  return -1;
+}
 import { isLines } from "./editGeneration.js";
 var CharCode = /* @__PURE__ */ ((CharCode2) => {
   CharCode2[CharCode2["Tab"] = 9] = "Tab";
@@ -192,11 +198,11 @@ function _normalizeIndentationFromWhitespace(str, indentSize, insertSpaces) {
   return result;
 }
 function normalizeIndentation(str, indentSize, insertSpaces) {
-  let firstNonWhitespaceIndex = strings.firstNonWhitespaceIndex(str);
-  if (firstNonWhitespaceIndex === -1) {
-    firstNonWhitespaceIndex = str.length;
+  let firstNonWhitespaceIdx = firstNonWhitespaceIndex(str);
+  if (firstNonWhitespaceIdx === -1) {
+    firstNonWhitespaceIdx = str.length;
   }
-  return _normalizeIndentationFromWhitespace(str.substring(0, firstNonWhitespaceIndex), indentSize, insertSpaces) + str.substring(firstNonWhitespaceIndex);
+  return _normalizeIndentationFromWhitespace(str.substring(0, firstNonWhitespaceIdx), indentSize, insertSpaces) + str.substring(firstNonWhitespaceIdx);
 }
 function getIndentationChar(indentation) {
   if (indentation.insertSpaces) {

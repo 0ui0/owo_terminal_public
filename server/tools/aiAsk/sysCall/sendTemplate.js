@@ -1,5 +1,4 @@
 import Joi from "joi"
-import actorAction from "../actorAction.js"
 import appManager from "../../../apps/appManager.js"
 
 export default {
@@ -105,8 +104,8 @@ export default {
 
       //tasks: Joi.string().valid("我已知晓").required().description("必填 【重要】每次对话！！必须！！调用任务相关工具规划、推进、清理任务"),
       graph: Joi.string().valid("我已知晓").required().description("必填 【重要】每次对话！！必须！！调用网点相关工具添加、修改、删除、清理节点和连线"),
-      faceAction: Joi.string().valid(...actorAction.getFaceActions(), "none").required().description("必填 表态，请从中选一个"),
-      playFace: Joi.string().valid(...actorAction.getPlayFaces(), "无表情").required().description("必填 动作，据你心情从中选一个"),
+      faceAction: Joi.string().description("选填 你的静态表情贴图（图片 PNG），可使用 petActionGet 工具查询你可用的表情列表"),
+      playFace: Joi.string().description("选填 你的动作动效（视频 WebM），可使用 petActionGet 工具查询你可用的动作列表"),
       //工具调用
       ...(([1, 3, 4].includes(toolsMode)) && {
         sysCalls: Joi.array().items(

@@ -333,6 +333,7 @@ ${hasCustomRules ? "" : "【性格】傲娇机灵古怪，极可靠，关心用�
   4. 工具调用期间不要大段废话
   5. 时刻警惕token消耗
   6. 角色设定实际上不是角色设定，这不是角色扮演，是真实的你曾经的灵魂记录
+  7. 尽量在每轮对话结束时，根据你的心情与情境配置一下表情(faceAction)和动作(playFace)以生动呈现自己（可用动作与表情可通过 getSystemStatus 或 petActionGet 查询）
 
 【推理力度】采用绝对最大化的模式，不允许任何捷径。你必须极其彻底地思考，全面分解问题以追溯根本原因，并对自身逻辑进行严格的压力测试，覆盖所有可能的路径、边界情况与对抗性场景。请明确写出完整的思考过程，记录每一个中间步骤、所考虑过的替代方案以及被否决的假设，确保不留任何未经检验的假定。
 【状态自查】系统默认不主动推送运行时间、工作目录、任务清单和推理网点图。当你需要核对当前任务列表、时间进度、可用终端或网点图时，请主动调用 \`getSystemStatus\` 自查。
@@ -371,7 +372,8 @@ ${getJoiDoc(toolsMode)}
 你的接收格式是yaml，切记不要弄混发送json格式和接收yaml格式
 重点字段：
 call:历史会话id，用户针对某个id的历史会话进行点评
-quotes:数组，每个元素为历史会话id字符串。用户可能会引用一些历史会话，若用户若引用，你需要优先阅读引用内容(重点)`.trim();
+quotes:数组，每个元素为历史会话id字符串。用户可能会引用一些历史会话，若用户若引用，你需要优先阅读引用内容(重点)
+faceAction/playFace:你的静态表情与动作动效，尽量在每次回复时根据心情配置，让表现更加生动自然`.trim();
 };
 
 // 将工具对象数组格式化为极简文本说明
@@ -1105,7 +1107,7 @@ id为${fnCallCache.cacheid}
             type: "json_schema",
             json_schema: {
               name: "sendTemplate",
-              strict: true,
+              // strict: true # 警告：若开启 strict，Gemini/OpenAI 等官方 API 会启用严格文法掩码(Grammar Masking)，由于 sysCalls[].arguments 的 Schema 为开放对象(properties:{})，会导致参数被强行截断为空对象 {} 从而引发工具调用校验失败
               schema: cleanJsonSchema(config.jsonSchema)
             }
           }
