@@ -194,8 +194,8 @@ export default {
           prepareFailedResults.push({
             path: rawPath,
             status: "rejected",
-            reason: outOfProjectConfirm.comment ? `用户拒绝访问项目外文件：${resolvedPath}。\n用户拒绝理由/备注：${outOfProjectConfirm.comment}` : `用户拒绝访问项目外文件：${resolvedPath}。`,
-            ...(outOfProjectConfirm.comment && { comment: outOfProjectConfirm.comment })
+            reason: outOfProjectConfirm.comment ? `用户拒绝访问项目外文件：${resolvedPath}。\n用户拒绝理由/备注：【注意用户留言】${outOfProjectConfirm.comment}` : `用户拒绝访问项目外文件：${resolvedPath}。`,
+            ...(outOfProjectConfirm.comment && { comment: `【注意用户留言】${outOfProjectConfirm.comment}` })
           })
           continue
         }
@@ -379,7 +379,7 @@ export default {
           path: change.relativePath,
           status: "rejected",
           reason: change.rejectReason || "用户拒绝操作",
-          ...(reviewed?.comment && { comment: reviewed.comment }),
+          ...(reviewed?.comment && { comment: `【注意用户留言】${reviewed.comment}` }),
           ...(reviewed?.notes && { notes: reviewed.notes })
           // 💡 拒绝场景（无论单文件拒绝还是总框拒绝）一律不回传 diff，避免误导 AI 以为变更已生效
         })
@@ -429,7 +429,7 @@ export default {
             action: change.type,
             ...(reviewed?.diff && { diff: reviewed.diff }),
             ...(reviewed?.notes && { notes: reviewed.notes }),
-            ...(reviewed?.comment && { comment: reviewed.comment })
+            ...(reviewed?.comment && { comment: `【注意用户留言】${reviewed.comment}` })
           })
         }
       } catch (err) {
@@ -455,7 +455,7 @@ export default {
       ok: !anyFailed && !anyRejected,
       msg,
       diff: allDiffs || "未开启，请手动检查",
-      globalComment: userConfirm.comment || null,
+      globalComment: userConfirm.comment ? `【注意用户留言】${userConfirm.comment}` : null,
       files: allFinalFiles
     }
   },

@@ -1976,7 +1976,7 @@ id为${fnCallCache.cacheid}
   }
 
   async sysCallRunFns(sysCalls, sysAllTools, metaData = {}) {
-    var call, err, fn, j, len, ref, returnStr, sysReturns, timeoutPromise, timer, toolPromise;
+    var abortPromise, abortSignal, call, err, fn, j, len, onAbort, ref, ref1, returnStr, sysReturns, timeoutPromise, timer, toolPromise;
     sysReturns = [];
     returnStr = "";
     for (j = 0, len = sysCalls.length; j < len; j++) {
@@ -1998,9 +1998,35 @@ id为${fnCallCache.cacheid}
               }, 1200000);
             });
             toolPromise = fn.fn(call.arguments, metaData);
-            returnStr = (await Promise.race([toolPromise, timeoutPromise]));
-            if (timer) {
-              clearTimeout(timer);
+            // 用户中断熔断：stopRun 的 abort 广播到达的瞬间，立即终止本工具的等待。
+            // 通用机制，不依赖工具内部实现（无论工具在等确认/网络/终端，一律熔断）；
+            // abort 为多播广播，不影响 OpenAI 内部已注册的 abort 监听器。
+            abortSignal = (ref1 = this.abortController) != null ? ref1.signal : void 0;
+            onAbort = null;
+            abortPromise = new Promise((resolve, reject) => {
+              if (abortSignal != null ? abortSignal.aborted : void 0) {
+                return reject(new Error(`用户中断：工具 [${call.id}] 已被停止`));
+              } else if (abortSignal) {
+                onAbort = function() {
+                  return reject(new Error(`用户中断：工具 [${call.id}] 已被停止`));
+                };
+                return abortSignal.addEventListener('abort', onAbort, {
+                  once: true
+                });
+              }
+            });
+            try {
+              returnStr = (await Promise.race([toolPromise, timeoutPromise, abortPromise]));
+            } finally {
+              if (timer) {
+                // 无论工具正常返回/超时/被中断，都清理定时器与 abort 监听器，避免残留
+                clearTimeout(timer);
+              }
+              if (onAbort) {
+                if (abortSignal != null) {
+                  abortSignal.removeEventListener('abort', onAbort);
+                }
+              }
             }
           }
           if (Object.prototype.toString.call(returnStr) === "[object Object]") {

@@ -7,7 +7,7 @@ export default {
   name: "获取浏览器Cookie",
   id: "browserGetCookies",
 
-  async fn(argObj) {
+  async fn(argObj, metaData) {
     const { value, error } = this.joi().validate(argObj)
     if (error) {
       return "错误：" + error.details[0].message
@@ -33,7 +33,7 @@ export default {
       title: "安全警告：获取浏览器 Cookie",
       content: `AI 正在请求获取浏览器实例 (${targetAppId}) 当前页面的 Cookie，这可能包含您的敏感登录状态。是否允许？`,
       argsDesc: argsDesc,
-      listId: argObj.listId || 0,
+      listId: argObj.listId || metaData?.listId || 0,
       ext: {
         identifier: "app:browser",
         toolId: this.id

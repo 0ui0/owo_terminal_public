@@ -734,16 +734,13 @@ export default () => {
                 ext: {
                   onclick: async () => {
                     try {
-                      let tmp = await m.request({
-                        url: `/api/aiAsk/stop`,
-                        method: "get"
-                      })
+                      let tmp = await settingData.fnCall("stopAiAsk", [targetChatListId])
                       await comData.data?.edit((data) => {
-                        data.chatLists.forEach(l => {
-                          l.stop = true;
-                          l.replying = false;
-                        });
-                        data.stop = true;
+                        const targetList = data.chatLists.find(l => l.id === targetChatListId)
+                        if (targetList) {
+                          targetList.stop = true;
+                          targetList.replying = false;
+                        }
                       })
                       Notice.launch({
                         msg: tmp.msg

@@ -10,7 +10,7 @@ export default {
   name: "编辑文本",
   id: "editorPatcher",
 
-  async fn(argObj) {
+  async fn(argObj, metaData) {
     const { value, error } = this.joi().validate(argObj)
     if (error) {
       return "错误：" + error.details[0].message
@@ -43,7 +43,7 @@ export default {
       type: "tip",
       title: trs("editorPatcher/核对内容变更标题", { cn: "核对内容变更", en: "Check Content Change" }),
       content: `${reason}\n\n` + trs("editorPatcher/核对内容变更正文", { cn: "请核对 AI 提议的修改并在编辑器中批准/拒绝", en: "Please check the AI proposed changes and approve/reject in the editor" }),
-      listId: argObj.listId || 0,
+      listId: argObj.listId || metaData?.listId || 0,
       ext: {
         identifier: "app:editor",
         toolId: this.id,
