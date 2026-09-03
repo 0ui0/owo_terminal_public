@@ -62,6 +62,29 @@ function extractCommentInfo(rawComment) {
   }
 }
 
+// 统计 target 在 text 中出现的次数（不重叠计数）
+function countOccurrences(text, target) {
+  if (!target) return 0
+  let count = 0
+  let idx = 0
+  while (true) {
+    idx = text.indexOf(target, idx)
+    if (idx === -1) break
+    count++
+    idx += target.length
+  }
+  return count
+}
+
+// 计算文本行起始字符偏移表：offsets[k-1] = 第 k 行(1-based)首字符下标
+function computeLineStartOffsets(text) {
+  const offsets = [0]
+  for (let i = 0; i < text.length; i++) {
+    if (text[i] === "\n") offsets.push(i + 1)
+  }
+  return offsets
+}
+
 function applyEditsToContent(originalContent, edits) {
   const eol = originalContent.includes("\r\n") ? "\r\n" : "\n"
   let content = originalContent.replace(/\r\n/g, "\n")
@@ -73,17 +96,52 @@ function applyEditsToContent(originalContent, edits) {
 
     if (!target) continue // 如果没有 target 则跳过
 
-    const matchCount = content.split(target).length - 1
+    // 默认搜索范围为整个文件
+    let searchFrom = 0
+    let searchTo = content.length
+    let rangeStart = null
+    let rangeEnd = null
 
-    if (matchCount === 0) {
-      throw new Error(`第 ${i + 1} 个 edit 块未能在文件中找到对应的目标原文(target)。本次修改要求完全一字不差的精准匹配，包括首尾空格！请核对后重试。\n目标片段前缀：\n${target.substring(0, 50)}...`)
+    // 【行范围限定】startLine/endLine 为 1-based、含两端。提供后，
+    // target 必须完整落在 [startLine, endLine] 行区间内（含行尾换行）才参与匹配。
+    if (edit.startLine != null || edit.endLine != null) {
+      const lineOffsets = computeLineStartOffsets(content)
+      const totalLines = lineOffsets.length
+      const startLine = edit.startLine != null ? Math.max(1, Math.floor(edit.startLine)) : 1
+      const endLine = edit.endLine != null ? Math.max(startLine, Math.floor(edit.endLine)) : null
+
+      rangeStart = startLine
+      rangeEnd = endLine
+      searchFrom = lineOffsets[Math.min(startLine - 1, totalLines - 1)] ?? 0
+      if (endLine != null) {
+        const endIdx = Math.min(endLine, totalLines)
+        searchTo = endIdx < totalLines ? (lineOffsets[endIdx] ?? content.length) : content.length
+      }
     }
 
-    if (matchCount > 1) {
-      throw new Error(`第 ${i + 1} 个 edit 块的目标原文在文件中出现了 ${matchCount} 次。由于要求精确且唯一匹配，请提供更长的 target 上下文以确保唯一性！`)
+    const windowText = content.slice(searchFrom, searchTo)
+    const windowCount = countOccurrences(windowText, target)
+    const globalCount = countOccurrences(content, target)
+
+    if (windowCount === 0) {
+      if (globalCount === 0) {
+        throw new Error(`第 ${i + 1} 个 edit 块未能在文件中找到对应的目标原文(target)。本次修改要求完全一字不差的精准匹配，包括首尾空格！请核对后重试。\n目标片段前缀：\n${target.substring(0, 50)}...`)
+      }
+      const rangeDesc = rangeStart != null
+        ? `第 ${rangeStart}~${rangeEnd ?? "末尾"} 行`
+        : "整个文件"
+      throw new Error(`第 ${i + 1} 个 edit 块的目标原文在文件其他位置共出现 ${globalCount} 次，但在限定的行范围(${rangeDesc})内未找到。请检查 startLine/endLine 是否准确，或提供更长的 target 使其完整落在该范围内。\n目标片段前缀：\n${target.substring(0, 50)}...`)
     }
 
-    content = content.replace(target, replace)
+    if (windowCount > 1) {
+      const rangeDesc = rangeStart != null
+        ? `（限定行范围：第 ${rangeStart}~${rangeEnd ?? "末尾"} 行）`
+        : ""
+      throw new Error(`第 ${i + 1} 个 edit 块的目标原文${rangeDesc}内出现了 ${windowCount} 次。由于要求精确且唯一匹配，请提供更长的 target 上下文，或缩小 startLine/endLine 范围以确保唯一性！`)
+    }
+
+    const absIdx = searchFrom + windowText.indexOf(target)
+    content = content.slice(0, absIdx) + replace + content.slice(absIdx + target.length)
   }
 
   return eol === "\r\n" ? content.replace(/\n/g, "\r\n") : content
@@ -483,8 +541,8 @@ export default {
               Joi.object({
                 target: Joi.string().required().description("要替换的局部原代码(带适量上下文，保留首尾空格)"),
                 replace: Joi.string().required().allow("").description("替换后的新代码片段"),
-                startLine: Joi.number().description("起始查找行(可选)，在所选范围替换"),
-                endLine: Joi.number().description("结束查找行(可选)，在所选范围替换")
+                startLine: Joi.number().description("起始查找行(可选)。行号从1开始数，第1行就是文件第一行。给定时 target 只在从这一行开始的范围内查找替换"),
+                endLine: Joi.number().description("结束查找行(可选)。行号从1开始数。配合 startLine 限定范围（含起始行与结束行这两行本身）；不填则一直查到文件末尾")
               })
             ).required().min(1).description("局部替换块数组")
           }).description("修改文件，支持同时修改同一文件多处")
@@ -495,12 +553,27 @@ export default {
 
   getDoc() {
     return `
-      JSON版本文件补丁工具,提供增、删、改功能
+      JSON版本文件补丁工具，提供增(add)、删(delete)、改(update)功能。
       基于局部字符串匹配(Search & Replace)的多文件编辑工具。
-      支持并发处理多文件的增(add)、删(delete)、改(update)。
-      修改同一个文件时，在 update 的 edits 数组中同时提供多个替换块。
+
+      【批量操作（重点）】
+      - operations 是【数组】：一次调用可提交多个 operation，批量处理多个文件
+        （例如同时改 3 个不同文件 = 3 个 operation，各自带自己的 path 与内容）。
+      - 建议分批：文件较多时，每次以 5~10 个文件为一组提交，
+        用分批提交的方式提升处理效率（每批独立走审批与落盘，互不阻塞，便于及时审查与回滚）。
+      - 同一文件的多处修改：必须合并进【同一个 update 的 edits 数组】（多个替换块），
+        引擎会按顺序逐一匹配替换。切勿把同一文件拆成多个 update operation 提交，
+        否则后写的会覆盖先写的结果（或被乐观锁拦截，报“文件已被修改”）。
       update 时，只需在 target 填入修改点周围少量的原代码片段，引擎将精确定位并替换。
-      仅在 target 出现多次时使用 startLine/endLine 限定搜索范围。
+      当 target 在文件中出现多次时，可给该 edit 传 startLine/endLine 把搜索范围
+      限定在指定行区间内以消歧（行号从1开始数，第1行就是文件第一行；startLine 与
+      endLine 各自代表的起始行、结束行本身都包含在范围内）。target 须完整落在该行范围内才会被匹配。
+
+      【容错行为】
+      - 部分 operation 检测失败（如路径不存在/越界被拒/文件已存在/target 不匹配等）
+        不会整体打回：失败项会以 failed/rejected 状态及原因进入返回的 files 列表，
+        其余成功的 operation 会照常进入用户审查（Monaco Diff 确认），批准后落盘。
+        最终 ok=false 仅表示存在失败/被拒项，请依据 files 逐条查看处理。
     `
   }
 }

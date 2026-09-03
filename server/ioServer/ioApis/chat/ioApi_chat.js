@@ -133,10 +133,9 @@ const socketOnChat = async (que, callback) => {
       });
     }
 
-    // 7. 启动模型思考
-    agent.noStopRun();
+    
+    
     await comData.editChatList(listId, (list) => {
-      list.stop = false;
       list.streamChunks = "";
     });
 
@@ -145,6 +144,8 @@ const socketOnChat = async (que, callback) => {
 
     // 防重入：如果在思考中，则退出（上面的 addAsk 已经被录入上下文循环，下一帧会自动处理）
     if (agent.replying) return;
+
+
 
     // QQ Bot 白名单拦截逻辑
     const cfg = qqBotApp?.data?.config;
@@ -157,6 +158,10 @@ const socketOnChat = async (que, callback) => {
     if (qqListIds.includes(listId) && !que.isSystemCall) {
       return;
     }
+
+
+    // 启动开关
+    agent.noStopRun()
 
     // 正式触发大模型
     await agent.sendAskByMsgProtocol(getMsgProtocalConfig({

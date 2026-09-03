@@ -377,10 +377,12 @@ export default function (json) {
     },
     async beforeRun() {
       const list = comData.getChatList(listId);
-      if (list?.stop) {
+
+      /* 作废if (list?.stop) {
         targetModel.addAsk(trs("角色/系统"), "user", trs("消息/用户手动中断", { cn: "用户手动中断回复", en: "User manually interrupted" }))
         targetModel.stopRun()
-      }
+      } */
+
       await comData.data.edit((data) => {
         const list = comData.getChatList(listId);
         list.replying = targetModel.replying;
@@ -401,8 +403,11 @@ export default function (json) {
       })
     },
     async streamFn({ chunk, replyChunk, reasoningChunk }) {
+
       await comData.data.edit((data) => {
-        const list = comData.getChatList(listId);
+
+
+        const list = data.chatLists.find(l => l.id === listId)
 
         if (replyChunk) {
           list.streamChunks += replyChunk; // 依然保持原生的 streamChunks 协议完整
@@ -422,10 +427,7 @@ export default function (json) {
               list.streamDisplayContent = mindPart + contentPart + notePart;
             }
           } catch (e) {
-            if (!list._hasLoggedStreamError) {
-              console.log("[qqBot/Stream] 流json处理失败(仅提示一次):", e.message);
-              list._hasLoggedStreamError = true;
-            }
+            console.log("[qqBot/Stream] 流json处理失败(仅提示一次):", e.message);
           }
         }
         if (reasoningChunk) list.streamReasoningChunks += reasoningChunk;

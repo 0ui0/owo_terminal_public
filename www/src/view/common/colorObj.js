@@ -26,7 +26,7 @@ export default {
 
   brown_5: { back: "#3a3535", front: "#999999" },
 
-  purple_1: { back: "#6c6379", front: "#333333" },
+  purple_1: { back: "#6c6379", front: "#2b0630" },
   purple_2: { back: "#6c607a", front: "#111111" },
 
   yellow_1: { back: "#a0751fff", front: "#111111" },

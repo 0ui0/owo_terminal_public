@@ -396,7 +396,7 @@ export default () => {
               left: "50%",
               width: "30rem",
               transform: "translateX(-50%)",
-              background: getColor('yellow_1').back + "aa",
+              background: getColor('yellow_1').back,
               color: getColor('yellow_1').front,
               padding: "0.4rem 1.2rem",
               borderRadius: "1rem",
@@ -406,6 +406,7 @@ export default () => {
               textAlign: "center"
             }
           }, tipText) : null,
+
           isExpanded ? m(".markdown-toolbar", {
             style: {
               display: "flex",

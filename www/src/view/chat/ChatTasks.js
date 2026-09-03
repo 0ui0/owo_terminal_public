@@ -4,6 +4,7 @@ import Notice from "../common/notice.js"
 import ChatNote from "./ChatNote.js"
 import Tag from "../common/tag.js"
 import comData from "../../comData/comData.js"
+import IconTag from "../common/iconTag.js"
 
 export default () => {
   const renderTaskEntry = (task, depth = 0) => {
@@ -135,73 +136,56 @@ export default () => {
       return m(".task-board", {
         style: {
           position: "sticky",
-          top: "0.5rem",
+          top: "1rem",
           right: "1.5rem",
           zIndex: 500,
           display: "flex",
           flexDirection: "column",
           alignItems: "flex-end",
           float: "right",
+          marginTop:"1rem",
           marginBottom: "-2.5rem",
         }
       }, [
         // 胶囊主体 (点击弹出任务明细)
-        tasks.length > 0 ? m(".task-capsule", {
-          style: {
-            padding: "0.25rem 0.6rem 0.25rem 0.4rem",
-            borderRadius: "2rem",
-            background: getColor('右上角按钮背景') + 'dd',
-            backdropFilter: "blur(12px)",
-            boxShadow: "0 4px 15px rgba(0,0,0,0.2)",
-            cursor: "pointer",
-            display: "flex",
-            alignItems: "center",
-            gap: "0.5rem",
-            border: `0.1rem solid ${getColor('右上角按钮文字') + '33'}`,
-            width: "fit-content",
-            maxWidth: "100%",
+        tasks.length > 0 ? m(IconTag, {
+          iconName:"DocDetail",
+
+          bgColor: getColor('red_2').back,
+          fgColor: getColor('red_2').front,
+
+          styleExt:{
+            transform: "scale(0.8)",
+            transformOrigin: "right center",
           },
-          onclick: (e) => showTaskMenu(e, chatList)
+
+          ext:{
+            onclick: (e) => showTaskMenu(e, chatList)
+          }
+          
         }, [
-          m.trust(window.iconPark.getIcon("DocDetail", {
-            fill: getColor('右上角按钮文字'),
-            size: "1.2rem"
-          })),
-          m("span", {
-            style: {
-              fontSize: "0.85rem",
-              color: getColor('右上角按钮文字'),
-              fontWeight: "600",
-              maxWidth: "8rem",
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-              whiteSpace: "nowrap"
-            }
-          }, activeTask?.name || ""),
+          m("span",activeTask?.name || ""),
+
           m(".progress-pill", {
             style: {
               padding: "0.1rem 0.5rem",
-              background: getColor('右上角按钮文字'),
-              color: getColor('右上角按钮背景'),
+              background:"rgba(255,255,255,0.5)",
+              color:"#333",
               borderRadius: "1rem",
-              fontSize: "0.75rem",
-              fontWeight: "900",
-              letterSpacing: "0.05rem",
+              marginLeft:"0 0.5rem",
             }
           }, `${activeTask?.process || 0}%`)
         ]) : null,
 
         // 笔记按钮 (当有笔记历史或有网点图时显示)
-        (notes.length > 0 || hasGraph) ? m(Tag, {
+        (notes.length > 0 || hasGraph) ? m(IconTag, {
+          iconName: "Notes",
           isBtn: true,
-          styleExt: {
-            background: getColor('右上角按钮背景'),
-            color: getColor('右上角按钮文字'),
-            marginTop: "0.4rem",
-            width: "fit-content",
-            animation: "fadeIn 0.5s ease",
-            display: "inline-flex",
-            alignItems: "center"
+          bgColor: getColor('red_1').back,
+          fgColor: getColor('red_1').front,
+          styleExt:{
+            transform: "scale(0.8)",
+            transformOrigin: "right center",
           },
           ext: {
             onclick: (e) => {
@@ -220,14 +204,7 @@ export default () => {
             }
           }
         }, [
-          m.trust(window.iconPark.getIcon("Notes", { size: "1.1rem", fill: "currentColor" })),
-          m("span", {
-            style: {
-              fontSize: "0.85rem",
-              fontWeight: "600",
-              marginLeft: "0.3rem"
-            }
-          }, trs("组件/笔记/查看", { cn: "查看笔记", en: "View Note" }))
+          m("span",trs("组件/笔记/查看", { cn: "查看笔记", en: "View Note" }))
         ]) : null
       ]);
     }

@@ -1445,12 +1445,11 @@ id为${fnCallCache.cacheid}
     var aiReply, allTools, ask, cfg, currentLimit, deferFn, deferredFns, e, err, errTip, errorMsg, extJoiError, extJsonConfigStr, i, idx, isLast, j, joiError, joiSchema, jsonErr, l, lastWarningIdx, len, len1, len2, len3, len4, len5, match, matchReadOnlyMetaData, n, o, p, parseError, parsedConfig, prePareCallStr, q, r, realUserMsgCount, ref, ref1, ref2, ref3, ref4, ref5, ref6, ref7, reply, replyJSON, ret, returnJoi, s, secondErr, shouldWarn, sysReturns, sysReturnsStr, time, tip, toolCall, toolCallDuration, toolCallGroupId, toolCallStartTime, toolCallSuccess, toolMaxLengthConfig, toolTipObj, truncatedFns, validateOutput;
     try {
       //console.log "发送前",@messages
-      this.replying = true;
       if (this.stop) {
-        this.replying = false;
+        this.replying = false; //这里在同步状态前要提前flase，否则前端list无法收到list.replying=flase，无法收起对话框
       }
       if (config.beforeRun) {
-        await config.beforeRun(this);
+        await config.beforeRun(this); //同步状态到list
       }
       if (this.stop) {
         return;
@@ -1967,20 +1966,33 @@ id为${fnCallCache.cacheid}
 
   stopRun() {
     this.abortController.abort();
-    return this.stop = true;
+    this.stop = true;
+    return this.replying = false;
   }
 
   noStopRun() {
     this.abortController = new AbortController();
-    return this.stop = false;
+    this.stop = false;
+    return this.replying = true;
   }
 
   async sysCallRunFns(sysCalls, sysAllTools, metaData = {}) {
-    var abortPromise, abortSignal, call, err, fn, j, len, onAbort, ref, ref1, returnStr, sysReturns, timeoutPromise, timer, toolPromise;
+    var abortPromise, call, err, fn, j, len, onAbort, ref, returnStr, sysReturns, timeoutPromise, timer, toolPromise;
     sysReturns = [];
     returnStr = "";
     for (j = 0, len = sysCalls.length; j < len; j++) {
       call = sysCalls[j];
+      if (this.stop || this.abortController.signal.aborted) {
+        sysReturns.push({
+          type: "function_call_output",
+          call_id: call.call_id,
+          name: call.name,
+          id: call.id,
+          output: `用户中断：工具 [${call.id}] 已被停止`,
+          arguments: call.arguments
+        });
+        continue;
+      }
       fn = sysAllTools.find((tool) => {
         return tool.id === call.id;
       });
@@ -2001,16 +2013,14 @@ id为${fnCallCache.cacheid}
             // 用户中断熔断：stopRun 的 abort 广播到达的瞬间，立即终止本工具的等待。
             // 通用机制，不依赖工具内部实现（无论工具在等确认/网络/终端，一律熔断）；
             // abort 为多播广播，不影响 OpenAI 内部已注册的 abort 监听器。
-            abortSignal = (ref1 = this.abortController) != null ? ref1.signal : void 0;
             onAbort = null;
             abortPromise = new Promise((resolve, reject) => {
-              if (abortSignal != null ? abortSignal.aborted : void 0) {
+              if (this.abortController.signal.aborted) {
                 return reject(new Error(`用户中断：工具 [${call.id}] 已被停止`));
-              } else if (abortSignal) {
-                onAbort = function() {
+              } else if (this.abortController.signal) {
+                return this.abortController.signal.addEventListener('abort', onAbort = () => {
                   return reject(new Error(`用户中断：工具 [${call.id}] 已被停止`));
-                };
-                return abortSignal.addEventListener('abort', onAbort, {
+                }, {
                   once: true
                 });
               }
@@ -2023,9 +2033,7 @@ id为${fnCallCache.cacheid}
                 clearTimeout(timer);
               }
               if (onAbort) {
-                if (abortSignal != null) {
-                  abortSignal.removeEventListener('abort', onAbort);
-                }
+                this.abortController.signal.removeEventListener('abort', onAbort);
               }
             }
           }

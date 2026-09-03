@@ -1,5 +1,6 @@
 import comData from "../comData/comData.js"
 import subAgents from "../tools/aiAsk/subAgents.js"
+import {trs} from "../tools/i18n.js"
 
 export default {
   name: "stopAiAsk",
@@ -19,7 +20,9 @@ export default {
       let cancelledCount = 0
       await comData.data.edit((data) => {
         const list = data.chatLists.find(l => l.id === listId)
-        for (const cmd of list.confirmCmds) {
+        list.replying = false //标记停止回复
+
+        for (const cmd of list.confirmCmds) { //处理掉审查窗口，拒绝
           if (cmd.confirm === "pending") {
             cmd.confirm = "no"
             cmd.comment = (cmd.comment ? cmd.comment + "\n" : "") + "用户点击暂停按钮取消了此确认"
@@ -28,14 +31,16 @@ export default {
         }
       })
 
-      const baseMsg = "已发送停止信号"
       return {
         ok: true,
-        msg: cancelledCount > 0 ? `${baseMsg}（已取消 ${cancelledCount} 个挂起确认）` : baseMsg
+        msg: trs("API/消息/已发送停止信号") 
       }
     } catch (err) {
-      console.error("[stopAiAsk] 报错:", err)
-      return { ok: false, msg: err.message }
+      console.log(err)
+      return {
+        ok: false,
+        msg: trs("API/错误/服务器内部错误")
+      }
     }
   }
 }

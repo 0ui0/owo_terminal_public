@@ -143,7 +143,6 @@ export default {
           list.streamDisplayContent ??= "";
           list.streamReasoningChunks ??= "";
           list.confirmCmds ??= [];
-          list.stop ??= false;
           list.tasks ??= [];
           list.notes ??= [];
           list.graph ??= { nodes: {}, links: [] };

@@ -36,6 +36,29 @@ const stripQuotes = (s) => {
   return str
 }
 
+// rg --json 的 submatch.start/end 单位是【字节】，而 lines.text 是已解码的 JS 字符串(UTF-16)。
+// 将字节区间 [byteStart, byteEnd) 换算为字符区间 [charStart, charEnd)，供 substring/slice 使用。
+const utf8LenOf = (cp) => (cp < 0x80 ? 1 : cp < 0x800 ? 2 : cp < 0x10000 ? 3 : 4)
+const byteRangeToCharRange = (text, byteStart, byteEnd) => {
+  let byteAcc = 0
+  let charAcc = 0
+  let cs = null
+  let ce = null
+  for (const ch of text) {
+    const bl = utf8LenOf(ch.codePointAt(0))
+    if (cs === null && byteAcc + bl > byteStart) cs = charAcc
+    if (byteAcc >= byteEnd) {
+      ce = charAcc
+      break
+    }
+    byteAcc += bl
+    charAcc++
+  }
+  if (cs === null) cs = charAcc
+  if (ce === null) ce = charAcc
+  return [cs, ce]
+}
+
 export default {
   name: "全局代码搜索",
   id: "codeSearch",
@@ -53,6 +76,7 @@ export default {
       isRegex,
       caseSensitive,
       matchPerLine,
+      pcre2,
       contextLines,
       maxResults,
       maxFileSize,
@@ -146,6 +170,11 @@ export default {
       args.push("--context", String(contextLines))
     }
 
+    // PCRE2：支持前瞻/后顾/反向引用等高级语法
+    if (pcre2) {
+      args.push("--pcre2")
+    }
+
     // 使用 -e 明确指定搜索模式，避免 query 以短横线开头时被误当作命令行选项
     args.push("-e", query)
     args.push("--", targetDir)
@@ -153,9 +182,11 @@ export default {
     return new Promise((resolve) => {
       let isDone = false
       let isTimeout = false
-      let matchCount = 0
+      let limitReached = false   // 已收满展示上限，转为“只计数不展示”以统计真实总量
+      let matchCount = 0         // 总命中行数（含超限后继续累计）
 
-      const fileSet = new Set()
+      const fileSet = new Set()      // 文件清单模式：命中文件集合（自然结束时即全量）
+      const matchFileSet = new Set() // 逐行模式：统计命中文件数（全量）
       const results = []
       let currentFileContexts = {}
       let currentFileMatches = []
@@ -205,18 +236,14 @@ export default {
             const relPath = pathLib.relative(targetDir, rawPath) || pathLib.basename(rawPath)
 
             if (!matchPerLine) {
-              // 纯文件路径去重模式（省 Token）
+              // 纯文件路径去重模式（省 Token）：不提前终止，持续收集到自然结束以统计真实文件总数
               fileSet.add(relPath)
-              if (fileSet.size >= maxLimit) {
-                isDone = true
-                rl.close()
-                try { child.kill("SIGTERM") } catch (e) { }
-                clearTimeout(timer)
-                resolveResult()
-              }
+              if (!limitReached && fileSet.size >= maxLimit) limitReached = true
             } else {
               // 逐行匹配详情模式
               matchCount++
+              matchFileSet.add(relPath)
+              if (limitReached) return // 展示已收满，仅继续累计总数，不再入库
               let lineText = event.data.lines.text.replace(/\r?\n$/, "")
               const maxCols = maxColumns || 0
 
@@ -224,7 +251,10 @@ export default {
                 const submatches = event.data.submatches || []
                 let centerOffset = 0
                 if (submatches.length > 0) {
-                  centerOffset = Math.floor((submatches[0].start + submatches[0].end) / 2)
+                  // rg --json 的 submatch.start/end 是【字节】偏移，而 lines.text 是 JS 字符串(UTF-16)，
+                  // 必须先换算成字符偏移再截取，否则含中文/emoji 的长行会切错位置甚至切碎字符
+                  const [cs, ce] = byteRangeToCharRange(lineText, submatches[0].start, submatches[0].end)
+                  centerOffset = Math.floor((cs + ce) / 2)
                 } else {
                   centerOffset = Math.floor(lineText.length / 2)
                 }
@@ -259,12 +289,8 @@ export default {
                 currentFileMatches.push(item)
               }
 
-              if (matchCount >= maxLimit) {
-                isDone = true
-                rl.close()
-                try { child.kill("SIGTERM") } catch (e) { }
-                clearTimeout(timer)
-                resolveResult()
+              if (results.length >= maxLimit) {
+                limitReached = true // 展示收满，转为只计数模式继续读到自然结束，以获取真实总量
               }
             }
           } else if (event.type === "end") {
@@ -328,12 +354,15 @@ export default {
             resolve(commentSuffix + (isTimeout ? "搜索超时，未找到匹配内容。" : "未找到匹配内容。"))
             return
           }
-          let output = JSON.stringify(Array.from(fileSet), null, 2)
-          if (fileSet.size >= maxLimit) {
-            output += `\n\n(注意：仅显示前 ${maxLimit} 个匹配文件)`
-          }
-          if (isTimeout) {
-            output += `\n\n(注意：搜索耗时超过 ${timeoutMs}ms，已强制终止，返回当前已收集的结果)`
+          const allFiles = Array.from(fileSet)
+          const shownFiles = limitReached ? allFiles.slice(0, maxLimit) : allFiles
+          let output = JSON.stringify(shownFiles, null, 2)
+          if (limitReached) {
+            output += `\n\n(注意：共 ${fileSet.size} 个文件命中，仅显示前 ${maxLimit} 个${isTimeout ? "；搜索超时，统计可能不完整" : ""})`
+          } else if (isTimeout) {
+            output += `\n\n(注意：搜索耗时超过 ${timeoutMs}ms，已强制终止，以上为部分结果且统计不完整)`
+          } else {
+            output += `\n\n(共 ${fileSet.size} 个文件命中，已全部显示)`
           }
           resolve(commentSuffix ? commentSuffix + output : output)
         } else {
@@ -342,11 +371,12 @@ export default {
             return
           }
           let output = JSON.stringify(results, null, 2)
-          if (matchCount >= maxLimit) {
-            output += `\n\n(注意：仅显示前 ${maxLimit} 条结果)`
-          }
-          if (isTimeout) {
-            output += `\n\n(注意：搜索耗时超过 ${timeoutMs}ms，已强制终止，返回当前已收集的结果)`
+          if (limitReached) {
+            output += `\n\n(注意：共命中 ${matchCount} 行 / ${matchFileSet.size} 个文件，仅显示前 ${maxLimit} 行${isTimeout ? "；搜索超时，统计可能不完整" : ""})`
+          } else if (isTimeout) {
+            output += `\n\n(注意：搜索耗时超过 ${timeoutMs}ms，已强制终止，以上为部分结果且统计不完整)`
+          } else {
+            output += `\n\n(共命中 ${matchCount} 行 / ${matchFileSet.size} 个文件，已全部显示)`
           }
           resolve(commentSuffix ? commentSuffix + output : output)
         }
@@ -362,8 +392,9 @@ export default {
       excludes: Joi.array().items(Joi.string()).default(["node_modules", ".git", "dist", "build", ".vscode", "*.min.js", "*.map", "*.bundle.js"]).description("排除的 Glob 模式"),
       isRegex: Joi.boolean().default(false).description("是否正则匹配"),
       caseSensitive: Joi.boolean().default(false).description("区分大小写"),
+      pcre2: Joi.boolean().default(false).description("是否启用 PCRE2(支持前瞻/后顾/反向引用)"),
       matchPerLine: Joi.boolean().default(true).description("true返回匹配行详情, false仅返回文件名(省Token)"),
-      contextLines: Joi.number().integer().min(0).max(5).default(0).description("上下文行数"),
+      contextLines: Joi.number().integer().min(0).max(10).default(6).description("上下文行数(默认6, 传0关闭)"),
       maxResults: Joi.number().integer().min(1).max(200).default(50).description("最大结果数"),
       maxFileSize: Joi.string().pattern(/^\d+[KMG]?$/i).default("2M").description("过滤超大文件(如 500K, 2M)"),
       maxColumns: Joi.number().integer().default(500).description("单行截断长度, 0不截断"),
@@ -379,6 +410,11 @@ export default {
 1. 精确搜索：{ query: "createWindow", includes: ["*.js"] }
 2. 空格语句与正则：{ query: "function handleUser", contextLines: 2 } 或 { query: "function\\\\s+handle\\\\w+", isRegex: true }
 3. 仅需匹配文件清单：{ query: "import { spawn }", matchPerLine: false }
+
+【行为说明】：
+- 默认带前后各 6 行上下文（contextLines），传 contextLines:0 可关闭以节省 Token。
+- 结果达到 maxResults 上限时不会立即截断，而是继续读完以统计真实总量，并附注“共命中 X 行 / Y 个文件，仅显示前 N 行”；命中量极大时受 timeout 兜底，统计可能不完整。
+- 【正则须知】请勿使用 /pattern/flags 斜杠包裹写法(底层 rg 会把斜杠当字面量且不解析 flags)；大小写请用 caseSensitive 参数，高级语法(前瞻/后顾/反向引用)请开启 pcre2:true。
 
 *注：如需按文件名模糊检索文件路径，请使用 fileFind 工具。
     `.trim()

@@ -32,7 +32,6 @@ export default function getDefaultComData() {
             listId: 0
           } */
         ],
-        stop: false,
         tasks: [],
         notes: [],
         graph: { nodes: {}, links: [] }

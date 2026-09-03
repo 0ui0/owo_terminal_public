@@ -258,7 +258,7 @@ export default () => {
         m("", {
           style: {
             display: "flex",
-            marginBottom: "0.5rem",
+            margin: "1rem",
             flexWrap: "wrap",
             gap: "0.5rem",
             alignItems: "center"
@@ -735,13 +735,8 @@ export default () => {
                   onclick: async () => {
                     try {
                       let tmp = await settingData.fnCall("stopAiAsk", [targetChatListId])
-                      await comData.data?.edit((data) => {
-                        const targetList = data.chatLists.find(l => l.id === targetChatListId)
-                        if (targetList) {
-                          targetList.stop = true;
-                          targetList.replying = false;
-                        }
-                      })
+
+
                       Notice.launch({
                         msg: tmp.msg
                       })

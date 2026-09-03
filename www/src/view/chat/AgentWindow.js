@@ -28,8 +28,8 @@ export default ({ listId, agentName }) => {
           display: "flex",
           flexDirection: "column",
           height: "100%",
-          width: "100%",
           boxSizing: "border-box",
+          margin:"0.5rem",
         }
       }, [
         // 聊天列表

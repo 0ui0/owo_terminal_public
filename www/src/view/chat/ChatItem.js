@@ -699,6 +699,7 @@ export default ChatItem = () => {
                       async confirm() {
                         debugHistory.log("撤销", { uuid: chat.uuid, chatListId: chat.chatListId });
                         await settingData.fnCall("undoChat", [chat.uuid, chat.chatListId])
+                        data.getSessionState(chat.chatListId).isAtBottom = true
                         if (chat.group === "user") {
                           data.inputText += chat.content
                           await comData.data.edit((_data) => {
@@ -733,6 +734,7 @@ export default ChatItem = () => {
                       async confirm() {
                         debugHistory.log("撤到本条", { uuid: chat.uuid, chatListId: chat.chatListId });
                         await settingData.fnCall("undoToChat", [chat.uuid, chat.chatListId])
+                        data.getSessionState(chat.chatListId).isAtBottom = true
                         if (chat.group === "user") {
                           data.inputText += chat.content
                           const listId = chat.chatListId || 0

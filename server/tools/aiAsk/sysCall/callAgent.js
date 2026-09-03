@@ -73,19 +73,19 @@ export default {
       (async () => {
         try {
           // 初始化 UI 状态
-          targetAgent.noStopRun();
-          await comData.data.edit((data) => {
-            const list = data.chatLists.find(l => l.id === targetListId);
-            if (list) {
-              list.stop = false;
-              list.replying = true;
-              list.streamChunks = "";
-            }
-          });
+
+
+          if(targetAgent.replying){
+            return //智能体已经在循环里，前面addAsk了，会看到，这里不用重新触发循环
+          }
+            
+
 
           // 获取当前模型配置用于 Token 统计（按目标实例烙的 modelId 精确反查）
           const aiList = await options.get("ai_aiList");
           const currentTokenConfig = aiList.find(m => m.id === targetAgent.modelId);
+
+          targetAgent.noStopRun();
 
           await targetAgent.sendAskByMsgProtocol(getMsgProtocalConfig({
             targetModel: targetAgent,

@@ -452,71 +452,8 @@ export default () => {
                     },
                     `待审批文件列表 (${files.length}):`
                   ),
-                  m("",
-                    {
-                      style: {
-                        display: "flex",
-                        alignItems: "center"
-                      }
-                    },
-                    [
-                      m(Tag,
-                        {
-                          isBtn: true,
-                          color: "main",
-                          styleExt: {
-                            cursor: "pointer",
-                            margin: "0.2rem 0.3rem"
-                          },
-                          onclick: async () => {
-                            for (let i = files.length - 1; i >= 0; i--) {
-                              const file = files[i]
-                              try {
-                                await settingData.fnCall("appLaunch", ["editor", {
-                                  data: {
-                                    confirmId: confirmCmd.id,
-                                    fileId: file.fileId,
-                                    filePath: file.path,
-                                    originalContent: file.originalContent,
-                                    proposedContent: file.proposedContent,
-                                    isDiff: true,
-                                    reason: confirmCmd.ext?.reason
-                                  }
-                                }])
-                              } catch (launchErr) {
-                                console.error("依次打开编辑器审阅失败:", launchErr)
-                              }
-                            }
-                          }
-                        },
-                        "依次审阅"
-                      ),
-                      m(Tag,
-                        {
-                          isBtn: true,
-                          color: "green_1",
-                          styleExt: {
-                            cursor: "pointer",
-                            margin: "0.2rem 0.3rem"
-                          },
-                          onclick: () => setAllStatus("approved")
-                        },
-                        "全部批准"
-                      ),
-                      m(Tag,
-                        {
-                          isBtn: true,
-                          color: "pink_1",
-                          styleExt: {
-                            cursor: "pointer",
-                            margin: "0.2rem 0.3rem"
-                          },
-                          onclick: () => setAllStatus("rejected")
-                        },
-                        "全部拒绝"
-                      )
-                    ]
-                  )
+
+
                 ]
               ),
 
@@ -823,6 +760,67 @@ export default () => {
             ]
           ),
 
+          m("", [
+
+
+            m("",
+              {
+                style: {
+                  display: "flex",
+                  alignItems: "center"
+                }
+              },
+              [
+                m("",{style:{marginLeft:"auto"}}),
+                m(Tag,
+                  {
+                    isBtn: true,
+                    color: "main",
+                    onclick: async () => {
+                      for (let i = files.length - 1; i >= 0; i--) {
+                        const file = files[i]
+                        try {
+                          await settingData.fnCall("appLaunch", ["editor", {
+                            data: {
+                              confirmId: confirmCmd.id,
+                              fileId: file.fileId,
+                              filePath: file.path,
+                              originalContent: file.originalContent,
+                              proposedContent: file.proposedContent,
+                              isDiff: true,
+                              reason: confirmCmd.ext?.reason
+                            }
+                          }])
+                        } catch (launchErr) {
+                          console.error("依次打开编辑器审阅失败:", launchErr)
+                        }
+                      }
+                    }
+                  },
+                  "依次审阅"
+                ),
+                m(Tag,
+                  {
+                    isBtn: true,
+                    color: "green_1",
+                    onclick: () => setAllStatus("approved")
+                  },
+                  "全部批准"
+                ),
+                m(Tag,
+                  {
+                    isBtn: true,
+                    color: "pink_1",
+                    onclick: () => setAllStatus("rejected")
+                  },
+                  "全部拒绝"
+                )
+              ]
+            )
+
+
+          ]),
+
           // 底部动作按钮栏 (右对齐)
           m("",
             {
@@ -834,6 +832,8 @@ export default () => {
               }
             },
             [
+
+
               !allDecided
                 ? m("",
                   {

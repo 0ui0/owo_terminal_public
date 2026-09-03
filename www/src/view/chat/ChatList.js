@@ -287,13 +287,11 @@ export default () => {
       return m("", {
         style: {
           flex: 1,
-          marginBottom: "1rem",
           borderRadius: "3rem",
           background: getColor('消息列表背景') + "99",
           border: `0.1rem solid ${getColor('main').back}`,
           position: "relative",
           height: "100%",
-          width: "100%",
           overflow: "hidden",
         }
       }, [
@@ -408,12 +406,12 @@ export default () => {
             isBtn: true,
             style: {
               position: "sticky",
-              top: "0",
+              top: "1rem",
               zIndex: 10,
               background: getColor('main').back,
               color: getColor('main').front,
               padding: "0.5rem",
-              margin: "1rem",
+              margin: "0 1rem",
             },
             async onclick() {
               const hostListId = attrs.listId;
@@ -438,7 +436,7 @@ export default () => {
               width: "fit-content",       // 短文本自适应收缩，长文本服从 maxWidth
               maxWidth: "20rem",          // 严格限制最大宽度，防止撑破容器
               boxSizing: "border-box",
-              padding: "0.4rem 0.8rem",
+              padding: "0.5rem 1rem",
               margin: "1rem",
               background: getColor('brown_1').back,
               borderRadius: "1rem",       // 胶囊形圆角
@@ -447,7 +445,7 @@ export default () => {
               display: "flex",
               alignItems: "center",
               cursor: "pointer",
-              boxShadow: "0 4px 10px rgba(0,0,0,0.1)",
+              boxShadow: "0 0 1rem rgba(0,0,0,0.1)",
               textAlign: "left"           // 保证内部文本左对齐
             },
             title: trs("通用/点击跳转", { cn: "点击跳转至该消息", en: "Click to jump to this message" }),

@@ -12,7 +12,7 @@ export default {
     if (error) {
       return "错误：" + error.details[0].message
     }
-    let { path, startLine, endLine, searchQuery, isRegex } = value
+    let { path, startLine, endLine } = value
     const fileState = (await import("../../fileState.js")).default
 
     const mainDir = workDirTool.getMainWorkDir(metaData.listId)
@@ -25,8 +25,8 @@ export default {
     try {
       const stat = await fs.stat(resolvedPath)
       const existingState = fileState.get(resolvedPath)
-      // 如果没有搜索查询，且读取范围一致，且 mtime 未变，则返回已读存根
-      if (!searchQuery && existingState && existingState.timestamp === stat.mtimeMs) {
+      // 如果读取范围一致且 mtime 未变，则返回已读存根
+      if (existingState && existingState.timestamp === stat.mtimeMs) {
         const rangeMatch = existingState.startLine === startLine && existingState.endLine === endLine
         if (rangeMatch) {
           return `> [!NOTE] 文件内容自上次读取以来未发生变化 (${path})。已利用缓存存根减少 Token 消耗。`
@@ -68,11 +68,10 @@ export default {
       const content = await fs.readFile(resolvedPath, 'utf8')
       const lines = content.split(/\r?\n/)
       const totalLines = lines.length
-      const totalChars = content.length
 
-      // 1. 确定行范围
+      // 1. 确定行范围（默认给前500行窗口，防止大文件全量刷屏；小文件自动全量）
       let currentStart = startLine || 1
-      let currentEnd = endLine || (startLine ? currentStart + 500 : 500) // 如果指定了开始没写结束，给500行；如果都没写，默认前500行
+      let currentEnd = endLine || (startLine ? currentStart + 500 : 500)
 
       // 如果文件本身很小且没指定范围，则尝试全量读取
       if (!startLine && !endLine && totalLines <= 500) {
@@ -82,77 +81,15 @@ export default {
       const startIdx = Math.max(0, currentStart - 1)
       const endIdx = Math.min(totalLines, currentEnd)
 
-      const kbSize = (Buffer.byteLength(content, "utf8") / 1024).toFixed(2) + " KB"
-
-      // [Search logic block]
-      if (searchQuery) {
-        let matchIndices = []
-        let searchRegExp
-
-        if (isRegex) {
-          try {
-            let pattern = searchQuery
-            let flags = "i"
-            const match = searchQuery.match(/^\/(.*)\/([gimsuy]*)$/)
-            if (match) {
-              pattern = match[1]
-              flags = match[2]
-              if (!flags.includes("i")) flags += "i" // default i
-            }
-            searchRegExp = new RegExp(pattern, flags)
-          } catch (err) {
-            return `错误：提供的正则表达式 "${searchQuery}" 不合法：${err.message}`
-          }
-        } else {
-          const escapedQuery = searchQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-          searchRegExp = new RegExp(escapedQuery, "i")
-        }
-
-        for (let i = startIdx; i < endIdx; i++) {
-          if (searchRegExp.test(lines[i])) {
-            matchIndices.push(i)
-          }
-        }
-
-        if (matchIndices.length === 0) {
-          return `未在当前范围(第${startIdx + 1}行到第${endIdx}行)中找到关于 "${searchQuery}" 的内容。`
-        }
-
-        let outputLines = []
-        outputLines.push(`> [!INFO] 搜索 "${searchQuery}" 找到 ${matchIndices.length} 个匹配项。文件总计约 ${kbSize} 大小。`)
-        const maxMatches = 10
-        const contextLines = 3
-        if (matchIndices.length > maxMatches) {
-          outputLines.push(`> [!WARNING] 匹配项过多，仅显示前 ${maxMatches} 个。请查阅目标行号后，通过 startLine 及 endLine 再次读取。`)
-        }
-
-        const limit = Math.min(matchIndices.length, maxMatches)
-        let currentLength = outputLines.join("\n").length
-
-        for (let i = 0; i < limit; i++) {
-          const matchIdx = matchIndices[i]
-          const displayStart = Math.max(0, matchIdx - contextLines)
-          const displayEnd = Math.min(totalLines - 1, matchIdx + contextLines)
-
-          let matchBlock = []
-          matchBlock.push(`\n### 匹配项 ${i + 1} (位于第 ${matchIdx + 1} 行)`)
-          for (let j = displayStart; j <= displayEnd; j++) {
-            const prefix = j === matchIdx ? ">>" : "  "
-            matchBlock.push(`${j + 1}: ${prefix} ${lines[j]}`)
-          }
-
-          let blockText = matchBlock.join("\n")
-
-          if (currentLength + blockText.length > 4000) {
-            outputLines.push(`\n> [!NOTE] 结果因字数限制已被自动截断。请缩小搜索区间或使用更精确的关键字。`)
-            break
-          }
-
-          outputLines.push(blockText)
-          currentLength += blockText.length
-        }
-        return outputLines.join("\n")
+      // 参数合法性校验：防止标题倒挂与静默空读
+      if (startLine && endLine && startLine > endLine) {
+        return `错误：startLine(${startLine}) 大于 endLine(${endLine})，读取范围非法。请检查参数顺序。`
       }
+      if (startLine && startLine > totalLines) {
+        return `错误：startLine(${startLine}) 超出文件总行数（共 ${totalLines} 行）。请检查参数。`
+      }
+
+      const kbSize = (Buffer.byteLength(content, "utf8") / 1024).toFixed(2) + " KB"
 
       const resultLines = lines.slice(startIdx, endIdx)
         .map((line, i) => `${startIdx + i + 1}: ${line}`)
@@ -202,13 +139,11 @@ export default {
   joi() {
     return Joi.object({
       path: Joi.string().required().description("文件绝对路径或相对项目根目录的路径"),
-      startLine: Joi.number().min(1).description("起始行号(包含，默认为1。搜索时为搜索范围起点)"),
-      endLine: Joi.number().min(1).description("结束行号(包含，默认为最后一行。搜索时为范围终点)"),
-      searchQuery: Joi.string().allow("").description("可选。提供关键字时将转为搜索模式返回匹配段落"),
-      isRegex: Joi.boolean().default(false).description("可选。指示 searchQuery 是否为正则。")
+      startLine: Joi.number().min(1).description("起始行号(包含，默认为1)"),
+      endLine: Joi.number().min(1).description("结束行号(包含，默认前500行窗口；文件≤500行时自动全量)")
     })
   },
   getDoc() {
-    return `读取指定文件的内容。支持通过 startLine, endLine 分页读取大文件保存上下文，同时也支持全文搜索(searchQuery/isRegex)以快速跳读。`
+    return `读取指定文件的内容。支持通过 startLine, endLine 分页读取大文件以节省上下文。本工具仅负责单文件读取；跨文件全文检索请使用 codeSearch。`
   }
 }
