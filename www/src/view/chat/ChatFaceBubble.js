@@ -1,8 +1,10 @@
 import comData from "../../comData/comData.js"
+import { trs } from "../common/i18n.js"
 import getColor from "../common/getColor.js"
 
 export default () => {
   let timer = null
+  let isHovered = false
 
   return {
     onremove() {
@@ -22,6 +24,7 @@ export default () => {
         "",
         {
           key: `bubble-${defaultPet}-${faceAction}`,
+          title: trs("通用/点击清除", { cn: "点击清除", en: "Click to dismiss" }),
           oncreate() {
             if (timer) {
               clearTimeout(timer)
@@ -37,23 +40,48 @@ export default () => {
               }
             }, 3500)
           },
+          onmouseenter() {
+            isHovered = true
+          },
+          onmouseleave() {
+            isHovered = false
+          },
+          onclick: async (e) => {
+            e.stopPropagation()
+            if (timer) {
+              clearTimeout(timer)
+              timer = null
+            }
+            try {
+              await comData.data.edit((d) => {
+                d.faceAction = "none"
+              })
+              m.redraw()
+            } catch (err) {
+              console.error("[ChatFaceBubble] Click clear error:", err)
+            }
+          },
           style: {
             position: "absolute",
-            left: "2rem",
-            top: "2rem",
-            zIndex: 99,
-            width: "8rem",
-            height: "8rem",
+            top: "1rem",
+            left: "50%",
+            transform: isHovered ? "translateX(-50%) scale(1.05)" : "translateX(-50%) scale(1)",
+            zIndex: 100,
+            width: "12rem",
+            height: "12rem",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            padding: "0.8rem",
+            padding: "0.6rem",
             background: getColor("gray_4").back,
-            borderRadius: "3rem",
+            borderRadius: "50%",
+            border: `0.15rem solid ${getColor('main').back}`,
+            boxSizing: "border-box",
             boxShadow: "0 0.8rem 2.4rem rgba(0, 0, 0, 0.25)",
-            pointerEvents: "none",
+            cursor: "pointer",
+            pointerEvents: "auto",
             overflow: "hidden",
-            transition: "all 0.3s ease"
+            transition: "transform 0.2s ease, opacity 0.2s ease"
           }
         },
         [
@@ -64,7 +92,8 @@ export default () => {
               style: {
                 width: "100%",
                 height: "100%",
-                objectFit: "contain"
+                objectFit: "contain",
+                filter: "drop-shadow(0 0.6rem 1.2rem rgba(0, 0, 0, 0.35))"
               },
               onerror: async () => {
                 try {

@@ -2245,3 +2245,137 @@ graph TD
   F[已剔除: tb_chat_messages.findAll 与 chats_export.json] -.-> A
   </n-graph>
 </n-main>
+<n-main>
+  <n-time>[时间:2026/09/05 18:09:30]</n-time>
+  <n-mem>[记忆：啦沐达长官指出更新出错时顶栏展开胶囊因宽度失控横贯顶部，遮挡了左侧红绿灯和看板角色。已完成针对性优化：1. 后端 app.js 净化更新报错标题为简短文字，详细堆栈放入 content；2. 前端 MessageInbox.js 为展开胶囊增加 maxWidth: 18rem 与文本溢出省略号截断。]</n-mem>
+  <n-tasks>[总任务：修复顶栏消息展开宽度溢出问题(已执行)]</n-tasks>
+  <n-ul>
+    <n-li>[任务1/2:优化app.js更新错误推送格式]
+    <n-focus>[关注1:app.js,L396-L405,代码片段|>title: trs("系统/错误/更新出错", { cn: "更新出错", en: "Update Error" }), content: ...<|,调查情况:不再将几百行网络错误头与栈直接拼在 title 里，保持标题短小，详细信息移入正文]</n-focus>
+    </n-li>
+    <n-li>[任务2/2:为MessageInbox.js添加CSS防溢出约束]
+    <n-focus>[关注2:www/src/view/common/MessageInbox.js,L190-L215,代码片段|>maxWidth: "18rem", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis"<|,调查情况:给顶栏5s临时展开胶囊设置最大宽度和省略号截断，彻底杜绝任何长文本破坏顶栏布局和遮挡界面元素]</n-focus>
+    </n-li>
+  </n-ul>
+  <n-graph>
+graph LR
+  A[系统推送更新报错] --> B[app.js: 干净短标题 + 详细正文]
+  B --> C[MessageInbox.js: 5s 顶栏优雅胶囊 maxWidth=18rem]
+  C --> D[点开消息中心: 查看完整错误详情]
+  </n-graph>
+</n-main>
+<n-main>
+  <n-time>[时间:2026/09/05 18:12:30]</n-time>
+  <n-mem>[记忆：啦沐达长官要求当自动更新检查发现没有新版本时，不要产生未读消息角标1，自动标记为已读。已修改 app.js 中 update-not-available 事件的 isRead 为 true。]</n-mem>
+  <n-tasks>[总任务：优化无新版本时的已读状态(已执行)]</n-tasks>
+  <n-ul>
+    <n-li>[任务1/1:修改app.js中的update-not-available]
+    <n-focus>[关注1:app.js,L364,代码片段|>isRead: true<|,调查情况:当检查更新无新版本时，消息依然作为历史归档进入消息中心，但由于 isRead 为 true，不参与未读计数，右上角不出现红点角标1，不打扰用户]</n-focus>
+    </n-li>
+  </n-ul>
+  <n-graph>
+graph LR
+  A[检查更新完成: 无新版本] --> B[app.js: update-not-available]
+  B --> C[设置 isRead: true]
+  C --> D[消息中心留存记录]
+  C --> E[未读计数 unreadCount 不增加，不显示角标1]
+  </n-graph>
+</n-main>
+<n-main>
+  <n-time>[时间:2026/09/05 18:14:30]</n-time>
+  <n-mem>[记忆：根据啦沐达长官要求，在 app.js 更新出错消息的 content 最前面增加手动前往 GitHub Releases 官方发布页下载最新版本的引导提示。]</n-mem>
+  <n-tasks>[总任务：更新出错提示内容增加手动下载链接(已执行)]</n-tasks>
+  <n-ul>
+    <n-li>[任务1/1:修改app.js中的content前缀]
+    <n-focus>[关注1:app.js,L400-L404,代码片段|>trs("系统/更新/手动下载提示", { cn: "更新出错，请手动前往下载最新版本：\nhttps://github.com/0ui0/owo_terminal_public/releases\n\n", ... })<|,调查情况:在发生自动更新异常时，消息中心正文顶部首行显示清晰的手动下载链接，用户可一键查看并前往官网下载]</n-focus>
+    </n-li>
+  </n-ul>
+  <n-graph>
+graph LR
+  A[autoUpdater 触发 error] --> B[app.js 捕获异常]
+  B --> C[拼接手动前往 Releases 官方发布页下载提示]
+  C --> D[推入消息中心展示给用户]
+  </n-graph>
+</n-main>
+<n-main>
+  <n-time>[时间:2026/09/05 18:18:30]</n-time>
+  <n-mem>[记忆：啦沐达长官要求将聊天界面看板角色上方的小头像气泡修改为圆形，同时背景透明并带阴影效果。已在 ChatFaceBubble.js 中将容器圆角半径调整为 50%、背景设为 transparent，并配合立体 drop-shadow 与 boxShadow 营造层次阴影。]</n-mem>
+  <n-tasks>[总任务：修改小头像气泡为圆形透明带阴影(已执行)]</n-tasks>
+  <n-ul>
+    <n-li>[任务1/1:修改ChatFaceBubble.js样式]
+    <n-focus>[关注1:www/src/view/chat/ChatFaceBubble.js,L48-L68,代码片段|>borderRadius: "50%", background: "transparent", filter: "drop-shadow(0 0.6rem 1.2rem rgba(0, 0, 0, 0.35))"<|,调查情况:移除原有灰底矩形色块与3rem圆角，修改为标准的50%正圆裁切与完全透明背景，同时结合透明PNG图层赋予细腻的立体下沉阴影，使得透明立绘表情更加生动自然]</n-focus>
+    </n-li>
+  </n-ul>
+  <n-graph>
+graph LR
+  A[啦沐达需求: 小头像改圆形+透明底+带阴影] --> B[ChatFaceBubble.js]
+  B --> C[borderRadius: 50% 变正圆]
+  B --> D[background: transparent 去除灰底]
+  B --> E[filter: drop-shadow + boxShadow 强化立体阴影]
+  </n-graph>
+</n-main>
+<n-main>
+  <n-time>[时间:2026/09/05 18:22:00]</n-time>
+  <n-mem>[记忆：啦沐达长官要求将表情小头像移动到消息列表（ChatList）顶部左上角指定位置悬挂，并且支持用户手动点击时立即清除。已将 ChatFaceBubble 从 ChatVideo 迁移至 ChatList 顶层挂载，定位设置在左上角 (1rem, 1rem)，开启指针事件与鼠标手型，绑定 onclick 立即清空 faceAction，并辅以 hover 轻微浮动动效与截断冒泡。]</n-mem>
+  <n-tasks>[总任务：将小头像改挂至消息列表顶部并支持点击立即清除(已执行)]</n-tasks>
+  <n-ul>
+    <n-li>[任务1/3:解绑ChatVideo中的ChatFaceBubble]
+    <n-focus>[关注1:www/src/view/chat/ChatVideo.js,L3,L124,代码片段|>移除 ChatFaceBubble 引用与渲染节点<|,调查情况:彻底移除左侧视频/立绘背景中多余的表情挂载]</n-focus>
+    </n-li>
+    <n-li>[任务2/3:将ChatFaceBubble挂载到ChatList顶部]
+    <n-focus>[关注2:www/src/view/chat/ChatList.js,L12,L684,代码片段|>m(ChatFaceBubble)<|,调查情况:引入组件并在消息列表外层相对定位容器中挂载，使其以绝对定位悬挂在消息列表顶部左上角指定位置]</n-focus>
+    </n-li>
+    <n-li>[任务3/3:更新ChatFaceBubble交互与定位样式]
+    <n-focus>[关注3:www/src/view/chat/ChatFaceBubble.js,L20-L75,代码片段|>left: "1rem", top: "1rem", cursor: "pointer", pointerEvents: "auto", onclick: async (e) => { ... d.faceAction = "none" }<|,调查情况:位置精确对齐红框标注的消息列表左上角，开启 pointerEvents 和 cursor: pointer，点击时阻止事件冒泡并清除定时器将 faceAction 置为 none，支持随时手动消除]</n-focus>
+    </n-li>
+  </n-ul>
+  <n-graph>
+graph LR
+  A[啦沐达长官需求: 小头像移至消息列表顶部左上角+点击即清] --> B[ChatVideo.js 移除原挂载点]
+  A --> C[ChatList.js 引入并挂载至顶部层]
+  A --> D[ChatFaceBubble.js 交互与位置调整]
+  D --> E[定位: left: 1rem, top: 1rem]
+  D --> F[点击: stopPropagation + faceAction="none"]
+  D --> G[悬浮: cursor: pointer + hover scale动效]
+  </n-graph>
+</n-main>
+<n-main>
+  <n-time>[时间:2026/09/05 18:22:40]</n-time>
+  <n-mem>[记忆：啦沐达长官要求取消小头像的透明背景，还原回原有的深灰背景色 getColor("gray_4").back。已在 ChatFaceBubble.js 中重新引入 getColor，并将背景色从 transparent 改回主题定义的 getColor("gray_4").back，同时保留圆形外观、阴影效果、消息列表顶部悬挂定位以及点击立即清除功能。]</n-mem>
+  <n-tasks>[总任务：还原小头像背景颜色(已执行)]</n-tasks>
+  <n-ul>
+    <n-li>[任务1/1:修改ChatFaceBubble.js背景色]
+    <n-focus>[关注1:www/src/view/chat/ChatFaceBubble.js,L3,L73,代码片段|>import getColor from "../common/getColor.js"; background: getColor("gray_4").back<|,调查情况:重新引入颜色辅助函数，恢复了原先统一的 gray_4 底色，使圆形表情气泡在保持圆形立体阴影的同时具备实底色块，遮挡下层消息与保持风格一致]</n-focus>
+    </n-li>
+  </n-ul>
+  <n-graph>
+graph LR
+  A[啦沐达长官指令: 还原原背景色] --> B[ChatFaceBubble.js]
+  B --> C[import getColor]
+  B --> D[background: getColor('gray_4').back]
+  B --> E[保持 borderRadius: 50% 正圆与阴影]
+  B --> F[保持消息列表顶部左上角悬挂与点击消除]
+  </n-graph>
+</n-main>
+<n-main>
+  <n-time>[时间:2026/09/05 18:24:45]</n-time>
+  <n-mem>[记忆：啦沐达长官提出两项优化指示：1. 为圆形小头像增加主题色描边 border: 0.15rem solid getColor('main').back；2. 将原先位于消息列表左上角的小头像调整为在消息列表顶部水平居中显示。已在 ChatFaceBubble.js 中补充描边属性，并将定位设为 top: 1rem, left: 50%, 配合 translateX(-50%) 居中显示。]</n-mem>
+  <n-tasks>[总任务：添加main主题色描边并调整为顶部居中显示(已执行)]</n-tasks>
+  <n-ul>
+    <n-li>[任务1/2:添加getColor main描边]
+    <n-focus>[关注1:www/src/view/chat/ChatFaceBubble.js,L78-L79,代码片段|>border: `0.15rem solid ${getColor('main').back}`, boxSizing: "border-box"<|,调查情况:给圆形头像外圈增加0.15rem的主题主色描边，增强与背景的视觉反差与边界感]</n-focus>
+    </n-li>
+    <n-li>[任务2/2:定位调整为顶部居中]
+    <n-focus>[关注2:www/src/view/chat/ChatFaceBubble.js,L65-L68,代码片段|>top: "1rem", left: "50%", transform: isHovered ? "translateX(-50%) scale(1.05)" : "translateX(-50%) scale(1)"<|,调查情况:摆脱左上角与返回按钮/消息列表胶囊的视觉挤压，置于消息列表顶部正中间，视觉平衡且焦点更加突出]</n-focus>
+    </n-li>
+  </n-ul>
+  <n-graph>
+graph LR
+  A[啦沐达长官优化要求] --> B[增加 main 主题色描边]
+  A --> C[顶部左上角改为顶部居中显示]
+  B --> D[border: 0.15rem solid getColor('main').back]
+  C --> E[top: 1rem, left: 50%, translateX(-50%)]
+  D --> F[ChatFaceBubble.js 视觉更均衡]
+  E --> F
+  </n-graph>
+</n-main>

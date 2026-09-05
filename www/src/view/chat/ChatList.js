@@ -9,6 +9,7 @@ import ToolCallGroup from "./ToolCallGroup.js"
 import { trs } from "../common/i18n.js"
 import getColor from "../common/getColor.js"
 import ChatTasks from "./ChatTasks.js"
+import ChatFaceBubble from "./ChatFaceBubble.js"
 
 export default () => {
   // 实例闭包私有变量
@@ -680,7 +681,8 @@ export default () => {
           m.trust(window.iconPark.getIcon("Up", { size: "1.0rem", fill: getColor('右上角按钮文字') }))
         ]) : null,
 
-
+        // 顶部悬挂表情头像
+        m(ChatFaceBubble)
       ])
     }
   }

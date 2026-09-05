@@ -361,7 +361,7 @@ const createWindow = () => {
       title: trs("系统/更新/已是最新", { cn: "当前已是最新版本", en: "Already up to date" }) + ` (v${info.version})`,
       type: "success",
       content: trs("系统/更新/无需更新", { cn: "无需更新", en: "No update needed" }),
-      isRead: false,
+      isRead: true,
       tag: "sys-update",
       merge: "cover"
     })
@@ -395,9 +395,12 @@ const createWindow = () => {
     const errorMsg = (err.message || String(err)) + missAppUpdate
     pushUpdateMessage({
       id: crypto.randomUUID(),
-      title: trs("系统/错误/更新出错", { cn: "更新出错", en: "Update Error" }) + `: ${err.message || String(err)}`,
+      title: trs("系统/错误/更新出错", { cn: "更新出错", en: "Update Error" }),
       type: "error",
-      content: missAppUpdate ? missAppUpdate.trim() : trs("系统/错误/检查网络", { cn: "请检查网络或手动下载最新版", en: "Please check network or download manually" }),
+      content: trs("系统/更新/手动下载提示", {
+        cn: "更新出错，请手动前往下载最新版本：\nhttps://github.com/0ui0/owo_terminal_public/releases\n\n",
+        en: "Update failed, please download the latest version manually:\nhttps://github.com/0ui0/owo_terminal_public/releases\n\n"
+      }) + (missAppUpdate ? missAppUpdate.trim() + "\n\n" : "") + (err.message || String(err)),
       isRead: false,
       tag: "sys-update",
       merge: "cover"

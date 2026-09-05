@@ -196,12 +196,22 @@ export default () => {
             background: "rgba(0,0,0,0.1)",
             borderRadius: "1.2rem",
             cursor: "pointer",
-            "-webkit-app-region": "no-drag"
+            "-webkit-app-region": "no-drag",
+            maxWidth: "18rem",
+            boxSizing: "border-box"
           },
           onpointerup: openInbox
         }, [
           m.trust(window.iconPark.getIcon(getIconName(), { fill: getColor("main").front, size: "1.2rem" })),
-          m("span", { style: { fontSize: "1.2rem", color: getColor("main").front } }, flashMsg.title)
+          m("span", {
+            style: {
+              fontSize: "1.2rem",
+              color: getColor("main").front,
+              whiteSpace: "nowrap",
+              overflow: "hidden",
+              textOverflow: "ellipsis"
+            }
+          }, flashMsg.title)
         ])
       }
 

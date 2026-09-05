@@ -1,6 +1,5 @@
 import comData from "../../comData/comData.js"
 import settingData from "../setting/settingData.js"
-import ChatFaceBubble from "./ChatFaceBubble.js"
 
 export default () => {
 
@@ -119,9 +118,7 @@ export default () => {
               })
 
             })
-          : null,
-
-        m(ChatFaceBubble)
+          : null
       ])
     }
   }
