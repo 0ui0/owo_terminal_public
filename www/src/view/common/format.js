@@ -7,7 +7,7 @@ import {
 
 import katex from "katex/dist/katex.min.js";
 
-import hljs from "highlight.js/lib/common";
+import hljs from "highlight.js";
 
 import mermaid from "mermaid";
 import commonData from "./commonData.js";
@@ -287,7 +287,7 @@ renderMD.code = function (arg) {
 
   let highlighted = "";
   try {
-    if (lang) {
+    if (lang && hljs.getLanguage(lang)) {
       highlighted = hljs.highlight(codeText, { language: lang }).value;
     } else {
       highlighted = hljs.highlightAuto(codeText).value;

@@ -32,12 +32,6 @@ class ProjectManager {
   // === Save ===
   async save(filePath) {
     try {
-      // 在关闭数据库前读取所有聊天消息用于文本导出
-      let messages = []
-      if (archiveDb.tb_chat_messages) {
-        messages = await archiveDb.tb_chat_messages.findAll({ raw: true })
-      }
-
       // 临时释放存档数据库文件锁
       await archiveDb.close()
 
@@ -71,9 +65,6 @@ class ProjectManager {
       // 使用 AdmZip 创建压缩包
       const zip = new AdmZip()
       zip.addFile("project.json", Buffer.from(JSON.stringify(data, null, 2), "utf-8"))
-
-      // 写入纯文本聊天历史导出
-      zip.addFile("chats_export.json", Buffer.from(JSON.stringify(messages, null, 2), "utf-8"))
 
       // 打包 SQLite 数据库文件
       const sqlitePath = tempPath.get("save/archive.sqlite")

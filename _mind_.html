@@ -2164,3 +2164,84 @@ graph TD
 ```
   </n-graph>
 </n-main>
+
+<n-main>
+  <n-time>[时间:2026/09/05 14:44:00]</n-time>
+  <n-mem>[记忆：在长官啦沐达的允许下，我将原本仅支持交互式读取的 `publish.js` 发版脚本，通过注入 `--auto` 和 `--notes` 参数解析逻辑，重构成了一个完美支持命令行一键静默自动执行的工具。随后更新了项目根目录下的 `ai代发布指南.md`，彻底摒弃了不稳定的管道重定向方案。最后，使用新特性成功一键将积累的所有更新（包括沉浸式圆角菜单重构、系统全局等宽字体切换，以及 SVG 包围盒彻底修复）发版，构建输出了版本 v1.1.45 并自动提交推送至公开仓库打上了 Tag。]</n-mem>
+  <n-tasks>[总任务：1. 重构 publish.js 拦截 ask (已完成) 2. 更新指南 (已完成) 3. 自动参数化发版 (已完成) 4. 追加记忆笔记 (已完成)]</n-tasks>
+  <n-ul>
+    <n-li>[任务1/4: 改造发版脚本]
+      <n-focus>[关注1:文件 publish.js, 摘要:新增 `isAuto` 识别，使 `ask` 遇到确认询问时自动跳过并执行默认选项。]</n-focus>
+    </n-li>
+  </n-ul>
+  <n-graph>
+```mermaid
+graph TD
+    A["长官指出原脚本不支持参数化"] --> B["获批重构 publish.js"]
+    B --> C["注入 --auto & --notes 参数支持"]
+    C --> D["修改 ai代发布指南.md 使用新规范"]
+    D --> E["执行 node publish.js --auto --notes '...'"]
+    E --> F["跳过所有阻碍，顺利发版 v1.1.45 至 GitHub"]
+```
+  </n-graph>
+</n-main>
+<n-main>
+  <n-time>[时间:2026/09/05 17:53:30]</n-time>
+  <n-mem>[记忆：啦沐达长官询问编辑器app快捷键机制、Ctrl+P在编辑器中失效的原因、全局快捷键中央数组与输入法中英文切换键失灵问题，以及聊天框渲染Markdown时控制台报错Could not find the language 'coffee'。已完成根因调查并在获得许可后修复format.js。]</n-mem>
+  <n-tasks>[总任务：1.调查编辑器快捷键体系(已执行) 2.分析Ctrl+P与输入法冲突机理(已执行) 3.修复format.js中coffee语言高亮缺失bug(已执行)]</n-tasks>
+  <n-ul>
+    <n-li>[任务1/3:调查编辑器快捷键]
+    <n-focus>[关注1:server/apps/editor/frontend.js,L558,代码片段|>editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => { if (!readOnly) handleSave() })<|,调查情况:Monaco自带基础编辑按键，业务快捷键通过addCommand与addAction挂载，Notice菜单展示快捷键徽标]</n-focus>
+    </n-li>
+    <n-li>[任务2/3:分析Ctrl+P失效与输入法失灵机理]
+    <n-focus>[关注2:www/src/init/init_shortcut.js,L49,代码片段|>if (tag === "textarea" || tag === "input") return<|,调查情况:Monaco底层依赖隐藏textarea，全局守卫将编辑器误判为普通文本框导致Ctrl+P被阻断；同时svgEditor与游戏输入栈需要按键数组，讨论了精确意图白名单与Monaco内部addCommand隔离方案]</n-focus>
+    </n-li>
+    <n-li>[任务3/3:修复format.js中coffee高亮缺失bug]
+    <n-focus>[关注3:www/src/view/common/format.js,L11与L293,代码片段|>import coffeescript from "highlight.js/lib/languages/coffeescript"; hljs.registerLanguage("coffeescript", coffeescript); hljs.registerLanguage("coffee", coffeescript);<|,调查情况:highlight.js common未预装coffee语言包且未作getLanguage存在性校验导致控制台抛错刷屏，现已注册并增加安全校验]</n-focus>
+    </n-li>
+  </n-ul>
+  <n-graph>
+graph TD
+  A[ChatItem.js渲染消息] --> B[format.js Markdown渲染]
+  B --> C[marked解析代码块: lang=coffee]
+  C --> D[hljs.highlight]
+  D --> E{检查 hljs.getLanguage}
+  E -- 未预装且未检查 --> F[报错: Could not find language coffee]
+  E -- 已注册coffeescript与别名coffee --> G[正常高亮着色]
+  </n-graph>
+</n-main>
+<n-main>
+  <n-time>[时间:2026/09/05 17:56:30]</n-time>
+  <n-mem>[记忆：根据啦沐达长官的指导，客户端无网页体积包袱，已将 format.js 中 highlight.js 的引入升级为官方标准全量语言包 import hljs from 'highlight.js'，原生支持 190+ 种编程语言（含 coffee/coffeescript/cson 等别名）。]</n-mem>
+  <n-tasks>[总任务：将 highlight.js 升级为标准全量语言包(已执行)]</n-tasks>
+  <n-ul>
+    <n-li>[任务1/1:升级format.js中的highlight.js]
+    <n-focus>[关注1:www/src/view/common/format.js,L10,代码片段|>import hljs from "highlight.js";<|,调查情况:官方全量标准包已在本地node_modules中自带全部190+语言模块，直接引入标准包代码更清爽，且完美支持全部语言及其别名高亮]</n-focus>
+    </n-li>
+  </n-ul>
+  <n-graph>
+graph LR
+  A[www/src/view/common/format.js] --> B[import hljs from 'highlight.js']
+  B --> C[官方标准全量语言库: 190+ 种语言]
+  C --> D[CoffeeScript / coffee / cson 原生内置]
+  C --> E[Rust / Go / Lua / C++ / Python 等原生内置]
+  </n-graph>
+</n-main>
+<n-main>
+  <n-time>[时间:2026/09/05 17:59:30]</n-time>
+  <n-mem>[记忆：啦沐达长官指出系统存档时顺带导出一份纯阅读用的 chats_export.json，随着聊天记录增多导致保存速度极慢，要求取消此导出。已调查 projectManager.js，确认恢复存档完全依赖 archive.sqlite，已成功移除 findAll 聊天记录与 chats_export.json 导出，大幅提升存档效率。]</n-mem>
+  <n-tasks>[总任务：优化系统存档速度，取消 chats_export.json 导出(已执行)]</n-tasks>
+  <n-ul>
+    <n-li>[任务1/1:修改projectManager.js中的save方法]
+    <n-focus>[关注1:server/managers/projectManager.js,L33-L75,代码片段|>// 临时释放存档数据库文件锁 await archiveDb.close()<|,调查情况:原代码在关闭库前执行 tb_chat_messages.findAll 并在内存中将成千上万条聊天记录序列化为带格式 JSON 写入 zip，随着历史累积严重拖慢 I/O 与 CPU。现已彻底移除，恢复逻辑完全依托 archive.sqlite，不受任何影响]</n-focus>
+    </n-li>
+  </n-ul>
+  <n-graph>
+graph TD
+  A[系统保存 save] --> B[临时释放 archiveDb.close]
+  B --> C[打包 project.json: 全局设置/AI/App状态]
+  B --> D[打包 archive.sqlite: 完整聊天持久化库]
+  B --> E[打包 media/: 附件图片]
+  F[已剔除: tb_chat_messages.findAll 与 chats_export.json] -.-> A
+  </n-graph>
+</n-main>
