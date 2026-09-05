@@ -8,6 +8,7 @@ import getColor from "./getColor.js"
 import chatData from "../chat/chatData.js"
 import comData from "../../comData/comData.js"
 import Setting from "../setting/setting.js"
+import sysMenu from "./sysMenu.js"
 
 export default () => {
   // 项目 load/save 后遍历所有队列刷新时光机状态
@@ -18,8 +19,6 @@ export default () => {
     }
     m.redraw()
   }
-
-
 
   // Generic Action Handler
   const handleAction = async (action, saveAs = false) => {
@@ -41,7 +40,6 @@ export default () => {
 
         await refreshAllTmStatus()
       } else if (res.msg === "VERSION_MISMATCH") {
-      } else if (res.msg === "VERSION_MISMATCH") {
         // 存档版本不匹配：询问用户是否以兼容模式继续导入
         Notice.launch({
           tip: trs("项目/版本不匹配", { cn: "存档版本不匹配", en: "Version Mismatch" }),
@@ -61,7 +59,6 @@ export default () => {
           Notice.launch({ msg: trs("系统/错误/提示") + (res.msg || "Unknown error") })
         }
       }
-
     } catch (e) {
       console.error(action, e)
       Notice.launch({ msg: trs("系统/错误/提示") + e.message })
@@ -71,12 +68,8 @@ export default () => {
   const showFileMenu = (e) => {
     e.preventDefault() // Prevent default if context menu
 
-    // Prevent multiple menus (optional, Notice handles groups)
-
     // Position: attempt to align with button
     const rect = e.target.getBoundingClientRect()
-    // Notice x/y usually centers if not provided or uses top-left. 
-    // Explorer uses clientX/Y. We can use rect.left and rect.bottom
     const x = rect.left
     const y = rect.bottom + 5
 
@@ -86,149 +79,121 @@ export default () => {
       win: { x, y }, // 支持强制更新位置
       tip: trs("菜单栏/分类/文件"),
       content: {
-        view: (v) => m(Box, {
-          style: { display: "flex", flexDirection: "column", padding: "5px" }
-        }, [
-          m(Box, {
-            isBtn: true,
-            style: { padding: "10px", textAlign: "left" },
-            onclick: () => { v.attrs.delete(); handleAction("new") }
-          }, trs("菜单栏/操作/新建", { cn: "新建", en: "New" })),
+        view: (v) => m(sysMenu, {
+          menuItems: [
+            {
+              name: trs("菜单栏/操作/新建", { cn: "新建", en: "New" }),
+              onclick: () => { v.attrs.delete(); handleAction("new") }
+            },
+            {
+              name: trs("菜单栏/操作/打开"),
+              onclick: () => { v.attrs.delete(); handleAction("load") }
+            },
+            {
+              name: trs("菜单栏/操作/保存"),
+              onclick: () => { v.attrs.delete(); handleAction("save") }
+            },
+            {
+              name: trs("菜单栏/操作/另存为"),
+              onclick: () => { v.attrs.delete(); handleAction("save", true) }
+            },
+            {
+              name: trs("菜单栏/操作/查看模型上下文", { cn: "查看模型上下文", en: "View Model Context" }),
+              onclick: () => {
+                v.attrs.delete()
+                Notice.launch({
+                  tip: trs("菜单栏/操作/模型请求上下文(动态视图)", { cn: "模型请求上下文 (动态视图)", en: "Model Request Context (Dynamic)" }),
+                  content: aiContext
+                })
+              }
+            },
+            {
+              name: trs("菜单栏/操作/检查更新"),
+              onclick: () => {
+                v.attrs.delete()
+                import("../../comData/ioSocket.js").then(m => m.default.socket.emit("sys:checkUpdate"))
+              }
+            },
+            {
+              name: trs("菜单栏/操作/打开数据目录", { cn: "打开数据目录", en: "Open Data Directory" }),
+              onclick: async () => {
+                v.attrs.delete()
+                const res = await settingData.fnCall("openDataDir", [])
+                if (!res.ok) {
+                  Notice.launch({ msg: res.msg, type: "error" })
+                }
+              }
+            },
+            {
+              name: trs("菜单栏/操作/系统设置", { cn: "系统设置", en: "System Settings" }),
+              onclick: () => {
+                v.attrs.delete()
+                Notice.launch({
+                  sign: "setting_main",
+                  tip: trs("输入栏/提示/设置中心", { cn: "设置中心", en: "Settings" }),
+                  content: Setting
+                })
+              }
+            },
+            "sep",
+            {
+              name: trs("菜单栏/操作/导出系统设置", { cn: "导出系统设置", en: "Export Settings" }),
+              onclick: async () => {
+                v.attrs.delete()
+                const resDialog = await settingData.fnCall("appSaveDialog", [{
+                  title: trs("菜单栏/操作/导出系统设置", { cn: "导出系统设置 (数据库)", en: "Export System Settings (DB)" }),
+                  filters: [{ name: "SQLite Database", extensions: ["sqlite"] }],
+                  filePath: "db_backup.sqlite"
+                }])
+                if (!resDialog.ok || !resDialog.filePath) return
+                const resExport = await settingData.fnCall("dbExport", [{ filePath: resDialog.filePath }])
+                if (!resExport.ok) Notice.launch({ msg: resExport.msg })
+              }
+            },
+            {
+              name: trs("菜单栏/操作/导入系统设置", { cn: "导入系统设置", en: "Import Settings" }),
+              onclick: async () => {
+                v.attrs.delete()
+                const resDialog = await settingData.fnCall("appOpenDialog", [{
+                  title: trs("菜单栏/操作/导入系统设置", { cn: "选择要导入的数据库文件", en: "Select Database to Import" }),
+                  filters: [{ name: "SQLite Database", extensions: ["sqlite"] }]
+                }])
+                if (!resDialog.ok || !resDialog.filePath) return
 
-          m(Box, {
-            isBtn: true,
-            style: { padding: "10px", textAlign: "left" },
-            onclick: () => { v.attrs.delete(); handleAction("load") }
-          }, trs("菜单栏/操作/打开")),
+                Notice.launch({
+                  tip: trs("系统/提示/确认导入", { cn: "确认导入并重启？", en: "Confirm Import & Restart?" }),
+                  msg: trs("系统/消息/导入警告", { cn: "导入将覆盖当前所有设置并自动重启应用，是否继续？", en: "Importing will overwrite all settings and restart. Continue?" }),
+                  confirm: async () => {
+                    const resImport = await settingData.fnCall("dbImport", [{ filePath: resDialog.filePath }])
+                    if (!resImport.ok) Notice.launch({ msg: resImport.msg })
+                  }
+                })
+              }
+            },
+            "sep",
+            {
+              name: trs("菜单栏/操作/导入角色包", { cn: "导入角色包", en: "Import Pet Package" }),
+              onclick: async () => {
+                v.attrs.delete()
+                const resDialog = await settingData.fnCall("appOpenDialog", [{
+                  title: trs("菜单栏/操作/导入角色包", { cn: "选择角色包 ZIP 文件", en: "Select Pet Package ZIP" }),
+                  filters: [{ name: "Zip Profile", extensions: ["zip"] }]
+                }])
 
-          m(Box, {
-            isBtn: true,
-            style: { padding: "10px", textAlign: "left" },
-            onclick: () => { v.attrs.delete(); handleAction("save") }
-          }, trs("菜单栏/操作/保存")),
+                if (!resDialog.ok || !resDialog.filePath) return
 
-          m(Box, {
-            isBtn: true,
-            style: { padding: "10px", textAlign: "left" },
-            onclick: () => { v.attrs.delete(); handleAction("save", true) }
-          }, trs("菜单栏/操作/另存为")),
-
-          m(Box, {
-            isBtn: true,
-            style: { padding: "10px", textAlign: "left" },
-            onclick: () => {
-              v.attrs.delete()
-              Notice.launch({
-                tip: trs("菜单栏/操作/模型请求上下文(动态视图)", { cn: "模型请求上下文 (动态视图)", en: "Model Request Context (Dynamic)" }),
-                content: aiContext
-              })
-            }
-          }, trs("菜单栏/操作/查看模型上下文", { cn: "查看模型上下文", en: "View Model Context" })),
-
-          m(Box, {
-            isBtn: true,
-            style: { padding: "10px", textAlign: "left" },
-            onclick: () => {
-              v.attrs.delete()
-              import("../../comData/ioSocket.js").then(m => m.default.socket.emit("sys:checkUpdate"))
-            }
-          }, trs("菜单栏/操作/检查更新")),
-
-          m(Box, {
-            isBtn: true,
-            style: { padding: "10px", textAlign: "left" },
-            onclick: async () => {
-              v.attrs.delete()
-              const res = await settingData.fnCall("openDataDir", [])
-              if (!res.ok) {
-                Notice.launch({ msg: res.msg, type: "error" })
+                const resImport = await settingData.fnCall("petPkgImport", [{ path: resDialog.filePath }])
+                if (resImport.ok) {
+                  if (resImport.name) {
+                    await settingData.fnCall("petPkgSetDefault", [{ name: resImport.name }])
+                  }
+                } else {
+                  Notice.launch({ msg: resImport.msg })
+                }
               }
             }
-          }, trs("菜单栏/操作/打开数据目录", { cn: "打开数据目录", en: "Open Data Directory" })),
-
-          m(Box, {
-            isBtn: true,
-            style: { padding: "10px", textAlign: "left" },
-            onclick: () => {
-              v.attrs.delete()
-              Notice.launch({
-                sign: "setting_main",
-                tip: trs("输入栏/提示/设置中心", { cn: "设置中心", en: "Settings" }),
-                content: Setting
-              })
-            }
-          }, trs("菜单栏/操作/系统设置", { cn: "系统设置", en: "System Settings" })),
-
-          m("div", { style: { height: "1px", background: "rgba(255,255,255,0.1)", margin: "5px 0" } }),
-
-          m(Box, {
-            isBtn: true,
-            style: { padding: "10px", textAlign: "left" },
-            onclick: async () => {
-              v.attrs.delete()
-              const resDialog = await settingData.fnCall("appSaveDialog", [{
-                title: trs("菜单栏/操作/导出系统设置", { cn: "导出系统设置 (数据库)", en: "Export System Settings (DB)" }),
-                filters: [{ name: "SQLite Database", extensions: ["sqlite"] }],
-                filePath: "db_backup.sqlite"
-              }])
-              if (!resDialog.ok || !resDialog.filePath) return
-              const resExport = await settingData.fnCall("dbExport", [{ filePath: resDialog.filePath }])
-              if (!resExport.ok) Notice.launch({ msg: resExport.msg })
-            }
-          }, trs("菜单栏/操作/导出系统设置", { cn: "导出系统设置", en: "Export Settings" })),
-
-          m(Box, {
-            isBtn: true,
-            style: { padding: "10px", textAlign: "left" },
-            onclick: async () => {
-              v.attrs.delete()
-              const resDialog = await settingData.fnCall("appOpenDialog", [{
-                title: trs("菜单栏/操作/导入系统设置", { cn: "选择要导入的数据库文件", en: "Select Database to Import" }),
-                filters: [{ name: "SQLite Database", extensions: ["sqlite"] }]
-              }])
-              if (!resDialog.ok || !resDialog.filePath) return
-
-              Notice.launch({
-                tip: trs("系统/提示/确认导入", { cn: "确认导入并重启？", en: "Confirm Import & Restart?" }),
-                msg: trs("系统/消息/导入警告", { cn: "导入将覆盖当前所有设置并自动重启应用，是否继续？", en: "Importing will overwrite all settings and restart. Continue?" }),
-                confirm: async () => {
-                  const resImport = await settingData.fnCall("dbImport", [{ filePath: resDialog.filePath }])
-                  if (!resImport.ok) Notice.launch({ msg: resImport.msg })
-                }
-              })
-            }
-          }, trs("菜单栏/操作/导入系统设置", { cn: "导入系统设置", en: "Import Settings" })),
-
-          m("div", { style: { height: "1px", background: "rgba(255,255,255,0.1)", margin: "5px 0" } }),
-
-          m(Box, {
-            isBtn: true,
-            style: { padding: "10px", textAlign: "left" },
-            onclick: async () => {
-              v.attrs.delete()
-
-              // 1. 打开文件选择对话框
-              const resDialog = await settingData.fnCall("appOpenDialog", [{
-                title: trs("菜单栏/操作/导入角色包", { cn: "选择角色包 ZIP 文件", en: "Select Pet Package ZIP" }),
-                filters: [{ name: "Zip Profile", extensions: ["zip"] }]
-              }])
-
-              if (!resDialog.ok || !resDialog.filePath) return
-
-              // 2. 调用导入逻辑
-              const resImport = await settingData.fnCall("petPkgImport", [{ path: resDialog.filePath }])
-
-              if (resImport.ok) {
-                // 3. 自动切换到新导入的角色包
-                if (resImport.name) {
-                  await settingData.fnCall("petPkgSetDefault", [{ name: resImport.name }])
-                }
-              } else {
-                Notice.launch({ msg: resImport.msg })
-              }
-            }
-          }, trs("菜单栏/操作/导入角色包", { cn: "导入角色包", en: "Import Pet Package" }))
-        ])
+          ]
+        })
       }
     })
   }
@@ -242,7 +207,7 @@ export default () => {
         noValue: true,
         style: {
           padding: "6px 12px",
-          borderRadius: "8px",
+          borderRadius: "3rem",
           fontSize: "13px",
           fontWeight: "500",
           display: "flex",
@@ -252,7 +217,16 @@ export default () => {
           border: "1px solid rgba(0,0,0,0.1)",
           background: "rgba(255,255,255,0.05)",
           "-webkit-app-region": "no-drag",
-          marginLeft: "10px"
+          marginLeft: "10px",
+          transition: "background 0.2s ease"
+        },
+        ext: {
+          onpointerenter: function () {
+            this.style.background = "rgba(128, 128, 128, 0.18)"
+          },
+          onpointerleave: function () {
+            this.style.background = "rgba(255, 255, 255, 0.05)"
+          }
         },
         onclick: (_, e) => showFileMenu(e)
       }, [

@@ -1,14 +1,23 @@
 
 import editorData from "./editorData.js"
+import { themes as noctisThemeList, defineAllThemes } from "./frontendModules/noctisThemes.js"
 
 // Editor App 前端组件 (Closure Version)
-export default ({ appId, m, Notice, ioSocket, comData, commonData, chatData, settingData, Box, Tag, getColor }) => {
+export default ({ appId, m, Notice, ioSocket, comData, commonData, chatData, settingData, Box, Tag, getColor, trs, sysMenu }) => {
+  const t = (key, dict) => (typeof trs === "function" ? trs(key, dict) : (dict?.cn || key))
+
   // 💡 跨窗口共享状态：在前端全局唯一的 commonData 上挂载并初始化
   if (commonData.editorSendDiff === undefined) {
     commonData.editorSendDiff = true
   }
   if (commonData.editorOpenFileAfterAccept === undefined) {
     commonData.editorOpenFileAfterAccept = false
+  }
+  if (commonData.editorFontSize === undefined) {
+    commonData.editorFontSize = 16
+  }
+  if (commonData.editorTheme === undefined) {
+    commonData.editorTheme = "noctis-bordo"
   }
 
   // === Private State ===
@@ -30,8 +39,22 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, chatData, set
   let currentDiffIndex = 0
   let reason = ""
 
-  let activeMenu = null
   let wordWrap = false
+  let currentFontSize = commonData.editorFontSize || 16
+  let currentTabSize = 2
+  let showMinimap = true
+
+  const applyEditorOptions = () => {
+    const opts = {
+      fontSize: currentFontSize,
+      lineHeight: Math.round(currentFontSize * 1.5),
+      wordWrap: wordWrap ? "on" : "off",
+      tabSize: currentTabSize,
+      minimap: { enabled: showMinimap }
+    }
+    editor?.updateOptions(opts)
+    diffEditor?.updateOptions(opts)
+  }
 
   let editor = null
   let diffEditor = null
@@ -41,15 +64,98 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, chatData, set
 
   // === Helpers ===
   const loadMonaco = () => {
-    if (window.monaco) return Promise.resolve()
+    if (window.monaco) {
+      defineAllThemes(window.monaco)
+      return Promise.resolve()
+    }
     return new Promise((resolve) => {
       const script = document.createElement("script")
       script.src = "/api/apps/editor/monaco/loader.js"
       script.onload = () => {
         require.config({ paths: { vs: "/api/apps/editor/monaco/vs" } })
-        require(["vs/editor/editor.main"], () => resolve())
+        require(["vs/editor/editor.main"], () => {
+          defineAllThemes(window.monaco)
+          resolve()
+        })
       }
       document.head.appendChild(script)
+    })
+  }
+
+  const getActiveMonacoTheme = () => {
+    if (commonData.editorTheme) return commonData.editorTheme
+    const isDark = (commonData.themeColor || 0) === 0
+    return isDark ? "noctis-bordo" : "vs"
+  }
+
+  const applyTheme = (themeId) => {
+    commonData.editorTheme = themeId
+    currentTheme = themeId
+    if (window.monaco) {
+      monaco.editor.setTheme(themeId)
+    }
+    m.redraw()
+  }
+
+  const openThemeSelector = () => {
+    Notice.launch({
+      newWindow: true,
+      sign: "editor_theme_selector_" + appId,
+      width: 250,
+      tip: t("编辑器/菜单/颜色主题", { cn: "选择颜色主题", en: "Select Color Theme" }),
+      content: {
+        view: (v) => {
+          const activeId = getActiveMonacoTheme()
+          const darkThemes = noctisThemeList.filter(th => th.type === "dark")
+          const lightThemes = noctisThemeList.filter(th => th.type === "light")
+          const defaultThemes = [
+            { id: "vs-dark", name: "VS Code Dark" },
+            { id: "vs", name: "VS Code Light" }
+          ]
+
+          const menuItems = []
+
+          darkThemes.forEach(th => {
+            const isSelected = th.id === activeId
+            menuItems.push({
+              name: (isSelected ? "✓ " : "  ") + th.name,
+              onclick: () => {
+                applyTheme(th.id)
+              }
+            })
+          })
+
+          menuItems.push("sep")
+
+          lightThemes.forEach(th => {
+            const isSelected = th.id === activeId
+            menuItems.push({
+              name: (isSelected ? "✓ " : "  ") + th.name,
+              onclick: () => {
+                applyTheme(th.id)
+              }
+            })
+          })
+
+          menuItems.push("sep")
+
+          defaultThemes.forEach(th => {
+            const isSelected = th.id === activeId
+            menuItems.push({
+              name: (isSelected ? "✓ " : "  ") + th.name,
+              onclick: () => {
+                applyTheme(th.id)
+              }
+            })
+          })
+
+          return m(sysMenu,
+            {
+              menuItems
+            }
+          )
+        }
+      }
     })
   }
 
@@ -323,12 +429,19 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, chatData, set
     const langMap = { js: "javascript", py: "python", md: "markdown", html: "html", css: "css", json: "json", coffee: "coffeescript" }
     const language = langMap[extension] || "text"
 
-    const isDark = (commonData.themeColor || 0) === 0
-    const monacoTheme = isDark ? "vs-dark" : "vs"
+    const monacoTheme = getActiveMonacoTheme()
     currentTheme = monacoTheme
 
     if (isDiff) {
-      diffEditor = monaco.editor.createDiffEditor(container, { theme: monacoTheme, automaticLayout: true, readOnly: true, renderSideBySide: true })
+      diffEditor = monaco.editor.createDiffEditor(container, {
+        theme: monacoTheme,
+        automaticLayout: true,
+        readOnly: true,
+        renderSideBySide: true,
+        fontSize: 16,
+        lineHeight: 24,
+        fontFamily: 'Menlo, Monaco, "Courier New", Consolas, monospace'
+      })
       diffEditor.setModel({
         original: monaco.editor.createModel(originalContent, language),
         modified: monaco.editor.createModel(proposedContent, language)
@@ -432,7 +545,14 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, chatData, set
       })
     } else {
       editor = monaco.editor.create(container, {
-        value: content, language: language, theme: monacoTheme, automaticLayout: true, fontSize: 14, lineHeight: 20, wordWrap: wordWrap ? "on" : "off",
+        value: content,
+        language: language,
+        theme: monacoTheme,
+        automaticLayout: true,
+        fontSize: 16,
+        lineHeight: 24,
+        fontFamily: 'Menlo, Monaco, "Courier New", Consolas, monospace',
+        wordWrap: wordWrap ? "on" : "off",
         readOnly: readOnly
       })
       editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => { if (!readOnly) handleSave() })
@@ -620,7 +740,7 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, chatData, set
   const actions = {
     newFile: () => { filePath = ""; content = ""; isDiff = false; isDirty = false; updateEditor() },
     openFile: async () => {
-      const dialogRes = await settingData.fnCall("appOpenDialog", [{ title: "打开文件", filters: [{ name: "All", extensions: ["*"] }] }])
+      const dialogRes = await settingData.fnCall("appOpenDialog", [{ title: t("编辑器/标题/打开文件", { cn: "打开文件", en: "Open File" }), filters: [{ name: "All", extensions: ["*"] }] }])
       if (!dialogRes.ok || dialogRes.canceled) return
       const res = await settingData.fnCall("appDispatch", [appId, "open", { filePath: dialogRes.filePath }])
       if (res.ok) { filePath = res.data.filePath; content = res.data.content; isDiff = false; isDirty = false; updateEditor() }
@@ -631,14 +751,207 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, chatData, set
     redo: () => editor?.trigger('menu', 'redo'),
     find: () => editor?.trigger('menu', 'actions.find'),
     replace: () => editor?.trigger('menu', 'editor.action.startFindReplaceAction'),
-    toggleWordWrap: () => { wordWrap = !wordWrap; editor?.updateOptions({ wordWrap: wordWrap ? "on" : "off" }); redraw() }
+    formatDocument: () => {
+      editor?.getAction('editor.action.formatDocument')?.run()
+    },
+    revealInExplorer: async () => {
+      if (!filePath) return
+      const dir = filePath.substring(0, filePath.lastIndexOf("/")) || "/"
+      await settingData.fnCall("appLaunch", ["explorer", { dir }])
+    },
+    toggleWordWrap: () => {
+      wordWrap = !wordWrap
+      applyEditorOptions()
+      redraw()
+    },
+    toggleMinimap: () => {
+      showMinimap = !showMinimap
+      applyEditorOptions()
+      redraw()
+    },
+    zoomIn: () => {
+      if (currentFontSize < 36) {
+        currentFontSize += 2
+        commonData.editorFontSize = currentFontSize
+        applyEditorOptions()
+        redraw()
+      }
+    },
+    zoomOut: () => {
+      if (currentFontSize > 10) {
+        currentFontSize -= 2
+        commonData.editorFontSize = currentFontSize
+        applyEditorOptions()
+        redraw()
+      }
+    },
+    zoomReset: () => {
+      currentFontSize = 16
+      commonData.editorFontSize = currentFontSize
+      applyEditorOptions()
+      redraw()
+    },
+    toggleTabSize: () => {
+      currentTabSize = currentTabSize === 2 ? 4 : 2
+      applyEditorOptions()
+      redraw()
+    }
   }
 
-  const toggleMenu = (name) => {
-    activeMenu = activeMenu === name ? null : name
-    redraw()
+  // === Notice 菜单系统 (对齐 FileMenu.js 与样式设计指南) ===
+  const openNoticeMenu = (menuKey, e) => {
+    if (e && typeof e.stopPropagation === "function") e.stopPropagation()
+    const target = e?.currentTarget || e?.target
+    const rect = target && typeof target.getBoundingClientRect === "function" ? target.getBoundingClientRect() : { left: 10, bottom: 40 }
+    const x = Math.max(10, rect.left)
+    const y = rect.bottom + 6
+
+    const menuConfigs = {
+      file: {
+        tip: t("编辑器/菜单/文件", { cn: "文件", en: "File" }),
+        items: [
+          {
+            label: t("编辑器/菜单/新建", { cn: "新建文件", en: "New File" }),
+            action: actions.newFile
+          },
+          {
+            label: t("编辑器/菜单/打开", { cn: "打开文件...", en: "Open File..." }),
+            shortcut: "Ctrl+O",
+            action: actions.openFile
+          },
+          "sep",
+          {
+            label: t("编辑器/菜单/保存", { cn: "保存", en: "Save" }),
+            shortcut: "Ctrl+S",
+            action: actions.save
+          },
+          {
+            label: t("编辑器/菜单/另存为", { cn: "另存为...", en: "Save As..." }),
+            shortcut: "Ctrl+Shift+S",
+            action: actions.saveAs
+          },
+          ...(filePath ? [
+            "sep",
+            {
+              label: t("编辑器/菜单/在文件管理器中定位", { cn: "在文件管理器中打开", en: "Reveal in Explorer" }),
+              action: actions.revealInExplorer
+            }
+          ] : [])
+        ]
+      },
+      edit: {
+        tip: t("编辑器/菜单/编辑", { cn: "编辑", en: "Edit" }),
+        items: [
+          {
+            label: t("编辑器/菜单/撤销", { cn: "撤销", en: "Undo" }),
+            shortcut: "Ctrl+Z",
+            action: actions.undo
+          },
+          {
+            label: t("编辑器/菜单/重做", { cn: "重做", en: "Redo" }),
+            shortcut: "Ctrl+Y",
+            action: actions.redo
+          },
+          "sep",
+          {
+            label: t("编辑器/菜单/查找", { cn: "查找", en: "Find" }),
+            shortcut: "Ctrl+F",
+            action: actions.find
+          },
+          {
+            label: t("编辑器/菜单/替换", { cn: "替换", en: "Replace" }),
+            shortcut: "Ctrl+H",
+            action: actions.replace
+          },
+          "sep",
+          {
+            label: t("编辑器/菜单/格式化文档", { cn: "格式化代码", en: "Format Code" }),
+            shortcut: "Shift+Alt+F",
+            action: actions.formatDocument
+          }
+        ]
+      },
+      view: {
+        tip: t("编辑器/菜单/视图", { cn: "视图", en: "View" }),
+        getItems: () => [
+          {
+            label: t("编辑器/菜单/自动换行", { cn: "自动换行", en: "Word Wrap" }),
+            shortcut: wordWrap ? t("系统/状态/开启", { cn: "开启", en: "ON" }) : t("系统/状态/关闭", { cn: "关闭", en: "OFF" }),
+            keepOpen: true,
+            action: actions.toggleWordWrap
+          },
+          {
+            label: t("编辑器/菜单/小地图", { cn: "代码小地图", en: "Minimap" }),
+            shortcut: showMinimap ? t("系统/状态/显示", { cn: "显示", en: "ON" }) : t("系统/状态/隐藏", { cn: "隐藏", en: "OFF" }),
+            keepOpen: true,
+            action: actions.toggleMinimap
+          },
+          "sep",
+          {
+            label: t("编辑器/菜单/放大字体", { cn: "放大字体 (+2px)", en: "Zoom In" }),
+            shortcut: `${currentFontSize}px`,
+            keepOpen: true,
+            action: actions.zoomIn
+          },
+          {
+            label: t("编辑器/菜单/缩小字体", { cn: "缩小字体 (-2px)", en: "Zoom Out" }),
+            shortcut: `${currentFontSize}px`,
+            keepOpen: true,
+            action: actions.zoomOut
+          },
+          {
+            label: t("编辑器/菜单/重置字体", { cn: "重置字号 (16px)", en: "Reset Zoom" }),
+            action: actions.zoomReset
+          },
+          "sep",
+          {
+            label: t("编辑器/菜单/缩进空格", { cn: "切换缩进大小", en: "Indent Size" }),
+            shortcut: `${currentTabSize} ` + t("编辑器/菜单/空格", { cn: "空格", en: "Spaces" }),
+            action: actions.toggleTabSize
+          },
+          "sep",
+          {
+            label: t("编辑器/菜单/颜色主题", { cn: "颜色主题...", en: "Color Theme..." }),
+            shortcut: noctisThemeList.find(th => th.id === getActiveMonacoTheme())?.name || "Noctis Bordo",
+            action: openThemeSelector
+          }
+        ]
+      }
+    }
+
+    const currentMenu = menuConfigs[menuKey]
+    if (!currentMenu) return
+
+    Notice.launch({
+      newWindow: true,
+      sign: "editor_menu_" + appId + "_" + menuKey,
+      win: { x, y },
+      tip: currentMenu.tip,
+      content: {
+        view: (v) => {
+          const rawItems = currentMenu.getItems ? currentMenu.getItems() : currentMenu.items
+          return m(sysMenu,
+            {
+              menuItems: rawItems.map(item => {
+                if (item === "sep") return "sep"
+                return {
+                  name: item.label,
+                  shortcut: item.shortcut,
+                  onclick: () => {
+                    if (!item.keepOpen) {
+                      v.attrs.delete()
+                    }
+                    if (item.action) item.action()
+                    m.redraw()
+                  }
+                }
+              })
+            }
+          )
+        }
+      }
+    })
   }
-  const closeMenu = () => { activeMenu = null; redraw() }
 
   // === Instance Interface ===
   const instanceInterface = {
@@ -683,89 +996,6 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, chatData, set
   }
 
   init()
-
-  // === View Components ===
-  const MenuItem = {
-    view: (v) => m("",
-      {
-        style: {
-          padding: "0.8rem 1.5rem",
-          cursor: "pointer",
-          display: "flex",
-          justifyContent: "space-between",
-          minWidth: "15.0rem",
-          color: getColor('gray_4').front,
-          fontSize: "1.3rem",
-          transition: "background 0.1s"
-        },
-        onmouseenter: (e) => e.currentTarget.style.background = getColor('main').back,
-        onmouseleave: (e) => e.currentTarget.style.background = "transparent",
-        onclick: (e) => {
-          e.stopPropagation()
-          closeMenu()
-          if (v.attrs.action) v.attrs.action()
-        }
-      },
-      [
-        m("span",
-          {
-            style: {
-              pointerEvents: "none"
-            }
-          },
-          v.attrs.label
-        ),
-        v.attrs.shortcut
-          ? m("span",
-            {
-              style: {
-                color: getColor('gray_2').back,
-                fontSize: "1.2rem",
-                marginLeft: "1.5rem",
-                pointerEvents: "none"
-              }
-            },
-            v.attrs.shortcut
-          )
-          : null
-      ]
-    )
-  }
-
-  const MenuDropdown = {
-    view: (v) => m("",
-      {
-        style: {
-          position: "absolute",
-          top: "3.0rem",
-          left: "0",
-          background: getColor('gray_4').back,
-          border: "1px solid " + getColor('gray_2').back,
-          zIndex: 1000,
-          borderRadius: "0.3rem",
-          padding: "0.4rem 0",
-          boxShadow: "0 0.2rem 0.8rem rgba(0,0,0,0.5)"
-        }
-      },
-      v.attrs.items.map(item => item === "sep"
-        ? m("",
-          {
-            style: {
-              height: "1px",
-              background: getColor('gray_2').back,
-              margin: "0.4rem 0"
-            }
-          }
-        )
-        : m(MenuItem,
-          {
-            ...item,
-            closeMenu
-          }
-        )
-      )
-    )
-  }
 
   // === Main View ===
   return {
@@ -902,8 +1132,7 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, chatData, set
     },
     view(vnode) {
       // 💡 实时无缝跟随系统颜色主题
-      const isDark = (commonData.themeColor || 0) === 0
-      const activeTheme = isDark ? "vs-dark" : "vs"
+      const activeTheme = getActiveMonacoTheme()
       if (activeTheme !== currentTheme) {
         currentTheme = activeTheme
         if (window.monaco) {
@@ -920,8 +1149,7 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, chatData, set
           background: getColor('gray_3').back,
           color: getColor('gray_3').front,
           overflow: "hidden"
-        },
-        onclick: closeMenu
+        }
       }, [
         // Menu Bar
         m("", {
@@ -929,19 +1157,112 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, chatData, set
           style: {
             display: "flex",
             height: "3.5rem",
-            padding: "0 1.0rem",
+            padding: "0 0.8rem",
             background: getColor('gray_12').back,
             color: getColor('gray_12').front,
             alignItems: "center",
             fontSize: "1.3rem",
             userSelect: "none",
-            borderBottom: "1px solid " + getColor('gray_3').back
+            borderBottom: "1px solid " + getColor('gray_3').back,
+            gap: "0.5rem"
           }
         }, [
-          m("", { style: { position: "relative" } }, [m("", { style: { padding: "0.5rem 1.0rem", cursor: "pointer", borderRadius: "0.3rem", background: activeMenu === "file" ? getColor('gray_2').back : "transparent" }, onclick: (e) => { e.stopPropagation(); toggleMenu("file") } }, "文件"), activeMenu === "file" ? m(MenuDropdown, { items: [{ label: "新建", action: actions.newFile }, { label: "打开...", action: actions.openFile, shortcut: "Ctrl+O" }, "sep", { label: "保存", action: actions.save, shortcut: "Ctrl+S" }, { label: "另存为...", action: actions.saveAs, shortcut: "Ctrl+Shift+S" }] }) : null]),
-          m("", { style: { position: "relative" } }, [m("", { style: { padding: "0.5rem 1.0rem", cursor: "pointer", borderRadius: "0.3rem", background: activeMenu === "edit" ? getColor('gray_2').back : "transparent" }, onclick: (e) => { e.stopPropagation(); toggleMenu("edit") } }, "编辑"), activeMenu === "edit" ? m(MenuDropdown, { items: [{ label: "撤销", action: actions.undo, shortcut: "Ctrl+Z" }, { label: "重做", action: actions.redo, shortcut: "Ctrl+Y" }, "sep", { label: "查找", action: actions.find, shortcut: "Ctrl+F" }, { label: "替换", action: actions.replace, shortcut: "Ctrl+H" }] }) : null]),
-          m("", { style: { position: "relative" } }, [m("", { style: { padding: "0.5rem 1.0rem", cursor: "pointer", borderRadius: "0.3rem", background: activeMenu === "view" ? getColor('gray_2').back : "transparent" }, onclick: (e) => { e.stopPropagation(); toggleMenu("view") } }, "视图"), activeMenu === "view" ? m(MenuDropdown, { items: [{ label: "自动换行", action: actions.toggleWordWrap, shortcut: wordWrap ? "开启" : "关闭" }] }) : null]),
-          m("", { style: { flex: 1, textAlign: "center", opacity: 0.6, fontSize: "1.2rem", letterSpacing: "0.1rem" } }, (filePath ? filePath.split("/").pop() : "新文件") + (isDirty ? " *" : ""))
+          m("",
+            {
+              style: {
+                padding: "0.4rem 1.2rem",
+                borderRadius: "3rem",
+                cursor: "pointer",
+                userSelect: "none",
+                background: "transparent",
+                color: getColor("gray_12").front,
+                display: "inline-flex",
+                alignItems: "center",
+                transition: "background 0.2s ease"
+              },
+              onpointerenter: function () {
+                this.style.background = "rgba(128, 128, 128, 0.15)"
+              },
+              onpointerleave: function () {
+                this.style.background = "transparent"
+              },
+              onclick: (e) => openNoticeMenu("file", e)
+            },
+            t("编辑器/菜单/文件",
+              {
+                cn: "文件",
+                en: "File"
+              }
+            )
+          ),
+
+          m("",
+            {
+              style: {
+                padding: "0.4rem 1.2rem",
+                borderRadius: "3rem",
+                cursor: "pointer",
+                userSelect: "none",
+                background: "transparent",
+                color: getColor("gray_12").front,
+                display: "inline-flex",
+                alignItems: "center",
+                transition: "background 0.2s ease"
+              },
+              onpointerenter: function () {
+                this.style.background = "rgba(128, 128, 128, 0.15)"
+              },
+              onpointerleave: function () {
+                this.style.background = "transparent"
+              },
+              onclick: (e) => openNoticeMenu("edit", e)
+            },
+            t("编辑器/菜单/编辑",
+              {
+                cn: "编辑",
+                en: "Edit"
+              }
+            )
+          ),
+
+          m("",
+            {
+              style: {
+                padding: "0.4rem 1.2rem",
+                borderRadius: "3rem",
+                cursor: "pointer",
+                userSelect: "none",
+                background: "transparent",
+                color: getColor("gray_12").front,
+                display: "inline-flex",
+                alignItems: "center",
+                transition: "background 0.2s ease"
+              },
+              onpointerenter: function () {
+                this.style.background = "rgba(128, 128, 128, 0.15)"
+              },
+              onpointerleave: function () {
+                this.style.background = "transparent"
+              },
+              onclick: (e) => openNoticeMenu("view", e)
+            },
+            t("编辑器/菜单/视图",
+              {
+                cn: "视图",
+                en: "View"
+              }
+            )
+          ),
+
+          m("", {
+            style: {
+              flex: 1,
+              textAlign: "center",
+              opacity: 0.6,
+              fontSize: "1.2rem",
+              letterSpacing: "0.1rem"
+            }
+          }, (filePath ? filePath.split("/").pop() : t("编辑器/顶栏/新文件", { cn: "新文件", en: "新文件" })) + (isDirty ? " *" : ""))
         ]),
 
         // Row 2: Action Bar (Always visible to keep layout consistent and give space to save/approve buttons)

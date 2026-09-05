@@ -13,6 +13,7 @@ import format from "../view/common/format.js"
 import { trs } from "../view/common/i18n.js"
 import getColor from "../view/common/getColor.js"
 import Menu from "../view/common/menu.js"
+import sysMenu from "../view/common/sysMenu.js"
 import Tip from "../view/common/tip.js"
 import jsonpatch from "fast-json-patch"
 import _ from "lodash"
@@ -212,7 +213,31 @@ export default {
         let component = module.default
         if (typeof component === "function") {
           // 参数注入模式
-          component = component({ appId: msg.appId, m, Notice, ioSocket: this, comData, commonData, chatData, settingData, format, Box, Tag, iconPark: window.iconPark, getColor, trs, Terminal, FitAddon, Menu, Tip, uuid: uuidv4, jsonpatch, AutoForm, FormItem })
+          component = component({
+            appId: msg.appId,
+            m,
+            Notice,
+            ioSocket: this,
+            comData,
+            commonData,
+            chatData,
+            settingData,
+            format,
+            Box,
+            Tag,
+            iconPark: window.iconPark,
+            getColor,
+            trs,
+            Terminal,
+            FitAddon,
+            Menu,
+            sysMenu,
+            Tip,
+            uuid: uuidv4,
+            jsonpatch,
+            AutoForm,
+            FormItem
+          })
         }
         // Window Management: Resolve Geometry
         const saved = msg.data && msg.data.window

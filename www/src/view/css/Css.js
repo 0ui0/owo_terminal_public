@@ -22,7 +22,7 @@ export default function () {
           overflow:auto;
         }
         *{
-          font-family:system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+          font-family:Menlo, Monaco, "Courier New", Consolas, monospace, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
           font-size:1.5rem;
         }
         a:hover{
@@ -449,6 +449,8 @@ export default function () {
         .abcjs-note_selected {
           fill: ${getColor('pink_1').back} !important;
         }
+
+
 
         ${abcjsAudioCss}
 

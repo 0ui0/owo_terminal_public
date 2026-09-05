@@ -7,7 +7,7 @@ import tmRestoreModule from "./frontendModules/tmRestoreModule.js"
 import FormatUtils from "./frontendModules/FormatUtils.js"
 
 // Explorer 前端组件 (Closure Component)
-export default ({ appId, m, Notice, ioSocket, comData, commonData, settingData, Box, iconPark, getColor, trs, data }) => {
+export default ({ appId, m, Notice, ioSocket, comData, commonData, settingData, Box, iconPark, getColor, trs, data, sysMenu }) => {
   // === 私有状态 (Private State) ===
   let currentPath = ""
   let inputPath = ""
@@ -675,12 +675,12 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, settingData, 
 
               Notice.launch({
                 group: "contextMenu",
-                width: 150,
+                width: 160,
                 x: e.clientX,
                 y: e.clientY,
                 content: {
                   view: (v) => m(ContextMenu, {
-                    m, Box, getColor,
+                    m, Box, getColor, trs, sysMenu,
                     selectedCount: selected.size,
                     hasItem: !!item,
                     isSearchResult: !!item?.isSearchResult,

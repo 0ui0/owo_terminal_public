@@ -275,7 +275,7 @@ getNameFromNode = function(node) {
 
 export default {
   parse: function(svgString, targetParentGroup = null) {
-    var allLines, allPureFills, clearTransform, collectLines, doc, parser, parts, ref, ref1, root, rootGroup, rootName, targetX, targetY, transX, transY, traverse, vHeight, vMinX, vMinY, vWidth, viewBoxStr;
+    var allLines, allPureFills, allTexts, cleanEmptyGroups, clearTransform, collectLines, doc, parser, parts, ref, ref1, root, rootGroup, rootName, targetX, targetY, transX, transY, traverse, vHeight, vMinX, vMinY, vWidth, viewBoxStr;
     parser = new DOMParser();
     doc = parser.parseFromString(svgString, "image/svg+xml");
     root = doc.querySelector("svg");
@@ -314,6 +314,7 @@ export default {
       }
     }
     allPureFills = [];
+    allTexts = [];
     traverse = function(node, parentGroup) {
       var closingLine, content, d, disSq, endPt, fill, fillGroupEl, firstLine, fontSize, generatedLines, group, lastLine, nodeName, pureFillEl, segments, shapeGroup, startPt, stroke, strokeLinecap, strokeWidth, strokeWidthVal, tag, textEl, textGroup, transform, tspans, x, y, yBaseline;
       if (node.nodeType !== 1) {
@@ -362,6 +363,9 @@ export default {
           }
         });
         data.elPaper.add(textGroup);
+        if (parentGroup) {
+          textGroup.joinGroup(parentGroup);
+        }
         textEl = new SvgText({
           prop: {
             name: nodeName,
@@ -379,6 +383,8 @@ export default {
           }
         });
         data.elPaper.add(textEl);
+        textEl.joinGroup(textGroup);
+        allTexts.push(textEl);
         return;
       }
       d = "";
@@ -537,7 +543,16 @@ export default {
       });
     });
     
-    // 剥离除文字外的所有 transform 包装
+    // 统一将文字也换算为绝对坐标
+    allTexts.forEach(function(textEl) {
+      var pt;
+      pt = textEl.localToGlobal({
+        x: textEl.prop.x,
+        y: textEl.prop.y
+      });
+      textEl.prop.x = pt.x;
+      return textEl.prop.y = pt.y;
+    });
     clearTransform = function(g) {
       g.prop.transform = null;
       return g.prop.elements.forEach(function(el) {
@@ -549,6 +564,25 @@ export default {
       });
     };
     clearTransform(rootGroup);
+    cleanEmptyGroups = function(g) {
+      var el, i, j, ref2, results;
+      results = [];
+      for (i = j = ref2 = g.prop.elements.length - 1; j >= 0; i = j += -1) {
+        el = g.prop.elements[i];
+        if (el.type === "group") {
+          cleanEmptyGroups(el);
+          if (el.prop.elements.length === 0) {
+            results.push(el.remove());
+          } else {
+            results.push(void 0);
+          }
+        } else {
+          results.push(void 0);
+        }
+      }
+      return results;
+    };
+    cleanEmptyGroups(rootGroup);
     
     // 解析完毕后，由于 getBoundingBox 的天然计算附带写缓存效果，这一句就相当于顺便把整个组树全部刷新了
     rootGroup.update();
