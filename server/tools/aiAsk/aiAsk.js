@@ -985,7 +985,7 @@ id为${fnCallCache.cacheid}
   }
 
   _mergeAndValidateMessages(messages) {
-    var currContentArr, currIsArray, expectedIds, failToolMsg, finalMessages, i, j, l, lastContentArr, lastIsArray, lastMsg, len, len1, len2, matchedTools, mergedMessages, msg, n, otherMsg, processedToolMsgIds, ref, ref1, ref2, ref3, ref4, tcId, toolMsg;
+    var currContentArr, currIsArray, expectedIds, failToolMsg, finalMessages, i, j, l, lastContentArr, lastIsArray, lastMsg, len, len1, len2, matchedTools, mergedMessages, msg, n, otherMsg, processedToolMsgIds, ref, ref1, ref2, ref3, ref4, ref5, tcId, toolMsg;
     // 1. 动态滑动合并连续的同角色消息，解决 API 400 格式错误
     // 不合并 tool 消息，因为 API 具有独立的 tool_call_id
     mergedMessages = [];
@@ -1016,6 +1016,12 @@ id为${fnCallCache.cacheid}
           });
           lastMsg.content = lastContentArr.concat(currContentArr);
         }
+        if (((ref1 = msg.tool_calls) != null ? ref1.length : void 0) > 0) {
+          if (lastMsg.tool_calls == null) {
+            lastMsg.tool_calls = [];
+          }
+          lastMsg.tool_calls = lastMsg.tool_calls.concat(msg.tool_calls);
+        }
       } else {
         mergedMessages.push(msg);
       }
@@ -1026,7 +1032,7 @@ id为${fnCallCache.cacheid}
     i = 0;
     while (i < mergedMessages.length) {
       msg = mergedMessages[i];
-      if (msg.role === "assistant" && ((ref1 = msg.tool_calls) != null ? ref1.length : void 0) > 0) {
+      if (msg.role === "assistant" && ((ref2 = msg.tool_calls) != null ? ref2.length : void 0) > 0) {
         expectedIds = msg.tool_calls.map((tc) => {
           return tc.id;
         });
@@ -1035,7 +1041,7 @@ id为${fnCallCache.cacheid}
         matchedTools = [];
         for (l = 0, len1 = mergedMessages.length; l < len1; l++) {
           otherMsg = mergedMessages[l];
-          if (otherMsg.role === "tool" && (ref2 = otherMsg.tool_call_id, indexOf.call(expectedIds, ref2) >= 0)) {
+          if (otherMsg.role === "tool" && (ref3 = otherMsg.tool_call_id, indexOf.call(expectedIds, ref3) >= 0)) {
             matchedTools.push(otherMsg);
             processedToolMsgIds[otherMsg.tool_call_id] = true;
           }
@@ -1057,9 +1063,9 @@ id为${fnCallCache.cacheid}
             failToolMsg = {
               role: "tool",
               tool_call_id: tcId,
-              name: ((ref3 = msg.tool_calls.find((tc) => {
+              name: ((ref4 = msg.tool_calls.find((tc) => {
                 return tc.id === tcId;
-              })) != null ? (ref4 = ref3.function) != null ? ref4.name : void 0 : void 0) || "unknown_tool",
+              })) != null ? (ref5 = ref4.function) != null ? ref5.name : void 0 : void 0) || "unknown_tool",
               content: "⚠️ 系统通知：该工具调用在执行过程中由于用户手动中止、网络中断或消息队列意外而被系统废弃/执行失败。请在需要时重新发起调用或采取其他补救措施。"
             };
             finalMessages.push(failToolMsg);

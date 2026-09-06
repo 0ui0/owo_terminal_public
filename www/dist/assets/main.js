@@ -1520,7 +1520,7 @@ ${pt}</div>`}if(te===void 0||te==="markdown"||te==="block"||te==="note"||te===nu
           
         }
         .article a{
-          color: ${getColor("blue_1").back}88;
+          color: ${getColor("main").back};
         }
         .article img{
           border-radius: 1rem;

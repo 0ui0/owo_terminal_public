@@ -89,6 +89,11 @@ function applyEditsToContent(originalContent, edits) {
   const eol = originalContent.includes("\r\n") ? "\r\n" : "\n"
   let content = originalContent.replace(/\r\n/g, "\n")
 
+  const lineOffsets = computeLineStartOffsets(content)
+  const totalLines = lineOffsets.length
+
+  const replacements = []
+
   for (let i = 0; i < edits.length; i++) {
     const edit = edits[i]
     const target = (edit.target || "").replace(/\r\n/g, "\n")
@@ -105,8 +110,6 @@ function applyEditsToContent(originalContent, edits) {
     // 【行范围限定】startLine/endLine 为 1-based、含两端。提供后，
     // target 必须完整落在 [startLine, endLine] 行区间内（含行尾换行）才参与匹配。
     if (edit.startLine != null || edit.endLine != null) {
-      const lineOffsets = computeLineStartOffsets(content)
-      const totalLines = lineOffsets.length
       const startLine = edit.startLine != null ? Math.max(1, Math.floor(edit.startLine)) : 1
       const endLine = edit.endLine != null ? Math.max(startLine, Math.floor(edit.endLine)) : null
 
@@ -141,7 +144,25 @@ function applyEditsToContent(originalContent, edits) {
     }
 
     const absIdx = searchFrom + windowText.indexOf(target)
-    content = content.slice(0, absIdx) + replace + content.slice(absIdx + target.length)
+    replacements.push({
+      originalIndex: i,
+      startIdx: absIdx,
+      endIdx: absIdx + target.length,
+      replace: replace
+    })
+  }
+
+  // 检查是否存在范围重叠（避免用户的多个 edit 修改了同一块区域导致冲突）
+  replacements.sort((a, b) => b.startIdx - a.startIdx)
+  for (let j = 0; j < replacements.length - 1; j++) {
+    if (replacements[j].startIdx < replacements[j+1].endIdx) {
+      throw new Error(`edit 块发生冲突：第 ${replacements[j].originalIndex + 1} 个 edit 与第 ${replacements[j+1].originalIndex + 1} 个 edit 的修改范围存在重叠！`)
+    }
+  }
+
+  // 倒序应用替换，这样后面的替换就不会影响前面替换的下标！
+  for (const r of replacements) {
+    content = content.slice(0, r.startIdx) + r.replace + content.slice(r.endIdx)
   }
 
   return eol === "\r\n" ? content.replace(/\n/g, "\r\n") : content

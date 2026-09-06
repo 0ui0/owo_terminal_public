@@ -31,79 +31,90 @@ class ProjectManager {
 
   // === Save ===
   async save(filePath) {
-    try {
-      // 临时释放存档数据库文件锁
-      await archiveDb.close()
+    if (this.savePromise) {
+      console.log("[ProjectManager] 检测到保存操作正在进行中，复用当前活跃保存任务...")
+      return this.savePromise
+    }
 
-      const data = {
-        meta: {
-          version: "1.3.0",
-          timestamp: Date.now(),
-          platform: process.platform
-        },
-        // 1. 全局数据 (聊天记录, 设置)
-        comData: comData.data.get(),
+    this.savePromise = (async () => {
+      try {
+        const data = {
+          meta: {
+            version: "1.3.0",
+            timestamp: Date.now(),
+            platform: process.platform
+          },
+          // 1. 全局数据 (聊天记录, 设置)
+          comData: comData.data.get(),
 
-        // 2. AI 状态 (记忆, 上下文)
-        aiState: Array.from(subAgents.getAll()).map(([listId, agent]) => ({
-          listId: listId,
-          name: agent.name,
-          state: agent.exportState()
-        })),
+          // 2. AI 状态 (记忆, 上下文)
+          aiState: Array.from(subAgents.getAll()).map(([listId, agent]) => ({
+            listId: listId,
+            name: agent.name,
+            state: agent.exportState()
+          })),
 
-        // 3. App 状态
-        appState: appManager.getSummary().map(app => {
-          return {
-            id: app.id,
-            type: app.type,
-            data: app.data,
-            guiLaunched: app.guiLaunched,
+          // 3. App 状态
+          appState: appManager.getSummary().map(app => {
+            return {
+              id: app.id,
+              type: app.type,
+              data: app.data,
+              guiLaunched: app.guiLaunched,
+            }
+          })
+        }
+
+        // 使用 AdmZip 创建压缩包
+        const zip = new AdmZip()
+        zip.addFile("project.json", Buffer.from(JSON.stringify(data, null, 2), "utf-8"))
+
+        // 使用 SQLite 原生 VACUUM INTO 导出只读快照（数据库连接全程在线，无需断开）
+        const snapshotPath = tempPath.get("save/archive_snapshot.sqlite")
+        try {
+          if (archiveDb.db) {
+            await archiveDb.exportSnapshot(snapshotPath)
+            zip.addFile("archive.sqlite", await fs.readFile(snapshotPath))
+          } else {
+            // 兜底回退：若数据库未就绪，尝试直接打包物理文件
+            const sqlitePath = tempPath.get("save/archive.sqlite")
+            if (await fs.pathExists(sqlitePath)) {
+              zip.addFile("archive.sqlite", await fs.readFile(sqlitePath))
+            }
           }
-        })
-      }
+        } finally {
+          // 清理临时生成的快照文件，不占用额外磁盘
+          await fs.remove(snapshotPath)
+        }
 
-      // 使用 AdmZip 创建压缩包
-      const zip = new AdmZip()
-      zip.addFile("project.json", Buffer.from(JSON.stringify(data, null, 2), "utf-8"))
-
-      // 打包 SQLite 数据库文件
-      const sqlitePath = tempPath.get("save/archive.sqlite")
-      if (await fs.pathExists(sqlitePath)) {
-        zip.addFile("archive.sqlite", await fs.readFile(sqlitePath))
-      }
-
-      // 将本地 upload 目录中的所有相关附件打包进去，排除数据库文件和导出历史文件本身
-      const uploadDir = tempPath.get("attachment")
-      if (await fs.pathExists(uploadDir)) {
-        const files = await fs.readdir(uploadDir)
-        for (const file of files) {
-          const filePathFull = path.join(uploadDir, file)
-          const stat = await fs.stat(filePathFull)
-          if (stat.isFile() && file !== "archive.sqlite" && file !== "chats_export.json") {
-            zip.addFile(`media/${file}`, await fs.readFile(filePathFull))
+        // 将本地 upload 目录中的所有相关附件打包进去，排除数据库文件和导出历史文件本身
+        const uploadDir = tempPath.get("attachment")
+        if (await fs.pathExists(uploadDir)) {
+          const files = await fs.readdir(uploadDir)
+          for (const file of files) {
+            const filePathFull = path.join(uploadDir, file)
+            const stat = await fs.stat(filePathFull)
+            if (stat.isFile() && file !== "archive.sqlite" && file !== "chats_export.json") {
+              zip.addFile(`media/${file}`, await fs.readFile(filePathFull))
+            }
           }
         }
+
+        zip.writeZip(filePath)
+
+        this.currentProjectPath = filePath
+        this.isDirty = false
+        console.log(`[ProjectManager] 已成功打包并保存项目至 ${filePath}`)
+        return { ok: true }
+      } catch (e) {
+        console.error("[ProjectManager] 项目保存失败:", e)
+        throw e
+      } finally {
+        this.savePromise = null
       }
+    })()
 
-      zip.writeZip(filePath)
-
-      // 重新加载数据库连接
-      await archiveDb.init()
-
-      this.currentProjectPath = filePath
-      this.isDirty = false
-      console.log(`[ProjectManager] Saved as ZIP bundle to ${filePath}`)
-      return { ok: true }
-    } catch (e) {
-      console.error("[ProjectManager] Save failed:", e)
-      // 容错恢复数据库连接
-      try {
-        await archiveDb.init()
-      } catch (err) {
-        console.error("Restore DB in save fail:", err)
-      }
-      throw e
-    }
+    return this.savePromise
   }
 
   // === Load ===
