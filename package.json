@@ -1,7 +1,7 @@
 {
   "name": "owo-terminal",
   "productName": "owo-terminal",
-  "version": "1.1.51",
+  "version": "1.1.52",
   "type": "module",
   "main": "app.js",
   "description": "Super cute terminal",
@@ -51,7 +51,9 @@
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
       "runAfterFinish": true,
-      "shortcutName": "宅喵终端"
+      "shortcutName": "宅喵终端",
+      "createDesktopShortcut": "always",
+      "createStartMenuShortcut": true
     },
     "appId": "com.iw_i.owo_terminal",
     "mac": {

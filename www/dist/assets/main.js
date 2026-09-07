@@ -1444,7 +1444,7 @@ ${pt}</div>`}if(te===void 0||te==="markdown"||te==="block"||te==="note"||te===nu
           overflow:auto;
         }
         *{
-          font-family:Menlo, Monaco, "Courier New", Consolas, monospace, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+          font-family:Menlo, Monaco, "Courier New", Consolas, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', 'PingFang SC', 'Microsoft YaHei', sans-serif, monospace;
           font-size:1.5rem;
         }
         a:hover{

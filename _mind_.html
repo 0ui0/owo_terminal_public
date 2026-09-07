@@ -3113,3 +3113,47 @@ graph TD
     </n-li>
   </n-ul>
 </n-main>
+
+<n-main>
+  <n-time>[时间:2026/09/08 00:11:00]</n-time>
+  <n-mem>[记忆：啦沐达长官发现 Windows 版的 exe 安装器在安装/升级后把桌面和开始菜单的图标弄丢了。这是因为 NSIS 在执行卸载旧版时会默认删掉图标，但由于 package.json 的配置不明确，导致新安装时没能强制把它建回来。我已经在 package.json 里的 nsis 节点加入了 `"createDesktopShortcut": "always"` 和 `"createStartMenuShortcut": true`。]</n-mem>
+  <n-tasks>[总任务：1. 修复 Windows exe 安装器快捷方式丢失问题(已完成)]</n-tasks>
+  <n-ul>
+    <n-li>[任务1/1: 修改 package.json]
+      <n-focus>[关注1:文件 package.json, 摘要: nsis 配置块增加了强制生成快捷方式的参数。]</n-focus>
+    </n-li>
+  </n-ul>
+</n-main>
+
+<n-main>
+  <n-time>[时间:2026/09/08 00:12:00]</n-time>
+  <n-mem>[记忆：啦沐达长官怀疑 `"createDesktopShortcut": "always"` 属性是否在现代版本的 electron-builder 中已经过期。我通过检索底层 `app-builder-lib` 的 `CommonWindowsInstallerConfiguration.d.ts` 文件，证实该属性合法。类型签名为 `boolean | "always"`，且 "always" 确实是专门用于解决覆盖升级时不重建快捷方式的最佳实践。]</n-mem>
+  <n-tasks>[总任务：1. 查证 createDesktopShortcut 参数是否过期(已查清)]</n-tasks>
+  <n-ul>
+    <n-li>[任务1/1: 查证参数合法性]
+      <n-focus>[关注1:目录 node_modules/app-builder-lib, 摘要: 该属性仍然有效且建议使用 "always" 强制生成。]</n-focus>
+    </n-li>
+  </n-ul>
+</n-main>
+
+<n-main>
+  <n-time>[时间:2026/09/08 00:13:00]</n-time>
+  <n-mem>[记忆：啦沐达长官提问该配置项是否应该写在 "nsis" 对象节点下。我通过源码分析 `CommonWindowsInstallerConfiguration` 确认，这几个快捷方式参数和 `shortcutName` 一样，写在 "nsis" 节点中是完全规范且标准的位置。]</n-mem>
+  <n-tasks>[总任务：1. 确认配置位置合法性(已完成)]</n-tasks>
+  <n-ul>
+    <n-li>[任务1/1: 解答疑问]
+      <n-focus>[关注1:目录 package.json, 摘要: 告知长官位置完全正确。]</n-focus>
+    </n-li>
+  </n-ul>
+</n-main>
+
+<n-main>
+  <n-time>[时间:2026/09/08 00:16:00]</n-time>
+  <n-mem>[记忆：啦沐达长官发现在 Windows 环境下，程序文字错误地显示为宋体字。他原意是将 `system-ui` 放在最前面兜底，但会导致英文字符失去等宽特性，因此将其放在了等宽字体组之后。然而由于原本的字体栈在中间放置了通用的 `monospace`，导致 Windows 浏览器在解析中文字符时命中了 `monospace` 并强行回退给宋体，彻底阻断了后方的 `system-ui`。我已修改 `Css.js`，将 `monospace` 挪到最后，同时补上了 `'Microsoft YaHei', 'PingFang SC'`，彻底根治。]</n-mem>
+  <n-tasks>[总任务：1. 修复 Windows 下全局宋体字Bug(已修复)]</n-tasks>
+  <n-ul>
+    <n-li>[任务1/1: 修改 Css.js 字体栈顺序]
+      <n-focus>[关注1:文件 Css.js, 摘要: monospace 被移至末尾，中文兜底已追加。]</n-focus>
+    </n-li>
+  </n-ul>
+</n-main>
