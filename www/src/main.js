@@ -65,6 +65,7 @@ import initShortcut from "./init/init_shortcut.js"
             isMainWindow: true,
             titleBar: TitleBar,
             hideBtn: 2,
+            useMaximize: true,
             cancel: async () => {
               if (settingData && settingData.fnCall) settingData.fnCall("sysWinControl", ["close"]);
               return false; // Prevent tab from closing

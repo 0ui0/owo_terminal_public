@@ -3558,3 +3558,42 @@ graph TD
 ```
   </n-graph>
 </n-main>
+<n-main>
+  <n-time>[时间:2026/09/08 05:31:35]</n-time>
+  <n-mem>[记忆：在啦沐达长官的指导下，成功为窗口标题栏文字区绑定了双击最大化/还原交互。因原生标题栏声明了 -webkit-app-region: drag，Chromium 默认吞掉了 drag 区域的所有 DOM 鼠标事件。在 www/src/view/common/noticeBox.js 中，为承载标题文字与图标的 Box 组件显式声明了 -webkit-app-region: "no-drag" 与 cursor: "default"，并通过 ext 传入 ondblclick: (e) => { e.stopPropagation(); attrs.onMaximize(e); }，图标增加 pointerEvents: "none"。双击标题文字时事件能够穿透到 DOM 顺利触发最大化与还原，完美解决了 Windows 无边框透明模式下双击标题栏无响应的痛点。]</n-mem>
+  <n-tasks>[总任务：1. 标题Box绑定双击最大化与no-drag(已完成) 2. 追加记忆笔记(已完成)]</n-tasks>
+  <n-ul>
+    <n-li>[任务1/1: 标题Box绑定ondblclick]
+      <n-focus>[关注1:文件 www/src/view/common/noticeBox.js, 行号435-445, 摘要:设置 -webkit-app-region: "no-drag"，ext 挂载 ondblclick 调用 attrs.onMaximize(e)。]</n-focus>
+    </n-li>
+  </n-ul>
+  <n-graph>
+```mermaid
+graph TD
+  HeaderDrag["外层 Header: -webkit-app-region: drag (负责整栏拖拽)"]
+  HeaderDrag --> TitleBox["标题文字 Box: -webkit-app-region: no-drag"]
+  TitleBox --> DblClick["双击触发 ext.ondblclick"]
+  DblClick --> StopProp["e.stopPropagation() 阻止冒泡"]
+  DblClick --> OnMaximize["调用 attrs.onMaximize(e)"]
+  OnMaximize --> MaxOrRestore["触发窗口最大化 / 还原切换"]
+```
+  </n-graph>
+</n-main>
+<n-main>
+  <n-time>[时间:2026/09/08 05:34:20]</n-time>
+  <n-mem>[记忆：在啦沐达长官的指令下，采纳方案1彻底解决了前端 Notice 调节器手柄干扰 Electron 原生窗口尺寸缩放的问题。此前 noticeBox.js 在未最大化时一律生成 8 个向外延伸 10px 的前端虚拟 DOM 拖拽手柄（resizeHandles），导致鼠标移动到主窗口边缘时事件被前端拦截，原生无边框窗口的边缘缩放无法触发。现将生成条件精准收敛为：const resizeHandles = (!win.isMaximized && !isMainWindow) ? ... : []。主窗口不再挂载任何虚拟手柄，彻底释放了 Electron 原生操作系统级的窗口边缘缩放能力；同时内部普通 Notice 浮窗的自由缩放拉伸特性完全保留。]</n-mem>
+  <n-tasks>[总任务：1. 主窗口排除前端调节器恢复原生缩放(已完成) 2. 追加记忆笔记(已完成)]</n-tasks>
+  <n-ul>
+    <n-li>[任务1/1: resizeHandles排除isMainWindow]
+      <n-focus>[关注1:文件 www/src/view/common/noticeBox.js, 行号329, 代码片段|>const resizeHandles = (!win.isMaximized && !isMainWindow) ? ...<|, 效果: 主窗口边缘完全由操作系统原生窗口缩放接管，普通浮窗不受影响。]</n-focus>
+    </n-li>
+  </n-ul>
+  <n-graph>
+```mermaid
+graph TD
+  UserEdgeHover["鼠标移动到窗口边缘拖拽缩放"] --> CheckType{"是否为主窗口 (isMainWindow)?"}
+  CheckType -->|是| NativeResize["不生成虚拟手柄: 直接由 Electron 原生窗口接管, 丝滑缩放"]
+  CheckType -->|否| DomResize["挂载 8 向虚拟 resizeHandles: 内部浮窗自由拖拽拉伸"]
+```
+  </n-graph>
+</n-main>

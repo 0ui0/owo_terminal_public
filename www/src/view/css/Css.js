@@ -9,7 +9,6 @@ export default function () {
       return m("style", `
         html{
           font-size:10px;
-          background: ${getColor('gray_1').back};
         }
         html,body,#app{
           padding:0;margin:0;

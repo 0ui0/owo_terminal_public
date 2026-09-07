@@ -326,7 +326,7 @@ export default function () {
 
       const isAuto = (win.width === 0 || win.height === 0)
 
-      const resizeHandles = !win.isMaximized ? ["n", "s", "w", "e", "nw", "ne", "sw", "se"].map(dir => {
+      const resizeHandles = (!win.isMaximized && !isMainWindow) ? ["n", "s", "w", "e", "nw", "ne", "sw", "se"].map(dir => {
         return m("", {
           style: {
             touchAction: "none",
@@ -432,7 +432,14 @@ export default function () {
               alignItems: "center",
               flexShrink: 0,
               minWidth: "4rem",
-
+              "-webkit-app-region": "no-drag",
+              cursor: "default"
+            },
+            ext: {
+              ondblclick: (e) => {
+                e.stopPropagation()
+                attrs.onMaximize(e)
+              }
             }
           }, [
             (activeTab.icon || activeTab.appType) ? m("img", {
@@ -444,7 +451,8 @@ export default function () {
                 borderRadius: "0.35rem", // iOS rounded corner mask
                 objectFit: "cover",
                 marginRight: "0.5rem",
-                verticalAlign: "middle"
+                verticalAlign: "middle",
+                pointerEvents: "none"
               }
             }) : null,
             activeTab.tip || "提示"
