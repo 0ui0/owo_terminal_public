@@ -78,6 +78,8 @@ const createWindow = () => {
     icon: pathLib.resolve("./icon.png"),
     title: "宅喵终端",
     titleBarStyle: 'hiddenInset',
+    frame: false,
+    transparent: true,
     webPreferences: {
       webviewTag: true,
       nodeIntegration: false,
@@ -87,7 +89,11 @@ const createWindow = () => {
   })
 
   //win.loadFile('www/dist/index.html')
-  win.loadURL(`http://localhost:${port}`)
+  if (!app.isPackaged) {
+    win.loadURL(`http://localhost:3000`)
+  } else {
+    win.loadURL(`http://localhost:${port}`)
+  }
 
   // === Close Confirmation ===
   let forceClose = false

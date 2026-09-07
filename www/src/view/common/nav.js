@@ -30,6 +30,8 @@ export default {
     const barZoomRate = fullLength > 8 ? 8 / fullLength : 1
 
     return m(".owo-nav-bar", {
+      // 阻断按压事件向外层窗口冒泡，避免误触激活底层主窗口导致任务栏焦点状态错乱
+      onpointerdown: (e) => e.stopPropagation(),
       style: {
         "user-select": "none",
         "-webkit-user-select": "none",
@@ -201,6 +203,8 @@ export default {
                     // 1. 如果窗口当前是激活状态且未最小化 -> 最小化
                     // 2. 否则 (最小化/未激活) -> 激活/还原
                     onClick: () => {
+                      // 主窗口暂不响应任务栏的最小化/还原切换交互
+                      if (config.isMainWindow) return
                       const isTop = Notice.data.activeWindowId === config.id
                       if (isTop && !config.minimized) {
                         Notice.minimizeWindow(config.id)

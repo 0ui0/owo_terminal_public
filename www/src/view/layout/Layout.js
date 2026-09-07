@@ -20,7 +20,7 @@ export default () => {
       }, [
         m(Css),
         // Custom Title Bar
-        m(TitleBar),
+        //m(TitleBar),
 
         // Content Area
         m("div", {
@@ -36,7 +36,7 @@ export default () => {
         }, children),
 
         m(Nav),
-        m(Notice),
+        //m(Notice),
         m(Tip)
       ])
     }

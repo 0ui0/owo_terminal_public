@@ -5,6 +5,7 @@ window.m = m
 import Chat from "./view/chat/Chat.js"
 import Layout from "./view/layout/Layout.js"
 import Browser from "./view/browser/Browser.js"
+import TitleBar from "./view/common/TitleBar.js"
 
 import iconPark_ from "./view/common/iconPark.js"
 import Nav from "./view/common/nav.js"
@@ -56,10 +57,43 @@ import initShortcut from "./init/init_shortcut.js"
     commonData.themeColor = themeColor
 
 
-
-
-
-
+    let Run = function () {
+      return {
+        oncreate({ attrs }) {
+          Notice.launch({
+            tip: "宅喵终端",
+            isMainWindow: true,
+            titleBar: TitleBar,
+            hideBtn: 2,
+            cancel: async () => {
+              if (settingData && settingData.fnCall) settingData.fnCall("sysWinControl", ["close"]);
+              return false; // Prevent tab from closing
+            },
+            minimize: async () => {
+              if (settingData && settingData.fnCall) settingData.fnCall("sysWinControl", ["minimize"]);
+              return false; // Prevent default minimize behavior
+            },
+            maximize: async () => {
+              if (settingData && settingData.fnCall) settingData.fnCall("sysWinControl", ["maximize"]);
+            },
+            content() {
+              return {
+                view() {
+                  return m(Layout, [
+                    m(attrs.content)
+                  ])
+                }
+              }
+            }
+          })
+        },
+        view({ attrs, children }) {
+          return [
+            m(Notice)
+          ]
+        }
+      }
+    }
 
 
 
@@ -70,18 +104,19 @@ import initShortcut from "./init/init_shortcut.js"
       "/chat": {
         render(v) {
           return [
-            m(Layout, [
-              m(Chat),
-            ]),
+            m(Run, {
+              content: Chat
+            })
           ]
         }
       },
       "/browser": {
         render(v) {
           return [
-            m(Layout, [
-              m(Browser),
-            ]),
+            m(Run, {
+              content: Browser
+            })
+
           ]
         }
       },

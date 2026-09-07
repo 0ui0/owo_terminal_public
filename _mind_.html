@@ -3157,3 +3157,404 @@ graph TD
     </n-li>
   </n-ul>
 </n-main>
+
+<n-main>
+  <n-time>[时间:2026/09/08 00:52:00]</n-time>
+  <n-mem>[记忆：在啦沐达长官的批准下，圆满完成了 Owo Terminal 主程序“1:1 寄居蟹模式”架构重构：1. 取消了 app.js 中原生标题栏，实现完全透明无边框窗口；2. 在前端 main.js 的路由层，将原有直接平铺的 Layout 组件嵌套入系统原生的 Notice.launch() 接口中，赋予 isMainWindow = true 的唯一标识；3. 前端 noticeBox.js 精准识别 isMainWindow 模式，在不影响常规浮窗的基础上，赋予主窗体 100% 满屏霸屏渲染，并在 Header 重新注入 -webkit-app-region: drag 以恢复全局拖拽能力；4. 成功将 Notice 原生的关闭、最小化按钮与后端原生 sysWinControl 的 electronAPI 打通，实现了前端虚拟按钮跨端接管后端原生窗口的壮举；5. 取消了 TitleBar 原本用来避让 Mac 红绿灯的 80px 占位。彻底抹平了 Mac 和 Windows 端 UI 的系统边框差异，达成了最完美的 1:1 一致性体验。]</n-mem>
+  <n-tasks>[总任务：1. 取消后端原生边框 (已完成) 2. NoticeBox 支持霸屏拖拽与劫持原生控制 (已完成) 3. 路由全量接管 (已完成)]</n-tasks>
+  <n-ul>
+    <n-li>[任务1/3: 移除原生边框与红绿灯]
+      <n-focus>[关注1: app.js 取消 titleBarStyle，开启 frame: false; TitleBar.js 移除 paddingLeft: 80px]</n-focus>
+    </n-li>
+    <n-li>[任务2/3: NoticeBox 改造为寄居蟹宿主]
+      <n-focus>[关注2: noticeBox.js 识别 isMainWindow，全屏展示，拦截控制按钮转发 sysWinControl]</n-focus>
+    </n-li>
+    <n-li>[任务3/3: 路由接管]
+      <n-focus>[关注3: main.js 将整个 Layout 置入 Notice.launch 的 content 属性中渲染]</n-focus>
+    </n-li>
+  </n-ul>
+  <n-graph>
+```mermaid
+graph TD
+    A[需求: Windows/Mac 样式高度统一] --> B[方案: 取消原生边框, Notice 前端接管]
+    B --> C[app.js: transparent & frame: false]
+    B --> D[main.js: RootComponent 包裹入 Notice.launch]
+    D --> E[noticeBox.js 判定 isMainWindow: true]
+    E --> F[Header 重置 -webkit-app-region: drag]
+    E --> G[拦截按钮: sysWinControl 调用 minimize/close/maximize]
+    G --> H[效果: 主界面享受高斯模糊卡片+圆角边缘，双端 1:1 一致]
+```
+  </n-graph>
+</n-main>
+
+<n-main>
+  <n-time>[时间:2026/09/08 01:20:00]</n-time>
+  <n-mem>[记忆：啦沐达长官亲自下场，以极其优雅和极简的代码教训了我之前写的“一坨不知道什么鬼”的复杂逻辑。长官直接在 main.js 中构建了 Run 空壳组件，在它的 oncreate 钩子中启动 Notice，把原本的 Layout 和内容（如 Chat）作为 content 回传给 Notice。同时只需在 Layout.js 中把原本硬编码的 m(Notice) 注释掉，就彻底解决了组件死循环问题。Notice 成为了最顶层的唯一容器，而 Layout 原封不动地在 Notice 内部运行，完美达成了寄居蟹架构，实在令人叹服！]</n-mem>
+</n-main>
+
+<n-main>
+  <n-time>[时间:2026/09/08 01:29:00]</n-time>
+  <n-mem>[记忆：在长官的英明指导下，完成了“寄居蟹模式”视觉与结构的最终统一：1. 在 noticeBox.js 中新增了 activeTab.titleBar 的渲染，将其直接嵌入到 Notice 的原生 Header 区域，完全占据标题和系统控制按钮之间的空间；2. 移除了 TitleBar.js 冗余的高度、背景色、边框以及重复的“宅喵终端”文字标题，并赋予它 flex: 1 的自适应属性。这样一来，旧有的 TitleBar 不仅被完美地“寄生”进了 Notice 的头盖骨里，更是实现了整个软件在双端的视觉彻底大一统！]</n-mem>
+</n-main>
+
+<n-main>
+  <n-time>[时间:2026/09/08 01:38:00]</n-time>
+  <n-mem>[记忆：为了确保无论有无 titleBar 传入，Notice 的中间部分都能正常占满空间并保持正确的 flex 布局，对 noticeBox.js 里的包装 div 追加了 display: "flex", alignItems: "center", minWidth: 0, height: "100%"。同时将 TitleBar.js 的 flex:1 改为 width: "100%"。这样适配之后，布局在任何情况下都能完美自适应和对齐。]</n-mem>
+</n-main>
+
+<n-main>
+  <n-time>[时间:2026/09/08 01:48:20]</n-time>
+  <n-mem>[记忆：为了彻底解决 vite build --watch 内存溢出问题并优化开发体验，我们切换为前后端分离代理模式 (Vite Dev Server)。修改了 www/vite.config.js 增加了 /api, /socket.io, /statics, /attachment 的 proxy 代理指向 9501；同时修改了 app.js，在开发环境下 (!app.isPackaged) 使 Electron 加载 http://localhost:3000。这免除了开发时 Rollup 巨大的缓存内存开销。]</n-mem>
+</n-main>
+
+<n-main>
+  <n-time>[时间:2026/09/08 01:52:45]</n-time>
+  <n-mem>[记忆：为了使 noticeBox 更加纯粹、解耦，移除了 noticeBox.js 中关闭、最小化、双击标题栏最大化按钮里硬编码的 isMainWindow 逻辑。现在统一通过外界传入的 activeTab.cancel、activeTab.minimize、activeTab.maximize 钩子来处理。在 main.js 里的 Notice.launch 配置中注入了这些钩子，它们会调用 sysWinControl，并且 return false 拦截默认关闭/最小化行为。]</n-mem>
+</n-main>
+
+<n-main>
+  <n-time>[时间:2026/09/08 01:54:55]</n-time>
+  <n-mem>[记忆：修正了 main.js 中向 Notice.launch 传递的 cancel/minimize/maximize 钩子里调用 sysWinControl 的方式。由于 main.js 中已经显式引入了 settingData 模块，故去掉了错误的 window.settingData 前缀，直接使用 settingData.fnCall，保持模块化规范调用。]</n-mem>
+</n-main>
+
+<n-main>
+  <n-time>[时间:2026/09/08 01:57:15]</n-time>
+  <n-mem>[记忆：在 noticeBox.js 中新增了同款样式的最大化按钮（绿色背景，图标 FullScreen）。同时根据操作直觉和用户的要求，将按钮排序从原来的 [确认, 关闭, 最小化] 重新编排为了 [确认, 最小化, 最大化, 关闭]。点击最大化按钮时会优先触发 activeTab.maximize 钩子。]</n-mem>
+</n-main>
+
+<n-main>
+  <n-time>[时间:2026/09/08 01:59:45]</n-time>
+  <n-mem>[记忆：修正了 noticeBox 中使用的 FullScreen 图标在 iconPark.js 中未被导出的问题，已在 iconPark.js 的导入和暴露列表中补充了 FullScreen 图标。]</n-mem>
+</n-main>
+
+<n-main>
+  <n-time>[时间:2026/09/08 02:04:05]</n-time>
+  <n-mem>[记忆：在 noticeBox.js 中，将最大化按钮的渲染判断变量从内联的 (activeTab.useMaximize ?? true) 提取为统一定义的 const useMaximize = activeTab.useMaximize ?? true，与 useMinus 保持了一致的规范风格。]</n-mem>
+</n-main>
+
+<n-main>
+  <n-time>[时间:2026/09/08 02:04:55]</n-time>
+  <n-mem>[记忆：在 noticeBox.js 中，将最大化按钮的图标从 FullScreen 更换为了更为常见的、符合传统操作系统视窗控制认知的 FullScreenOne（通常为双框或纯外框结构），以改善 UI 直觉体验。]</n-mem>
+</n-main>
+
+<n-main>
+  <n-time>[时间:2026/09/08 02:08:50]</n-time>
+  <n-mem>[记忆：在 noticeBox.js 的 header 样式中增加了检测逻辑，当环境为 Mac 且是主窗口（isMainWindow）时，给 header 左侧留出了 80px 的 padding-left 边距，以防止标题等元素被 macOS 原生的红绿灯控件遮挡。]</n-mem>
+</n-main>
+
+<n-main>
+  <n-time>[时间:2026/09/08 02:13:58]</n-time>
+  <n-mem>[记忆：在 noticeBox.js 中，将 Mac 环境下的红绿灯衬底修改为了贴边（left:0, top:0）的 1/4 椭圆形状，以完全契合长官的红线草图设计（borderBottomRightRadius: "100%"）。]</n-mem>
+</n-main>
+
+<n-main>
+  <n-time>[时间:2026/09/08 02:16:30]</n-time>
+  <n-mem>[记忆：在 noticeBox.js 中，将最大化按钮的默认显示策略从 true 改为了 false (!!activeTab.useMaximize)；同时修复了该按钮的点击逻辑，由于原先 toggleMaximize 会过滤掉所有带有 .win-btn 类名的点击事件，导致最大化按钮点击失效，现在为其增加了一个 force 参数，允许按钮主动调用。]</n-mem>
+</n-main>
+
+<n-main>
+  <n-time>[时间:2026/09/08 02:26:15]</n-time>
+  <n-mem>[记忆：根据啦沐达长官指示，修改了事件冒泡拦截方式。之前在 toggleMaximize 中使用 force 参数规避 .win-btn 过滤的逻辑不够优雅且治标不治本；现已在最小化、最大化、关闭控制按钮上统一加入 stopPropagation()（涵盖 onclick 与 ondblclick），彻底防止按钮交互事件冒泡到外层标题栏触发双击最大化，同时净化了 toggleMaximize 函数的职责，移除了多余的 force 参数。]</n-mem>
+  <n-tasks>[总任务：1. 修复最大化按钮对普通窗口无效问题(已完成) 2. 默认隐藏最大化按钮(已完成) 3. 规范化按钮 stopPropagation 处理并移除 toggleMaximize 的 force 参数(已完成)]</n-tasks>
+  <n-ul>
+    <n-li>[任务3/3: 规范控制按钮事件冒泡]
+      <n-focus>[关注: noticeBox.js, toggleMaximize 函数定义与控制按钮事件绑定, 代码片段|>toggleMaximize = (e, win) => {...}<|, 调查情况: 之前因事件冒泡至标题栏 ondblclick 导致 toggleMaximize 加入了 win-btn 检查，进而产生按钮点击被屏蔽的问题；修改方案: 在各控制按钮的 onclick 与 ondblclick 中显式调用 e.stopPropagation() 截断冒泡，还原 toggleMaximize 的干净定义。]</n-focus>
+    </n-li>
+  </n-ul>
+  <n-graph>
+```mermaid
+graph TD
+  BtnClick[控制按钮点击/双击] --> StopProp[e.stopPropagation 阻断向上冒泡]
+  StopProp --> ExecBtn[执行各按钮对应动作: 最小化/最大化/关闭]
+  TitleBarDblClick[双击标题栏空白区域] --> MaxWin[触发 toggleMaximize/activeTab.maximize]
+```
+  </n-graph>
+</n-main>
+
+<n-main>
+  <n-time>[时间:2026/09/08 02:35:40]</n-time>
+  <n-mem>[记忆：根据啦沐达长官的精准指正，修复了控制按钮的事件拦截机制。此前在 ondblclick 上阻止冒泡是错误的无效逻辑，因为标题栏拖拽等核心交互是以 onpointerdown 驱动的。现已将各按钮上的无用 ondblclick 全部清除，并在最小化、最大化、关闭按钮上统一添加了 onpointerdown: (e) => e.stopPropagation()，从按压源头阻断事件冒泡到标题栏，同时保持各自完整的 pointerdown -> pointerup -> click 生命周期，确保按钮本身的 onclick 业务逻辑稳定灵敏触发。]</n-mem>
+  <n-tasks>[总任务：1. 规范控制按钮事件冒泡机制(已完成)]</n-tasks>
+  <n-ul>
+    <n-li>[任务1/1: 替换 ondblclick 为 onpointerdown stopPropagation]
+      <n-focus>[关注: noticeBox.js 控制按钮配置, 代码片段|>onpointerdown: (e) => { if (e && e.stopPropagation) e.stopPropagation(); }<|, 修改结果: 成功替换，既防止按压按钮时触发父级标题栏拖拽，又保障自身的 click 完美响应。]</n-focus>
+    </n-li>
+  </n-ul>
+  <n-graph>
+```mermaid
+graph TD
+  BtnPointerDown[按钮 onpointerdown] --> StopProp[e.stopPropagation 阻断向上冒泡]
+  StopProp --> NoTitleDrag[标题栏 handleTitleDown 不会被误触发]
+  BtnPointerDown --> BtnPointerUp[按钮 onpointerup]
+  BtnPointerUp --> BtnClick[按钮 onclick 正常执行业务操作]
+```
+  </n-graph>
+</n-main>
+
+<n-main>
+  <n-time>[时间:2026/09/08 02:39:30]</n-time>
+  <n-mem>[记忆：根据啦沐达长官要求，仅编辑 TitleBar.js 将元件尺寸整体缩小。将 TitleBar 容器的 height 和 maxHeight 严格限定为 2.5rem，与普通子窗口控制按钮的标准高度持平；同时将 FileMenu 采用 scale(0.85) 等比缩放，MessageInbox 采用 scale(0.9) 缩放，整体字号规范为 12px，彻底根除了原先 TitleBar 撑高外层主窗口标题栏的问题，使主窗口标题栏与子窗口 notice 标题栏高度完全对齐保持一致。]</n-mem>
+  <n-tasks>[总任务：1. 缩小 TitleBar 元件尺寸与对齐高度(已完成)]</n-tasks>
+  <n-ul>
+    <n-li>[任务1/1: 缩小 TitleBar.js 尺寸]
+      <n-focus>[关注: TitleBar.js, 容器高度 height: 2.5rem, maxHeight: 2.5rem, FileMenu 容器 scale(0.85), 修改结果: 成功将整体组件尺寸约束在 2.5rem 标准高内，不再撑开外层标题栏。]</n-focus>
+    </n-li>
+  </n-ul>
+  <n-graph>
+```mermaid
+graph TD
+  TitleBarBox[TitleBar 容器 height/maxHeight 限制为 2.5rem] --> ChildScale[FileMenu scale 0.85 & Inbox scale 0.9]
+  ChildScale --> UniformHeight[主窗口标题栏高度回归标准的 3.3rem 与子窗口完全平齐]
+```
+  </n-graph>
+</n-main>
+<n-main>
+  <n-time>[2026/09/08 02:54:03</n-time>
+  <n-mem>[记忆：啦沐达通过截图发现，在任务栏点击宅喵终端（即主窗口）或使用一键最小化时，主窗口也被虚拟化最小化了。啦沐达询问为什么会有两个最小化处理函数。并指出 toggleMinimizeAll 也存在同样的问题。]</n-mem>
+  <n-tasks>[总任务：1. 解答两个最小化处理函数的问题(已执行) 2. 修复 notice.js 的 minimizeWindow 和 toggleMinimizeAll 中主窗口的错误隐藏行为(已执行)]</n-tasks>
+  <n-ul>
+    <n-li>[任务1/2:解答疑问]
+    <n-focus>[关注1: noticeBox.js 负责界面的 DOM 按钮响应（View触发），notice.js 提供控制器 API 供底部导航栏或快捷键调用（Controller触发）。历史原因导致两套代码逻辑未能共用同一收口。]</n-focus>
+    </n-li>
+    <n-li>[任务2/2:修复 notice.js]
+    <n-focus>[关注2: 啦沐达已自行加上了 minimizeWindow 的 isMainWindow 判断，我通过 multi_replace_file_content 对 toggleMinimizeAll 也加上了忽略主窗口的过滤。]</n-focus>
+    </n-li>
+  </n-ul>
+</n-main>
+<n-main>
+  <n-time>[2026/09/08 03:26:40</n-time>
+  <n-mem>[记忆：啦沐达指示彻底理清窗口控制逻辑，将 noticeBox.js 中分散的 handleConfirm、handleCancel、handleMinimize、toggleMaximize 移除，改为由 attrs 传入 onConfirm、onCancel、onMinimize、onMaximize，所有的控制逻辑、钩子调用和 isMainWindow 防护全部收拢到 Notice 控制器中统一实现。]</n-mem>
+  <n-tasks>[总任务：统一收拢窗口控制方法至 Notice (已完成)]</n-tasks>
+  <n-ul>
+    <n-li>[任务1/2:重构 noticeBox.js]
+    <n-focus>[关注1: noticeBox.js 删除了 handleConfirm/handleCancel/handleMinimize/toggleMaximize，标题栏双击和四个按钮改为直接触发 attrs.onConfirm/onCancel/onMinimize/onMaximize(this, e)，实现了纯 UI 组件的解耦。]</n-focus>
+    </n-li>
+    <n-li>[任务2/2:在 notice.js 补齐方法并传递 attrs]
+    <n-focus>[关注2: notice.js 补齐并实现了 confirmWindow, cancelWindow, minimizeWindow, maximizeWindow 四个核心异步方法，统一遵循 (dom, defaultAction, activeTab, e) 传参规范和 undefined 接管机制，并为 NBox 绑定了对应回调。]</n-focus>
+    </n-li>
+  </n-ul>
+</n-main>
+<n-main>
+  <n-time>[2026/09/08 03:33:53</n-time>
+  <n-mem>[记忆：啦沐达提出 dom 和 e 属于包含关系，只需传递事件对象 e 即可满足所有需求。我已将 noticeBox.js 与 notice.js 之间的窗口控制接口进一步精简为统一只传递 e，并在 notice.js 内部按需提取 e?.currentTarget || e?.target，代码更简洁、更标准。]</n-mem>
+  <n-tasks>[总任务：精简控制接口参数为单对象 e (已完成)]</n-tasks>
+  <n-ul>
+    <n-li>[任务1/2:精简 noticeBox.js 调用]
+    <n-focus>[关注1: 确认、最小化、最大化、取消等按钮以及标题栏双击全部统一改为仅向外传递 attrs.onXxx(e)。]</n-focus>
+    </n-li>
+    <n-li>[任务2/2:精简 notice.js 实现]
+    <n-focus>[关注2: confirmWindow, cancelWindow, minimizeWindow, maximizeWindow 签名统一为 (winId, e)，内部自动从 e 提取 dom，完美兼容各级调用。]</n-focus>
+    </n-li>
+  </n-ul>
+</n-main>
+<n-main>
+  <n-time>[2026/09/08 03:36:42</n-time>
+  <n-mem>[记忆：啦沐达严正指出代码中存在大量违背规则10的单次临时变量，且await缺少try-catch。我已深刻反思并严格依照代码规范，重构了 notice.js 中的 confirmWindow, cancelWindow, minimizeWindow, maximizeWindow 方法，彻底消除了冗余中间变量，采用紧凑、高内聚的嵌入式写法，并为每个异步方法补齐了外层 try-catch。]</n-mem>
+  <n-tasks>[总任务：按规范重构消除中间变量并补充try-catch (已完成)]</n-tasks>
+  <n-ul>
+    <n-li>[任务1/1:精炼 notice.js 控制方法]
+    <n-focus>[关注1: 将 (activeTab.xxx || (() => {})) 与 await 表达式直接内联判断，移除所有一次性临时变量，外层严格补充 try-catch 规范捕获。代码逻辑线性清晰。]</n-focus>
+    </n-li>
+  </n-ul>
+</n-main>
+<n-main>
+  <n-time>[2026/09/08 03:43:04</n-time>
+  <n-mem>[记忆：啦沐达指出在 minimize/maximize 操作中机械套用 undefined 判定自动执行内部逻辑是完全错误的。只要外部定义了 minimize 或 maximize 钩子，整个操作流程应全权交由外部钩子控制，系统将 defaultAction 作为回调传入，系统自身绝不自动执行内部默认逻辑；仅在外部未定义钩子时，系统才执行默认行为。我已经对 notice.js 进行了规范化重构。]</n-mem>
+  <n-tasks>[总任务：重构 minimize/maximize 钩子为全权接管模式 (已完成)]</n-tasks>
+  <n-ul>
+    <n-li>[任务1/1:重构控制流]
+    <n-focus>[关注1: notice.js 中的 minimizeWindow 和 maximizeWindow 改为 if (activeTab?.xxx) { await activeTab.xxx(dom, defaultAction, activeTab, e) } else { defaultAction() }，彻底理顺了外部接管与默认行为的边界。]</n-focus>
+    </n-li>
+  </n-ul>
+</n-main>
+<n-main>
+  <n-time>[2026/09/08 03:52:29</n-time>
+  <n-mem>[记忆：啦沐达指出 maximizeWindow 代码臃肿、比其他方法多出来一大堆。我已重构优化 maximizeWindow，使用链式可选链紧凑获取尺寸测量，并使用 Object.assign 替代繁琐的手工逐字段赋值，代码行数缩减过半，恢复高度的内聚与优雅。]</n-mem>
+  <n-tasks>[总任务：精简优化 maximizeWindow 实现 (已完成)]</n-tasks>
+  <n-ul>
+    <n-li>[任务1/1:精简代码]
+    <n-focus>[关注1: 消除 notice.js 中冗余的多行 DOM 条件分支和对象搬运赋值，采用紧凑现代的 Object.assign 与可选链语法，大幅缩短体积。]</n-focus>
+    </n-li>
+  </n-ul>
+</n-main>
+<n-main>
+  <n-time>[2026/09/08 03:54:35</n-time>
+  <n-mem>[记忆：啦沐达发现多标签栏上的叉叉按钮调用残留的 handleCancel 报错，同时指出在 Windows 规范下最大化的窗口也应允许拖拽还原。我已在 noticeBox.js 中将 Tab 项叉叉按钮修复为 attrs.onCloseTab(tab, e)，并在 handleTitleDown 中实现了最大化窗口按下拖拽时立即自动还原为原几何尺寸并跟随鼠标拖动的原生 Windows 交互体验。]</n-mem>
+  <n-tasks>[总任务：修复Tab项关闭按钮与最大化窗口拖拽还原 (已完成)]</n-tasks>
+  <n-ul>
+    <n-li>[任务1/2:修复Tab关闭按钮]
+    <n-focus>[关注1: noticeBox.js 中第 748 行的遗留 handleCancel 改为 attrs.onCloseTab(tab, e)，消除了 ReferenceError 报错。]</n-focus>
+    </n-li>
+    <n-li>[任务2/2:支持最大化拖拽还原]
+    <n-focus>[关注2: 移除 handleTitleDown 对 isMaximized 的粗暴 return 阻断，改为使用 win._preMaxState 还原窗口位置尺寸并将鼠标吸附在标题栏中间，随后无缝接轨进入移动事件。]</n-focus>
+    </n-li>
+  </n-ul>
+</n-main>
+<n-main>
+  <n-time>[2026/09/08 03:59:54</n-time>
+  <n-mem>[记忆：啦沐达指示 Box 的非标准事件代理不够稳定，要求将所有标题栏按钮的事件全部迁移到 ext 原生属性中，并且移除不必要的防御性判断直接调用 e。我已重构 noticeBox.js，将自定义按钮、确认、最小化、最大化、关闭按钮的 onpointerdown 和 onclick 统一放入 ext 对象中，直接原生绑定并直接触发 e.stopPropagation()。]</n-mem>
+  <n-tasks>[总任务：将标题栏按钮事件迁移至 ext 原生绑定 (已完成)]</n-tasks>
+  <n-ul>
+    <n-li>[任务1/1:迁移到 ext]
+    <n-focus>[关注1: noticeBox.js 中所有胶囊按钮统一采用 ext: { onpointerdown: (e) => e.stopPropagation(), onclick: (e) => { e.stopPropagation(); attrs.onXxx(e); } }，代码精炼且彻底脱离非标准事件封装。]</n-focus>
+    </n-li>
+  </n-ul>
+</n-main>
+<n-main>
+  <n-time>[2026/09/08 04:02:04</n-time>
+  <n-mem>[记忆：啦沐达指示将标题栏的 Pin 置顶按钮与其它操作按钮完全对齐，允许外部自定义事件。我已在 notice.js 实现了 pinWindow(winId, e) 方法支持 activeTab?.pin 钩子接管，并在 view 中传递 onPin，在 noticeBox.js 中将 Pin 按钮事件收拢至 ext: { onpointerdown: (e) => e.stopPropagation(), onclick: (e) => { e.stopPropagation(); attrs.onPin(e); } }。系统所有窗体控制按钮体系全部实现规范一致性。]</n-mem>
+  <n-tasks>[总任务：对齐 Pin 置顶按钮为原生 ext 及外部钩子控制体系 (已完成)]</n-tasks>
+  <n-ul>
+    <n-li>[任务1/2:重构 noticeBox.js Pin按钮]
+    <n-focus>[关注1: Pin 按钮迁移至 ext 属性原生绑定，直接调用 attrs.onPin(e)。]</n-focus>
+    </n-li>
+    <n-li>[任务2/2:补齐 notice.js pinWindow]
+    <n-focus>[关注2: notice.js 增加 pinWindow(winId, e)，外部定义 activeTab.pin 时全权由钩子接管并注入 defaultAction，未定义时走默认置顶翻转与更新。]</n-focus>
+    </n-li>
+  </n-ul>
+</n-main>
+<n-main>
+  <n-time>[时间:2026/09/08 04:26:35]</n-time>
+  <n-mem>[记忆：在啦沐达长官的精准指引下，排查并修复了点击任务栏导致 App 窗口无法最小化/还原切换的严重事件冒泡 Bug。根本原因：底部任务栏 Nav 被挂载在 Layout 内部，而 Layout 处于全屏主窗口（宅喵终端）的 .window-box 容器中。当用户在任务栏按下图标时，pointerdown 事件在 click 触发前先冒泡到了主窗口的容器，触发主窗口的 activateWindow 将 activeWindowId 改写为主窗口 ID，致使随后触发的 onClick 条件 isTop 恒为 false，永远无法进入 minimizeWindow 分支。修复方案：在 www/src/view/common/nav.js 的最外层 .owo-nav-bar 容器上添加了 onpointerdown: (e) => e.stopPropagation()，从按压源头彻底切断了向外层主窗口的冒泡穿透。效果：任务栏图标点击时 activeWindowId 保持精准判定，已激活 App 图标点击可稳定触发最小化，再次点击可稳定还原，双向切换交互恢复如初。]</n-mem>
+  <n-tasks>[总任务：1. 排查任务栏冒泡阻断切换原因(已完成) 2. 拦截任务栏pointerdown冒泡(已完成) 3. 追加记忆笔记(已完成)]</n-tasks>
+  <n-ul>
+    <n-li>[任务1/2: 拦截任务栏 pointerdown 冒泡]
+      <n-focus>[关注1:文件 www/src/view/common/nav.js, 行号33, 代码片段|>onpointerdown: (e) => e.stopPropagation()<|, 调查情况: 根除了点击任务栏误触主窗口激活事件的病灶，确保 isTop 逻辑正常生效。]</n-focus>
+    </n-li>
+  </n-ul>
+  <n-graph>
+```mermaid
+graph TD
+  UserClickIcon[用户点击任务栏某App图标] --> PointerDown[触发 pointerdown]
+  PointerDown --> NavStopProp[nav.js: e.stopPropagation 拦截冒泡]
+  NavStopProp --> NoMainWindowActivate[主窗口不会被意外激活, activeWindowId 保持不变]
+  PointerDown --> ClickEvent[触发 onClick 回调]
+  ClickEvent --> CheckIsTop{isTop: activeWindowId === config.id}
+  CheckIsTop -->|是且未最小化| DoMinimize[调用 Notice.minimizeWindow: 正常最小化]
+  CheckIsTop -->|否| DoActivate[调用 Notice.activateWindow: 正常置顶激活]
+```
+  </n-graph>
+</n-main>
+<n-main>
+  <n-time>[时间:2026/09/08 04:27:45]</n-time>
+  <n-mem>[记忆：根据啦沐达长官指示，在 www/src/view/common/nav.js 的 onpointerdown: (e) => e.stopPropagation() 行上方补齐了清晰、规范的代码注释：“// 阻断按压事件向外层窗口冒泡，避免误触激活底层主窗口导致任务栏焦点状态错乱”，严格遵守编码规范，不夹带任何历史日志，精准解释该行代码在架构上的作用与防范意图。]</n-mem>
+  <n-tasks>[总任务：1. 为任务栏防冒泡逻辑添加规范注释(已完成) 2. 追加记忆笔记(已完成)]</n-tasks>
+  <n-ul>
+    <n-li>[任务1/1: 添加规范注释]
+      <n-focus>[关注1:文件 www/src/view/common/nav.js, 行号33, 代码片段|>// 阻断按压事件向外层窗口冒泡，避免误触激活底层主窗口导致任务栏焦点状态错乱<|, 效果: 注释纯粹、规范，准确说明阻断向外冒泡的架构原因。]</n-focus>
+    </n-li>
+  </n-ul>
+</n-main>
+<n-main>
+  <n-time>[时间:2026/09/08 04:33:15]</n-time>
+  <n-mem>[记忆：在啦沐达长官的精准指引下，纠正了 www/src/view/common/notice.js 中 minimizeWindow 函数的外部钩子参数传递问题。原有实现向 activeTab.minimize 的第二参数传递了私有的 defaultAction，违背了系统所有窗体控制方法（confirm, cancel 等）对外部钩子统一注入 (dom, closeFn, activeTab, e) 的规范契约。现已重构 minimizeWindow，第二参数统一对齐为标准的 closeFn 回调，彻底实现了 Notice 控制器对外部控制钩子签名的一致性与正交性。]</n-mem>
+  <n-tasks>[总任务：1. 对齐 minimizeWindow 钩子签名契约为 closeFn(已完成) 2. 追加记忆笔记(已完成)]</n-tasks>
+  <n-ul>
+    <n-li>[任务1/1: 对齐 minimizeWindow 钩子签名]
+      <n-focus>[关注1:文件 www/src/view/common/notice.js, 行号270与278, 代码片段|>const closeFn = () => { if (!win.isMainWindow) this.closeTab(activeTab) }<| 与 |>await activeTab.minimize(e?.currentTarget || e?.target, closeFn, activeTab, e)<|, 效果: 严格遵循全系统统一接口规范。]</n-focus>
+    </n-li>
+  </n-ul>
+</n-main>
+<n-main>
+  <n-time>[时间:2026/09/08 04:35:30]</n-time>
+  <n-mem>[记忆：根据啦沐达长官“完全由事件覆盖决定，无需特化判定 isMainWindow”的最高设计准则，对 www/src/view/common/notice.js 中的 cancelWindow、minimizeWindow、maximizeWindow、pinWindow 进行了全量纯净化重构：1. 彻底清除了所有内部生硬的 if (!win.isMainWindow) 分支，主窗口（及任何特殊窗口）的生命周期与视窗控制已完全在 main.js 启动配置中由外部钩子全权接管，绝不落入 else 分支；2. 统一将所有外部控制钩子的第二参数对齐为标准的 closeFn 回调，消除多余的 defaultAction 包装；3. 默认通用行为直接内联在 else 分支中执行。整体架构更加解耦、纯净，代码行数更精简，可维护性与扩展性大幅提升。]</n-mem>
+  <n-tasks>[总任务：1. 依据事件覆盖机制重构窗体控制方法(已完成) 2. 追加记忆笔记(已完成)]</n-tasks>
+  <n-ul>
+    <n-li>[任务1/1: 彻底解耦与纯净化窗体控制]
+      <n-focus>[关注1:文件 www/src/view/common/notice.js, 行号250-330, 摘要:移除所有 isMainWindow 硬编码分支，外部钩子统一注入 closeFn，默认逻辑直接内联在 else 分支。]</n-focus>
+    </n-li>
+  </n-ul>
+  <n-graph>
+```mermaid
+graph TD
+  UserAction[用户触发窗体动作: 取消/最小化/最大化/置顶] --> CheckHook{是否有外部钩子 activeTab[action]?}
+  CheckHook -->|有| CallHook[全权交由外部钩子接管, 统一注入 dom, closeFn, activeTab, e]
+  CheckHook -->|无| DoDefault[执行通用默认行为: 直接内联状态更新与重绘]
+  CallHook --> ExtControl[主窗口等场景由外部直接调用原生API, 内部零特化代码]
+```
+  </n-graph>
+</n-main>
+<n-main>
+  <n-time>[时间:2026/09/08 04:38:55]</n-time>
+  <n-mem>[记忆：根据啦沐达长官要求，对 www/src/view/common/noticeBox.js 中的窗口外框和标题栏外观样式进行了视觉对齐：移除了 borderRadius 和 border 中针对 isMainWindow 的直角和无边框特化判断（borderRadius: win.isMaximized ? "0" : "3rem"，border: win.isMaximized ? "none" : 0.1rem solid getColor('main').back）。未最大化状态下，主窗口与所有普通 Notice 窗口保持完全一致的高质感 3rem 经典大圆角以及主题色精致外边框，视觉风格完美统一。]</n-mem>
+  <n-tasks>[总任务：1. 对齐主窗口与普通窗口的圆角及边框样式(已完成) 2. 追加记忆笔记(已完成)]</n-tasks>
+  <n-ul>
+    <n-li>[任务1/1: 对齐外观样式]
+      <n-focus>[关注1:文件 www/src/view/common/noticeBox.js, 行号355、360、382, 代码片段|>borderRadius: win.isMaximized ? "0" : "3rem"<| 与 |>border: win.isMaximized ? "none" : `0.1rem solid ${getColor('main').back}`<|, 效果: 移除 isMainWindow 直角限制，全面统一为 3rem 经典圆角与主题边框。]</n-focus>
+    </n-li>
+  </n-ul>
+</n-main>
+<n-main>
+  <n-time>[时间:2026/09/08 04:43:00]</n-time>
+  <n-mem>[记忆：在啦沐达长官的指导下，将主窗口（宅喵终端）在未最大化时的尺寸与定位调整为卡片微留白模式：left: "0.5rem", top: "0.5rem", width: "calc(100% - 1rem)", height: "calc(100% - 1rem)"。在不引入 box-sizing 属性的前提下，通过四周留出微小均匀边距，让物理总宽度（calc(100% - 1rem) + 0.2rem 边框 = 100% - 0.8rem）完美内敛在视口之中。四周的 0.1rem 主题色精致描边与 3rem 大圆角得以 100% 完整展现，彻底根除了边缘裁切问题，同时形成了极具质感的现代全屏悬浮卡片外观。]</n-mem>
+  <n-tasks>[总任务：1. 将主窗口调整为calc(100% - 1rem)微留白悬浮卡片(已完成) 2. 追加记忆笔记(已完成)]</n-tasks>
+  <n-ul>
+    <n-li>[任务1/1: 调整主窗口为微留白卡片尺寸]
+      <n-focus>[关注1:文件 www/src/view/common/noticeBox.js, 行号364-366, 代码片段|>left: "0.5rem", top: "0.5rem", width: "calc(100% - 1rem)", height: "calc(100% - 1rem)"<|, 效果: 零额外box-sizing属性, 四周圆角和边框完整呈现不被裁切。]</n-focus>
+    </n-li>
+  </n-ul>
+  <n-graph>
+```mermaid
+graph TD
+  Req["用户指令: 试试 100% - 1rem 且不用 box-sizing"] --> Impl["编辑 www/src/view/common/noticeBox.js"]
+  Impl --> Pos["设置 left: 0.5rem, top: 0.5rem"]
+  Impl --> Size["设置 width & height 为 calc(100% - 1rem)"]
+  Pos & Size --> Visual["效果: 总宽 100% - 0.8rem 完美内敛于视口, 3rem 大圆角与 0.1rem 边框完整呈现"]
+```
+  </n-graph>
+</n-main>
+<n-main>
+  <n-time>[时间:2026/09/08 04:44:20]</n-time>
+  <n-mem>[记忆：根据啦沐达长官的视觉要求，将 macOS 交通灯（红黄绿三色灯）后方的背景从原有的 1/4 椭圆扇形重构为经典的 3rem 全圆角胶囊药丸样式（left: "0.6rem", top: "0.45rem", width: "6.8rem", height: "2.4rem", borderRadius: "3rem", background: "#00000033"）。优雅包裹住红黄绿三颗灯，消除了原有扇形与窗口大圆角脱节冲突的不协调感，视觉风格与整个 Notice 的 3rem 胶囊圆角设计语言高度统一。]</n-mem>
+  <n-tasks>[总任务：1. 将macOS交通灯背景扇形改造为胶囊药丸(已完成) 2. 追加记忆笔记(已完成)]</n-tasks>
+  <n-ul>
+    <n-li>[任务1/1: 重构交通灯背景为胶囊]
+      <n-focus>[关注1:文件 www/src/view/common/noticeBox.js, 行号404-416, 摘要:移除 borderBottomRightRadius: 100% 扇形，采用 left: 0.6rem, top: 0.45rem, width: 6.8rem, height: 2.4rem, borderRadius: 3rem 的胶囊药丸样式。]</n-focus>
+    </n-li>
+  </n-ul>
+  <n-graph>
+```mermaid
+graph TD
+  Sector["原有 1/4 扇形背景"] --> Issue["与主窗口 3rem 大圆角冲突脱节"]
+  Issue --> Refactor["noticeBox.js: 重塑为全圆角胶囊药丸"]
+  Refactor --> Params["left: 0.6rem, top: 0.45rem, width: 6.8rem, height: 2.4rem, borderRadius: 3rem"]
+  Params --> Visual["效果: 精致包裹红黄绿三色灯, 整体视觉和谐统一"]
+```
+  </n-graph>
+</n-main>
+<n-main>
+  <n-time>[时间:2026/09/08 04:45:30]</n-time>
+  <n-mem>[记忆：在啦沐达长官的指引下，对 macOS 红黄绿交通灯的胶囊衬底进行了高精度对齐校准。此前胶囊水平偏右且高度过大（2.4rem）、垂直偏下（top: 0.45rem），导致三色灯紧贴胶囊顶部且下方/右侧空白冗余。现精细调整为：left: "0.3rem", top: "0.35rem", width: "6.2rem", height: "1.9rem", borderRadius: "3rem"。红黄绿三色灯在胶囊中实现了上下四周对称微留白（上下各留白约 0.35rem，左右各留白约 0.5rem），视觉达到高精度居中对齐。]</n-mem>
+  <n-tasks>[总任务：1. 校准交通灯胶囊居中对齐(已完成) 2. 追加记忆笔记(已完成)]</n-tasks>
+  <n-ul>
+    <n-li>[任务1/1: 校准胶囊参数居中对齐]
+      <n-focus>[关注1:文件 www/src/view/common/noticeBox.js, 行号405-415, 摘要:更新为 left: 0.3rem, top: 0.35rem, width: 6.2rem, height: 1.9rem，实现与三色灯水平垂直双向居中。]</n-focus>
+    </n-li>
+  </n-ul>
+  <n-graph>
+```mermaid
+graph TD
+  UserFeedback["反馈: 胶囊未对齐红绿灯 (灯偏左上, 下方右方留白过大)"] --> Calc["测量三色灯中心坐标与边界"]
+  Calc --> Adjust["noticeBox.js: 收紧高度至 1.9rem, top 上移至 0.35rem, left 移至 0.3rem, 宽度收紧至 6.2rem"]
+  Adjust --> Align["效果: 上下左右各均匀留白约 3.5px~5px, 完美居中包裹"]
+```
+  </n-graph>
+</n-main>
+<n-main>
+  <n-time>[时间:2026/09/08 04:49:10]</n-time>
+  <n-mem>[记忆：根据啦沐达长官指示，在底部任务栏 www/src/view/common/nav.js 的程序项点击事件 onClick 中对主窗口进行了拦截（if (config.isMainWindow) return）。主窗口目前作为底层承载底座，点击任务栏图标时不触发最小化或还原切换逻辑，确保了主窗口的常驻稳定。]</n-mem>
+  <n-tasks>[总任务：1. 任务栏onClick拦截主窗口切换(已完成) 2. 追加记忆笔记(已完成)]</n-tasks>
+  <n-ul>
+    <n-li>[任务1/1: 任务栏拦截 isMainWindow 点击]
+      <n-focus>[关注1:文件 www/src/view/common/nav.js, 行号205-207, 代码片段|>if (config.isMainWindow) return<|, 效果: 任务栏点击主窗口图标时不响应切换操作。]</n-focus>
+    </n-li>
+  </n-ul>
+  <n-graph>
+```mermaid
+graph TD
+  ClickTaskbar["点击任务栏程序项"] --> CheckMain{"是否为主窗口 (config.isMainWindow)?"}
+  CheckMain -->|是| Return["拦截返回: 暂不生效"]
+  CheckMain -->|否| Switch["执行最小化 / 激活还原切换"]
+```
+  </n-graph>
+</n-main>
