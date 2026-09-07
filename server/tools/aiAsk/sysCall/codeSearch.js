@@ -97,7 +97,7 @@ export default {
       return `错误：指定的搜索目录不存在: ${targetDir}`
     }
 
-    let commentSuffix = ""
+    let userComment = null
     // 读白名单 = 主目录 + 辅助目录，全部工作目录内不拦截
     const workDirs = workDirTool.getWorkDirs(metaData.listId)
     const isInProject = workDirs.some(dir => targetDir === dir.path || targetDir.startsWith(dir.path + pathLib.sep))
@@ -113,7 +113,7 @@ export default {
         }
       })
       if (!userConfirm.ok) return `用户拒绝在项目外搜索：${targetDir}。原因：${userConfirm.comment || "未提供"}`
-      if (userConfirm.comment) commentSuffix = `用户备注：${userConfirm.comment}\n\n`
+      if (userConfirm.comment) userComment = `【用户备注】${userConfirm.comment}`
     }
 
     const maxLimit = maxResults || 50
@@ -192,13 +192,15 @@ export default {
       let currentFileMatches = []
 
       let errorMsg = ""
-      const child = spawn(rgPath, args, { cwd: targetDir })
+      const isDir = fs.statSync(targetDir).isDirectory()
+      const cwdDir = isDir ? targetDir : (mainDir || pathLib.dirname(targetDir))
+      const child = spawn(rgPath, args, { cwd: cwdDir })
 
       child.on("error", (err) => {
         if (!isDone) {
           isDone = true
           clearTimeout(timer)
-          resolve(commentSuffix + "搜索进程启动/执行异常：" + err.message)
+          resolve((userComment ? `${userComment}\n\n` : "") + "搜索进程启动/执行异常：" + err.message)
         }
       })
 
@@ -324,17 +326,72 @@ export default {
         if (isDone) return
         isDone = true
         clearTimeout(timer)
-        if (code === 1 && fileSet.size === 0 && results.length === 0) {
-          resolve(commentSuffix + "未找到匹配内容。")
-        } else if (code === 2 && fileSet.size === 0 && results.length === 0) {
-          resolve(`搜索出错：${errorMsg || "进程异常退出"}`)
+        if (code === 2 && fileSet.size === 0 && results.length === 0) {
+          resolve((userComment ? `${userComment}\n\n` : "") + `搜索出错：${errorMsg || "进程异常退出"}`)
         } else {
           resolveResult()
         }
       })
 
       function resolveResult() {
-        if (matchPerLine && contextLines > 0 && currentFileMatches.length > 0) {
+        const SAFE_CHAR_LIMIT = 15000
+
+        if (!matchPerLine) {
+          const allFiles = Array.from(fileSet)
+          if (allFiles.length === 0) {
+            resolve({
+              ...(userComment ? { userComment } : {}),
+              totalFiles: 0,
+              shownCount: 0,
+              isTruncated: false,
+              isTimeout: isTimeout || false,
+              summary: userComment ? `${userComment}；${isTimeout ? "搜索超时，未找到匹配文件。" : "未找到匹配文件。"}` : (isTimeout ? "搜索超时，未找到匹配文件。" : "未找到匹配文件。"),
+              files: []
+            })
+            return
+          }
+
+          let shownFiles = limitReached ? allFiles.slice(0, maxLimit) : allFiles.slice()
+          let isCharClipped = false
+
+          const buildFileSummary = () => {
+            let text = ""
+            if (isCharClipped) {
+              text = `共命中 ${fileSet.size} 个文件。受 15000 字符安全限制，当前仅展示前 ${shownFiles.length} 个。结果过多表明搜索条件过宽，请修改条件缩小搜索范围。`
+            } else if (limitReached) {
+              text = `共命中 ${fileSet.size} 个文件，达到上限仅展示前 ${maxLimit} 个${isTimeout ? "；搜索超时，统计可能不完整" : ""}。结果过多表明搜索条件过宽，请修改条件缩小搜索范围。`
+            } else if (isTimeout) {
+              text = `搜索耗时超过 ${timeoutMs}ms，已强制终止，共命中 ${fileSet.size} 个文件（部分结果）。`
+            } else {
+              text = `共命中 ${fileSet.size} 个文件，已展示全部匹配文件。`
+            }
+            return userComment ? `${userComment}；${text}` : text
+          }
+
+          const resObj = {
+            ...(userComment ? { userComment } : {}),
+            totalFiles: fileSet.size,
+            shownCount: shownFiles.length,
+            isTruncated: limitReached,
+            isTimeout: isTimeout || false,
+            summary: buildFileSummary(),
+            files: shownFiles
+          }
+
+          while (shownFiles.length > 1 && JSON.stringify(resObj).length > SAFE_CHAR_LIMIT) {
+            shownFiles.pop()
+            isCharClipped = true
+            resObj.isTruncated = true
+            resObj.shownCount = shownFiles.length
+            resObj.summary = buildFileSummary()
+          }
+
+          resolve(resObj)
+          return
+        }
+
+        // matchPerLine === true
+        if (contextLines > 0 && currentFileMatches.length > 0) {
           for (const matchItem of currentFileMatches) {
             const targetLine = matchItem.line
             const ctxArr = []
@@ -349,37 +406,72 @@ export default {
           }
           currentFileMatches = []
         }
-        if (!matchPerLine) {
-          if (fileSet.size === 0) {
-            resolve(commentSuffix + (isTimeout ? "搜索超时，未找到匹配内容。" : "未找到匹配内容。"))
-            return
-          }
-          const allFiles = Array.from(fileSet)
-          const shownFiles = limitReached ? allFiles.slice(0, maxLimit) : allFiles
-          let output = JSON.stringify(shownFiles, null, 2)
-          if (limitReached) {
-            output += `\n\n(注意：共 ${fileSet.size} 个文件命中，仅显示前 ${maxLimit} 个${isTimeout ? "；搜索超时，统计可能不完整" : ""})`
-          } else if (isTimeout) {
-            output += `\n\n(注意：搜索耗时超过 ${timeoutMs}ms，已强制终止，以上为部分结果且统计不完整)`
-          } else {
-            output += `\n\n(共 ${fileSet.size} 个文件命中，已全部显示)`
-          }
-          resolve(commentSuffix ? commentSuffix + output : output)
-        } else {
-          if (results.length === 0) {
-            resolve(commentSuffix + (isTimeout ? "搜索超时，未找到匹配内容。" : "未找到匹配内容。"))
-            return
-          }
-          let output = JSON.stringify(results, null, 2)
-          if (limitReached) {
-            output += `\n\n(注意：共命中 ${matchCount} 行 / ${matchFileSet.size} 个文件，仅显示前 ${maxLimit} 行${isTimeout ? "；搜索超时，统计可能不完整" : ""})`
-          } else if (isTimeout) {
-            output += `\n\n(注意：搜索耗时超过 ${timeoutMs}ms，已强制终止，以上为部分结果且统计不完整)`
-          } else {
-            output += `\n\n(共命中 ${matchCount} 行 / ${matchFileSet.size} 个文件，已全部显示)`
-          }
-          resolve(commentSuffix ? commentSuffix + output : output)
+
+        if (results.length === 0) {
+          resolve({
+            ...(userComment ? { userComment } : {}),
+            totalMatches: 0,
+            totalFiles: 0,
+            shownCount: 0,
+            isTruncated: false,
+            isTimeout: isTimeout || false,
+            summary: userComment ? `${userComment}；${isTimeout ? "搜索超时，未找到匹配内容。" : "未找到匹配内容。"}` : (isTimeout ? "搜索超时，未找到匹配内容。" : "未找到匹配内容。"),
+            results: []
+          })
+          return
         }
+
+        let isCharClipped = false
+
+        const buildSummary = () => {
+          let text = ""
+          if (isCharClipped) {
+            text = `共检索命中 ${matchCount} 行 / ${matchFileSet.size} 个文件。受 15000 字符安全限制，当前仅展示前 ${results.length} 条。结果过多表明搜索条件过宽，请修改条件缩小搜索范围。`
+          } else if (limitReached) {
+            text = `共命中 ${matchCount} 行 / ${matchFileSet.size} 个文件，达到上限仅展示前 ${maxLimit} 条${isTimeout ? "；搜索超时，统计可能不完整" : ""}。结果过多表明搜索条件过宽，请修改条件缩小搜索范围。`
+          } else if (isTimeout) {
+            text = `搜索耗时超过 ${timeoutMs}ms，已强制终止，共命中 ${matchCount} 行 / ${matchFileSet.size} 个文件（部分结果）。`
+          } else {
+            text = "已展示全量命中结果。"
+          }
+          return userComment ? `${userComment}；${text}` : text
+        }
+
+        const resObj = {
+          ...(userComment ? { userComment } : {}),
+          totalMatches: matchCount,
+          totalFiles: matchFileSet.size,
+          shownCount: results.length,
+          isTruncated: limitReached,
+          isTimeout: isTimeout || false,
+          summary: buildSummary(),
+          results: results
+        }
+
+        // 15,000 字符安全红线：整条出栈保护
+        while (results.length > 1 && JSON.stringify(resObj).length > SAFE_CHAR_LIMIT) {
+          results.pop()
+          isCharClipped = true
+          resObj.isTruncated = true
+          resObj.shownCount = results.length
+          resObj.summary = buildSummary()
+        }
+
+        // 极端边界保护：若只剩 1 条依然超长（如单行巨大），做单条安全裁剪
+        if (results.length === 1 && JSON.stringify(resObj).length > SAFE_CHAR_LIMIT) {
+          const single = results[0]
+          if (single.context) {
+            delete single.context
+          }
+          if (typeof single.content === "string" && single.content.length > 1000) {
+            single.content = single.content.slice(0, 1000) + "... (单行过长已截断)"
+          }
+          isCharClipped = true
+          resObj.isTruncated = true
+          resObj.summary = buildSummary()
+        }
+
+        resolve(resObj)
       }
     })
   },
@@ -404,17 +496,16 @@ export default {
 
   getDoc() {
     return `
-全局代码内容搜索工具。
+全局代码内容搜索工具（基于 ripgrep 高速引擎）。
 
 【调用范例】：
 1. 精确搜索：{ query: "createWindow", includes: ["*.js"] }
 2. 空格语句与正则：{ query: "function handleUser", contextLines: 2 } 或 { query: "function\\\\s+handle\\\\w+", isRegex: true }
 3. 仅需匹配文件清单：{ query: "import { spawn }", matchPerLine: false }
 
-【行为说明】：
-- 默认带前后各 6 行上下文（contextLines），传 contextLines:0 可关闭以节省 Token。
-- 结果达到 maxResults 上限时不会立即截断，而是继续读完以统计真实总量，并附注“共命中 X 行 / Y 个文件，仅显示前 N 行”；命中量极大时受 timeout 兜底，统计可能不完整。
-- 【正则须知】请勿使用 /pattern/flags 斜杠包裹写法(底层 rg 会把斜杠当字面量且不解析 flags)；大小写请用 caseSensitive 参数，高级语法(前瞻/后顾/反向引用)请开启 pcre2:true。
+【返回字段说明】：
+- 返回原生对象：{ totalMatches, totalFiles, shownCount, isTruncated, summary, results / files, userComment? }。
+- 【正则须知】请勿使用 /pattern/flags 斜杠包裹写法；区分大小写用 caseSensitive，复杂正则(前瞻/后顾)请开启 pcre2:true。
 
 *注：如需按文件名模糊检索文件路径，请使用 fileFind 工具。
     `.trim()

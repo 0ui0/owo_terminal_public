@@ -15,7 +15,10 @@ export default {
     const addedLinks = []
 
     await comData.data.edit((data) => {
-      const graph = data.chatLists[listId].graph
+      const list = data.chatLists.find(l => l.id === listId)
+      if (!list) throw new Error("找不到当前会话配置")
+      if (!list.graph) list.graph = { nodes: {}, links: [] }
+      const graph = list.graph
       // 1. 先创建节点
       if (nodes) {
         nodes.forEach(node => {

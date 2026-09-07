@@ -17,6 +17,7 @@ import HelpMenu from "../common/HelpMenu.js"
 import getColor from "../common/getColor.js"
 import ChatModelSelector from "./ChatModelSelector.js"
 import ChatSendParams from "./ChatSendParams.js"
+import ChatSendQuickMenu from "./ChatSendQuickMenu.js"
 
 const updateListSession = async (listId, updates) => {
   chatData.initSessionState(listId, updates);
@@ -87,9 +88,9 @@ export default () => {
     // 匹配类似 [xxx:yyy] 的标签结构，不过于限定特定的关键词白名单
     const quoteRegex = /\[[a-zA-Z0-9_]+:[^\]]+\]/ig;
     if (quoteRegex.test(currentInput)) {
-      const quoteTip = trs("输入栏/提示/引用检测", { 
-        cn: "若用户在正文中引用了类似[appid:msg]格式的相关标记，请优先使用工具阅读引用内容。", 
-        en: "If the user quotes tags like [appid:msg] in the text, please use tools to read the cited content first." 
+      const quoteTip = trs("输入栏/提示/引用检测", {
+        cn: "若用户在正文中引用了类似[appid:msg]格式的相关标记，请优先使用工具阅读引用内容。",
+        en: "If the user quotes tags like [appid:msg] in the text, please use tools to read the cited content first."
       });
       if (currentInput.trim()) {
         currentInput += `\n\n[系统附加指令]：${quoteTip}`;
@@ -255,10 +256,17 @@ export default () => {
           flexDirection: "column"
         }
       }, [
+        // 发送模式与附加阶段快捷菜单 (独立外部组件，手机端不显示)
+        !window.Mob ? m(ChatSendQuickMenu, {
+          targetChatListId,
+          targetSession,
+          updateListSession
+        }) : null,
+
         m("", {
           style: {
             display: "flex",
-            margin: "1rem",
+            margin: "0.5rem 1rem 1rem 1rem",
             flexWrap: "wrap",
             gap: "0.5rem",
             alignItems: "center"
@@ -360,7 +368,8 @@ export default () => {
                   verticalAlign: "bottom",
                   overflow: "hidden",
                   textOverflow: "ellipsis",
-                  whiteSpace: "nowrap"
+                  whiteSpace: "nowrap",
+                  fontSize: "1.3rem"
                 }
               }, [
                 (settingData.options.get("ai_aiList")?.find(m => m.id === targetSession.currentModelId)?.name) || "请选择模型"
@@ -377,6 +386,7 @@ export default () => {
                 marginRight: 0,
                 borderTopLeftRadius: 0,
                 borderBottomLeftRadius: 0,
+                fontSize: "1.3rem"
               },
               ext: {
                 onclick: async () => {

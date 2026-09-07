@@ -49,9 +49,14 @@ export default {
       const sliceEnd = end
       const sliced = allLines.slice(sliceStart, sliceEnd)
       const numbered = sliced.map((line, i) => `${start + i}: ${line}`).join("\n")
+      
+      let finalText = numbered
+      if (finalText.length > 15000) {
+        finalText = finalText.slice(0, 15000) + "\n\n⚠️ 【系统警告】：由于单行超长或字符密度过高，本次查询结果总字数超出 15000 字符安全限制，已被强制尾部截断。如需查看被截断内容，请缩小 startLine 和 endLine 区间，或使用写入文件的方式进行分析。"
+      }
 
       return {
-        text: numbered,
+        text: finalText,
         totalLines,
         from: start,
         to: end

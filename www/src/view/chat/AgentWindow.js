@@ -10,7 +10,7 @@ export default ({ listId, agentName }) => {
     view() {
       const targetId = chatData.getSessionState(listId).lockedListId || listId;
       const chatList = comData.getChatList(targetId) || comData.getChatList(listId);
-      
+
       if (!chatList) {
         return m("", {
           style: {
@@ -28,8 +28,9 @@ export default ({ listId, agentName }) => {
           display: "flex",
           flexDirection: "column",
           height: "100%",
-          boxSizing: "border-box",
-          margin:"0.5rem",
+          margin: "0.5rem",
+          minHeight: "0",
+
         }
       }, [
         // 聊天列表

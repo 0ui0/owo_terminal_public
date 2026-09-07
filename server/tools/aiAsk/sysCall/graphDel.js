@@ -10,7 +10,9 @@ export default {
     const { ids } = argObj
 
     await comData.data.edit((data) => {
-      const graph = data.chatLists[listId].graph
+      const list = data.chatLists.find(l => l.id === listId)
+      if (!list || !list.graph) return
+      const graph = list.graph
       ids.forEach(id => {
         delete graph.nodes[id]
         graph.links = graph.links.filter(link => link.from !== id && link.to !== id)

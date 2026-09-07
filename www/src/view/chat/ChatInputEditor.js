@@ -5,6 +5,8 @@ import getColor from "../common/getColor.js";
 import Notice from "../common/notice.js";
 import Box from "../common/box.js";
 
+
+
 /**
  * ChatInputEditor - 一个基于 contenteditable 的富文本编辑器
  * 支持将 [attachid:id] 和 [appid:id] 渲染为 Chip (标签)
@@ -482,6 +484,9 @@ export default () => {
             },
             contenteditable: true,
             placeholder: attrs.placeholder || "",
+            onfocus: () => {
+              data.inputDom = editorDom;
+            },
             onblur: () => {
               // 失焦时克隆保存当前光标 Range，用于 Notice 弹窗等场景恢复
               const sel = window.getSelection();
@@ -623,6 +628,7 @@ export default () => {
                   xhr.send(formData);
                 }
               }
+
             },
             onkeydown: (e) => {
               // 处理输入法组字状态，避免在选词时触发提交

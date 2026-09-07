@@ -10,7 +10,10 @@ export default {
     const { links } = argObj
 
     await comData.data.edit((data) => {
-      const graph = data.chatLists[listId].graph
+      const list = data.chatLists.find(l => l.id === listId)
+      if (!list) throw new Error("找不到当前会话配置")
+      if (!list.graph) list.graph = { nodes: {}, links: [] }
+      const graph = list.graph
       if (links) {
         links.forEach(link => {
           if (graph.nodes[link.from] && graph.nodes[link.to]) {

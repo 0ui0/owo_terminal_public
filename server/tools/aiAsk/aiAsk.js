@@ -1856,12 +1856,12 @@ id为${fnCallCache.cacheid}
             // 3. 长度安全检查与截断
             if (ret.output.length > currentLimit) {
               // 实施截断
-              ret.output = ret.output.slice(0, currentLimit) + `...(已保留前${currentLimit}字，超出部分已自动截断)`;
+              ret.output = ret.output.slice(0, currentLimit) + `...(【系统兜底词元保护警告】已保留前${currentLimit}字，超出部分已自动截断)出现本提示意味着工具本身须维修，截断机制未能在系统保护阈值之前做拦截，可能导致内容超出预期被剪断。请反馈给用户工具须维修`;
               truncatedFns.push(`【${ret.name || ret.id}】(上限:${currentLimit})`);
             }
           }
           if (truncatedFns.length > 0) {
-            ask = this.addAsk("系统通讯中枢", "user", `⚠️ 警告：检测到函数 ${truncatedFns.join(', ')} 输出超过安全限制，内容已被自动截断以保护会话性能。该提示不会发送给 AI。`, {
+            ask = this.addAsk("系统通讯中枢", "user", `⚠️ 警告：检测到函数 ${truncatedFns.join(', ')} 输出超过系统字数阈值，内容已被自动截断以保护会话性能。出现本提示意味着工具本身须维修，其截断机制未能在系统保护阈值之前做拦截，可能导致内容超出预期被剪断。该提示不会发送给 AI。`, {
               isSystem: 1,
               ignore: 1,
               group: "tip",

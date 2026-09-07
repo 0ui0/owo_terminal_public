@@ -8,7 +8,8 @@ export default {
 
   async fn(argObj, context) {
     const listId = context.listId ?? 0
-    const graph = comData.data.get().chatLists[listId].graph
+    const list = comData.data.get().chatLists.find(l => l.id === listId)
+    const graph = list?.graph
 
     if (!graph || Object.keys(graph.nodes).length === 0) {
       return "当前网点图为空喵！"

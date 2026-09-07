@@ -14,8 +14,8 @@ export default {
     return [
       { value: "无附加", label: trs("发送组/无附加", { cn: "无附加", en: "None" }), text: "" },
       { value: "调查并讨论", label: trs("发送组/调查并讨论", { cn: "调查并讨论", en: "Investigate & Discuss" }), text: "调查相关问题并和用户讨论，本阶段仅使用只读工具。" },
-      { value: "规划任务", label: trs("发送组/规划任务", { cn: "规划任务", en: "Plan Tasks" }), text: "本阶段需要调查并在项目目录编写任务计划书，编写完毕后由用户审核，本阶段使用只读工具。" },
-      { value: "执行任务", label: trs("发送组/执行任务", { cn: "执行任务", en: "Execute" }), text: "用户批准执行当前任务，请耐心完成" }
+      { value: "规划任务", label: trs("发送组/规划任务", { cn: "规划任务", en: "Plan Tasks" }), text: "本阶段需要调查并编写任务计划书，同时更新待完成任务清单，编写完毕后由用户审核，本阶段不执行任务。推荐一次性调查所有待改文件清单并写入任务清单，而后使用filePatcher工具批处理完成" },
+      { value: "执行任务", label: trs("发送组/执行任务", { cn: "执行任务", en: "Execute" }), text: "用户批准执行当前任务，请更新任务面板进度并逐项完成" }
     ]
   },
   inputDom: null,
