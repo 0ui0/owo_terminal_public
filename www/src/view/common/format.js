@@ -308,6 +308,26 @@ marked.setOptions({
   }
 });
 
+const terminalExtension = {
+  name: 'terminal',
+  level: 'block',
+  start(src) { return src.match(/<terminal>/i)?.index; },
+  tokenizer(src) {
+    const rule = /^<terminal>([\s\S]*?)<\/terminal>/i;
+    const match = rule.exec(src);
+    if (match) {
+      return {
+        type: 'terminal',
+        raw: match[0],
+        text: match[1].trim()
+      };
+    }
+  },
+  renderer(token) {
+    return renderMD.code({ text: token.text, lang: 'terminal' });
+  }
+};
+marked.use({ extensions: [terminalExtension] });
 const formatCache = new Map();
 
 if (!window.__owoFormatListenerAdded) {
@@ -426,6 +446,7 @@ const formatImpl = function (content, type, opt) {
         </div>`;
       }
     });
+
     try {
       code = marked(content.replace(/\$\$[^\$\$]+\$\$/g, function (i) {
         return katex.renderToString(i.replace(/\$\$/g, ""), {

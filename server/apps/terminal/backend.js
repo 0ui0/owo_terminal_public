@@ -261,9 +261,18 @@ export default {
         if (!session?.shell?.pid) return { ok: true, hasRunningProcess: false }
         try {
           if (process.platform === "win32") {
-            const { stdout } = await execAsync(`wmic process where ParentProcessId=${session.shell.pid} get ProcessId`)
-            const pids = stdout.trim().split("\n").map(l => l.trim()).filter(l => /^\d+$/.test(l))
-            return { ok: true, hasRunningProcess: pids.length > 0 }
+            try {
+              const psCmd = `Get-CimInstance Win32_Process -Filter "ParentProcessId=${session.shell.pid} and Name != 'conhost.exe'" | Select-Object -ExpandProperty ProcessId`
+              const { stdout } = await execAsync(`powershell -NoProfile -Command "${psCmd}"`)
+              const pids = stdout.trim().split(/\r?\n/).map(l => l.trim()).filter(l => /^\d+$/.test(l))
+              return { ok: true, hasRunningProcess: pids.length > 0 }
+            } catch (e) {
+              console.log("win终端复用检测失败1", e)
+              // 优雅降级：如果遇到老系统不支持 Get-CimInstance 或者其他异常，回退使用原版的 wmic
+              const { stdout } = await execAsync(`wmic process where ParentProcessId=${session.shell.pid} get ProcessId`)
+              const pids = stdout.trim().split("\n").map(l => l.trim()).filter(l => /^\d+$/.test(l))
+              return { ok: true, hasRunningProcess: pids.length > 0 }
+            }
           } else {
             // 获取所有直接子进程 PID
             const { stdout: pgrepOut } = await execAsync(`pgrep -P ${session.shell.pid}`)
@@ -287,6 +296,7 @@ export default {
             return { ok: true, hasRunningProcess: hasForegroundProc }
           }
         } catch (e) {
+          console.log("win终端复用检测失败2", e)
           // pgrep/ps 退出码非0表示未匹配到子进程
           return { ok: true, hasRunningProcess: false }
         }

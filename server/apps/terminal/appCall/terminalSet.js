@@ -113,49 +113,18 @@ export default {
     const defaultCwd = pathLib.resolve(process.cwd(), "..", "aiWork")
     let targetCwd = mainWorkDir || defaultCwd
 
-    const findIdleTerm = async () => {
-      for (const a of appManager.apps.values()) {
-        if (a.type !== "terminal" || (a.data.listId !== currentListId && a.data.listId !== undefined)) continue
-        const session = terminalBackend.getSession(a.id)
-        if (!session || !session.shell) continue // 过滤掉 IDE 重启后遗留的无物理进程僵尸终端
-        const noToolLock = !session.toolCallGroupId
-        const isPhysicallyIdle = (Date.now() - (session.lastOutputTime || 0)) > 2000
-        if (!noToolLock || !isPhysicallyIdle) continue
-
-        // 核心保护：如果终端有正在运行的前台/后台子进程（如服务、Vim等），绝对不可复用！
-        const procRes = await appManager.dispatch(a.id, "checkRunningProcess")
-        if (procRes?.hasRunningProcess) continue
-
-        // 核心保护：如果处于 dquote> 等未闭合的语法挂起状态，不作为空闲终端复用
-        const lastLine = (terminalBackend.cleanTerminalContent(session.content || "")).trim().split("\n").pop() || ""
-        if (/\b(dquote|quote|bquote|cmdand|cmdor|pipe|heredoc|subsh|cursh)>\s*$/.test(lastLine)) continue
-
-        return a
-      }
-      return null
-    }
-
-    // 终端模式描述：供确认弹窗明示「新建终端」还是「复用终端(appid)」
+    // 终端模式描述：供确认弹窗明示「新建终端」还是「使用指定终端(appid)」
     let termModeDesc = ""
     if (appId === "-1") {
-      // 强制新建模式，使用当前 mainWorkDir 或 defaultCwd，不探测复用目录
+      // 必须明确传入 -1 来新建独立终端
       termModeDesc = "将新建终端"
-    } else if (!appId) {
-      // 智能复用模式下，探测是否有属于当前会话的真·空闲终端以计算 targetCwd
-      const idleTerm = await findIdleTerm()
-      if (idleTerm) {
-        targetCwd = idleTerm.data.cwd || defaultCwd
-        termModeDesc = `将复用空闲终端 (${idleTerm.id})`
-      } else {
-        termModeDesc = "将新建终端（无空闲可复用）"
-      }
     } else {
-      // 指定 appId 模式
+      // 显式指定 appId 模式
       const targetApp = appManager.get(appId)
       if (targetApp) {
         const session = terminalBackend.getSession(targetApp.id)
         targetCwd = session?.cwd || targetApp.data.cwd || defaultCwd
-        termModeDesc = `将复用终端 (${appId})`
+        termModeDesc = `将使用指定终端 (${appId})`
       } else {
         termModeDesc = `指定终端不存在 (${appId})`
       }
@@ -182,7 +151,7 @@ export default {
     let termApp = null
 
     if (appId === "-1") {
-      // 强制新建终端
+      // 必须明确传入 -1 来新建全新的纯净终端
       const launchRes = await appManager.launch("terminal", {
         data: {
           window: { minimized },
@@ -195,29 +164,6 @@ export default {
       if (!launchRes?.ok) return commentPrefix + `启动终端失败: ${launchRes?.msg || "未知错误"}`
       termApp = launchRes.app
       await new Promise(res => setTimeout(res, 1000))
-    } else if (!appId) {
-      // 智能复用真·空闲终端
-      const idleTerm = await findIdleTerm()
-
-      if (idleTerm) {
-        termApp = idleTerm
-        // 更新工具上下文并锁定独占
-        await appManager.dispatch(termApp.id, "setToolContext", { toolCallGroupId, deferredFns })
-      } else {
-        // 无可用空闲终端，自动新建终端
-        const launchRes = await appManager.launch("terminal", {
-          data: {
-            window: { minimized },
-            cwd: mainWorkDir,
-            listId: currentListId,
-            toolCallGroupId,
-            deferredFns
-          }
-        })
-        if (!launchRes?.ok) return commentPrefix + `启动终端失败: ${launchRes?.msg || "未知错误"}`
-        termApp = launchRes.app
-        await new Promise(res => setTimeout(res, 1000))
-      }
     } else {
       // 指定 appId 模式
       termApp = appManager.get(appId)
@@ -320,12 +266,12 @@ export default {
         const targetHeadCharLimit = Math.min(numberedDelta.length, Math.max(fullCommand.length + 150, 400))
         let headBreakIdx = numberedDelta.indexOf("\n", targetHeadCharLimit)
         if (headBreakIdx === -1) headBreakIdx = targetHeadCharLimit
-        
+
         const cmdHeader = numberedDelta.slice(0, headBreakIdx + 1)
         const tailOutput = numberedDelta.slice(-MAX_CHARS)
-        
+
         const truncatedChars = numberedDelta.length - cmdHeader.length - tailOutput.length
-        
+
         if (truncatedChars > 0) {
           output = `${cmdHeader}
 ⚠️ 【系统截断通知】：
@@ -341,7 +287,16 @@ ${tailOutput}`
         output = numberedDelta
       }
 
-      const finalReturn = commentPrefix + (output || "(执行完毕，无输出)")
+      let outputBody = ""
+      if (output) {
+        const lineNumberNotice = `【提示】以下输出已附加"<行号>: "前缀，提取内容时请自行剔除。\n---\n`
+        outputBody = `${lineNumberNotice}<terminal>\n${output}\n</terminal>`
+      } else {
+        outputBody = "(执行完毕，无输出)"
+      }
+
+      const systemNotice = `\n\n【系统通知】：本次命令运行在终端(appId: ${termApp.id})中。若需维持会话状态继续执行，下次调用请指定此 appId。`
+      const finalReturn = commentPrefix + outputBody + systemNotice
       console.log("【terminalSet return】", finalReturn)
       return finalReturn
 
@@ -353,7 +308,7 @@ ${tailOutput}`
 
   joi() {
     return Joi.object({
-      appId: Joi.string().allow("-1", "").description("终端 appId。值为 '-1' 则强制完全新建终端；留空则优先智能复用空闲终端，找不到空闲终端才新建。"),
+      appId: Joi.string().allow("-1").required().description("必填，终端 appId。使用terminalGet查询可复用终端，输入-1为新建"),
       // command: Joi.string().description("执行命令（已废弃，由 commands 替代）"),
       commands: Joi.array().items(
         Joi.object({
@@ -364,7 +319,7 @@ ${tailOutput}`
         })
       ).min(1).required().description("必填，结构化终端命令流水线数组（用于生成审查表格并在后台拼接命令）"),
       waitSec: Joi.number().default(10).description("最大等待秒数，默认10（产生输出后静默2.5秒会提前返回）"),
-      minimized: Joi.boolean().default(false).description("是否以最小化窗口运行"),
+      minimized: Joi.boolean().default(true).description("是否以最小化窗口运行"),
       force: Joi.boolean().default(false).description("强制发送开关：当目标终端正在运行前台程序（如SSH会话/Vim/开发服务器等）或处于未闭合语法等待状态时，设置为 true 可强制写入命令（注意：可能干扰正在运行的程序，请谨慎使用）")
     })
   },
@@ -372,35 +327,33 @@ ${tailOutput}`
   getDoc() {
     return `
       向指定终端 App 写入并执行命令。
-      系统会检测输出静默（产生输出后静默2.5秒）自动返回结果。
-      waitSec为最大等待时间硬上限，防止长时间阻塞。
+      系统会检测输出静默（产生输出后静默2.5秒）自动返回结果。输出不全可使用 terminalGet 工具翻页
       【警告】执行前务必确认当前系统(Mac/Win)，使用对应的系统终端命令和路径格式！
+      【🚨 严重警告：目录丢失与跨盘符陷阱】
+      因底层环境限制，系统可能无法实时感知终端当前路径的变化。为了确保命令执行在正确的目录，
+      请务必在涉及到特定工作目录的命令流水线最前面，主动加上 cd 命令进行切换。
       
       调用范例[Mac/Linux]：
       {
         commands: [
-          { bin: "ls", args: ["'-la'", "'/Users/xxx/project'"], op: "&&", desc: "查看目录" },
+          { bin: "cd", args: ["'/Users/xxx/project'"], op: "&&", desc: "切换到目标目录" },
+          { bin: "ls", args: ["'-la'"], op: "&&", desc: "查看目录" },
           { bin: "cat", args: ["'package.json'"], desc: "查看配置" }
         ]
       }
-      调用范例[Windows]：
+      调用范例[Windows powershell]：
       {
         commands: [
-          { bin: "dir", args: ["'/A'", "'C:\\\\Users\\\\xxx\\\\project'"], op: "&&", desc: "查看目录" },
+          { bin: "cd", args: ["'C:\\\\Users\\\\xxx\\\\project'"], op: "&&", desc: "切换到目标盘符和目录" },
+          { bin: "dir", args: ["'/A'"], op: "&&", desc: "查看目录" },
           { bin: "type", args: ["'package.json'"], desc: "查看配置" }
         ]
       }
-      使用 terminalGet 工具翻页
 
       【增量输出与截断算法说明】
       1. 增量捕获：执行前记录 offset（动态回溯至上一个换行符），静默结束后仅截取 session.content.slice(offset) 并去除 ANSI 控制符，原汁原味返回本次命令及结果。
       2. 截断算法：若增量字符数 > 15000，提取开头命令回显部分，强制切除中间多余字符，并从末尾倒推保留最多 15000 字符，确保无超大单行穿透。
       3. 回显免责：终端回显可能受 PTY 自动折行与 ANSI 擦写影响，命令以你发送的 commands 参数为准。中间省略行可用 terminalGet 按行号区间查询。
-
-      【force 强制发送开关】
-      默认情况下，若目标终端正在运行前台程序（SSH、Vim、开发服务器等）或处于未闭合语法等待状态（如 dquote>），
-      terminalSet 会拒绝执行以保护正在运行的程序。当明确需要向此类会话注入命令时（如向已登录的 SSH 会话发指令），
-      可设置 force: true 绕过拦截强制发送。注意：强制发送可能干扰正在运行的程序或导致输入错乱，请务必谨慎使用。
     `
   }
 }
