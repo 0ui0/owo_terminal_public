@@ -3597,3 +3597,126 @@ graph TD
 ```
   </n-graph>
 </n-main>
+<n-main>
+  <n-time>[时间:2026/09/09 18:51:00]</n-time>
+  <n-mem>[记忆：接续 06:48 之后的工作（此前笔记缺失，此处补齐现场）。啦沐达重启 IDE 后要求“先做个单元测试”，我用 editorLaunch 实测编辑器 line 行跳转链路：①第一次 editorLaunch(server/apps/editor/backend.js, line=44, singleInstance=true) 返回 app_fl2168，窗口停在 44 行；②第二次同文件 line=100 再启动，返回幽灵 ID app_fl2176（该实例 oninit 命中去重后自毁），实际复用 app_fl2168，啦沐达目视确认“第一次跳了44行 第二次跳了100行，好像能跳”——二次跳转生效，证明三处改动全部接通：frontend.js:1064/1069 的 vnode.attrs.data.line（原 d.data.line 越界会 TypeError）、backend.js:44 的 io.emit 透传 line、frontend.js:977 open 分支消费 args.line→pendingLine、updateEditor:561-566 setPosition+revealLineInCenter。③同时把 server/apps/editor/appCall/editorLaunch.js 按 fileOpener 范式加了工作目录外 waitConfirm 拦截（metaData.listId 取会话、resolvedPath 解析、getWorkDirs 前缀比对、拒绝返回原因、同意回传“。用户备注：xxx”、成功失败都带 commentSuffix），并把 data 里的 ...args 提前以防 args.filePath 覆盖 resolvedPath 绕过拦截；lsp 无错。啦沐达纠正两点：(a) aiDocs/ai开始编程时候注意.md 不算数、不是给我看的，开发指南以 owo_skills/coding_guide/SKILL.md 为准；(b) editorLaunch 可被手动调用，metaData 不保证存在，所以 metaData?.listId 必须保留（手动调用时 listId=undefined→getWorkDirs 返回[]→所有路径都走确认框，安全方向）。]</n-mem>
+  <n-tasks>[总任务：1.line 行跳转链路(已改+已实测通过) 2.editorLaunch 工作目录拦截(已改待实测) 3.幽灵ID修复(待拍板) 4.969 readOnly 重置缺陷(待拍板) 5.按 coding_guide 清理 line 链路(待拍板) 6.appManager 复用分支是否覆盖启动参数(方向未定)]</n-tasks>
+  <n-ul>
+    <n-li>[任务1/6:line 行跳转链路]
+      <n-focus>[关注1:文件 server/apps/editor/frontend.js 行977, 代码|>if (msg.args.line !== undefined) pendingLine = parseInt(msg.args.line, 10) || 0<|]</n-focus>
+      <n-focus>[关注2:文件 server/apps/editor/backend.js 行44, 代码|>io.emit("app:dispatch", { appId: app.id, action, args: { filePath: args.filePath, content, line: args.line } })<|]</n-focus>
+      <n-focus>[关注3:文件 frontend.js 行1064/1069, 已改为 vnode.attrs.data.line（原 d.data.line 越界）]</n-focus>
+      <n-focus>[关注4:文件 frontend.js 行561-566/1022, 仍为 pendingLine+Math.min 兑底，待按 coding_guide 清理]</n-focus>
+    </n-li>
+    <n-li>[任务2/6:editorLaunch 工作目录拦截]
+      <n-focus>[关注5:文件 server/apps/editor/appCall/editorLaunch.js(80行), 已加 waitConfirm 拦截 + commentSuffix 回传 + ...args 提前]</n-focus>
+    </n-li>
+    <n-li>[任务3/6:幽灵ID]
+      <n-focus>[关注6:现象|>二次 launch 返回 app_fl2176 但 appGetStatus 报不存在, 实际复用 app_fl2168<|, 根因:frontend.js:1026-1077 自查重→转发→自毁, 工具层不知情]</n-focus>
+    </n-li>
+  </n-ul>
+  <n-graph>
+```mermaid
+graph TD
+  Reboot[重启IDE] --> Test1[editorLaunch backend.js@44 → app_fl2168 停44行]
+  Test1 --> Test2[二次 editorLaunch@100 → 返回幽灵 app_fl2176, 实际复用]
+  Test2 --> Pass[啦沐达目视确认二次跳转生效: 链路三处改动全通]
+  Pass --> Todo[遗留: 幽灵ID / 969 readOnly / line链路清理 / appManager覆盖参数]
+```
+  </n-graph>
+</n-main>
+<n-main>
+  <n-time>[时间:2026/09/10 10:26:00]</n-time>
+  <n-mem>[记忆：幽灵 ID 问题终于闭环。经与啦沐达多轮讨论后定案：不再“复用旧窗口”，改为“新窗口留下 + 关掉最旧的那个同文件窗口”。本轮已落两处：①server/apps/editor/frontend.js 的 oninit 单例段（现 1025-1054，替换了原 1025-1079 整段）改为 dataArr.find 找最旧同文件 Tab（group==='editor' 且 contentAttrs.appId!==appId 且非 isDiff 且 filePath.toLowerCase() 相同）→ 读 commonData.appsData[oldAppId].instances.get(oldAppId).isDirty → 脏则 Notice.launch 弹窗确认（sign:'ask_close_'+oldAppId，confirm 里 await appClose(oldAppId) 后 return undefined）→ 否则直接 appClose(oldAppId)；取消了 appActive+100ms+dispatch open+自毁 旧流程，也不再 return，新窗口继续正常初始化。文件从 1709 行降到 1684 行。②server/apps/editor/appCall/editorLaunch.js:60 返回值精简为 `已启动编辑器, 实例 ID: ${launchRes.app.id}${commentSuffix}`。两文件 LSP 均无错。appManager 的 beforeLaunch 通用钩子按长官指示保留（暂无实现方）。关键证据链：noticeBox.js:787-810 用 stablePhysicalTabs.map + display:none 常驻渲染所有 Tab，故旧窗口实例的 isDirty 随时可取；notice.js:118 dataArr 用 push 追加，故“第一个命中”＝最早创建的那个；notice.js:77-80 同 group 的 Tab 会合并进同一窗口。]</n-mem>
+  <n-tasks>[总任务：4.beforeLaunch 钩子与幽灵 ID 闭环（改动已落地，待长官实测）1.line 跳转链路（已改+实测通过）3.编辑器打开文件逻辑调查（执行中）]</n-tasks>
+  <n-ul>
+    <n-li>[任务4:幽灵 ID 闭环]
+      <n-focus>[关注1:文件 server/apps/editor/frontend.js 行1025-1054, 新逻辑|>const oldTab = dataArr.find(tab => tab.group === "editor" && tab.contentAttrs && tab.contentAttrs.appId !== appId && !tab.contentAttrs.data?.isDiff && tab.contentAttrs.data?.filePath?.toLowerCase() === resolvedPath)<| 与 |>if (oldInstance && oldInstance.isDirty) Notice.launch({ sign: "ask_close_" + oldAppId, ... }) else settingData.fnCall("appClose", [oldAppId])<|]</n-focus>
+      <n-focus>[关注2:文件 server/apps/editor/appCall/editorLaunch.js 行60, 代码|>return `已启动编辑器, 实例 ID: ${launchRes.app.id}${commentSuffix}`<|]</n-focus>
+      <n-focus>[关注3:文件 server/apps/appManager.js 行169-190, 新钩子|>if (appDef.backend?.beforeLaunch) await appDef.backend.beforeLaunch(app, this)<|（候选 app 构造提前；暂无实现方，保留作为扩展点）]</n-focus>
+    </n-li>
+  </n-ul>
+  <n-graph>
+```mermaid
+graph TD
+  Req[幽灵ID:二次editorLaunch返回已自毁实例的id] --> Discuss[多轮讨论:方案A复用 vs 方案B新窗口+关旧]
+  Discuss --> Final[定案:新窗口留下+关掉最旧同文件窗口+不继承状态]
+  Final --> Impl1[frontend.js:1025-1054 单例段改写]
+  Final --> Impl2[editorLaunch.js:60 删旧提示]
+  Impl1 --> Verify[LSP无错;待长官实测]
+```
+  </n-graph>
+</n-main>
+<n-main>
+  <n-time>[时间:2026/09/10 19:44:00]</n-time>
+  <n-mem>[记忆：①压缩上下文后重启会话，长官先问“单例参数默认是关闭的吗”，我答 editorLaunch.js:70 `singleInstance: Joi.boolean().default(false)` → 默认关闭，不传就同文件各开一窗；并复核已落地代码仍在位（server/apps/editor/frontend.js:1033-1066 单例段、appCall/editorLaunch.js 工作目录拦截）。②编辑器单例链路实测（长官重启 IDE 后）：用例1（同文件二次 editorLaunch 返回真实 id、旧窗口自动关闭、其它文件窗口不受影响）通过；用例2（脏窗口二重弹窗：先我方提示“同一文件已在其他窗口打开…”，确认后走 closeOldTab = oldTab.cancel(null, () =&gt; Notice.closeTab(oldTab), oldTab, null) → 原生 AskSaveComponent 四按钮“保存且关闭/另存为且关闭/不保存且关闭/取消”，文案已改“该文件有未保存的修改，是否保存？”）通过；用例3（多标签窗口点某个 Tab 的 ×）未测。③本轮新任务：聊天列表滚动跳变修复（www/src/comData/ioSocket.js）。调查：chat:push(151-171) 在底部时 pages=[]→pull()→getHistoryList()→chatData.scrollChatListTobottom(listId)→清未读；chat:refresh(123-134) 同样 pages=[]+pull+重建，但完全没有滚动补偿且无条件清未读；chatData.js:121-133 scrollChatListTobottom = 双 rAF 后 scrollTo(scrollHeight, instant)；ChatList.js:558-568 流式 onupdate 按 500ms 节流拉底（注释：给用户留向上滚动窗口）；状态锁 session.isAtBottom 只在 ChatList.js:332-334 的 onscroll 里按 checkDomScrollAtBottom（DOM 差 ≤120px）翻转。9 处 pull 调用点：ChatList 260(初始化)/322(触顶)/341(回底补拉)/381(切列表)/151(占位页)/615(回到底部按钮)、ioSocket 130(chat:refresh)/165(chat:push)/144(project:loaded)。④长官判断：问题在 chat:push 那次拉底“可能没有正确触发或 UI 没准备好、提前被拉了”；chat:refresh 无需改（系统调用它时不在大模型回复期间）。⑤我提的三文件补丁（新增 sessionState.pendingScrollBottom 请求标记、在 ChatList 的 onupdate 里消费后落底）被否，留言“不行 不要这么复杂的逻辑，讨论一下”；改为两方案：A＝把 chat:push 的拉底挪到 m.redraw() 之后（1 行）；B＝把 scrollChatListTobottom 改成“落到当前底部后若高度还在变就再落一次，最多重试 3 帧”。长官选择先自试 A（我回复的一条消息充当触发信号）。⑥纪律：长官禁止使用 aiSendMessage 插入消息工具（“上下文乱掉了”！！！），此后一律直接输出文本回复；终端命令（wc/tail 查看记忆文件）被拒。]</n-mem>
+  <n-tasks>[总任务：1.line 跳转链路(已改+实测通过，仅剩兜底清理) 2.editorLaunch 工作目录拦截(已实测通过) 3.已删除(被任务4覆盖) 4.beforeLaunch/幽灵ID闭环(落地完成，仅剩用例3) 5.聊天列表滚动跳变(方案A自试中/方案B备选)]</n-tasks>
+  <n-ul>
+    <n-li>[任务5:聊天列表滚动跳变]
+      <n-focus>[关注1:文件 www/src/comData/ioSocket.js, 行151-171(chat:push)、行123-134(chat:refresh)]</n-focus>
+      <n-focus>[关注2:文件 www/src/view/chat/chatData.js, 行116-133(状态锁+双rAF拉底)]</n-focus>
+      <n-focus>[关注3:文件 www/src/view/chat/ChatList.js, 行312-352(onscroll 结算锁)、行558-568(500ms 节流拉底)、行370-389(容器 onupdate)]</n-focus>
+    </n-li>
+    <n-li>[任务4:编辑器单例] <n-focus>[关注4:文件 server/apps/editor/frontend.js 行1015-1100(单例段+AskSaveComponent 劫持)]</n-focus></n-li>
+  </n-ul>
+  <n-graph>
+```mermaid
+graph TD
+  Req["征兆: 用户停在底部→系统插入消息→滚动条先跳到上面，过一会儿才被拽回底部"]
+  Req --> Push["chat:push: 有拉底，但调用点在 m.redraw() 之前且只等固定 2 帧"]
+  Req --> Refresh["chat:refresh: 无任何滚动补偿(长官确认不需改，调用时不在回复期间)"]
+  Push --> Why["落底时刻可能早于新卡片渲染/测高 → 底部留虚高，最后由 ≤500ms 节流拉底补上"]
+  Why --> A["方案A: 先 m.redraw() 再拉底 (长官自试中)"]
+  Why --> B["方案B: 落底后高度仍在变就再落，最多 3 帧 (备选)"]
+  Why --> No["已否: 新增跨文件 pendingScrollBottom 标记(过度设计)"]
+```
+  </n-graph>
+</n-main>
+<n-main>
+  <n-time>[时间:2026/09/10 20:34:00]</n-time>
+  <n-mem>[记忆：聊天列表滚动/贴底/遮罩阶段收尾。①与长官确认「拉底发生在 UI 刷新之后」：查 node_modules/mithril/mithril.js:1061-1069 得知 m.redraw 只预约下帧渲染、同任务内多次调用只渲染一次，而拉底是双 rAF ⇒ 拉底本就在渲染之后，调 redraw 位置（pull 前/后）无效。②长官定：chatList.pages = [] + pull() 是正确的不可改（全量刷新）；改 120px 缓冲、Rows.refresh 按已加载页重拉等方案均被否。③最终方案：把「流式 onupdate 里的 500ms 节流跟随」改为「每个会话实例一个定时器」——先议全局单例，长官纠正系统多会话、每窗口需各一个，遂改实例级。④查证 replying：在 comData 的 chatList 上（前端只读），置真=aiAsk.js:1983 noStopRun()、getMsgProtocalConfig.js:265 onRollMemory start；置假=getMsgProtocalConfig.js:399 endRun / 388 流式同步 / 270 整记忆结束 / ioApi_chat.js:178 出错 / callAgent.js:146 子智能体出错 / crossFuncs/stopAiAsk.js:23 用户停止 / aiAsk.js 多处(1456 等，注释说明需提前置假否则前端收不起对话框)；默认 tools/defaultComData.js:20=false、ioServer.js:141 兜底。⑤新功能「刷新遮罩」：长官要求 pull/刷新瞬间给列表一个遮罩弱化跳变；初版用 backdrop-filter blur(6px)，长官担心性能改纯色半透明+转圈；随后反复微调过渡（0.25s→淡入0.15s/淡出0.5s→2s→1.5s，最终取消淡入只留 1.5s 淡出）。]</n-mem>
+  <n-tasks>[总任务：5.聊天列表滚动跳变修复(已落地待实测) 6.刷新遮罩(已落地待实测) 1.line跳转(实测通过，剩兜底清理) 4.编辑器单例(剩用例3) ]</n-tasks>
+  <n-ul>
+    <n-li>[任务5:自动贴底]
+      <n-focus>[关注1:文件 www/src/view/chat/ChatList.js, 行257-270, 新逻辑|&gt;autoFollowTimer = setInterval(() =&gt; { if (!listDom) return; if (!comData.getChatList(activeListId)?.replying) return; if (!chatData.chatListScrollAtBottom(activeListId)) return; listDom.scrollTop = listDom.scrollHeight; scrollTop = listDom.scrollTop }, 100)|&lt;，onbeforeremove 中 clearInterval+置 null；闭包变量 autoFollowTimer=null（原 lastAutoScrollTime 注释保留）；view 内流式 onupdate 的 500ms 跟随整段 /* */ 注释保留]</n-focus>
+    </n-li>
+    <n-li>[任务6:刷新遮罩]
+      <n-focus>[关注2:文件 www/src/view/chat/ChatList.js, 行315-355, 浮层|&gt;m(".chatList-mask", { style: { position: "absolute", inset: "0", zIndex: 20, pointerEvents: "none", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: getColor('消息列表背景') + "99", opacity: session.isRefreshing ? 1 : 0, transition: session.isRefreshing ? "none" : "opacity 1.5s ease-out" } }, [ 环状 spinner(1.8rem, border 0.15rem main.front+44, borderTopColor transparent, animation "spin 1s linear infinite"), 文案 trs("通用/加载中") ])|&lt;，另在列表自身 style 里补了 @keyframes spin]</n-focus>
+      <n-focus>[关注3:文件 www/src/comData/ioSocket.js, 行163-175, chat:push|&gt;session.isRefreshing = true; m.redraw(); chatList.pages = []; await chatList.pull(); chatData.getHistoryList(listId); m.redraw(); chatData.scrollChatListTobottom(listId); session.isRefreshing = false; session.unreadCount = 0|&lt;；开关默认值在 chatData.js:85 initSessionState 的 isRefreshing:false]</n-focus>
+      <n-focus>[关注4:关掉遮罩最省=注释 ioSocket.js:165-166 两行；彻底移除三处=ioSocket 164-166/172、ChatList.js 遮罩段、chatData.js:85 默认值]</n-focus>
+    </n-li>
+  </n-ul>
+  <n-graph>
+```mermaid
+graph TD
+  Req["征兆: 插入消息后列表全量刷新,画面停在中间(超高消息停在它开头),约 300ms 后才回底"]
+  Req --> Timing["查 Mithril 源码: m.redraw 只预约下帧渲染、同任务合并 ⇒ 拉底本就在渲染之后;调 redraw 位置无效"]
+  Req --> Keep["长官定: pages=[] + pull() 正确不可改;否决改缓冲与 Rows.refresh"]
+  Req --> Timer["改为每会话实例 100ms 定时器: oninit 启动(仅 replying 且状态锁为真时贴底)、onbeforeremove 清除"]
+  Timer --> Replying["replying 在 comData.chatList 上: 真=noStopRun/onRollMemory start;假=endRun/出错/用户停止"]
+  Req --> Mask["刷新遮罩: chatData.isRefreshing + ioSocket 置真置假 + ChatList .chatList-mask(纯色 99 + 环状 spinner + 加载中;出现瞬时、消失 1.5s 淡出)"]
+```
+  </n-graph>
+</n-main>
+<n-main>
+  <n-time>[时间:2026/09/10 20:36:00]</n-time>
+  <n-mem>[记忆：上下文压缩事件 + 遮罩定稿。①长官许可后我调用了一次 compressContext（归档成功）；此后【严禁】再调，防死循环——只有长官明确说任务结束且核验完成后才可再压。压缩后系统提示我回到原任务。②遮罩最终定稿：取消淡入，transition 写成 session.isRefreshing ? "none" : "opacity 1.5s ease-out"（出现瞬时盖上、消失 1.5s 淡出）；底色 '99'、环状 spinner 1.8rem 每 1s 一圈、文案「加载中...」。中间版本 0.25s / 淡入0.15s+淡出0.5s / 2s 均被长官否决或回退。③自动贴底定时器间隔已由 50ms 改为 100ms（长官指令）。④本轮无新增功能代码，等长官重启 IDE 实测。]</n-mem>
+  <n-tasks>[总任务：5.聊天列表滚动跳变修复(已落地待实测) 6.刷新遮罩(已落地待实测) 1.line跳转(实测通过，剩兜底清理) 4.编辑器单例(剩用例3) ]</n-tasks>
+  <n-ul>
+    <n-li>[任务6:刷新遮罩 定稿参数]
+      <n-focus>[关注:ChatList.js 遮罩段 transition 最终=session.isRefreshing ? "none" : "opacity 1.5s ease-out"（出现无过渡、消失 1.5s）]</n-focus>
+      <n-focus>[关注:关掉最省=注释 ioSocket.js:165-166；彻底移除=ioSocket 164-166/172 + ChatList.js 遮罩段 + chatData.js:85 默认值]</n-focus>
+    </n-li>
+    <n-li>[任务5:自动贴底] <n-focus>[关注1:setInterval 间隔已由 50 改 100ms；仍只改 ChatList.js 一处]</n-focus></n-li>
+  </n-ul>
+  <n-graph>
+```mermaid
+graph TD
+  Now["当前: 贴底定时器(100ms/实例) + 刷新遮罩(瞬时出现/1.5s淡出) 均已落地,待长官重启实测"]
+  Now --> Test["实测点: 持续贴底 / 上滚是否被拽回 / 多会话独立 / 回复结束停止 / 遮罩观感"]
+  Now --> Off["关遮罩: 注释 ioSocket.js:165-166"]
+  Now --> Clean["后续清理: 删旧 onupdate 注释块与 lastAutoScrollTime"]
+```
+  </n-graph>
+</n-main>
+

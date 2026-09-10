@@ -172,11 +172,21 @@ class AppManager {
       const appDef = this.appDefs.get(type)
       if (!appDef) return { ok: false, msg: `未知的 App 类型: ${type}` }
 
-      const appId = options.appId || idTool.get("app")
+      const app = {
+        id: options.appId || idTool.get("app"),
+        type,
+        state: "running",
+        guiLaunched: false,
+        data: { ...options.data },
+        createdAt: Date.now(),
+      }
+
+      // beforeLaunch 钩子：实例注册前触发，允许 backend 调整实例参数
+      if (appDef.backend?.beforeLaunch) await appDef.backend.beforeLaunch(app, this)
 
       // 检查是否已存在同 appId 的实例
-      if (this.apps.has(appId)) {
-        const existingApp = this.apps.get(appId)
+      if (this.apps.has(app.id)) {
+        const existingApp = this.apps.get(app.id)
         if (!options.background && this.io) {
           /**
            * 【重要：禁止在此发送 app:launch】
@@ -190,21 +200,12 @@ class AppManager {
            *   window: appDef.window, data: existingApp.data
            * })
            */
-          this.io.emit("app:active", { appId })
+          this.io.emit("app:active", { appId: app.id })
         }
-        return { ok: true, app: existingApp, msg: `App ${appId} 已唤醒并置顶` }
+        return { ok: true, app: existingApp, msg: `App ${app.id} 已唤醒并置顶` }
       }
 
-      const app = {
-        id: appId,
-        type,
-        state: "running",
-        guiLaunched: false,
-        data: { ...options.data },
-        createdAt: Date.now(),
-      }
-
-      this.apps.set(appId, app)
+      this.apps.set(app.id, app)
 
       // 初始化后端 (带错误捕获)
       if (appDef.backend?.init) {
@@ -212,9 +213,9 @@ class AppManager {
           await appDef.backend.init(app, this)
         } catch (initErr) {
           console.error(`[AppManager] ${type} 的后端初始化失败:`, initErr)
-          this.apps.delete(appId) // 撤销注册
+          this.apps.delete(app.id) // 撤销注册
           const errorMsg = `App 初始化失败: ${initErr.message}`
-          if (this.io) this.io.emit("app:error", { appId, msg: errorMsg })
+          if (this.io) this.io.emit("app:error", { appId: app.id, msg: errorMsg })
           return { ok: false, msg: errorMsg }
         }
       }
@@ -222,7 +223,7 @@ class AppManager {
       // 通知前端启动 GUI（除非是后台模式）
       if (!options.background && this.io) {
         this.io.emit("app:launch", {
-          appId,
+          appId: app.id,
           type,
           name: appDef.name,
           icon: appDef.icon || "icon.svg",
@@ -232,7 +233,7 @@ class AppManager {
         })
       }
 
-      return { ok: true, msg: `App ${appId} (${type}) 已成功启动`, app }
+      return { ok: true, msg: `App ${app.id} (${type}) 已成功启动`, app }
     } catch (error) {
       throw error
     }

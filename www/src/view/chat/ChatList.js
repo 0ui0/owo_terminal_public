@@ -33,7 +33,9 @@ export default () => {
   let listDom = null
   let isHovered = false
   let isHoveredTop = false
-  let lastAutoScrollTime = 0
+  // 旧逻辑（暂时保留注释）：流式 onupdate 里的 500ms 节流跟随，职责已由 autoFollowTimer 接管
+  // let lastAutoScrollTime = 0
+  let autoFollowTimer = null
 
   // 缓存依赖 Key 与计算产物
   let lastCacheKey = ""
@@ -254,6 +256,14 @@ export default () => {
 
       const listId = vnode.attrs.chatList.id
       activeListId = listId
+      // 💡 自动贴底：每个会话窗口一个 100ms 定时器，仅在"正在回复（内容还在增长）"且用户仍在底部时贴底（取代原 onupdate 里的 500ms 节流跟随）
+      autoFollowTimer = setInterval(() => {
+        if (!listDom) return
+        if (!comData.getChatList(activeListId)?.replying) return
+        if (!chatData.chatListScrollAtBottom(activeListId)) return
+        listDom.scrollTop = listDom.scrollHeight
+        scrollTop = listDom.scrollTop
+      }, 100)
       try {
         chatData.initChatLists(listId)
 
@@ -272,6 +282,8 @@ export default () => {
       if (resizeObserver) {
         resizeObserver.disconnect()
       }
+      clearInterval(autoFollowTimer)
+      autoFollowTimer = null
     },
 
     view({ attrs }) {
@@ -555,6 +567,8 @@ export default () => {
                 timestamp: Date.now(),
               },
               listId: attrs.listId,
+              // 旧逻辑（暂时保留注释）：流式 onupdate 里的 500ms 节流跟随，职责已由 oninit 的 autoFollowTimer 接管
+              /*
               onupdate() {
                 // 思考流/打字流持续推进：只要处于贴底缓冲区且满足 500ms 节流窗口，给用户留足向上滚动的操作窗口期
                 if (chatData.chatListScrollAtBottom(attrs.listId)) {
@@ -565,6 +579,7 @@ export default () => {
                   }
                 }
               }
+              */
             }) : null,
 
           // 挂起指令确认框

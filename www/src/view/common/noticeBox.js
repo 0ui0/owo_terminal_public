@@ -804,6 +804,7 @@ export default function () {
               key: tab.sign + "_content",
               ...tab.contentAttrs,
               delete: () => attrs.onCloseTab(tab),
+              // 备注：closeLayer 为旧版“遮罩层弹窗”的遗留接口，当前无任何 App 使用（仅保留兼容）
               closeLayer: () => attrs.onCloseWindow()
             })
           ])

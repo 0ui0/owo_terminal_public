@@ -164,6 +164,7 @@ export default {
         chatList.pages = []
         await chatList.pull()
         chatData.getHistoryList(listId)
+        m.redraw()
         chatData.scrollChatListTobottom(listId)
         session.unreadCount = 0
       }

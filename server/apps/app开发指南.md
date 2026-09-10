@@ -163,6 +163,16 @@ export default ({ appId, m, Notice, ioSocket, commonData, iconPark }) => {
 ```javascript
 /* backend.js */
 export default {
+  // 可选：全局初始化 (App 定义加载时触发，仅注入 manager)
+  async setup({ manager }) {
+    // 适合注册全局事件、定时器、跨 App 共享状态
+  },
+
+  // 可选：实例注册前拦截 (每次 launch 时触发，可调整实例参数，如把 app.id 改为已有实例 id 以复用窗口)
+  async beforeLaunch(app, appManager) {
+    // app 为本次待注册的实例 { id, type, state, guiLaunched, data, createdAt }
+  },
+
   // 可选：初始化 (App 首次启动时)
   async init(app, appManager) {
     // app.data 是内存级持久化存储，重启丢失
@@ -185,6 +195,11 @@ export default {
   }
 }
 ```
+
+**生命周期钩子签名约定**：
+- 实例级钩子统一为 `(app, appManager)`：`beforeLaunch`（实例注册前）、`init`（实例注册后）、`destroy`（实例销毁时）；
+- `setup` 为 App 定义加载时触发，参数为 `({ manager })`；
+- `dispatch` 为单对象解构 `{ app, action, args, appManager, io }`。
 
 ## 4. 调试自检清单
 

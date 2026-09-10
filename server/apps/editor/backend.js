@@ -41,7 +41,7 @@ export default {
           app.data.isDiff = false
 
           // 显式通知前端更新
-          io.emit("app:dispatch", { appId: app.id, action, args: { filePath: args.filePath, content } })
+          io.emit("app:dispatch", { appId: app.id, action, args: { filePath: args.filePath, content, line: args.line } })
 
           return { ok: true, msg: "读取文件成功", data: { filePath: args.filePath, content, isDiff: false } }
         } catch (e) {

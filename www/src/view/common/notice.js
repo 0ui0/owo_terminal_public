@@ -195,6 +195,19 @@ export default {
     }
   },
 
+  // 请求关闭单个 Tab：先走该 Tab 的 cancel 钩子（App 借此拦截未保存数据提示、通知后端销毁等），
+  // 钩子返回 undefined 时才真正关闭；返回其它值表示 App 拦截了本次关闭
+  requestCloseTab: async function (item, e) {
+    try {
+      const closeFn = () => this.closeTab(item)
+      if ((await (item.cancel || (() => { }))(e?.target, closeFn, item, e)) === undefined) {
+        closeFn()
+      }
+    } catch (err) {
+      console.error("[Notice] 关闭 Tab 出错:", err)
+    }
+  },
+
   // 关闭窗口 (关闭该配置关联的所有 Item)
   closeWindow: function (winId) {
     // 逆序遍历删除，防止索引错位
@@ -475,7 +488,7 @@ export default {
           this.closeWindow(config.id)
           this.activateTopWindow()
         },
-        onCloseTab: (tabItem) => this.closeTab(tabItem),
+        onCloseTab: (tabItem, e) => this.requestCloseTab(tabItem, e),
         onSwitchTab: (tabItem) => { config.activeSign = tabItem.sign },
         onConfirm: (e) => this.confirmWindow(config.id, e),
         onCancel: (e) => this.cancelWindow(config.id, e),

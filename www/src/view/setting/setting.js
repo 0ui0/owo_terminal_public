@@ -930,6 +930,8 @@ export default () => {
                   },
                   onclick: () => {
                     let newModel = JSON.parse(JSON.stringify(clipboardModel))
+                    // id 由后端签发，复制时清除，否则保存会触发“重复模型 id”
+                    delete newModel.id
                     newModel.name = (newModel.name || "") + " (Copy)"
                     value.push(newModel)
                     if (onchange) onchange(value)

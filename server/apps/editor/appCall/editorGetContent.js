@@ -135,6 +135,6 @@ export default {
   },
 
   getDoc() {
-    return `读取编辑器当前内容，支持普通翻页以及长文搜索(searchQuery)。`
+    return `读取编辑器当前内容，通常用于阅读正在编辑而没有存盘的文件。已经存盘的文件请直接使用fileOpen工具，本工具较简陋。支持简易搜索和翻页`
   }
 }

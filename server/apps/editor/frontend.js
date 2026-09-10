@@ -384,7 +384,7 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, chatData, set
       [
         m(Box, {
           isBlock: true,
-        }, "文件尚未保存，是否保存窗口？"),
+        }, "该文件有未保存的修改，是否保存？"),
         m("",
           [
             m(Box,
@@ -394,6 +394,14 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, chatData, set
                 onclick: () => vnode.attrs.onYes(vnode.attrs.delete)
               },
               "保存且关闭"
+            ),
+            m(Box,
+              {
+                isBtn: true,
+                color: "gray_1",
+                onclick: () => vnode.attrs.onYesAs(vnode.attrs.delete)
+              },
+              "另存为且关闭"
             ),
             m(Box,
               {
@@ -965,11 +973,16 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, chatData, set
         return done({ ok: true, data: { filePath, content: editor ? editor.getValue() : content } })
       }
       if (msg.action === "open") {
-        filePath = msg.args.filePath; content = msg.args.content;
-        isDiff = false; readOnly = !!msg.args.readOnly; isDirty = false;
+        filePath = msg.args.filePath;
+        content = msg.args.content;
+        isDiff = false;
+        readOnly = !!msg.args.readOnly;
+        isDirty = false;
         isConflictDiff = false;
         annotations = [];
         reason = "";
+        // 💡 若调用方带了 line，则打开后定位到该行（未传则保持原行为）
+        if (msg.args.line !== undefined) pendingLine = parseInt(msg.args.line, 10) || 0
         updateEditor()
         done({ ok: true })
       } else if (msg.action === "showDiff") {
@@ -1017,59 +1030,38 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, chatData, set
         pendingLine = d.line ? parseInt(d.line, 10) : 0
       }
 
-      // 💡 运行时重复检测与静默置顶销毁逻辑 (如果指定了 singleInstance)
+      // 💡 单例模式：同文件已有窗口时，关掉最旧的那个，让本次新窗口展示磁盘最新内容（如 AI 刚修改的结果）
       if (filePath && !isDiff && vnode.attrs.data?.singleInstance) {
         const resolvedPath = filePath.toLowerCase()
-        let existingAppId = null
-
-        // 🚀 通过 Notice 窗口管理器的全局 Tab 数组进行查重（即使标签被 unmount 隐藏也依然存在于 dataArr 中）
         const dataArr = Notice.data?.dataArr || []
-        for (const tab of dataArr) {
-          if (tab.group === "editor" && tab.contentAttrs && tab.contentAttrs.appId !== appId) {
-            // 排除临时的 Diff 对比窗口（批准/拒绝后会自动关闭，不算"已打开"）
-            if (tab.contentAttrs.data?.isDiff) continue
-            const otherPath = tab.contentAttrs.data?.filePath
-            if (otherPath && otherPath.toLowerCase() === resolvedPath) {
-              existingAppId = tab.contentAttrs.appId
-              break
-            }
+        const oldTab = dataArr.find(tab =>
+          tab.group === "editor" &&
+          tab.contentAttrs &&
+          tab.contentAttrs.appId !== appId &&
+          !tab.contentAttrs.data?.isDiff &&
+          tab.contentAttrs.data?.filePath?.toLowerCase() === resolvedPath
+        )
+
+        if (oldTab) {
+          const oldAppId = oldTab.contentAttrs.appId
+          const oldInstance = commonData?.appsData?.[oldAppId]?.instances?.get(oldAppId)
+          // 关闭旧窗口走它自身的关闭钩子（未保存时编辑器会再弹出保存选择）
+          const closeOldTab = () => oldTab.cancel(null, () => Notice.closeTab(oldTab), oldTab, null)
+          if (oldInstance && oldInstance.isDirty) {
+            Notice.launch({
+              sign: "ask_close_" + oldAppId,
+              tip: "同一文件已在其他窗口打开",
+              msg: `「${filePath.split("/").pop()}」已在另一个窗口打开。为避免重复窗口，系统会关闭旧窗口、只保留本次新窗口；旧窗口里未保存的修改，会在关闭前再问你一次是否保存。是否继续？`,
+              confirm: async () => {
+                await closeOldTab()
+                return undefined
+              }
+            })
+          } else {
+            ; (async () => {
+              await closeOldTab()
+            })()
           }
-        }
-
-        if (existingAppId) {
-          // 💡 用 appActive 轻量激活（只 emit app:active 激活窗口，不重建组件），
-          // 避免 appGuiRestore 的 app:launch 重新 import frontend.js 执行组件工厂，
-          // 覆盖 commonData.appsData 注册表为未挂载的新实例（container=null），导致 open 刷新静默失败
-          // 🔄 并配合 await sleep 确保警告窗口在置顶后弹出，避免被原窗口遮住
-          ; (async () => {
-            await settingData.fnCall("appActive", [existingAppId])
-            await new Promise(resolve => setTimeout(resolve, 100))
-
-            // 🔄 单例命中：旧窗口可能未感知磁盘最新内容（如批准 Diff 后文件已变更）
-            // 标准软件行为：无未保存修改 → 静默重新加载；有未保存修改 → 弹窗询问，避免静默覆盖丢失数据
-            // 💡 关键：editorData 因前端子模块缓存穿透(时间戳重写)是每Tab独立实例，必须通过共享的 commonData.appsData 访问其他窗口实例
-            const existingEditorData = commonData?.appsData?.[existingAppId]
-            const existingInstance = existingEditorData?.instances?.get(existingAppId)
-            if (existingInstance && existingInstance.isDirty) {
-              Notice.launch({
-                sign: "ask_reload_" + existingAppId,
-                tip: "文件已在外部被修改",
-                msg: "当前窗口存在未保存的修改，且该文件在磁盘上已被外部更新（如 AI 批准修改）。重新加载将丢失未保存的修改，是否继续？",
-                confirm: async () => {
-                  await settingData.fnCall("appDispatch", [existingAppId, "open", { filePath: filePath }])
-                  return undefined
-                }
-              })
-            } else {
-              settingData.fnCall("appDispatch", [existingAppId, "open", { filePath: filePath }])
-            }
-          })()
-
-          setTimeout(() => {
-            if (vnode.attrs.delete) vnode.attrs.delete()
-            settingData.fnCall("appClose", [appId])
-          }, 0)
-          return
         }
       }
 
@@ -1086,7 +1078,20 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, chatData, set
               useMinus: false, // 隐藏最小化
               content: AskSaveComponent,
               contentAttrs: {
+                // 保存且关闭：有路径直接覆盖保存（无路径时 handleSave 内部自动弹出另存为）
                 onYes: async (closePrompt) => {
+                  const saved = await handleSave(false);
+                  if (saved) {
+                    closePrompt();
+                    if (originalCancel) {
+                      await originalCancel(dom, closeFn, tabData, event);
+                    } else {
+                      closeFn();
+                    }
+                  }
+                },
+                // 另存为且关闭：强制弹出另存为对话框，保存成功后关闭
+                onYesAs: async (closePrompt) => {
                   const saved = await handleSave(true);
                   if (saved) {
                     closePrompt();
