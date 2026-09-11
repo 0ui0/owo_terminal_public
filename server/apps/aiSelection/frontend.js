@@ -1,8 +1,9 @@
 import aiSelectionData from "./aiSelectionData.js"
 
-export default ({ appId, m, Notice, ioSocket, commonData, chatData, settingData, Box, iconPark, getColor }) => {
+export default ({ appId, m, Notice, ioSocket, commonData, chatData, settingData, format, Box, iconPark, getColor, trs }) => {
   // === State ===
-  let title = "请选择一项操作"
+  let title = ""
+  let content = ""
   let options = []
   let localComment = ""
 
@@ -34,12 +35,25 @@ export default ({ appId, m, Notice, ioSocket, commonData, chatData, settingData,
 
   init()
 
+  // === Actions ===
+  const dispatchChoice = async (action, args) => {
+    try {
+      await settingData.fnCall("appDispatch", [appId, action, args])
+    }
+    catch (e) {
+      console.error(e)
+    }
+  }
+
   return {
     oninit(vnode) {
       // 从 vnode.attrs 获取启动参数
       if (vnode.attrs.data) {
         if (vnode.attrs.data.title) {
           title = vnode.attrs.data.title
+        }
+        if (vnode.attrs.data.content) {
+          content = vnode.attrs.data.content
         }
         if (vnode.attrs.data.options) {
           options = vnode.attrs.data.options
@@ -50,157 +64,174 @@ export default ({ appId, m, Notice, ioSocket, commonData, chatData, settingData,
       aiSelectionData.unregisterInstances(appId, commonData)
     },
     cancel() {
-      settingData.fnCall("appDispatch", [
-        appId,
-        "cancel",
-        {
-          comment: localComment
-        }
-      ]).catch(e => {
-        console.error(e)
+      dispatchChoice("cancel", {
+        comment: localComment
       })
       return undefined
     },
     view() {
-      return m("", {
+      return m(Box, {
+        color: "gray_1",
+        isBlock: true,
         style: {
+          height: "100%",
+          margin: "0",
+          borderRadius: "0",
+          boxSizing: "border-box",
           display: "flex",
           flexDirection: "column",
-          width: "100%",
-          height: "100%",
-          background: `linear-gradient(135deg, ${getColor('gray_3').back} 0%, ${getColor('gray_4').back} 100%)`,
-          color: getColor('gray_3').front,
-          fontFamily: "'Inter', sans-serif",
-          padding: "2.4rem",
-          boxSizing: "border-box",
-          overflow: "hidden",
-          position: "relative"
+          gap: "1rem",
+          overflow: "hidden"
         }
       }, [
-        // Bubble Decorative Elements
-        m("", {
-          style: {
-            position: "absolute",
-            top: "-5.0rem",
-            right: "-5.0rem",
-            width: "15.0rem",
-            height: "15.0rem",
-            borderRadius: "50%",
-            background: "rgba(255, 255, 255, 0.03)",
-            filter: "blur(4.0rem)",
-            pointerEvents: "none"
-          }
-        }),
-
-        // Header
-        m("", {
-          style: {
-            marginBottom: "2.0rem",
-            textAlign: "center"
-          }
-        }, [
-          m("", {
+        // 标题
+        m("",
+          {
             style: {
-              fontSize: "1.8rem",
-              fontWeight: "800",
-              color: getColor('gray_3').front,
-              letterSpacing: "-0.05rem"
+              textAlign: "center"
             }
-          }, title)
+          },
+          [
+            m("",
+              {
+              style: {
+                fontSize: "1.8rem"
+              }
+            },
+            title || trs("AI助手选择/默认标题", {
+              cn: "请选择一项操作",
+              en: "Please choose an option"
+            })
+          )
         ]),
 
-        // 备注输入框 - 改用 Box 实现
-        m("", {
+        // 说明内容（与系统正文一致的 Markdown 排版）
+        content ? m(Box, {
+          class: "article",
+          color: "gray_4",
+          isBlock: true,
           style: {
-            marginBottom: "1.6rem",
-            display: "flex",
-            flexDirection: "column"
+            margin: "0",
+            maxHeight: "24rem",
+            overflowY: "auto"
           }
         }, [
-          m(Box, {
-            tagName: "input[type=text]",
-            color: "gray_2",
-            oninput: (dom, e) => {
-              localComment = dom.value
+          m.trust(format(content, "markdown", {}))
+        ]) : null,
+
+        // 备注（随选择一并回传给 AI）
+        m(Box, {
+          color: "gray_4",
+          isBlock: true,
+          style: {
+            margin: "0",
+            display: "flex",
+            flexDirection: "column",
+            gap: "0.5rem"
+          }
+        }, [
+          m("",
+            {
+              style: {
+                fontSize: "1.2rem"
+              }
             },
+            trs("AI助手选择/备注标签", {
+              cn: "备注（随选择一并发送给 AI）",
+              en: "Note (sent along with your choice)"
+            })
+          ),
+          m(Box, {
+            tagName: "textarea",
+            color: "gray_4",
+            isBlock: true,
             style: {
-              width: "100%",
-              boxSizing: "border-box",
-              outline: "none"
+              margin: "0",
+              minHeight: "10rem",
+              resize: "vertical",
+              outline: "none",
+              background: getColor("确认框输入背景"),
+              color: getColor("确认框输入文字"),
+              border: `0.1rem solid ${getColor("确认框输入边框")}`,
+              borderRadius: "1rem"
+            },
+            oninput: (dom) => {
+              localComment = dom.value
             },
             ext: {
               value: localComment,
-              placeholder: "输入要随选择一并发送的备注信息..."
+              placeholder: trs("AI助手选择/备注占位", {
+                cn: "输入要随选择一并发送的备注信息...",
+                en: "Type a note to send with your choice..."
+              })
             }
           })
         ]),
 
-        // Options List
-        m("", {
-          style: {
-            flex: 1,
-            overflowY: "auto",
-            display: "flex",
-            flexDirection: "column",
-            gap: "1.2rem",
-            padding: "0.4rem"
-          }
-        }, [
-          options.map(opt => {
+        // 选项列表
+        m("",
+          {
+            style: {
+              display: "flex",
+              flexDirection: "column",
+              gap: "0.5rem",
+              flex: "1",
+              overflowY: "auto"
+            }
+          },
+          options.map((opt) => {
             return m(Box, {
+              color: opt.color || "gray_4",
               isBtn: true,
-              color: opt.color || "gray_2",
-              onclick: async () => {
-                try {
-                  await settingData.fnCall("appDispatch", [
-                    appId,
-                    "select",
-                    {
-                      value: opt.value,
-                      comment: localComment
-                    }
-                  ])
-                } catch (e) {
-                  console.error(e)
-                }
+              isBlock: true,
+              style: {
+                margin: "0",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center"
+              },
+              onclick: () => {
+                dispatchChoice("select", {
+                  value: opt.value,
+                  comment: localComment
+                })
               }
             }, [
               m("span", opt.label),
-              m.trust(
-                iconPark.getIcon("Right", {
-                  fill: opt.color ? getColor(opt.color).front : getColor('gray_2').front,
-                  size: "1.4rem"
-                })
-              )
-            ])
-          }),
-
-          // 取消选择按钮
-          m(Box, {
-            isBtn: true,
-            color: "gray_3",
-            onclick: async () => {
-              try {
-                await settingData.fnCall("appDispatch", [
-                  appId,
-                  "cancel",
-                  {
-                    comment: localComment
-                  }
-                ])
-              } catch (e) {
-                console.error(e)
-              }
-            }
-          }, [
-            m("span", "取消选择"),
-            m.trust(
-              iconPark.getIcon("Close", {
-                fill: getColor('gray_3').front,
+              m.trust(iconPark.getIcon("Right", {
+                fill: getColor(opt.color || "gray_4").front,
                 size: "1.4rem"
-              })
-            )
-          ])
+              }))
+            ])
+          })
+        ),
+
+        // 取消选择
+        m(Box, {
+          color: "gray_2",
+          isBtn: true,
+          isBlock: true,
+          style: {
+            margin: "0",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            gap: "0.5rem"
+          },
+          onclick: () => {
+            dispatchChoice("cancel", {
+              comment: localComment
+            })
+          }
+        }, [
+          m("span", trs("AI助手选择/取消选择", {
+            cn: "取消选择",
+            en: "Cancel"
+          })),
+          m.trust(iconPark.getIcon("Close", {
+            fill: getColor("gray_2").front,
+            size: "1.4rem"
+          }))
         ])
       ])
     }

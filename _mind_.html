@@ -3719,4 +3719,79 @@ graph TD
 ```
   </n-graph>
 </n-main>
+<n-main>
+  <n-time>[时间:2026/09/11 16:17:00]</n-time>
+  <n-mem>[记忆：完成 431ce86 缺陷修复（已落盘）。根因：server/db/archiveDb.js:37 的 needAlter = isFirstInit || !this.hasEverSynced，serve.js:119 启动首次初始化已把 hasEverSynced 置真；而 projectManager.reset()（L343 关库 → 删 archive.sqlite 及 wal/shm → L354 重新开库）与 load()（L157 关库 → L161 删文件 → L166-171 若 zip 内有 archive.sqlite 则写回 → L188 重新开库）都没传 isFirstInit，导致新库不执行 sync({alter:true}) → 零表空库 → 前端 chat:refresh 请求 /api/chatMessages/get → createAPI.js:95 的 tb_chat_messages.findAll → SQLITE_ERROR: no such table。连带：save() 用 VACUUM INTO 把空库原样打进 zip，故 reset 之后保存的档也是坏档，导入必报同错（两个现象同源）。修复：projectManager.js 三处重新开库全部改为 archiveDb.init(null, { isFirstInit: true })，即 L188（导入主路径）、L297（导入失败恢复）、L354（新建恢复）；LSP 检查无错。长官明确否决了“开库时查 sqlite_master 探测缺失表”的自愈方案，理由是导入时调用 sync 会自动同步表结构，无需手动探测。现场自愈说明：已坏掉的库只要重启应用就会因 hasEverSynced 复位为假而被 sync 补建表；但已存出的坏档里聊天记录已丢失、不可找回。]</n-mem>
+  <n-tasks>[总任务：1. 修复 431ce86 建表跳过缺陷(已改完，待长官重启实测) ]</n-tasks>
+  <n-ul>
+    <n-li>[任务1:修复建表跳过缺陷]
+      <n-focus>[关注1:文件 server/managers/projectManager.js, 行号 188/297/354, 代码片段|>await archiveDb.init(null, { isFirstInit: true })<|, 说明:三处删库重建后的初始化全部显式声明需要同步表结构]</n-focus>
+      <n-focus>[关注2:文件 server/db/archiveDb.js, 行号 11/37/45-49, 说明:init 签名与 needAlter 判定保持原样未改；hasEverSynced 进程级门控保留]</n-focus>
+      <n-focus>[关注3:文件 serve.js, 行号 119, 说明:启动首次初始化不传参，靠 hasEverSynced 判定，行为符合预期]</n-focus>
+      <n-focus>[关注4:连带风险, 说明:新建之后保存的 zip 内 archive.sqlite 是零表空库，导入不再报错但聊天记录为空]</n-focus>
+    </n-li>
+  </n-ul>
+  <n-graph>
+```mermaid
+graph TD
+  A["431ce86: needAlter = isFirstInit 或 尚未同步过"] --> B["新建/导入 删库后重新开库未传参数 → 跳过建表"]
+  B --> C["零表空库 → tb_chat_messages 不存在 → 报服务器内部错误"]
+  B --> D["VACUUM INTO 打包空库 → 存出的档也是坏档 → 导入报同错"]
+  E["修复: 三处重新开库传 isFirstInit: true (L188/L297/L354)"] --> B
+  E --> F["LSP 无错, 待重启实测"]
+  G["否决方案: 手动探测 sqlite_master"] -.-> E
+```
+  </n-graph>
+</n-main>
+<n-main>
+  <n-time>[时间:2026/09/11 16:25:00]</n-time>
+  <n-mem>[记忆：修复 aiSelect（气泡选择器）工具传递的 content 未在前端弹窗显示、只显示了 title 的缺陷。①根因定位：server/apps/aiSelection/frontend.js 的 oninit 只从 vnode.attrs.data 读取了 title 与 options，完全没读 content，视图里也没有对应的渲染区域；工具层 server/apps/aiSelection/appCall/aiSelect.js 与 appLaunch 传递链路（data: { title, content, options }）本身完全正常，问题就在前端漏读漏渲染。②修复方案：前端从注入依赖中取得 format（www/src/comData/ioSocket.js 第226行 app:launch 注入清单里已有 format，与 Box/Tag/getColor 同一批），新增 content 闭包状态并在 oninit 读取，视图中在标题与备注输入框之间插入渲染块：m(Box, { class: "article", isBlock: true, color: "gray_8", style: { marginBottom: "1.6rem", maxHeight: "30rem", overflowY: "auto" } }, [ m.trust(format(content, "markdown", {})) ])。③关键依据：系统正文的渲染方式就是 m.trust(format(content, "markdown", {}))（ChatItem.js 第497行），排版由全局类 .article 提供（定义在 www/src/view/css/Css.js 第89行起：正文 1.5rem + 行高 1.8、代码块、表格、引用、标题等）；waitConfirm 的 argsDesc 渲染范例在 www/src/view/chat/ChatConfirm.js 第99-114行，同样用 m(Box,{class:"article",isBlock:true,...},[m.trust(format(...))])，本次完全对齐该范例。④LSP 检查无错。⑤验证受阻：我用 appLaunch 直接拉起 aiSelection 实例（app_xs563，参数 title/content/options 均带）作目视验收；但 appHTMLDebug 报“操作 getHTML 不支持”，因为该工具走的是 backend.dispatch，而 aiSelection 的 backend.js 只实现了 select/cancel 两个动作，getHTML 仅在其前端 instanceInterface 中实现（frontend.js 第13-18行），故 DOM 自检此路不通，改为请长官目视弹窗确认。⑥长官给出的硬性要求：content 必须用与系统正文一致的 markdown 方式显示。]</n-mem>
+  <n-tasks>[总任务：1. 修复 431ce86 建表跳过缺陷(已改完，待重启实测) 2. 修复 aiSelect 弹窗 content 未渲染(已改完，待目视验收) ]</n-tasks>
+  <n-ul>
+    <n-li>[任务2:aiSelect content 渲染修复]
+      <n-focus>[关注1:文件 server/apps/aiSelection/frontend.js, 行号 3/6/45-47/116-128, 代码片段|>content ? m(Box, { class: "article", isBlock: true, color: "gray_8", style: { marginBottom: "1.6rem", maxHeight: "30rem", overflowY: "auto" } }, [ m.trust(format(content, "markdown", {})) ]) : null<|, 说明:注入 format + 新增 content 状态 + oninit 读取 + 视图中渲染]</n-focus>
+      <n-focus>[关注2:文件 www/src/comData/ioSocket.js, 行号 226, 说明:format 已在 App 依赖注入清单中，无需新增注入]</n-focus>
+      <n-focus>[关注3:文件 www/src/view/chat/ChatConfirm.js, 行号 99-114, 说明:waitConfirm 的 argsDesc 渲染范例，本次对齐对象]</n-focus>
+      <n-focus>[关注4:文件 www/src/view/css/Css.js, 行号 89-98, 说明:.article 全局排版类，提供正文 1.5rem 与行高 1.8]</n-focus>
+      <n-focus>[关注5:障碍, 说明:appHTMLDebug 依赖 backend.getHTML，aiSelection 后端未实现，无法自动自检 DOM]</n-focus>
+    </n-li>
+  </n-ul>
+  <n-graph>
+```mermaid
+graph TD
+  A["现象: aiSelect 弹窗只显示 title, content 丢失"] --> B["前端 oninit 只读 title/options"]
+  B --> C["修复: 注入 format + 读取 content"]
+  C --> D["渲染: m(Box,{class:'article'})+m.trust(format(content,'markdown',{}))"]
+  D --> E["排版对齐系统正文: .article 全局类"]
+  F["waitConfirm 范例: ChatConfirm.js argsDesc"] -.-> D
+  G["自检受阻: appHTMLDebug 需 backend.getHTML"] -.-> D
+```
+  </n-graph>
+</n-main>
+<n-main>
+  <n-time>[时间:2026/09/11 16:46:00]</n-time>
+  <n-mem>[记忆：aiSelection（AI 助手选择）界面按《样式设计指南》与《app 开发指南》全量推翻重做完成。①能力项：content 已能显示（本轮之前已修，长官截图确认）；②重写 server/apps/aiSelection/frontend.js（235 行）为：根容器 Box(color gray_1) 全屏 flex 布局 → 标题（纯文字，1.8rem，trs）→ 说明区（Box + class:"article" + m.trust(format(content,"markdown",{}))）→ 备注区（Box + textarea）→ 选项列表（flex:1 滚动，每项 Box isBtn，左标签右箭头）→ 取消按钮（Box gray_2）；全部文案走 trs 内联字典；删除原高斯模糊光斑、Inter 字体、fontWeight 800、写死渐变与 rgba；事件收敛为 dispatchChoice helper（复用三处：选项/取消/cancel 钩子）。③关键教训（深色模式翻车）：系统色名是「语义化 + 分主题」的，colorObj.js 实为深色基准板（gray_1 #393432 全局背景、gray_3 #2d2d2d 侧边栏、gray_4 #47464f 容器背景、gray_8 #eeeeee 气泡高对比块），getColor 在 themeColor=1(暖米黄)/2(浅蓝) 时用 overrides 覆盖，0 与其它回退到 colorObj。我最初把 gray_8 当"白卡"用，导致深色模式下弹窗变成一堆刺眼白卡（长官截图指出"颜色古怪"）。修正映射：根=gray_1、说明/备注/选项卡片=gray_4、备注输入框改用对话框专用色（确认框输入背景/文字/边框），取消=gray_2。④备注框由单行 input 改为 textarea（minHeight 10rem、resize vertical、borderRadius 1rem）。⑤LSP 全程无错。⑥长官反馈"好起来好多了"。⑦回执失联 bug 已被长官现场实证三次（热重载后工具与 backend 的 aiSelectionData 模块副本分裂 ⇒ 点击只关窗不通知 AI）；长官先前裁定"问题不大不要修"，故本轮未改，仅保留方案（照 waitConfirm：发布进共享数据 + 轮询取结果）。⑧长官将重启 Electron 以恢复版本一致并做最终验收。]</n-mem>
+  <n-tasks>[总任务：1. 修复 431ce86 建表跳过缺陷(已改完，待重启实测) 2. aiSelect content 渲染(已完成) 3. aiSelection 界面重做(已完成，待重启最终验收) ]</n-tasks>
+  <n-ul>
+    <n-li>[任务3:界面重做]
+      <n-focus>[关注1:文件 server/apps/aiSelection/frontend.js, 摘要:235 行全量重写；根 gray_1 / 卡片 gray_4 / 取消 gray_2 / 输入框用确认框输入系列色；标题纯文字 1.8rem；选项 flex:1 滚动+右箭头]</n-focus>
+      <n-focus>[关注2:文件 www/src/view/common/colorObj.js(78行), 说明:深色基准色板；getColor.js 在 themeColor 1/2 时用 overrides 覆盖，0 与其它回退此表]</n-focus>
+      <n-focus>[关注3:遗留隐患, 说明:热重载后 aiSelectionData 模块副本分裂导致点击回执失联；修法=照 waitConfirm 用 comData 承载等待态并轮询；长官暂不修]</n-focus>
+      <n-focus>[关注4:待验证, 说明:重启后 1) 新建→不保存继续/导入存档是否报错(431ce86 修复) 2) 气泡窗口点击选项/取消是否正常回传]</n-focus>
+    </n-li>
+  </n-ul>
+  <n-graph>
+```mermaid
+graph TD
+  A["长官要求按样式指南重做UI"] --> B["全量重写 frontend.js: 一切皆是 Box + 主题色 + trs"]
+  B --> C["首版误用 gray_8 当白卡 → 深色模式下刺眼白卡"]
+  C --> D["查 colorObj.js 得知色名是语义化深色基准板"]
+  D --> E["修正: 根 gray_1 / 卡片 gray_4 / 输入框用确认框输入色"]
+  E --> F["备注框改多行 textarea(10rem)"]
+  F --> G["长官: 好多了; 但热重载致点击回执失联"]
+  G --> H["待重启 Electron 后最终验收"]
+  H --> I["同时验证任务1: 新建/导入存档"]
+```
+  </n-graph>
+</n-main>
 

@@ -353,7 +353,7 @@ export default function () {
           flexDirection: "column",
           background: getColor('gray_1').back,
           borderRadius: win.isMaximized ? "0" : "3rem",
-          boxShadow: "0 0 2rem rgba(0,0,0,0.3)",
+          boxShadow: isMainWindow ? "none" : "0 0 2rem rgba(0,0,0,0.3)",
           backdropFilter: "blur(10px)",
           "-webkit-backdrop-filter": "blur(10px)",
           //overflow: "hidden",

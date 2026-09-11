@@ -184,8 +184,8 @@ class ProjectManager {
         }
       }
 
-      // 重启数据库服务
-      await archiveDb.init()
+      // 重启数据库服务（库文件已被重建或替换，必须显式声明同步表结构）
+      await archiveDb.init(null, { isFirstInit: true })
 
       // 向下兼容：如果旧项目里 chatLists 的 data 数组有内容，则自动迁移并写入 sqlite 数据库，随后清空内存中的 data 数组
       if (data.comData && data.comData.chatLists) {
@@ -294,7 +294,7 @@ class ProjectManager {
     } catch (e) {
       console.error("[ProjectManager] Load failed:", e)
       try {
-        await archiveDb.init()
+        await archiveDb.init(null, { isFirstInit: true })
       } catch (err) {
         console.error("Restore DB in load fail:", err)
       }
@@ -351,7 +351,7 @@ class ProjectManager {
       console.error("[ProjectManager] Reset DB file failed:", dbErr)
     } finally {
       try {
-        await archiveDb.init()
+        await archiveDb.init(null, { isFirstInit: true })
       } catch (err) {
         console.error("Restore DB in reset fail:", err)
       }
