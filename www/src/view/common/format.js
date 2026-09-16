@@ -558,9 +558,21 @@ const formatImpl = function (content, type, opt) {
   }
 };
 
+// 思考中的流式文本超过该长度，就不再走 markdown 排版，直接按纯文本渲染（省掉每批全量重排）
+const THINKING_PLAIN_LIMIT = 100000
+
 export default format = function (content, type, opt) {
   if (!content) return "";
   if (typeof content !== "string") return formatImpl(content, type, opt);
+
+  // isThinking：思考中（流式）的内容，长度超限就直接返回纯文本，不再做 markdown 排版。
+  // 调用方是 m.trust(html)，所以必须转义 HTML，并用 pre-wrap 保留换行与缩进（绝不能原样返回）
+  if (opt?.isThinking && content.length > THINKING_PLAIN_LIMIT) {
+    return `<div style="white-space: pre-wrap; word-break: break-word;">${content.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")}</div>`
+  }
+
+  // noCache：跳过缓存读写（流式中间态的内容每帧都在变，进缓存必然 miss，还会把有用的历史条目挤出去）
+  if (opt?.noCache) return formatImpl(content, type, opt);
 
   const cacheKey = content + "|" + type + "|" + (opt?.mini ? '1' : '0');
   if (formatCache.has(cacheKey)) {

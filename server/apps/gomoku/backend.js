@@ -65,7 +65,12 @@ export default {
         const boardStr = this.getBoardStr(gameState.board)
 
         // 唤醒大模型
-        const targetListId = comData.data.get().targetChatListId || 0
+        let targetListId
+        try {
+          targetListId = comData.getChatList(comData.data.get().targetChatListId).id
+        } catch {
+          return { ok: false, msg: "请先点击一下聊天输入框，再重新操作" }
+        }
         const sysMsg = `[appid:${app.id}] 该你了。\n我在 (${lastMove.x}, ${lastMove.y}) 落子。\n当前局势（我执黑X，你执白O）：\n${boardStr}\n请直接根据局势调用 aiGomokuMove 落子反击，无需调用工具查看局势。`
 
         socketOnChat({

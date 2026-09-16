@@ -402,15 +402,25 @@ export default function (json) {
         list.streamReasoningChunks = ""; // 运行结束，清理流缓冲
       })
     },
-    async streamFn({ chunk, replyChunk, reasoningChunk }) {
+    streamFn: async function streamFn({ chunk, replyChunk, reasoningChunk }) {
+      // 流式推送节流：攒进缓冲区，距上次推送超过 200ms 才推一次（时间戳判断，不用定时器）
+      // 状态挂在本函数上（每轮回复都会新建一个 streamFn，天然按轮隔离）
+      if (!streamFn.stream) streamFn.stream = { reply: "", reasoning: "", timestamp: 0 }
+      if (replyChunk) streamFn.stream.reply += replyChunk
+      if (reasoningChunk) streamFn.stream.reasoning += reasoningChunk
+      if (Date.now() - streamFn.stream.timestamp < 200) return
+      streamFn.stream.timestamp = Date.now()
+
+      const reply = streamFn.stream.reply
+      const reasoning = streamFn.stream.reasoning
+      streamFn.stream.reply = ""
+      streamFn.stream.reasoning = ""
+      if (!reply && !reasoning) return
 
       await comData.data.edit((data) => {
-
-
         const list = data.chatLists.find(l => l.id === listId)
-
-        if (replyChunk) {
-          list.streamChunks += replyChunk; // 依然保持原生的 streamChunks 协议完整
+        if (reply) {
+          list.streamChunks += reply; // 依然保持原生的 streamChunks 协议完整
 
           // --- 顶配提取器：使用成熟库从 list.streamChunks 中抠出当前最完整的正文 ---
           try {
@@ -430,7 +440,7 @@ export default function (json) {
             console.log("[qqBot/Stream] 流json处理失败(仅提示一次):", e.message);
           }
         }
-        if (reasoningChunk) list.streamReasoningChunks += reasoningChunk;
+        if (reasoning) list.streamReasoningChunks += reasoning;
 
         //我想把把滚动条拉到底部的逻辑改到这里来，你看看靠谱吗
         //io.emit(chat:scrollToBottom)

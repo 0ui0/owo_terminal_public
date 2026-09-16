@@ -27,6 +27,9 @@ const updateListSession = async (listId, updates) => {
 }
 
 export default () => {
+  let editorInstance = null // 本窗口编辑器实例（由 ChatInputEditor 的 onReady 回传）
+  let attachInputDom = null // 本窗口自己的文件选择器 DOM（由 Mithril 的 oncreate 回传，替代重复的全局 id）
+
   const submitFn = async (e, listId) => {
     e.preventDefault()
 
@@ -67,7 +70,7 @@ export default () => {
       if (!goOn) return;
     }
 
-    const trimmedInput = chatData.inputText.trim()
+    const trimmedInput = targetSession.inputText.trim()
     if (trimmedInput) {
       chatData.saveHistory(trimmedInput)
     }
@@ -75,7 +78,7 @@ export default () => {
     const hasStageExt = targetSession.workStage && targetSession.workStage !== '无附加';
 
     // 空消息拦截：无文本、无附件、无引用时，禁止发送 (如果有附带阶段指令则放行)
-    if (!trimmedInput && !hasStageExt && (!session.attachments || session.attachments.length === 0) && (!session.quotes || session.quotes.length === 0)) {
+    if (!trimmedInput && !hasStageExt && targetSession.attachments.length === 0 && targetSession.quotes.length === 0) {
       return;
     }
 
@@ -83,7 +86,23 @@ export default () => {
 
     // Retrieve routing context
 
-    let currentInput = chatData.inputText;
+    let currentInput = targetSession.inputText;
+
+    // -------------------------------------------------------------
+    // 【消息引用标签解包还原】
+    // 编辑器内部为了防止换行符、右方括号 ] 破坏 Chip 正则，采用了 encodeURIComponent 编码。
+    // 在最终发送给后端/AI以及存盘入库前，在此处统一将 [msg:uuid:encodedContent:encodedComment] 
+    // 解包还原为人类和 AI 均完全可读的纯文本标签格式 [msg:uuid:content:comment]
+    // -------------------------------------------------------------
+    currentInput = currentInput.replace(/\[msg:([^\]]+)\]/gi, (match, val) => {
+      const parts = val.split(":");
+      const msgId = parts[0] || "";
+      if (parts.length <= 1) return match; // 纯 uuid 标签不需解包
+      const content = parts[1] ? decodeURIComponent(parts[1]).replace(/\]/g, "\\]").replace(/\n/g, "\\n") : "";
+      const comment = parts[2] ? decodeURIComponent(parts[2]).replace(/\]/g, "\\]").replace(/\n/g, "\\n") : "";
+      const restored = [msgId, content, comment].filter(Boolean).join(":");
+      return `[msg:${restored}]`;
+    });
 
     // 匹配类似 [xxx:yyy] 的标签结构，不过于限定特定的关键词白名单
     const quoteRegex = /\[[a-zA-Z0-9_]+:[^\]]+\]/ig;
@@ -111,22 +130,20 @@ export default () => {
     }
 
     const payload = {
-      ...session,
+      ...targetSession,
       inputText: currentInput,
       targetChatListId: targetChatListId,
     };
 
     console.log("发送的payload", payload)
 
-    session.call = null;
-    session.quotes = [];
+    targetSession.call = null;
 
     // 发送前立即清空前端状态并即时置底，提升响应速度
-    chatData.inputText = ""
-    session.attachments = [] // 发送后清空预览
+    if (editorInstance) editorInstance.clear()
     chatData.scrollChatListTobottom(targetChatListId) //滚动到底部
 
-    session.unreadCount = 0
+    targetSession.unreadCount = 0
     m.redraw()
 
     // 悄悄在后台编辑 comData，不必 await 阻塞主线程
@@ -144,76 +161,15 @@ export default () => {
     }
   }
 
-  const uploadAttachment = async (e, listId) => {
+  const uploadAttachment = (e) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
-
-    const session = chatData.getSessionState(listId);
-    if (!session.attachments) session.attachments = [];
-
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i];
-      const formData = new FormData();
-      formData.append('file', file);
-
-      // 创建一个带进度的占位对象
-      const isImage = file.type.startsWith('image/');
-      const attachObj = {
-        id: file.name, // 临时使用文件名作为预览显示的 ID
-        url: URL.createObjectURL(file), // 临时预览图
-        type: isImage ? 'image' : 'file',
-        progress: 0,
-        status: 'uploading'
-      };
-
-      session.attachments.push(attachObj);
-      const index = session.attachments.length - 1;
-
-      try {
-        const xhr = new XMLHttpRequest();
-        attachObj.xhr = xhr; // 保存引用以便中止
-        const uploadPromise = new Promise((resolve, reject) => {
-          xhr.upload.onprogress = (event) => {
-            if (event.lengthComputable) {
-              const percent = Math.round((event.loaded / event.total) * 100);
-              attachObj.progress = percent;
-              m.redraw();
-            }
-          };
-
-          xhr.onload = () => {
-            if (xhr.status >= 200 && xhr.status < 300) {
-              resolve(JSON.parse(xhr.responseText));
-            } else {
-              reject(new Error('Upload failed with status ' + xhr.status));
-            }
-          };
-          xhr.onerror = () => reject(new Error('Network error'));
-
-          xhr.open('POST', `/api/attachments/set`);
-          xhr.send(formData);
-        });
-
-        const res = await uploadPromise;
-
-        if (res && res.id) {
-          // 上传成功，更新正式数据
-          attachObj.id = res.id;
-          attachObj.url = res.url;
-          attachObj.status = 'done';
-          attachObj.progress = 100;
-          chatData.quoteAttachId(res.id);
-          m.redraw();
-        }
-      } catch (err) {
-        console.error("上传附件失败:", err);
-        attachObj.status = 'error';
-        Notice.launch({ msg: "上传失败: " + err.message });
-        m.redraw();
-      }
+    if (!editorInstance) {
+      Notice.launch({ msg: trs("输入框/提示/请先聚焦", { cn: "请先点击一个聊天输入框，再添加附件喵", en: "Please focus a chat input box first" }), type: "info" })
+      return
     }
-    // 清空 input 以便下次选择同一文件
-    e.target.value = "";
+    editorInstance.addFiles(files)
+    e.target.value = ""
   }
 
   let showToolsList = false
@@ -246,7 +202,7 @@ export default () => {
       const session = chatData.getSessionState(listId);
       const targetChatListId = session.lockedListId || listId;
       const targetSession = chatData.getSessionState(targetChatListId);
-      const attachments = session.attachments || []
+      const attachments = targetSession.attachments
 
       let showThinkStrength = targetSession.thinkControl && targetSession.enableThinking
 
@@ -572,7 +528,7 @@ export default () => {
                             onclick: async (e) => {
                               e.stopPropagation()
                               await updateListSession(targetChatListId, { thinkStrength: v.level })
-                              chatData.inputDom.focus()
+                              if (editorInstance) editorInstance.focus()
                               showThinkStrengthList = false
                             },
                           },
@@ -862,17 +818,20 @@ export default () => {
             },
             ext: {
               onclick: () => {
-                document.getElementById('attachInput').click()
+                // 每个输入栏只操作自己的文件选择器（不能用 document.getElementById，多个会话时 id 会重复）
+                attachInputDom?.click()
               }
             }
           }, trs("输入栏/按钮/附件", { cn: "附件", en: "Attach" })),
 
-          m("input#attachInput", {
+          m("input", {
             type: "file",
             multiple: true,
             // accept: "image/*", // 解除限制，允许所有类型
             style: { display: "none" },
-            onchange: (e) => uploadAttachment(e, listId)
+            oncreate: (v) => { attachInputDom = v.dom },
+            onremove: () => { attachInputDom = null },
+            onchange: (e) => uploadAttachment(e)
           }),
 
           m(IconTag, {
@@ -903,7 +862,7 @@ export default () => {
         ]),
 
         // 附件预览区域
-        attachments?.length > 0 ?
+        attachments.length > 0 ?
           m("", {
             style: {
               display: "flex",
@@ -1045,12 +1004,8 @@ export default () => {
 
                   // 从文本框中移除对应的引用标签
                   const quoteTxt = ` [attachid:${attach.id}] `;
-                  if (chatData.inputText.includes(quoteTxt)) {
-                    chatData.inputText = chatData.inputText.replace(quoteTxt, "");
-                  } else {
-                    // 兼容可能没有空格的情况
-                    chatData.inputText = chatData.inputText.replace(`[attachid:${attach.id}]`, "");
-                  }
+                  const newText = targetSession.inputText.includes(quoteTxt) ? targetSession.inputText.replace(quoteTxt, "") : targetSession.inputText.replace(`[attachid:${attach.id}]`, "");
+                  if (editorInstance) editorInstance.setText(newText);
 
                   attachments.splice(idx, 1);
                   m.redraw();
@@ -1059,7 +1014,7 @@ export default () => {
             ])
           })) : null,
         //引用
-        session.quotes?.length > 0 ?
+        targetSession.quotes.length > 0 ?
           m(Box, {
             style: {
               margin: "1rem 0",
@@ -1070,16 +1025,14 @@ export default () => {
               marginTop: "0",
             }
           }, [
-            session.quotes.map((quote) => {
+            targetSession.quotes.map((quote) => {
               return m(IconTag, {
                 iconName: "Quote",
                 bgColor: getColor('yellow_1').back,
                 fgColor: getColor('yellow_1').front,
                 ext: {
                   async onclick() {
-                    if (session.quotes) {
-                      session.quotes = session.quotes.filter((quote2) => { return quote2.uuid !== quote.uuid });
-                    }
+                    targetSession.quotes = targetSession.quotes.filter((quote2) => { return quote2.uuid !== quote.uuid });
                   }
                 }
               }, (quote.uuid + "").slice(0, 7)) //引用
@@ -1092,7 +1045,9 @@ export default () => {
           }
         }, [
           m(ChatInputEditor, {
-            placeholder: comData.data.get()?.targetChatListId ? trs("输入栏/占位符/已锁定队列", { cn: `已锁定到队列 ${comData.data.get()?.targetChatListId} ...`, en: `Locked to queue ${comData.data.get()?.targetChatListId}...` }) : trs("输入栏/占位符/输入消息", { cn: "输入消息...", en: "Type a message..." }),
+            listId: targetChatListId,
+            onReady: (inst) => { editorInstance = inst },
+            placeholder: session.lockedListId ? trs("输入栏/占位符/已锁定队列", { cn: `已锁定到队列 ${session.lockedListId} ...`, en: `Locked to queue ${session.lockedListId}...` }) : trs("输入栏/占位符/输入消息", { cn: "输入消息...", en: "Type a message..." }),
             onsubmit: (e) => submitFn(e, listId),
             style: {
               width: "100%",
@@ -1100,9 +1055,9 @@ export default () => {
               minHeight: "8rem",
               maxHeight: "20rem",
               boxSizing: "border-box",
-              background: comData.data.get()?.targetChatListId ? getColor('pink_2').back + '99' : getColor('brown_4').back + '99',
+              background: session.lockedListId ? getColor('pink_2').back + '99' : getColor('brown_4').back + '99',
               border: `0.1rem solid ${getColor('main').back}`,
-              color: comData.data.get()?.targetChatListId ? getColor('pink_2').front : getColor('brown_4').front,
+              color: session.lockedListId ? getColor('pink_2').front : getColor('brown_4').front,
               borderRadius: "3rem",
               padding: "1rem 2rem",
             }

@@ -1,12 +1,11 @@
 import Joi from "joi";
-import comData from "../../../comData/comData.js";
 import subAgents from "../../../tools/aiAsk/subAgents.js";
 
 export default {
     name: "显示RPG选项对话框",
     id: "aiRpgShowChoices",
 
-    async fn(argObj) {
+    async fn(argObj, metaData) {
         const { value, error } = this.joi().validate(argObj);
         if (error) {
             return "错误：" + error.details[0].message;
@@ -32,7 +31,7 @@ export default {
         });
 
         // 强行切断大模型当前回复流，等待玩家进行选择
-        const targetListId = comData.data.get().targetChatListId || 0;
+        const targetListId = metaData.listId;
         let targetModel = subAgents.get(targetListId);
         if (targetModel) {
             targetModel.stopRun();

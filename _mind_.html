@@ -3794,4 +3794,328 @@ graph TD
 ```
   </n-graph>
 </n-main>
+<n-main>
+  <n-time>[时间:2026/09/14 20:52:00]</n-time>
+  <n-mem>[记忆：本轮为啦沐达长官干活。【一、图看不到的实锤（长官要求记录）】长官连发两张图我都看不到，长官坚称 aiAsk 有明确图片发送逻辑。查证：findHistoryChats 查 chat_amu212 显示 attachments:[] 但正文含 [attachid:file_amu211.jpg]；server/tools/aiAsk/aiAsk.js:767-769 的 processAttachment(ask,rawContent) 整个函数体被 if(ask.attachments?.length>0) 包裹，attachments 为空 ⇒ 直接跳过 ⇒ 标签原样当纯文本发给我（我收到的就是这串文本）。根因：www/src/view/chat/ChatInputEditor.js:508-510(ondrop)/588-590(onpaste) 用 getSessionState(comData.data.get()?.targetChatListId||0)（全局字段默认 0）push 附件，而发送端 ChatInputBar.js:246-248 用 getSessionState(attrs.listId)、113-117 payload={...session} ⇒ 附件落进 session[0]、标签随文本进消息 ⇒ 库里 attachments 空、图片永远到不了模型；aiAsk.js:839-862 的“自动追加未被引用的图片附件”也依赖 ask.attachments 同无法补救。修法（未动手）：把编辑器取 session 的来源对齐发送端（attrs.listId / session.lockedListId）。【二、导航栏压不过 Notice（已改）】根因：主窗口 .window-box（noticeBox.js:347-350 position:fixed + zIndex:win.zIndex，主窗口为 0）position:fixed 自成层叠上下文 ⇒ 其内部元素无论 z-index 多大都压不过 Notice 容器（notice.js:470-476 固定容器 zIndex:999999）。已改：m(Nav) 从 Layout.js:3/38 上移到 main.js:91-95 Run 视图（与 m(Notice) 平级），nav.js:44 zIndex 99999→1000000。副作用：主窗口最小化时导航栏不再跟随隐藏。【三、已完成】noticeBox.js:357-358 删窗口级 backdrop-filter blur(10px)；ChatItem.js 子会话 childChatList 默认折叠+Tag 展开按钮（expandedChildLists 实例闭包，对齐 ChatNote.expandedStates）。【四、CPU 调查结论】主因：preparing 气泡每帧对整段增长文本跑全量 format(markdown)（ChatItem.js:156 showMind 默认 true、:496；ReasoningBlock:25 show 默认 true、:115），format.js:561 缓存 key=全文 ⇒ 流式恒 miss；服务端 streamFn 每 chunk 全量 compare/cloneDeep+广播是放大器（主进程仅 5%）。sample 报告符号全错位不可信，但主线程 1737/1753 样本在同一极深 JS 调用链、Compositor 空闲 ⇒ 纯 JS 主线程问题。]</n-mem>
+  <n-tasks>[总任务：1.CPU飙升(方案已定：服务端100ms缓冲+前端重排节流,待实施) 2.导航栏层级(已改待验收) 3.附件丢失bug(已定位已记录,待长官定是否修) 4.子会话默认折叠(已改待验收)]</n-tasks>
+  <n-ul>
+    <n-li>[任务3:附件丢失bug]
+      <n-focus>[关注1:文件 www/src/view/chat/ChatInputEditor.js,行508-510/588-590,代码|>const targetChatListId = (comData.data.get()?.targetChatListId || 0); const sessionState = data.getSessionState(targetChatListId); sessionState.attachments.push(attachObj)<|]</n-focus>
+      <n-focus>[关注2:文件 www/src/view/chat/ChatInputBar.js,行246-248/113-117,代码|>const session = chatData.getSessionState(listId); const payload = {...session, inputText, targetChatListId}<|]</n-focus>
+      <n-focus>[关注3:文件 server/tools/aiAsk/aiAsk.js,行767-769,代码|>processAttachment = async(ask, rawContent) => { if (ask.attachments?.length > 0) {...} }<|]</n-focus>
+    </n-li>
+    <n-li>[任务2:导航栏层级]
+      <n-focus>[关注4:文件 www/src/main.js,行91-95,新形态|>view(){ return [ m(Notice), m(Nav) ] }<|]</n-focus>
+      <n-focus>[关注5:文件 www/src/view/common/nav.js,行44,代码|>zIndex: 1000000<|（原 99999）；Notice 容器 notice.js:474 zIndex=999999]</n-focus>
+      <n-focus>[关注6:文件 www/src/view/layout/Layout.js,行3/38,已删 Nav import 与 m(Nav)]</n-focus>
+    </n-li>
+  </n-ul>
+  <n-graph>
+```mermaid
+graph TD
+  A["用户附图我看不到"] --> B["chat_amu212: attachments=[] 但正文有[attachid:file_amu211.jpg]"]
+  B --> C["aiAsk.js:767 被 if(ask.attachments?.length>0) 挡住 ⇒ 标签当纯文本发"]
+  C --> D["根因: ChatInputEditor 508/588 用 comData.targetChatListId(默认0) 存附件, ChatInputBar 246/113 用 attrs.listId 取附件"]
+  D --> E["修法: 编辑器对齐发送端 session 来源(待做)"]
+  F["导航栏 z-index 调多高都被 Notice 遮挡"] --> G["主窗口 .window-box: position fixed + zIndex 0 ⇒ 自成层叠上下文"]
+  G --> H["内部元素无法超越 notice.js:474 容器 zIndex 999999"]
+  H --> I["修法: m(Nav) 上移到 main.js Run 视图(与 m(Notice) 平级) + zIndex 1000000 (已完成)"]
+```
+  </n-graph>
+</n-main>
 
+<n-main>
+  <n-time>[时间:2026/09/14 22:30:00]</n-time>
+  <n-mem>[记忆：压缩上下文后恢复。长官问「系统本身那个超长上下文拦截阈值是多少」，用codeSearch实锤三层：①前端渲染层 www/src/view/common/format.js:349 FORMAT_MAX_LENGTH=100000（超长内容视觉上只渲染前10000字符并给「在编辑器中打开全文」按钮，注释写着调试完毕改回100000）、:350 FORMAT_SHOW_LENGTH=10000；②工具输出层 server/tools/aiAsk/sysCall/codeSearch.js:337 SAFE_CHAR_LIMIT=15000（超长整条出栈+单条裁剪）、terminalGet/fileOpener 15000尾部截断、browserGetContent 单批5000；③工具返回值统一层 server/tools/aiAsk/aiAsk.js:1849 currentLimit=20000（toolMaxLengthConfig 可按 toolId 覆盖）。]</n-mem>
+  <n-tasks>[总任务：1.(已完成)后端流式200ms节流 2.(已完成)format新增noCache/isThinking阈值100000 3.(已完成)窗口模糊删除/位置改translate3d/导航栏层级1000000/全屏避让navInset/子会话默认折叠/刷新后自动重建窗口 4.(待定)附件丢失bug是否修 5.(待定)其余CPU优化(残留blur、100ms贴底定时器)]</n-tasks>
+  <n-ul>
+    <n-li>[任务4:附件丢失bug][关注:ChatInputEditor.js 508-510(ondrop)与588-590(onpaste) 用 comData.data.get() 的 targetChatListId 默认0 取session，而发送端 ChatInputBar.js 246-248 与 113-117 用 attrs.listId 的session ⇒ 附件落进0号列表、attachid标签随文本进消息；server/tools/aiAsk/aiAsk.js:767-769 processAttachment 被 if(ask.attachments.length>0) 包裹 ⇒ 图片到不了模型]</n-li>
+  </n-ul>
+</n-main>
+
+<n-main>
+  <n-time>[时间:2026/09/15 01:56]</n-time>
+  <n-mem>[记忆：修复同一会话被多窗口打开时输入框文本不同步。起因：长官发图（主窗与小窗都显示“返回上一级(子会话 1)”，两个输入框文字不同但都标“20 字”）报“主会话锁定队列后输入框文本状态和小窗会话无法同步，但字数统计能同步、附件展示页能同步”。定位：www/src/view/chat/ChatInputEditor.js 的 view()（原 450-453）每次都从 data.getSessionState(listId).inputText 读值渲染字数与附件，而把 state 回灌进 contenteditable innerHTML 的 syncToEditor()（128-153）只在 oncreate（378）调用过一次，view 与 onupdate 均无回灌路径 ⇒ 另一窗口改了 state 后本窗口只重算字数、不重画文本。修复（已落盘，仅此一个文件）：1）新增闭包 lastText 记录最近一次与 state 对齐的文本；2）syncToEditor 内先取 text 写 lastText 再 textToHtml(text)；3）新增 onupdate 钩子——editorDom 为空返回、document.activeElement === editorDom（自己正在输入，DOM 是权威，防光标跳）返回、state 文本等于 lastText 返回，否则 syncToEditor()；4）oninput 先 lastText = htmlToText(innerHTML) 再写 state。长官决定自己跑 vite build 与回归。]</n-mem>
+  <n-tasks>[总任务：1.多窗口同会话输入框文本不同步(已改完，待长官 build 与回归)]</n-tasks>
+  <n-ul>
+    <n-li>[任务1:onupdate 回灌]
+      <n-focus>[关注:文件 www/src/view/chat/ChatInputEditor.js 第25行(lastText)、第145-149行(syncToEditor 改写)、第383-390行(onupdate 钩子)、第596-598行(oninput)，摘要:外部改动 state 时非焦点编辑器主动回灌 DOM]</n-focus>
+    </n-li>
+  </n-ul>
+  <n-graph>
+```mermaid
+graph TD
+  A["现象: 同一会话两个窗口输入框文字不同但字数都是 20"] --> B["view() 每帧读 state ⇒ 字数/附件同步"]
+  A --> C["syncToEditor 只在 oncreate 调一次 ⇒ 文本 DOM 不同步"]
+  C --> D["修复: onupdate + 焦点保护 + lastText 轻量判据"]
+  D --> E["待: 长官 vite build + 双窗回归"]
+```
+  </n-graph>
+</n-main>
+
+<n-main>
+  <n-time>[时间:2026/09/15 23:40]</n-time>
+  <n-mem>[记忆：给聊天消息加两个功能（owo_terminal）。①普通消息新增【窗口】按钮，位于引用按钮之后，条件 = chat.group !== childChatList && !chat.tid && chat.group !== preparing，点击 Notice.launch({sign: msg_ + chat.uuid, tip: chat.name, width:600, height:700, content:{view:()=>m(ChatItem,{chat})}})，即直接弹单条消息窗口。原有 childChatList 的 AgentWindow 按钮与 tid 的 ChatTerm 按钮一律保持原样不动（第一版我先做了合并统一并删改它们被长官拒绝，教训：不要动没被要求改的东西；弹窗也不要加嵌入式判定，直接弹）。②选中文本引用：在 ChatItem 根节点 m 上挂 onpointerup，取 e.currentTarget 存为 dom，setTimeout 200ms 后查 window.getSelection()，非折叠且 dom.contains(range.commonAncestorContainer) 才弹 Notice 悬浮菜单（sign chatItemSelMenu，tip 引用，width 140，useMinus false，hideBtn 1，win 定位 x=rect.left、y=rect.bottom+8，content 用 sysMenu 配 menuItems），菜单项【引用】点击后：无 focusEditor 则提示请先点击一个聊天输入框再引用喵，否则调 data.quoteMessage(chat, sel.toString())，然后关闭自己的菜单（closeTab 后再 launch 以免位置不刷新）。③chatData 新增 quoteMessage(chat, selectedText)：先 focusEditor.insertAtCursor(selectedText) 再 this.quoteToChatInputText(null, [{key: msg, value: chat.uuid}])，生成 msg 标签插入光标处；_textToChipHtml 新增 msg 标签渲染规则，渲染为 💬 加前7位 chip（class editor-tag tag-msg）。聚焦校验必须放在调用方按钮里，不能写进 quoteMessage（第一版写进去被长官指出该函数做了不属于它的事）；菜单逻辑不抽离成顶层函数，直接内联在事件里（第二版抽离被指正）。ChatInputBar.js 第91行 quoteRegex 会自动识别该标签并追加请优先阅读引用内容系统指令，AI 侧可用 findHistoryChats 的 id 参数精确查询该消息。]</n-mem>
+  <n-tasks>[总任务：1.ChatItem 窗口按钮 + 选中文本悬浮引用菜单(代码已落盘，待长官 vite build 与全平台实测)]</n-tasks>
+  <n-ul>
+    <n-li>[任务1/1:ChatItem 双功能]
+      <n-focus>[关注1:文件 www/src/view/chat/ChatItem.js 行237-277 根节点 onpointerup 内联悬浮菜单；行963-990 新增普通消息窗口按钮；行23 新增 import sysMenu]</n-focus>
+      <n-focus>[关注2:文件 www/src/view/chat/chatData.js 行233-237 quoteMessage；行267-268 msg 标签 chip 规则]</n-focus>
+    </n-li>
+  </n-ul>
+  <n-graph>需求：单条消息独立窗口 + 选中文本引用 → 复用 Notice.launch 与 sysMenu 菜单 → 引用走既有 quoteToChatInputText 通道，新标签加 chip 渲染 → 触发用 pointerup + getSelection + 200ms 延迟错位避让原生菜单 → 待 build 与实测</n-graph>
+</n-main>
+
+<n-main>
+  <n-time>[时间:2026/09/16 00:08]</n-time>
+  <n-mem>[记忆：Notice 新增两个控制参数。① closeOnClickOutside：在 Notice.launch 时向 document 绑定全局 pointerdown 事件（单例只绑一次），点击时遍历 Notice.data.dataArr，对带有 closeOnClickOutside: true 的项调用 requestCloseTab 关闭；并在 window-box 的 onpointerdown 上使用 e.stopPropagation() 阻断向 document 的事件冒泡，防止点击窗口自身时误关。② isMini：迷你标题栏模式。当 activeTab.isMini 为 true 时，标题栏内边距、最小高度(1.7rem)、窗口最小宽度(8rem)、圆角(1.5rem)、标题字体(1.1rem)与各按钮(Pin/Confirm/Minus/Square/Close/自定义按钮)尺寸(1.3~1.4rem)及图标尺寸全部按比例缩减约一半。③ ChatItem 选中文本悬浮菜单已开启 isMini: true 与 closeOnClickOutside: true，并保留关闭按钮（不设 hideBtn: 1）。全部改动落盘，LSP 检查通过。]</n-mem>
+  <n-tasks>[总任务：1.Notice closeOnClickOutside与isMini支持(已落盘) 2.ChatItem 引用浮窗接入迷你参数(已落盘)]</n-tasks>
+  <n-ul>
+    <n-li>[任务1/2:Notice 参数增强]
+      <n-focus>[关注1:文件 www/src/view/common/notice.js 行127-140 单例全局 pointerdown 监听器遍历关闭 closeOnClickOutside 标签]</n-focus>
+      <n-focus>[关注2:文件 www/src/view/common/noticeBox.js 行340 isMini判定；行394-397 窗口容器 stopPropagation；行400-690 标题栏与所有按钮样式在 isMini 时覆盖缩小属性]</n-focus>
+    </n-li>
+    <n-li>[任务2/2:ChatItem 菜单接入]
+      <n-focus>[关注1:文件 www/src/view/chat/ChatItem.js 行255-257 选中文本菜单配置 isMini: true 与 closeOnClickOutside: true]</n-focus>
+    </n-li>
+  </n-ul>
+  <n-graph>Notice 新增 closeOnClickOutside (document单例监听 + window-box 阻断冒泡) + isMini (三元表达式覆盖标题栏和各按钮尺寸缩小一半) → ChatItem 选中文本弹窗接入</n-graph>
+</n-main>
+
+<n-main>
+  <n-time>[时间:2026/09/16 00:15]</n-time>
+  <n-mem>[记忆：修复 Notice 浮窗两处边界问题。① 主窗口事件冒泡：主窗口 isMainWindow 占满全屏，此前在 window-box 上无条件 stopPropagation 导致点击主界面空白处时无法冒泡到 document 触发 closeOnClickOutside。修复：仅在 !isMainWindow 时 stopPropagation，主窗口允许事件正常冒泡，点击主窗口任意区域即可关闭浮窗。② 边框调整控制杆干扰：此前 resizeHandles 的 top/bottom/left/right 侵入窗口内 10~20px，缩小后的按钮与内层控制杆检测区重叠导致点击被拦截。修复：将所有 resizeHandles（n/s/w/e/nw/ne/sw/se）的尺寸严格限定在外侧 10px（外延范围 top:-10px, height:10px 等），完全移出窗口内部显示区域，彻底解决按钮点击被控制杆抢占问题，同时保留完整的八方向调整窗口大小能力。]</n-mem>
+  <n-tasks>[总任务：1.主窗口允许事件冒泡以支持点击空白关闭(已完成) 2.resizeHandles检测范围移至外围(已完成)]</n-tasks>
+  <n-ul>
+    <n-li>[任务1/2:主窗口冒泡]
+      <n-focus>[关注:文件 www/src/view/common/noticeBox.js 行395-399 仅在 !isMainWindow 时 e.stopPropagation()]</n-focus>
+    </n-li>
+    <n-li>[任务2/2:控制杆外置]
+      <n-focus>[关注:文件 www/src/view/common/noticeBox.js 行344-360 八方向 resizeHandles 严格限制在窗口外围 10px]</n-focus>
+    </n-li>
+  </n-ul>
+  <n-graph>修复：!isMainWindow 才 stopPropagation ⇒ 点击主窗口空白处顺利触发 document 监听关闭浮窗；resizeHandles 检测区域严格外置 10px ⇒ 不再覆盖标题栏缩小按钮</n-graph>
+</n-main>
+
+<n-main>
+  <n-time>[时间:2026/09/16 00:22]</n-time>
+  <n-mem>[记忆：选中文本浮窗样式与功能重构。① 替换 sysMenu 为一排横向 Tag 按钮：复制、引用、批注引用。② 复制功能：通过 navigator.clipboard.writeText 将选中文本写入系统剪贴板。③ 引用功能：调用 data.quoteMessage(chat, selectedStr) 插入输入框并添加 [msg:uuid] 标签。④ 批注引用功能：点击后弹出 Notice 批注输入弹窗，展示被引用文本预览与 textarea 输入框，确认后将选中文本与批注合并（格式：选中文字（批注: 批注内容））一并发送到输入框。⑤ 迷你标题栏按钮间距优化：在 noticeBox.js 中将 isMini 模式下各个 Header 按钮的 marginLeft/marginRight 缩窄至 0.2rem，布局更紧凑精致。改动落盘，LSP 检查通过。]</n-mem>
+  <n-tasks>[总任务：1.Tag排版浮窗(复制/引用/批注引用)(已落盘) 2.批注Notice弹窗(已落盘) 3.mini按钮间距缩至0.2rem(已落盘)]</n-tasks>
+  <n-ul>
+    <n-li>[任务1/3:横向Tag按钮栏]
+      <n-focus>[关注:文件 www/src/view/chat/ChatItem.js 行260-350 复制/引用/批注引用三个Tag组件]</n-focus>
+    </n-li>
+    <n-li>[任务2/3:批注引用弹窗]
+      <n-focus>[关注:文件 www/src/view/chat/ChatItem.js 行300-345 Notice.launch 批注输入框与确认回调]</n-focus>
+    </n-li>
+    <n-li>[任务3/3:Mini间距收窄]
+      <n-focus>[关注:文件 www/src/view/common/noticeBox.js 行501-685 isMini 模式 margin 缩至 0.2rem]</n-focus>
+    </n-li>
+  </n-ul>
+  <n-graph>选中文本浮窗重构为一排Tag(复制/引用/批注引用) + 批注输入Notice弹窗 + Mini模式按钮间距缩窄至0.2rem</n-graph>
+</n-main>
+
+<n-main>
+  <n-time>[时间:2026/09/16 00:37]</n-time>
+  <n-mem>[记忆：彻底修复引用与批注引用逻辑及样式规范。① 引用底层互转补全：在 ChatInputEditor.js 的 textToHtml 和 htmlToText 中补齐了 msg 标签的转换逻辑（复合格式 [msg:msgId:content:comment]），使 Chip 胶囊能够正确显示并能完整从 data-id 序列化回草稿文本，彻底解决点击引用后输入框不显示/丢失内容的问题。② 架构权责收敛：chatData.quoteMessage 规范为纯粹的一行转发：quoteMessage(msgId, content = "", comment = "") { const val = [msgId, content, comment].filter(Boolean).join(":"); this.quoteToChatInputText("system", [{ key: "msg", value: val }]) }，不负责校验；所有聚焦校验逻辑完全收敛在 ChatItem 按钮事件内，未聚焦输入框时直接给出友好提示并拦截。③ 批注弹窗遵循《样式设计指南.md》：使用 Box 基础组件容器、trs 国际化包裹、输入框使用 getColor('gray_1').front 确保与背景对应清晰可见，圆角 1.5rem，字号 1.5rem。全量代码落盘，LSP 检查零报错。]</n-mem>
+  <n-tasks>[总任务：1.ChatInputEditor msg标签互转(已落盘) 2.chatData.quoteMessage架构规范(已落盘) 3.批注弹窗样式设计指南重构(已落盘)]</n-tasks>
+  <n-ul>
+    <n-li>[任务1/3:编辑器Chip互转]
+      <n-focus>[关注:文件 www/src/view/chat/ChatInputEditor.js 行76-80 msg chip 渲染；行102 htmlToText msg 标签反解]</n-focus>
+    </n-li>
+    <n-li>[任务2/3:quoteMessage 规范化]
+      <n-focus>[关注:文件 www/src/view/chat/chatData.js 行233-236 quoteMessage(msgId, content, comment) 极简纯粹转发]</n-focus>
+    </n-li>
+    <n-li>[任务3/3:批注弹窗规范]
+      <n-focus>[关注:文件 www/src/view/chat/ChatItem.js 行315-365 批注输入框颜色/trs/聚焦校验]</n-focus>
+    </n-li>
+  </n-ul>
+  <n-graph>ChatInputEditor 补充 msg 标签 Chip 互转 ⇒ chatData.quoteMessage 规范 (msgId, content, comment) 转发 ⇒ ChatItem 按钮层做聚焦拦截与 Box 规范批注弹窗</n-graph>
+</n-main>
+
+<n-main>
+  <n-time>[时间:2026/09/16 00:46]</n-time>
+  <n-mem>[记忆：彻底解决 msg 引用标签文本溢出 Chip 的问题。原因分析：之前引用的正文和批注中可能包含冒号、换行、右方括号 ] 等字符，导致正则 \[[a-zA-Z0-9_]+:[^\]]+\] 提前闭合截断，剩余的文字就溢出暴露在编辑器文本框中，造成界面污染。修复方案：在 chatData.quoteMessage(msgId, content, comment) 中将 content 与 comment 使用 encodeURIComponent 编码，并用 :: 安全定界拼接为 [msg:msgId::encodedContent::encodedComment]；在 ChatInputEditor.js 和 chatData._textToChipHtml 中提取前部 msgId 显示 💬 msgId 紧凑 Chip 胶囊，所有引用正文与批注完整封装在单个 Chip 的 data-id 中，完全不污染编辑器！全量测试与语法检查通过。]</n-mem>
+  <n-tasks>[总任务：1.引用内容与批注encodeURIComponent安全封装在单个Chip中(已落盘)]</n-tasks>
+  <n-ul>
+    <n-li>[任务1/1:Chip封装不污染编辑器]
+      <n-focus>[关注1:文件 www/src/view/chat/chatData.js 行233-237 quoteMessage 编码与 _textToChipHtml :: 解析]</n-focus>
+      <n-focus>[关注2:文件 www/src/view/chat/ChatInputEditor.js 行77-83 msg 标签 :: 拆解渲染 Chip]</n-focus>
+    </n-li>
+  </n-ul>
+  <n-graph>msg 标签 payload 经 encodeURIComponent 与 :: 定界封装 ⇒ 绝不被右方括号提前截断 ⇒ 完整收纳进单个 💬 Chip 胶囊，彻底不污染编辑器文本框</n-graph>
+</n-main>
+
+<n-main>
+  <n-time>[时间:2026/09/16 00:58]</n-time>
+  <n-mem>[记忆：统一单冒号标准分隔符与发送前解包。① 统一分隔符规范：将之前的双冒号 :: 全部统一为系统标准的单冒号 : 分隔（[msg:uuid:encodedContent:encodedComment]）。② 发送前解包还原：在 ChatInputBar.js 中构建 payload.inputText 前，对 [msg:...] 标签进行 decodeURIComponent 解包还原为人类和 AI 均完全可读的 [msg:uuid:content:comment] 纯文本格式，并将文本中的 ] 与换行安全转义为 \] 与 \n，并附上详细架构注释。全链路语法检查通过。]</n-mem>
+  <n-tasks>[总任务：1.统一单冒号:分隔符(已完成) 2.ChatInputBar发送前解包还原纯文本(已完成)]</n-tasks>
+  <n-ul>
+    <n-li>[任务1/2:单冒号统一]
+      <n-focus>[关注:文件 www/src/view/chat/chatData.js 与 ChatInputEditor.js 统一使用单个冒号 :]</n-focus>
+    </n-li>
+    <n-li>[任务2/2:发送前解包]
+      <n-focus>[关注:文件 www/src/view/chat/ChatInputBar.js 行89-105 发送前统一 decodeURIComponent 解包还原]</n-focus>
+    </n-li>
+  </n-ul>
+  <n-graph>编辑器内 [msg:id:encodedContent:encodedComment] 单冒号安全Chip ⇒ 发送时 ChatInputBar 统一解包还原为 [msg:id:content:comment] 纯文本</n-graph>
+</n-main>
+
+<n-main>
+  <n-time>[时间:2026/09/16 01:13]</n-time>
+  <n-mem>[记忆：本时段两件事。① 按长官要求调查“标签转 Chip”的两处重复实现并合并：ChatInputEditor.js 的局部闭包 textToHtml（原 L39-86）与 chatData.js 的 _textToChipHtml（原 L244-276）除 renderMode 门控与空值保护外逐字相同；改造后 chatData 提供公开标准函数 textToChipHtml(text, renderMode = true)（去下划线、保留门控、补 if(!text) return ""），删除编辑器本地 textToHtml，三处调用同步改名：ChatInputEditor.js L106 syncToEditor 传 renderMode；L319/L327 insertAtCursor 保默认 true（维持“插入即渲染 Chip”的既存行为）；ChatInputEditor.js 936→887 行；全局无 _textToChipHtml 代码残留（仅本笔记历史记录中仍存旧名，不得改）。② 新需求：批注引用 Chip 除显示 msgId 前7位外，还要内嵌彩色方块显示批注原文。实现：chatData.textToChipHtml 的 msg 分支中，将 val 按 ":" 切分，parts[2] 视为 encodeURIComponent 编码的批注，用 try/catch decodeURIComponent 解出；注释“不另外建独立函数”（第一版写了个模块级 escapeHtml 助手被长官拒绝），改为就地单行链式转义 & < > " 并复用同一个变量（属性与节点文本共用），渲染 `<span class="tag-msg-comment" title="批注">批注</span>`；无批注时保持旧样式。CSS 落在 ChatInputEditor.js 的 style 块（.tag-element 之后）：inline-block + max-width 14rem + text-overflow ellipsis + white-space nowrap + 琥珀黄 yellow_1 背景 + 圆角 + font-size 0.85em。兼容性：data-id 仍存完整 val，htmlToText 仍能无损回滚为 [msg:val]，光标偏移算法不受影响（Chip 内文本本来就参与 offset 计算）；旧格式未编码草稿可能把正文第二段误当批注（仅旧草稿瞬时风险）。两处补丁均 applied，尚未 vite build 实机验证。]</n-mem>
+  <n-tasks>[总任务：1.调查并合并两处标签转Chip重复实现(已落盘) 2.chatData.textToChipHtml 去掉下划线(已落盘) 3.批注Chip内嵌彩色方块显示批注原文(已落盘) 4.语法检查+vite build实机回归(待长官)]</n-tasks>
+  <n-ul>
+    <n-li>[任务1/4:合并去下划线]
+      <n-focus>[关注1:文件 www/src/view/chat/chatData.js 行243-289 textToChipHtml(text, renderMode=true)]</n-focus>
+      <n-focus>[关注2:文件 www/src/view/chat/ChatInputEditor.js 行106/319/327 三处调用点已改名]</n-focus>
+    </n-li>
+    <n-li>[任务2/4:批注彩色方块]
+      <n-focus>[关注3:文件 www/src/view/chat/chatData.js 行272-286 msg 分支解析 parts[2] 并渲染 .tag-msg-comment]</n-focus>
+      <n-focus>[关注4:文件 www/src/view/chat/ChatInputEditor.js 行874-889 新增 .tag-msg-comment 样式（琥珀黄方块）]</n-focus>
+    </n-li>
+  </n-ul>
+  <n-graph>两处逐字重复(仅 renderMode 门控差异) ⇒ 合并到 chatData.textToChipHtml 单点维护；[msg:id:encContent:encComment] 第3段解码 ⇒ 内嵌黄色方块展示批注原文，data-id 不变 ⇒ 发送/回滚链路零影响</n-graph>
+</n-main>
+
+<n-main>
+  <n-time>[时间:2026/09/16 01:20]</n-time>
+  <n-mem>[记忆：长官指出两个 UI 问题并给出截图：①选中文本悬浮菜单三按钮间距不均、粉按钮贴边；②“添加批注”弹窗很难看，要求参考 aiDocs/样式设计指南.md 重做。调查：Notice 窗口结构（header 底色 main + 内容区 brown_2.back、margin 0.5rem、radius 3rem、overflow auto、flex column；win.width===0 时宽 auto；clampWindow 用 width||200 估算）。根因①：菜单写死 width:220 + space-around + 容器 padding 0.4/0.6 + gap 0.4，而 Tag 默认自带 margin 0.2rem 0.5rem（Tag 只收 styleExt，传 style 会 throw），三重间距叠加 ⇒ 不均且总宽超 220 导致右侧贴边溢出。修：width 220→0（自适应窗宽），容器 justifyContent center、padding 0.5rem、gap 0.5rem，三个 Tag 均加 styleExt:{margin:0}，并补 trs（复制/引用/批注引用/已复制/复制失败）。根因②：旧弹窗用裸 div+裸 textarea，自带 border/巨大圆角/深色底/字号硬写，且引用预览用 -webkit-box + maxHeight 双重截断导致半行被切。修：容器改 Box(isBlock+flex column+gap 0.5rem+background none+margin 0.5rem)；引用预览改 gray_2 Box（小标题 1.2rem/opacity 0.75 + 原文 1.4rem/lineHeight 1.6/-webkit-line-clamp 3）；输入改 Box{tagName:textarea,isBlock,noValue:true,color:gray_8,ext:{placeholder,rows:4},style:{width 100%,minHeight 8rem,margin 0,boxSizing border-box,resize vertical,lineHeight 1.5},oninput(dom,e)=>inputComment=e.target.value}。noValue 关键：Box 默认把 state.data.value 回写到 value 属性，每帧回写会把光标顶到末尾/触发重绘跳光标。全部改动落在 www/src/view/chat/ChatItem.js 行251-390。尚未 vite build 实机验证。]</n-mem>
+  <n-tasks>[总任务：1.悬浮菜单按钮间距修复(已落盘) 2.添加批注弹窗按设计指南重做(已落盘) 3.vite build+实机验证(待长官)]</n-tasks>
+  <n-ul>
+    <n-li>[任务1/2:悬浮菜单间距]
+      <n-focus>[关注1:文件 www/src/view/chat/ChatItem.js 行254 width:0；行260-269 容器 padding/gap 0.5rem；行274/291/307 三个 Tag 的 styleExt margin 0；行285/301/387 按钮文案 trs]</n-focus>
+    </n-li>
+    <n-li>[任务2/2:批注弹窗重设]
+      <n-focus>[关注2:文件 www/src/view/chat/ChatItem.js 行323-380 Box 容器 + 引用预览 + Box textarea（noValue 防光标跳动）]</n-focus>
+    </n-li>
+  </n-ul>
+  <n-graph>菜单间距不均 ⇒ (固定宽220 + space-around + 容器gap + Tag默认margin 四重叠加) ⇒ 改 width:0 自适应 + 统一 gap/padding 0.5rem + Tag margin:0；弹窗难看 ⇒ 裸 div/textarea + 硬写字号边框 ⇒ 改用 Box 体系(容器/预览/textarea) + 行内 style 仅保留必要覆盖</n-graph>
+</n-main>
+
+<n-main>
+  <n-time>[时间:2026/09/16 01:23]</n-time>
+  <n-mem>[记忆：长官反馈“深色主题下批注弹窗是浅色文本框，你看了主题对应的颜色值吗”，被批中。补课结果（重要基础知识）：getColor.js 的 themeId=0 直接返回 colorObj.js —— 那才是【暗色主题】基准表（main #937374、gray_1 #393432、gray_2 #7a7a7a、gray_3 #2d2d2d、gray_4 #47464f、brown_2 #5e5653、brown_4 #6b615b、gray_8 #eeeeee）；themeId=1(暖白黄)、2(经典窦蓝) 是另外两套 light overrides；其余 themeId 也走 colorObj。所以我之前用 gray_8 当输入框底色 = 三套主题下都是白底，暗色主题下刺眼——错。正确做法：用 colorObj/getColor 里【带语义的颜色键】，并同时核对 3 套主题：① 输入框背景 = brown_4（getColor.js 注释直接写着“输入框背景”，暗 #6b615b/#eeeeee、主题1 #FFFFFF/#333、主题2 #FFFFFF/#333）；② 项目内输入框的权威写法在 ChatInputBar.js 行1054-1058：background: getColor('brown_4').back + '99'、color: getColor('brown_4').front、border: 0.1rem solid main.back、borderRadius 3rem、padding 1rem 2rem。据此改：批注 textarea 的 color 改 brown_4，style 补 padding 1rem 2rem / background brown_4.back+99 / color brown_4.front / border main / outline:none（同时干掉 macOS 橙色系统焦点环）；引用预览卡由 gray_2(暗#7a7a7a 偏亮) 改 gray_3(暗 #2d2d2d/#eeeeee、主题1 #f5f3dc/#2C3E50、主题2 #DCE9F5/#2C3E50)，三套主题均为可读的面板色。另发现坑：gray_10 / gray_11 / gray_7 在 theme1、theme2 的 overrides 里没有定义 ⇒ 浅色主题会回落到 colorObj 的暗色值（挑色时必须避开这些键）。教训：改配色前必先读 colorObj.js + getColor.js 的三套主题表，不能凭“白色/黑色”直觉选键。]</n-mem>
+  <n-tasks>[总任务：1.悬浮菜单间距(已落盘) 2.批注弹窗重设(已落盘) 3.配色按三套主题修正(已落盘) 4.vite build+实机验证(待长官)]</n-tasks>
+  <n-ul>
+    <n-li>[任务3/4:配色修正]
+      <n-focus>[关注1:知识 www/src/view/common/colorObj.js 是暗色基准表；getColor.js theme1/2 为亮色覆盖；gray_10/gray_11/gray_7 无亮色覆盖 ⇒ 禁用]</n-focus>
+      <n-focus>[关注2:文件 www/src/view/chat/ChatItem.js 行336 预览 color gray_3；行365 输入 color brown_4；行370-382 输入框 style（brown_4.back+99底/main边框/outline none）]</n-focus>
+      <n-focus>[关注3:参照文件 www/src/view/chat/ChatInputBar.js 行1054-1058 输入框权威写法]</n-focus>
+    </n-li>
+  </n-ul>
+  <n-graph>brown_4=输入框背景语义键 ⇒ 暗色/亮色三主题均为“面上可读”的输入底色；gray_8=气泡主基调(白) ⇒ 绝对不能当输入底；选色公理：先在 colorObj+getColor 三套表里查同一 key 的三组 back/front 均有定义且语义匹配，再落笔</n-graph>
+</n-main>
+
+<n-main>
+  <n-time>[时间:2026/09/16 03:16]</n-time>
+  <n-mem>[记忆：任务 taskid15「Notice 窗口新增内容透明配置参数」。需求：Notice.launch 支持透明内容区。现状：noticeBox.js 内容区 background 已经是 activeTab.transparentContent ? "transparent" : getColor('brown_2').back（约 L830-843）⇒ noticeBox 本身无需再改；需要的是在 notice.js launch 入口建立“标准 Tab 默认配置表”(ES6 展开)并给 transparentContent 默认 false。长官两次驳回我的补丁：第一次留言“用ES6语法，然后好像漏了confirm和cancel”；第二次“还是有漏字段。默认值好像也不对”。我的病根：① 默认值用错（写成 msg:"" / content:null / contentAttrs:{} / confirmWords:"" / cancelWords:"" / titleBar:null / confirm:null / cancel:null，而文档语义是无默认值时由 UI 自行兜底，如 confirmWords 缺省渲染对勾图标 ⇒ 应统一 undefined）；② 漏字段（漏了 group / newWindow / win / minimized / onWindowUpdate）。权威字段源=aiDocs/Notice说明.md L213-236「完整参数字典」17 字段；代码额外读取的字段=icon/appType/isMini/titleBar/headerButtons/transparentContent/useMaximize/closeOnClickOutside/minimize/maximize/pin（noticeBox.js L336-340、L481、L540、L546、L587、L686、L715；notice.js L132、L298、L318、L343）。【生死攸关的坑】ioSocket.js L268-322：先建 noticeObj → Notice.launch(noticeObj) → L282/L319 再用 noticeObj._winConfig 去最小化窗口。所以絶对不能用 const obj={...defaultTabConfig,...rawObj} 换一个新对象（会丢 _winConfig ⇒ 引用后自动最小化、saved.minimized 恢复静默失效）；改用 Object.assign(rawObj, {...defaultTabConfig, ...rawObj}) 原地合并，保住调用方对象引用与 _winConfig 回写。落盘：notice.js L38 起 launch(rawObj = {}) + defaultTabConfig（28 字段，分「标识/分组、标题栏、内容区、几何与窗口状态、三大系统按钮、事件钩子」6 组）+ Object.assign 合并；end 原有 sign 生成、obj.show=true、msg→Box 自动 content 逻辑均未动。补丁已 applied。尚未 vite build 实机验证。]</n-mem>
+  <n-tasks>[总任务：1.标准 Tab 默认配置表(含 transparentContent)已落盘 2.确认 noticeBox 内容区透明分支已存在 3.vite build + 实机回归(待长官)]</n-tasks>
+  <n-ul>
+    <n-li>[任务1/3:默认配置表]
+      <n-focus>[关注1:文件 www/src/view/common/notice.js L38-L80 launch(rawObj={}) 与 defaultTabConfig（sign/group/newWindow/tip/icon/appType/isMini/titleBar/headerButtons/msg/content/contentAttrs/transparentContent/win/minimized/closeOnClickOutside/hideBtn/useMinus/useMaximize/confirmWords/cancelWords/confirm/cancel/minimize/maximize/pin/onWindowUpdate 共 28 项；默认值 undefined = UI 兜底）]</n-focus>
+      <n-focus>[关注2:文件 www/src/comData/ioSocket.js L269-322 noticeObj（含 width/height/x/y/minimized/win/onWindowUpdate/cancel/confirm/hideBtn:2）→ L316 launch → L282/L319 读 noticeObj._winConfig；这就是必须 Object.assign 原地合并的根因]</n-focus>
+    </n-li>
+    <n-li>[任务2/3:内容区透明]
+      <n-focus>[关注3:文件 www/src/view/common/noticeBox.js L836 background: activeTab.transparentContent ? "transparent" : getColor('brown_2').back（已存在，无需改）；L336-340 仍保留 hideBtn||0 / useMinus??true / !!useMaximize / !!isMini 的自身兜底，与默认表不冲突]</n-focus>
+      <n-focus>[关注4:文档 aiDocs/Notice说明.md L213-236 是字段/默认值的权威表（hideBtn=0、useMinus=true、tip="提示"、headerButtons=[]）]</n-focus>
+    </n-li>
+  </n-ul>
+  <n-graph>长官说“漏字段/默认值不对” ⇒ 比对对象是 aiDocs 参数字典 ⇒ 默认表必须=文档 17 字段 ∪ 代码实际读取的扩展字段；“无默认值”必须写 undefined 而非 null/"" ⇒ 否则会顶掉 UI 的图标兜底；ES6 展开合并 ⇒ 必须用 Object.assign(rawObj,…) 原地写回 ⇒ 因为 ioSocket 在 launch 之后还要读 noticeObj._winConfig(引用恒等是硬约束)</n-graph>
+</n-main>
+
+<n-main>
+  <n-time>[时间:2026/09/16 03:20]</n-time>
+  <n-mem>[记忆：长官又抓到一个漏项——默认表里没有 _winConfig（顺带 show 也漏了）。我承认：完整性判据不能只看“调用方传入的配置”，而应是“launch 执行完毕前 obj 上会出现的全部字段”。已补一组「运行时字段（由 launch 内部写入，调用方无需传入）」：show: true（并保留原有 obj.show = true 强制语义不变，show 在全库无读取方，属遗留字段）、_winConfig: undefined（launch 内部分配的窗口配置引用：id/x/y/width/height/isMaximized/minimized/isPinned/zIndex/activeSign/isMainWindow/isInit/_preMaxState）。至此默认表共 30 字段 7 组。另：上一条回复的 <extJsonConfig> 因误加 content 字段被 Joi 校验拒绝（extJsonConfig 合法字段仅 call/quotes/mind/mood/at/note/graph/faceAction/playFace）——教训：发消息前自检字段名白名单。]</n-mem>
+  <n-tasks>[总任务：1.标准Tab默认表含 show/_winConfig 已补齐(已落盘) 2.vite build + 实机回归(待长官) 3.是否同步补齐 aiDocs 文档表(待长官拍板)]</n-tasks>
+  <n-ul>
+    <n-li>[任务1/3:补 _winConfig]
+      <n-focus>[关注1:文件 www/src/view/common/notice.js 行75-80 运行时字段组 show:true / _winConfig:undefined；行113-114 obj._winConfig = targetConfig 仍为唯一写入点]</n-focus>
+      <n-focus>[关注2:坑 www/src/comData/ioSocket.js L282/L319 读 noticeObj._winConfig ⇒ launch 内部赋值必须落在同一个对象上(已用 Object.assign) ]</n-focus>
+    </n-li>
+  </n-ul>
+  <n-graph>默认表完整性判据 ⇒ “launch 结束前 obj 上会出现的全部字段”（含运行时写入的 show/_winConfig） ⇒ 而非“调用方可能传入的字段”；发送侧约束 ⇒ extJsonConfig 只有 mind/mood/note/graph/faceAction/playFace/call/quotes/at，误加 content 会被 Joi 判错整包失效</n-graph>
+</n-main>
+
+<n-main>
+  <n-time>[时间:2026/09/16 03:24]</n-time>
+  <n-mem>[记忆：长官驳回了我的第二版合并写法，原话“这逻辑是错的。用户的sign能覆盖系统的sign。你怎么这样写”，并给出定案：“你直接把配置表 show:true sign:随机生成。用户的配置优先级最高，能覆盖全部默认配置”。我反省：错误不在最终结果，而在“写了一个 sign: rawObj.sign || 生成值 的条件兜底又把 sign 摆在 ...rawObj 后面”，读起来像系统在盖掉调用方的 sign，语义表面与实现相反。定案后的终态：① defaultTabConfig 第一行 sign: Date.now()+"_"+Math.random().toString(36).substr(2,9)（每次 launch 现场生成一次新值），运行时字段组 show: true；② 全函数只保留一个归一表达式 const obj = Object.assign(rawObj, { ...defaultTabConfig, ...rawObj }) —— 用户配置放最后、优先级最高，可覆盖含 sign/show 在内的全部默认值；③ 彻底删除原来的 if (!obj.sign) 与 obj.show = true 两段独立语句。通道：write ✓ notice.js。待长官复核后 vite build 实机回归。]</n-mem>
+  <n-tasks>[总任务：1.默认表含 sign/show 作为默认值(已落盘) 2.删两段独立兜底语句、只留单一展开合并(已落盘) 3.vite build + 实机回归(待长官)]</n-tasks>
+  <n-ul>
+    <n-li>[任务1/3:sign 与 show 入表]
+      <n-focus>[关注1:文件 www/src/view/common/notice.js L46 sign: Date.now()+随机串（默认值）；L79 show: true；L80 _winConfig: undefined]</n-focus>
+      <n-focus>[关注2:文件 www/src/view/common/notice.js L83-87 唯一归一表达式 { ...defaultTabConfig, ...rawObj }，user 最后展开]</n-focus>
+    </n-li>
+  </n-ul>
+  <n-graph>默认表=唯一真源（含 sign 随机值、show:true）⇒ 归一表达式固定为 { ...defaultTabConfig, ...rawObj } ⇒ 优先级由展开顺序天然保证（后展开者胜），不需要任何“条件兜底语句”；教训：凡是能用“展开顺序”表达优先级的地方，就不要再写 if(缺就补) 语句，否则语义看起来会与实现相反</n-graph>
+</n-main>
+
+<n-main>
+  <n-time>[时间:2026/09/16 03:33]</n-time>
+  <n-mem>[记忆：长官指正我“_winConfig 完全是内部注入、调用方不应该传”说错了——窗口宽高等信息本就是外部可初始化的，他要求把漏掉的窗口初始化字段补进默认表，已执行。事实链：notice.js launch L130-150 装配 targetConfig 的 12 个字段中，7 项来自调用方：x/y/width/height（优先 win.x/y/width/height，其次 obj.x/y/width/height，缺省 0=自动居中自适应）、minimized（obj.minimized||false）、isPinned（win.isPinned→obj.isPinned→false）、isMainWindow、activeSign（=obj.sign）；内部固定/生成仅 id/win_时间戳_随机串、zIndex、isMaximized:false、isInit:true。分组复用路径 L116-128 里 obj.win 还会直接改写已存在窗口的几何。落盘：defaultTabConfig 原「几何 / 窗口状态」组扩为「窗口初始化」组，新增 x:0 / y:0 / width:0 / height:0 / isPinned:false / isMainWindow:false 六个入参，连同 win:undefined / minimized:false / closeOnClickOutside:false 共 9 项；加 x/y/width/height 默认 0 与现有 obj.x||0 语义完全一致，零行为变更（因默认值先展开、用户值后展开）。默认表至此 37 字段 7 组。待办：vite build + 实机回归。]</n-mem>
+  <n-tasks>[总任务：1.window 初始化组已补全(x/y/width/height/isPinned/isMainWindow) 2.vite build + 实机回归(待长官) 3.aiDocs 文档表是否同步(待长官拍板)]</n-tasks>
+  <n-ul>
+    <n-li>[任务1/3:补窗口初始化组]
+      <n-focus>[关注1:文件 www/src/view/common/notice.js L62-71 「窗口初始化」组 9 字段；L135-150 targetConfig 装配逻辑（win 优先→obj 直属性→0）]</n-focus>
+      <n-focus>[关注2:纠错表述 _winConfig=容器字段(launch 装配并回写) vs 内容(7/12 来自调用方)；引用恒等仍必须用 Object.assign 保参考]</n-focus>
+    </n-li>
+  </n-ul>
+  <n-graph>描述字段归属 ⇒ 必须拆成“容器”(launch 装配、外部传了会被覆盖) 与“内容”(x/y/width/height/minimized/isPinned/isMainWindow 全来自调用方) ⇒ 否则会把可配置项误判为内部黑盒而漏字段；补齐 x/y/width/height 默认 0 ⇒ 与 obj.x||0 语义等价 ⇒ 零行为变更</n-graph>
+</n-main>
+
+<n-main>
+  <n-time>[时间:2026/09/16 03:45]</n-time>
+  <n-mem>[记忆：长官下令“算了 暂时不要动，记录下 mind”，所以代码就此定格，只记笔记。
+
+【一、当前已落盘快照（www/src/view/common/notice.js）】
+launch(rawObj = {}) 开头是 35 字段 / 7 组的 defaultTabConfig：① 窗口标识/分组 3（sign 表内现场生成 Date.now()+"_"+随机串、group、newWindow）② 标题栏 6（tip/icon/appType/isMini/titleBar/headerButtons）③ 内容区 4（msg/content/contentAttrs/transparentContent）④ 窗口初始化 9（win/x/y/width/height/isPinned/isMainWindow/minimized/closeOnClickOutside，默认 0/0/0/0/false/false/false/false/false）⑤ 三大按钮 5（hideBtn:0/useMinus:true/useMaximize:false/confirmWords/cancelWords=undefined）⑥ 事件钩子 6（confirm/cancel/minimize/maximize/pin/onWindowUpdate）⑦ 运行时 2（show:true、_winConfig:undefined）。合并语句仍是 const obj = Object.assign(rawObj, { ...defaultTabConfig, ...rawObj })（用户配置最后展开=优先级最高；原地写回以保住调用方引用）。noticeBox.js 内容区 background 早就是 activeTab.transparentContent ? "transparent" : getColor('brown_2').back（约 L836/L850 附近），本任务无需改它。
+
+【二、暂缓的改造提案（已与长官讨论，他倾向但要求暂时不动）】
+目标：不再持有外部对象引用，改由 Notice 用回调把 tab 交出去。具体：① notice.js 新增 onLaunched: undefined（(tab)=>{}，在 activateWindow 之后调用，天然避开“激活会把 minimized 改回 false”的顺序坑），合并改纯拷贝 const obj = { ...defaultTabConfig, ...rawObj }，可选 return obj；② ioSocket.js 删掉 L282 与 L319 两处 noticeObj._winConfig 读取，改为 let launchedTab=null + onLaunched:(tab)=>{ launchedTab=tab; if(saved&&saved.minimized) Notice.minimizeWindow(tab._winConfig.id) }，headerButtons.onclick 改用 launchedTab。待拍板：回调名（onLaunched/onReady/onTabReady）与是否加 return obj。
+
+【三、本次学到的两个事实】
+A. 外部“持有 launch 实参变量”的只有 ioSocket 一处（MessageInbox.js:108 传的是消息载荷不保留引用）。
+B. 外部访问 tab 字段的主体走 noticeConfig 通道（注入点 noticeBox.js L859-866 m(ContentComp,{noticeConfig:tab,...tab.contentAttrs})），共 8 个组件：ChatSendParams.js L35-37（hideBtn/confirm）、ChatModelSelector.js L26-28、ChatSendMenu.js L22-24、setting.js L1429（均改 confirm）、ChatInputEditor.js L789-791 与 settingModelWizard.js L56（ Notice.closeTab(noticeConfig) 靠 indexOf 找身份）、ChatiTmRestoreDialog.js L23、setting_bak.js L12（旧）；另 notice.js L99 自动 msg 组件读 noticeConfig.msg。类B 拿的都是 dataArr 里的 tab 本体，与 launch 换不换新对象无关。
+
+【四、待办清单】1. 改造回调化（暂缓）2. vite build + 实机回归（重点：App 窗口恢复最小化 / 点引用后自动最小化）3. aiDocs/Notice说明.md 参数字典同步为 35 字段 + 新增“noticeConfig 扩展点”章节。]</n-mem>
+  <n-tasks>[总任务：1.Notice 默认表 35 字段已落盘(✅) 2.回调化改造 onLaunched+纯拷贝(暂缓，等长官发话) 3.vite build+实机回归(待长官) 4.aiDocs 文档同步 35 字段+noticeConfig 扩展点(待长官)]</n-tasks>
+  <n-ul>
+    <n-li>[任务1/4:默认表已定格]
+      <n-focus>[关注1:文件 www/src/view/common/notice.js L44-88 defaultTabConfig 35 字段 7 组；L93 合并语句 Object.assign(rawObj,{ ...defaultTabConfig, ...rawObj })]</n-focus>
+    </n-li>
+    <n-li>[任务2/4:回调化改造(暂缓)]
+      <n-focus>[关注2:文件 www/src/comData/ioSocket.js L269-322（noticeObj 构建 / L282 与 L319 读 _winConfig，是回调化要改的两处）]</n-focus>
+      <n-focus>[关注3:文件 www/src/view/common/notice.js L159 obj._winConfig=targetConfig（唯一写入点）；改造时 onLaunched 要放在 activateWindow 之后]</n-focus>
+    </n-li>
+    <n-li>[任务3/4:实机回归]
+      <n-focus>[关注4:回归用例——App 窗口从最小化恢复后应再次缩回、点头部【引用】按钮应自动最小化、普通 Notice 弹窗不受影响]</n-focus>
+    </n-li>
+  </n-ul>
+  <n-graph>长官说暂不动 ⇒ 代码定格，笔记继续：现状=默认表 35 字段 7 组 + Object.assign 原地合并(保引用)；下一步=onLaunched(tab) 回调 + 纯拷贝 + ioSocket 两处改用回调参数 ⇒ 彻底解除“引用恒等”隐式契约；在此之前，任何 {…} 造新对象的写法都会静默弄坏 App 窗口的最小化链路 ⇒ 这是回归重点</n-graph>
+</n-main>
+
+<n-main>
+  <n-time>[时间:2026/09/16 12:02]</n-time>
+  <n-mem>[记忆：长官报“我关掉了会话管理器，还是继续输出 [CrossFunc] AppDispatch: app_l713279 -> list，好像定时器没清理”，要求重新调查具体原因（不改文件）。侦查完后他拍板按方案A修复 sessionManager 与 taskManager。
+
+【一、调查铁证链】
+线索起点：后端 server/crossFuncs/appDispatch.js L11 console.log 打印在 appManager.dispatch 之前，故只要前端发请求必刷屏 = 前端在持续轮询。
+① 创建侧：server/apps/sessionManager/frontend.js 旧 L216 pollTimer=setInterval(...) 写在 L219 init() 里，而 init() 在工厂函数体顶层立即执行 —— 定时器先于组件挂载出生。
+② 调用侧：www/src/comData/ioSocket.js L213 socket.on("app:launch") → L215 import(msg.frontendUrl)（恒带 ?t=Date.now()，每次全新模块）→ L219 component=component({...}) 强制执行工厂 → 必新建 setInterval。
+③ 丢弃侧：www/src/view/common/notice.js L109-115 sign 已存在则 activateWindow+m.redraw()+return，新组件被丢弃 ⇒ 不入 dataArr、不渲染、永不 onremove ⇒ 定时器成孤儿。
+④ 重复源：ioSocket.js L35-38 socket.on("connect") → appRestoreGui；crossFuncs/appRestoreGui.js L8-10 遍历 appManager.apps → appGuiRestore.js L14-23 重新 io.emit("app:launch", frontendUrl 带新时间戳) ⇒ 每次 socket 重连（后端 HMR/网络抖动）对存活 App 重放 launch ⇒ 孤儿+1。
+为何是 app_l713279：它早于当前 app_77m302/328/452，是历次重连累积的历史孤儿；新窗口关闭时 onremove 正常，孤儿无主继续每 3 秒发 list。
+
+【二、方案A 落地（已 applied，LSP 0 错误）】
+sessionManager/frontend.js：init() 内删除 setInterval（只留 addTool/registerInstances/registerApp/fetchList）；oninit() 末尾新增 if(!pollTimer){ pollTimer=setInterval(()=>fetchList(true),3000) }。taskManager/frontend.js 同款。
+
+【三、遗留】1. 历史孤儿定时器靠本次修复清不掉，必须刷新页面才彻底清除；2. registerInstances/commonData.registerApp 同样在工厂顶层，组件被丢弃会泄漏一个 Map 条目（远比定时器轻），未动；3. 治本方案C（未做）：ioSocket 收 app:launch 时先查 Notice.data.dataArr 有无该 sign，有则跳过 import+工厂改发 app:active。]</n-mem>
+  <n-tasks>[总任务：1.调查定时器泄漏根因(已完成) 2.方案A修复 sessionManager+taskManager(已完成) 3.方案C源头拦截(待长官决策) 4.历史孤儿需刷新页面清除(待长官实操)]</n-tasks>
+  <n-ul>
+    <n-li>[任务1/2:方案A已落盘]
+      <n-focus>[关注1:文件 server/apps/sessionManager/frontend.js 行209-215 init() 已去 setInterval；行372-376 oninit 末尾新增 if(!pollTimer) 保护启动]</n-focus>
+      <n-focus>[关注2:文件 server/apps/taskManager/frontend.js 行74-79 init() 已去 setInterval；oninit 末尾同款保护启动]</n-focus>
+    </n-li>
+  </n-ul>
+  <n-graph>工厂顶层 init() 建 setInterval（先于挂载） + import 带时间戳必执行工厂 + notice.js sign 去重 return 丢弃组件（onremove 永不触发） + socket connect→appRestoreGui→重放 launch ⇒ 孤儿定时器累积 ⇒ 关窗无效日志不停；修复=setInterval 移入 oninit 与 onremove 成对 + !pollTimer 防重 ⇒ 单 App 不再漏；遗留=历史孤儿须刷新页面才清</n-graph>
+</n-main>

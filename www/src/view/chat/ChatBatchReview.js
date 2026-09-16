@@ -12,6 +12,8 @@ export default () => {
   let localGlobalComment = ""
   let lastAutoScrollTime = 0
   const expandedDiffs = {}
+  // 「行批注 / 文件备注」折叠状态（key = 文件+区块），默认展开
+  const foldedNotes = {}
 
   // 批注查看与删除组件（「查看批注」弹窗主体）
   // 批注查看与删除组件（「查看批注」弹窗主体）
@@ -74,7 +76,7 @@ export default () => {
             ]
           ),
 
-          // 行批注卡片
+          // 行批注卡片（默认展开，点击标题可收起/展开）
           file.notes
             ? m(Box,
               {
@@ -82,26 +84,51 @@ export default () => {
                 color: "blue_1"
               },
               [
-                m(Tag,
-                  {
-                    color: "blue_1"
-                  },
-                  "行批注"
-                ),
                 m("",
                   {
                     style: {
-                      marginTop: "0.5rem",
-                      whiteSpace: "pre-wrap"
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "0.5rem"
                     }
                   },
-                  file.notes
-                )
+                  [
+                    m(Tag,
+                      {
+                        color: "blue_1"
+                      },
+                      "行批注"
+                    ),
+                    m(Tag,
+                      {
+                        color: "gray_2",
+                        isBtn: true,
+                        onclick: () => {
+                          const key = `${file.fileId || file.path}_notes`
+                          foldedNotes[key] = !foldedNotes[key]
+                          m.redraw()
+                        }
+                      },
+                      foldedNotes[`${file.fileId || file.path}_notes`] ? "展开" : "收起"
+                    )
+                  ]
+                ),
+                foldedNotes[`${file.fileId || file.path}_notes`]
+                  ? null
+                  : m("",
+                    {
+                      style: {
+                        marginTop: "0.5rem",
+                        whiteSpace: "pre-wrap"
+                      }
+                    },
+                    file.notes
+                  )
               ]
             )
             : null,
 
-          // 文件备注卡片
+          // 文件备注卡片（默认展开，点击标题可收起/展开）
           file.comment
             ? m(Box,
               {
@@ -109,21 +136,46 @@ export default () => {
                 color: "yellow_1"
               },
               [
-                m(Tag,
-                  {
-                    color: "yellow_1"
-                  },
-                  "文件备注"
-                ),
                 m("",
                   {
                     style: {
-                      marginTop: "0.5rem",
-                      whiteSpace: "pre-wrap"
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "0.5rem"
                     }
                   },
-                  file.comment
-                )
+                  [
+                    m(Tag,
+                      {
+                        color: "yellow_1"
+                      },
+                      "文件备注"
+                    ),
+                    m(Tag,
+                      {
+                        color: "gray_2",
+                        isBtn: true,
+                        onclick: () => {
+                          const key = `${file.fileId || file.path}_comment`
+                          foldedNotes[key] = !foldedNotes[key]
+                          m.redraw()
+                        }
+                      },
+                      foldedNotes[`${file.fileId || file.path}_comment`] ? "展开" : "收起"
+                    )
+                  ]
+                ),
+                foldedNotes[`${file.fileId || file.path}_comment`]
+                  ? null
+                  : m("",
+                    {
+                      style: {
+                        marginTop: "0.5rem",
+                        whiteSpace: "pre-wrap"
+                      }
+                    },
+                    file.comment
+                  )
               ]
             )
             : null,

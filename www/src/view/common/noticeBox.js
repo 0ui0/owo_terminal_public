@@ -2,6 +2,7 @@ import Box from "./box.js";
 import Tag from "./tag.js";
 import getColor from "./getColor.js";
 import Notice from "./notice.js";
+import commonData from "./commonData.js";
 import getAppIconUrl from "./getAppIconUrl.js";
 
 export default function () {
@@ -79,31 +80,44 @@ export default function () {
     if (e.target.closest(".win-btn") || e.target.closest(".tab-item")) return
     e.preventDefault()
     onActivate()
-    if (win.isMaximized) {
-      if (win._preMaxState) {
-        Object.assign(win, win._preMaxState, { isMaximized: false })
-        win.x = e.clientX - (win.width || 400) / 2
-        win.y = e.clientY - 20
-      } else {
-        win.isMaximized = false
-      }
-      if (currentAttrs && currentAttrs.onWindowUpdate) currentAttrs.onWindowUpdate(win)
-      m.redraw()
-    }
 
     const target = e.currentTarget
-    target.setPointerCapture(e.pointerId)
+    const winDom = e.target.closest(".window-box")
+    const titleDom = target.getBoundingClientRect()
 
-    const rootDom = e.target.closest(".window-box")
-    materialize(rootDom, win)
+    target.setPointerCapture(e.pointerId)
+    if (!win.isMaximized) materialize(winDom, win)
 
     isMoving = true
     moveStartX = e.clientX; moveStartY = e.clientY
     moveStartWinX = win.x; moveStartWinY = win.y
 
+    // Win 模型：最大化窗口单击不还原，拖动超过阈值才还原成原尺寸并按抓取比例跟随光标
+    // maximized：本次拖动的待还原标记（还原后置 false）；ratio/top：指针在标题栏内的相对位置
+    const maxState = {
+      maximized: win.isMaximized,
+      ratio: (e.clientX - titleDom.left) / titleDom.width,
+      top: e.clientY - titleDom.top
+    }
+
     const onMove = (e) => {
       if (!isMoving) return
       const dx = e.clientX - moveStartX; const dy = e.clientY - moveStartY
+
+      if (maxState.maximized) {
+        if (Math.abs(dx) < 4 && Math.abs(dy) < 4) return
+        const { ratio, top } = maxState
+        maxState.maximized = false
+        win.isMaximized = false
+        win.x = Math.round(e.clientX - win.width * ratio)
+        win.y = Math.round(e.clientY - top)
+        moveStartX = e.clientX; moveStartY = e.clientY
+        moveStartWinX = win.x; moveStartWinY = win.y
+        currentAttrs.onWindowUpdate(win)
+        m.redraw()
+        return
+      }
+
       let newX = moveStartWinX + dx
       let newY = moveStartWinY + dy
 
@@ -323,22 +337,26 @@ export default function () {
       const hideBtn = activeTab.hideBtn || 0
       const useMinus = activeTab.useMinus ?? true
       const useMaximize = !!activeTab.useMaximize
+      const isMini = !!activeTab.isMini
 
       const isAuto = (win.width === 0 || win.height === 0)
 
       const resizeHandles = (!win.isMaximized && !isMainWindow) ? ["n", "s", "w", "e", "nw", "ne", "sw", "se"].map(dir => {
+        const isCorner = dir.length === 2
         return m("", {
           style: {
             touchAction: "none",
-            position: "absolute", zIndex: 10, cursor: dir + "-resize",
-            ...(dir === "n" ? { top: "-10px", left: "10px", right: "10px", height: "20px" } : {}),
-            ...(dir === "s" ? { bottom: "-10px", left: "10px", right: "10px", height: "20px" } : {}),
-            ...(dir === "w" ? { left: "-10px", top: "10px", bottom: "10px", width: "20px" } : {}),
-            ...(dir === "e" ? { right: "-10px", top: "10px", bottom: "10px", width: "20px" } : {}),
-            ...(dir === "nw" ? { top: "-10px", left: "-10px", width: "30px", height: "30px" } : {}),
-            ...(dir === "ne" ? { top: "-10px", right: "-10px", width: "30px", height: "30px" } : {}),
-            ...(dir === "sw" ? { bottom: "-10px", left: "-10px", width: "30px", height: "30px" } : {}),
-            ...(dir === "se" ? { bottom: "-10px", right: "-10px", width: "30px", height: "30px" } : {}),
+            position: "absolute",
+            zIndex: isCorner ? 2 : 1,
+            cursor: dir + "-resize",
+            ...(dir === "n" ? { top: "-8px", left: "20px", right: "20px", height: "14px" } : {}),
+            ...(dir === "s" ? { bottom: "-8px", left: "20px", right: "20px", height: "14px" } : {}),
+            ...(dir === "w" ? { left: "-8px", top: "20px", bottom: "20px", width: "14px" } : {}),
+            ...(dir === "e" ? { right: "-8px", top: "20px", bottom: "20px", width: "14px" } : {}),
+            ...(dir === "nw" ? { top: "-8px", left: "-8px", width: "28px", height: "28px" } : {}),
+            ...(dir === "ne" ? { top: "-8px", right: "-8px", width: "28px", height: "28px" } : {}),
+            ...(dir === "sw" ? { bottom: "-8px", left: "-8px", width: "28px", height: "28px" } : {}),
+            ...(dir === "se" ? { bottom: "-8px", right: "-8px", width: "28px", height: "28px" } : {}),
           },
           onpointerdown: (e) => handlePointerDown(e, dir, win)
         })
@@ -354,28 +372,34 @@ export default function () {
           background: getColor('gray_1').back,
           borderRadius: win.isMaximized ? "0" : "3rem",
           boxShadow: isMainWindow ? "none" : "0 0 2rem rgba(0,0,0,0.3)",
-          backdropFilter: "blur(10px)",
-          "-webkit-backdrop-filter": "blur(10px)",
+          // 已移除 backdrop-filter: blur(10px)：窗口底色不透明，模糊根本看不见，纯粹是每帧重绘的额外开销
           //overflow: "hidden",
           border: win.isMaximized ? "none" : `0.1rem solid ${getColor('main').back}`,
           boxSizing: "border-box",
           transition: isResizing || isMoving ? "none" : "display 0.3s, opacity 0.3s",
-          minWidth: "20rem",
+          minWidth: isMini ? "8rem" : "20rem",
 
           ...(isMainWindow ? {
             left: "0.5rem", top: "0.5rem", width: "calc(100% - 1rem)", height: "calc(100% - 1rem)"
           } : win.isMaximized ? {
-            left: "0px", top: "38px", width: "100%", height: "calc(100% - 38px)"
+            // 底部避让导航栏：Nav 已是独立于窗口层的高层级覆盖层，全屏窗口不能压住它
+            left: "0px", top: "38px", width: "100%", height: `calc(100% - 38px - ${commonData.navInset || 0}px)`
           } : {
-            left: (win.x === 0 && win.y === 0 && isAuto) ? "50%" : (win.x + "px"),
-            top: (win.x === 0 && win.y === 0 && isAuto) ? "50%" : (win.y + "px"),
-            transform: (win.x === 0 && win.y === 0 && isAuto) ? "translate(-50%, -50%)" : "none",
+            // 位置统一交给 transform：改 x/y 只触发合成层位移，不再触发重排（left/top 恒为 0）
+            left: (win.x === 0 && win.y === 0 && isAuto) ? "50%" : "0px",
+            top: (win.x === 0 && win.y === 0 && isAuto) ? "50%" : "0px",
+            transform: (win.x === 0 && win.y === 0 && isAuto) ? "translate(-50%, -50%)" : `translate3d(${win.x}px, ${win.y}px, 0)`,
             width: win.width === 0 ? "auto" : (win.width + "px"),
             height: win.height === 0 ? "auto" : (win.height + "px"),
             maxWidth: "95vw", maxHeight: "95vh"
           })
         },
-        onpointerdown: () => attrs.onActivate()
+        onpointerdown: (e) => {
+          if (!isMainWindow) {
+            e.stopPropagation()
+          }
+          attrs.onActivate()
+        }
       }, [
         // ---------------- Header ----------------
         m("", {
@@ -386,13 +410,16 @@ export default function () {
             opacity: attrs.isActiveWindow === false ? 0.6 : 1,
             transition: "opacity 0.3s",
             display: "flex",
-            alignItems: "center",
+            flexDirection: "column",
             flexShrink: 0,
             userSelect: "none",
-            padding: (isMainWindow && /macintosh|mac os x/i.test(navigator.userAgent)) ? "0.4rem 1rem 0.4rem 80px" : "0.4rem 1rem",
-            minHeight: "3.3rem", // 防止按钮全部隐藏时标题栏高度坍塌
+            padding: (isMainWindow && /macintosh|mac os x/i.test(navigator.userAgent))
+              ? (isMini ? "0.2rem 0.5rem 0.2rem 80px" : "0.4rem 1rem 0.4rem 80px")
+              : (isMini ? "0.2rem 0.5rem" : "0.4rem 1rem"),
+            minHeight: isMini ? "1.7rem" : "3.3rem",
             "-webkit-app-region": isMainWindow ? "drag" : "no-drag",
-            position: "relative"
+            position: "relative",
+            zIndex: 5
           },
           onpointerdown: (e) => {
             if (!isMainWindow) handleTitleDown(e, win, attrs.onActivate)
@@ -401,274 +428,301 @@ export default function () {
             attrs.onMaximize(e)
           }
         }, [
-
-          (isMainWindow && /macintosh|mac os x/i.test(navigator.userAgent)) ? m("", {
-            style: {
-              position: "absolute",
-              left: "0.3rem",
-              top: "0.35rem",
-              width: "6.2rem",
-              height: "1.9rem",
-              background: "#00000033",
-              borderRadius: "3rem",
-              pointerEvents: "none"
-            }
-          }) : null,
-
-          // 标题
-          m(Box, {
-            style: {
-              background: "transparent",
-              fontWeight: "bold",
-              color: getColor('gray_6').front,
-              margin: "0",
-              userSelect: "none",
-              maxWidth: "50%",
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-              whiteSpace: "nowrap",
-              padding: "unset",
-              display: "flex",
-              alignItems: "center",
-              flexShrink: 0,
-              minWidth: "4rem",
-              "-webkit-app-region": "no-drag",
-              cursor: "default"
-            },
-            ext: {
-              ondblclick: (e) => {
-                e.stopPropagation()
-                attrs.onMaximize(e)
-              }
-            }
-          }, [
-            (activeTab.icon || activeTab.appType) ? m("img", {
-              src: getAppIconUrl(activeTab.appType, activeTab.icon),
-              onerror: (e) => { e.target.src = "/statics/navbar/program.svg" },
-              style: {
-                width: "1.6rem",
-                height: "1.6rem",
-                borderRadius: "0.35rem", // iOS rounded corner mask
-                objectFit: "cover",
-                marginRight: "0.5rem",
-                verticalAlign: "middle",
-                pointerEvents: "none"
-              }
-            }) : null,
-            activeTab.tip || "提示"
-          ]),
-
-          // Pin / 置顶按钮 (跟随在 Tip 标题右侧)
-          m(Box, {
-            class: "win-btn",
-            isBtn: true,
-            title: win.isPinned ? "取消置顶" : "窗口置顶",
-            style: {
-              background: win.isPinned ? getColor('yellow_1').back : getColor('gray_2').back,
-              color: win.isPinned ? getColor('yellow_1').front : getColor('gray_2').front,
-              border: `0.1rem solid ${getColor('gray_1').back}`,
-              borderRadius: "50%",
-              display: "inline-flex",
-              justifyContent: "center",
-              alignItems: "center",
-              padding: "0",
-              width: "2.2rem", height: "2.2rem",
-              marginLeft: "0.5rem",
-              flexShrink: 0,
-              "-webkit-app-region": "no-drag"
-            },
-            ext: {
-              onpointerdown: (e) => e.stopPropagation(),
-              onclick: (e) => {
-                e.stopPropagation()
-                attrs.onPin(e)
-              }
-            }
-          }, [
-            m("", { style: { pointerEvents: "none", display: "inline-flex", alignItems: "center", justifyContent: "center" } }, [
-              m.trust(iconPark.getIcon("Pin", { fill: win.isPinned ? getColor('yellow_1').front : getColor('gray_6').front, size: "12px" }))
-            ])
-          ]),
-
-
-
+          // 第一行：标题 + Pin + (宽屏时 titleBar) + 右侧按钮组（右侧按钮绝对靠右）
           m("", {
             style: {
-              flex: 1,
               display: "flex",
               alignItems: "center",
-              minWidth: 0,
+              width: "100%",
               height: "100%"
             }
           }, [
-            activeTab.titleBar
-              ? m(activeTab.titleBar)
-              : null
+            (isMainWindow && /macintosh|mac os x/i.test(navigator.userAgent)) ? m("", {
+              style: {
+                position: "absolute",
+                left: "0.3rem",
+                top: "0.35rem",
+                width: "6.2rem",
+                height: "1.9rem",
+                background: "#00000033",
+                borderRadius: "3rem",
+                pointerEvents: "none"
+              }
+            }) : null,
+
+            // 标题
+            m(Box, {
+              style: {
+                background: "transparent",
+                fontWeight: "bold",
+                color: getColor('gray_6').front,
+                margin: "0",
+                userSelect: "none",
+                maxWidth: "50%",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+                padding: "unset",
+                display: "flex",
+                alignItems: "center",
+                flexShrink: 0,
+                minWidth: isMini ? "2rem" : "4rem",
+                fontSize: isMini ? "1.1rem" : undefined,
+                "-webkit-app-region": "no-drag",
+                cursor: "default"
+              },
+              ext: {
+                ondblclick: (e) => {
+                  e.stopPropagation()
+                  attrs.onMaximize(e)
+                }
+              }
+            }, [
+              (activeTab.icon || activeTab.appType) ? m("img", {
+                src: getAppIconUrl(activeTab.appType, activeTab.icon),
+                onerror: (e) => { e.target.src = "/statics/navbar/program.svg" },
+                style: {
+                  width: isMini ? "1.1rem" : "1.6rem",
+                  height: isMini ? "1.1rem" : "1.6rem",
+                  borderRadius: "0.35rem", // iOS rounded corner mask
+                  objectFit: "cover",
+                  marginRight: isMini ? "0.3rem" : "0.5rem",
+                  verticalAlign: "middle",
+                  pointerEvents: "none"
+                }
+              }) : null,
+              activeTab.tip || "提示"
+            ]),
+
+            // Pin / 置顶按钮 (跟随在 Tip 标题右侧)
+            m(Box, {
+              class: "win-btn",
+              isBtn: true,
+              title: win.isPinned ? "取消置顶" : "窗口置顶",
+              style: {
+                background: win.isPinned ? getColor('yellow_1').back : getColor('gray_2').back,
+                color: win.isPinned ? getColor('yellow_1').front : getColor('gray_2').front,
+                border: `0.1rem solid ${getColor('gray_1').back}`,
+                borderRadius: "50%",
+                display: "inline-flex",
+                justifyContent: "center",
+                alignItems: "center",
+                padding: "0",
+                width: isMini ? "1.3rem" : "2.2rem",
+                height: isMini ? "1.3rem" : "2.2rem",
+                marginLeft: isMini ? "0.2rem" : "0.5rem",
+                flexShrink: 0,
+                "-webkit-app-region": "no-drag"
+              },
+              ext: {
+                onpointerdown: (e) => e.stopPropagation(),
+                onclick: (e) => {
+                  e.stopPropagation()
+                  attrs.onPin(e)
+                }
+              }
+            }, [
+              m("", { style: { pointerEvents: "none", display: "inline-flex", alignItems: "center", justifyContent: "center" } }, [
+                m.trust(iconPark.getIcon("Pin", { fill: win.isPinned ? getColor('yellow_1').front : getColor('gray_6').front, size: isMini ? "8px" : "12px" }))
+              ])
+            ]),
+
+            // 宽屏时：标题栏内的菜单栏占位
+            m("", {
+              style: {
+                flex: 1,
+                display: "flex",
+                alignItems: "center",
+                minWidth: 0,
+                height: "100%"
+              }
+            }, [
+              (!isMini && (win.width === 0 || win.width >= 520) && activeTab.titleBar)
+                ? m(activeTab.titleBar)
+                : null
+            ]),
+
+            // 第三方自定义按钮
+            (activeTab.headerButtons || []).map(btn => m(Box, {
+              class: "win-btn",
+              isBtn: true,
+              style: {
+                background: btn.color || getColor('blue_1').back,
+                color: getColor('gray_8').front,
+                border: `0.1rem solid ${getColor('gray_1').back}`,
+                borderRadius: "50%",
+                display: "inline-flex",
+                justifyContent: "center",
+                alignItems: "center",
+                padding: "0",
+                width: isMini ? "1.4rem" : "2.5rem",
+                height: isMini ? "1.4rem" : "2.5rem",
+                marginRight: isMini ? "0.2rem" : "0.5rem",
+                flexShrink: 0,
+                "-webkit-app-region": "no-drag"
+              },
+              ext: {
+                onpointerdown: (e) => e.stopPropagation(),
+                onclick: (e) => {
+                  e.stopPropagation()
+                  btn.onclick(e)
+                }
+              }
+            }, [
+              m("", { style: { pointerEvents: "none", display: "inline-flex", alignItems: "center", justifyContent: "center" } }, [
+                typeof btn.icon === 'string' && btn.icon.startsWith("<")
+                  ? m.trust(btn.icon)
+                  : (btn.icon || "⚓")
+              ])
+            ])),
+
+            // Confirm Check
+            (hideBtn === 0 || hideBtn === 3) ? m(Box, {
+              class: "win-btn",
+              isBtn: true,
+              style: {
+                background: getColor('pink_1').back,
+                color: getColor('pink_1').front,
+                border: `0.1rem solid ${getColor('gray_1').back}`,
+                borderRadius: activeTab.confirmWords ? "3rem" : "50%",
+                display: "inline-flex",
+                justifyContent: "center",
+                alignItems: "center",
+                padding: activeTab.confirmWords ? (isMini ? "0 0.4rem" : "0 0.8rem") : "0",
+                minWidth: isMini ? "1.4rem" : "2.5rem",
+                width: activeTab.confirmWords ? "auto" : (isMini ? "1.4rem" : "2.5rem"),
+                height: isMini ? "1.4rem" : "2.5rem",
+                fontSize: isMini ? "0.9rem" : "1.2rem",
+                whiteSpace: "nowrap",
+                marginRight: isMini ? "0.2rem" : "0.5rem",
+                flexShrink: 0,
+                "-webkit-app-region": "no-drag"
+              },
+              ext: {
+                onpointerdown: (e) => e.stopPropagation(),
+                onclick: (e) => {
+                  e.stopPropagation()
+                  attrs.onConfirm(e)
+                }
+              }
+            }, [
+              m("", { style: { pointerEvents: "none", display: "inline-flex", alignItems: "center", justifyContent: "center" } }, [
+                activeTab.confirmWords ? activeTab.confirmWords : m.trust(iconPark.getIcon("Check", { fill: getColor('pink_1').front, size: isMini ? "8px" : "12px" }))
+              ])
+            ]) : null,
+
+            // Minimize
+            useMinus ? m(Box, {
+              class: "win-btn",
+              isBtn: true,
+              style: {
+                background: getColor('purple_1').back,
+                color: getColor('gray_6').front,
+                border: `0.1rem solid ${getColor('gray_1').back}`,
+                borderRadius: "50%",
+                display: "inline-flex",
+                justifyContent: "center",
+                alignItems: "center",
+                padding: "0",
+                width: isMini ? "1.4rem" : "2.5rem",
+                height: isMini ? "1.4rem" : "2.5rem",
+                marginRight: isMini ? "0.2rem" : "0.5rem",
+                flexShrink: 0,
+                "-webkit-app-region": "no-drag"
+              },
+              ext: {
+                onpointerdown: (e) => e.stopPropagation(),
+                onclick: (e) => {
+                  e.stopPropagation()
+                  attrs.onMinimize(e)
+                }
+              }
+            }, [
+              m("", { style: { pointerEvents: "none", display: "inline-flex", alignItems: "center", justifyContent: "center" } }, [
+                m.trust(iconPark.getIcon("Minus", { fill: getColor('gray_6').front, size: isMini ? "8px" : "12px" }))
+              ])
+            ]) : null,
+
+            // Maximize
+            useMaximize ? m(Box, {
+              class: "win-btn",
+              isBtn: true,
+              style: {
+                background: getColor('green_1').back,
+                color: getColor('gray_6').front,
+                border: `0.1rem solid ${getColor('gray_1').back}`,
+                borderRadius: "50%",
+                display: "inline-flex",
+                justifyContent: "center",
+                alignItems: "center",
+                padding: "0",
+                width: isMini ? "1.4rem" : "2.5rem",
+                height: isMini ? "1.4rem" : "2.5rem",
+                marginRight: isMini ? "0.2rem" : "0.5rem",
+                flexShrink: 0,
+                "-webkit-app-region": "no-drag"
+              },
+              ext: {
+                onpointerdown: (e) => e.stopPropagation(),
+                onclick: (e) => {
+                  e.stopPropagation()
+                  attrs.onMaximize(e)
+                }
+              }
+            }, [
+              m("", { style: { pointerEvents: "none", display: "inline-flex", alignItems: "center", justifyContent: "center" } }, [
+                m.trust(iconPark.getIcon("Square", { fill: getColor('gray_6').front, size: isMini ? "8px" : "12px" }))
+              ])
+            ]) : null,
+
+            // Close / Cancel
+            (hideBtn === 0 || hideBtn === 2) ? m(Box, {
+              class: "win-btn",
+              isBtn: true,
+              style: {
+                background: getColor('gray_2').back,
+                color: getColor('gray_6').front,
+                border: `0.1rem solid ${getColor('gray_1').back}`,
+                borderRadius: activeTab.cancelWords ? "3rem" : "50%",
+                display: "inline-flex",
+                justifyContent: "center",
+                alignItems: "center",
+                padding: activeTab.cancelWords ? (isMini ? "0 0.4rem" : "0 0.8rem") : "0",
+                minWidth: isMini ? "1.4rem" : "2.5rem",
+                width: activeTab.cancelWords ? "auto" : (isMini ? "1.4rem" : "2.5rem"),
+                height: isMini ? "1.4rem" : "2.5rem",
+                fontSize: isMini ? "0.9rem" : "1.2rem",
+                whiteSpace: "nowrap",
+                marginRight: isMini ? "0.2rem" : "0.5rem",
+                flexShrink: 0,
+                "-webkit-app-region": "no-drag"
+              },
+              ext: {
+                onpointerdown: (e) => e.stopPropagation(),
+                onclick: (e) => {
+                  e.stopPropagation()
+                  attrs.onCancel(e)
+                }
+              }
+            }, [
+              m("", { style: { pointerEvents: "none", display: "inline-flex", alignItems: "center", justifyContent: "center" } }, [
+                activeTab.cancelWords ? activeTab.cancelWords : m.trust(iconPark.getIcon("Close", { fill: getColor('gray_6').front, size: isMini ? "8px" : "12px" }))
+              ])
+            ]) : null
           ]),
 
-          // 第三方自定义按钮
-          (activeTab.headerButtons || []).map(btn => m(Box, {
-            class: "win-btn",
-            isBtn: true,
+          // 第二行（在标题栏胶囊内部）：窄窗时用有颜色的独立圆角胶囊容器包裹菜单栏
+          (activeTab.titleBar && (isMini || (win.width > 0 && win.width < 700))) ? m(Box, {
+            isBlock: true,
             style: {
-              background: btn.color || getColor('blue_1').back,
-              color: getColor('gray_8').front,
-              border: `0.1rem solid ${getColor('gray_1').back}`,
-              borderRadius: "50%",
-              display: "inline-flex",
-              justifyContent: "center",
-              alignItems: "center",
-              padding: "0",
-              width: "2.5rem", height: "2.5rem",
-              marginRight: "0.5rem",
-              flexShrink: 0,
-              "-webkit-app-region": "no-drag"
-            },
-            ext: {
-              onpointerdown: (e) => e.stopPropagation(),
-              onclick: (e) => {
-                e.stopPropagation()
-                btn.onclick(e)
-              }
+              display: "block",
+              margin: "0.5rem",
+              borderRadius: "3rem",
+              boxSizing: "border-box",
+              background:"rgba(0,0,0,0.1)",
             }
           }, [
-            m("", { style: { pointerEvents: "none", display: "inline-flex", alignItems: "center", justifyContent: "center" } }, [
-              typeof btn.icon === 'string' && btn.icon.startsWith("<")
-                ? m.trust(btn.icon)
-                : (btn.icon || "⚓")
-            ])
-          ])),
-
-          // Confirm Check
-          (hideBtn === 0 || hideBtn === 3) ? m(Box, {
-            class: "win-btn",
-            isBtn: true,
-            style: {
-              background: getColor('pink_1').back,
-              color: getColor('pink_1').front,
-              border: `0.1rem solid ${getColor('gray_1').back}`,
-              borderRadius: activeTab.confirmWords ? "3rem" : "50%",
-              display: "inline-flex",
-              justifyContent: "center",
-              alignItems: "center",
-              padding: activeTab.confirmWords ? "0 0.8rem" : "0",
-              minWidth: "2.5rem",
-              width: activeTab.confirmWords ? "auto" : "2.5rem",
-              height: "2.5rem",
-              fontSize: "1.2rem",
-              whiteSpace: "nowrap",
-              marginRight: "0.5rem",
-              flexShrink: 0,
-              "-webkit-app-region": "no-drag"
-            },
-            ext: {
-              onpointerdown: (e) => e.stopPropagation(),
-              onclick: (e) => {
-                e.stopPropagation()
-                attrs.onConfirm(e)
-              }
-            }
-          }, [
-            m("", { style: { pointerEvents: "none", display: "inline-flex", alignItems: "center", justifyContent: "center" } }, [
-              activeTab.confirmWords ? activeTab.confirmWords : m.trust(iconPark.getIcon("Check", { fill: getColor('pink_1').front, size: "12px" }))
-            ])
-          ]) : null,
-
-          // Minimize
-          useMinus ? m(Box, {
-            class: "win-btn",
-            isBtn: true,
-            style: {
-              background: getColor('purple_1').back,
-              color: getColor('gray_6').front,
-              border: `0.1rem solid ${getColor('gray_1').back}`,
-              borderRadius: "50%",
-              display: "inline-flex",
-              justifyContent: "center",
-              alignItems: "center",
-              padding: "0",
-              width: "2.5rem", height: "2.5rem",
-              marginRight: "0.5rem",
-              flexShrink: 0,
-              "-webkit-app-region": "no-drag"
-            },
-            ext: {
-              onpointerdown: (e) => e.stopPropagation(),
-              onclick: (e) => {
-                e.stopPropagation()
-                attrs.onMinimize(e)
-              }
-            }
-          }, [
-            m("", { style: { pointerEvents: "none", display: "inline-flex", alignItems: "center", justifyContent: "center" } }, [
-              m.trust(iconPark.getIcon("Minus", { fill: getColor('gray_6').front, size: "12px" }))
-            ])
-          ]) : null,
-
-          // Maximize
-          useMaximize ? m(Box, {
-            class: "win-btn",
-            isBtn: true,
-            style: {
-              background: getColor('green_1').back,
-              color: getColor('gray_6').front,
-              border: `0.1rem solid ${getColor('gray_1').back}`,
-              borderRadius: "50%",
-              display: "inline-flex",
-              justifyContent: "center",
-              alignItems: "center",
-              padding: "0",
-              width: "2.5rem", height: "2.5rem",
-              marginRight: "0.5rem",
-              flexShrink: 0,
-              "-webkit-app-region": "no-drag"
-            },
-            ext: {
-              onpointerdown: (e) => e.stopPropagation(),
-              onclick: (e) => {
-                e.stopPropagation()
-                attrs.onMaximize(e)
-              }
-            }
-          }, [
-            m("", { style: { pointerEvents: "none", display: "inline-flex", alignItems: "center", justifyContent: "center" } }, [
-              m.trust(iconPark.getIcon("Square", { fill: getColor('gray_6').front, size: "12px" }))
-            ])
-          ]) : null,
-
-          // Close / Cancel
-          (hideBtn === 0 || hideBtn === 2) ? m(Box, {
-            class: "win-btn",
-            isBtn: true,
-            style: {
-              background: getColor('gray_2').back,
-              color: getColor('gray_6').front,
-              border: `0.1rem solid ${getColor('gray_1').back}`,
-              borderRadius: activeTab.cancelWords ? "3rem" : "50%",
-              display: "inline-flex",
-              justifyContent: "center",
-              alignItems: "center",
-              padding: activeTab.cancelWords ? "0 0.8rem" : "0",
-              minWidth: "2.5rem",
-              width: activeTab.cancelWords ? "auto" : "2.5rem",
-              height: "2.5rem",
-              fontSize: "1.2rem",
-              whiteSpace: "nowrap",
-              marginRight: "0.5rem",
-              flexShrink: 0,
-              "-webkit-app-region": "no-drag"
-            },
-            ext: {
-              onpointerdown: (e) => e.stopPropagation(),
-              onclick: (e) => {
-                e.stopPropagation()
-                attrs.onCancel(e)
-              }
-            }
-          }, [
-            m("", { style: { pointerEvents: "none", display: "inline-flex", alignItems: "center", justifyContent: "center" } }, [
-              activeTab.cancelWords ? activeTab.cancelWords : m.trust(iconPark.getIcon("Close", { fill: getColor('gray_6').front, size: "12px" }))
-            ])
+            m(activeTab.titleBar)
           ]) : null
 
         ]),
@@ -779,10 +833,13 @@ export default function () {
             flex: 1,
             position: "relative",
             overflow: "auto",
-            background: getColor('brown_2').back,
+            background: activeTab.transparentContent
+              ? "transparent"
+              : getColor('brown_2').back,
             margin: "0.5rem",
             borderRadius: "3rem",
-            display: "flex", flexDirection: "column",
+            display: "flex",
+            flexDirection: "column",
           }
         }, stablePhysicalTabs.map(tab => { // 绝对物理稳定渲染，保证 webview 不重连
           const isActive = tab.sign === win.activeSign

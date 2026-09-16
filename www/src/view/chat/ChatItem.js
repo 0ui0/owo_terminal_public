@@ -20,6 +20,7 @@ import { override } from "joi"
 import Avatar from "./Avatar.js"
 import ChatiTmRestoreDialog from "./ChatiTmRestoreDialog.js"
 import Row from "../../class/row.js"
+import sysMenu from "../common/sysMenu.js"
 
 const ReasoningBlock = () => {
   let show = true; //默认展开深度思考
@@ -112,7 +113,7 @@ const ReasoningBlock = () => {
             }
           }, [
             show
-              ? m(".article", m.trust(format(reasoning, "markdown", {})))
+              ? m(".article", m.trust(format(reasoning, "markdown", { noCache: isPreparing, isThinking: isPreparing })))
               : m(".article", reasoning ? (reasoning.length > 20000 ? "..." + reasoning.slice(-20000) : reasoning) : "")
 
           ]),
@@ -154,6 +155,8 @@ let ChatItem = null
 export default ChatItem = () => {
   let fullScreen = false
   let showMind = true
+  // 子会话(childChatList)预览的展开状态：与 ChatNote 的 expandedStates 同款 —— 组件实例闭包 + 唯一键存储
+  let expandedChildLists = {}
   let showRaw = false
   let showMore = false
   let _chat = null
@@ -233,6 +236,135 @@ export default ChatItem = () => {
 
       return m("", {
         id: !attrs.isChildren ? chat.uuid : "",
+        // 选中文本松手后 200ms 弹悬浮菜单（避开系统原生长按菜单）
+        onpointerup(e) {
+          const dom = e.currentTarget
+          setTimeout(() => {
+            const sel = window.getSelection()
+            if (!sel || sel.isCollapsed || !sel.rangeCount) return
+            const range = sel.getRangeAt(0)
+            if (!dom.contains(range.commonAncestorContainer)) return
+            const selectedStr = sel.toString()
+            const old = Notice.data.dataArr.find((i) => i.sign === "chatItemSelMenu")
+            if (old) Notice.closeTab(old)
+            const rect = range.getBoundingClientRect()
+            Notice.launch({
+              sign: "chatItemSelMenu",
+              tip: trs("聊天界面/词汇/引用"),
+              width: 0,
+              useMinus: false,
+              isMini: true,
+              closeOnClickOutside: true,
+              win: { x: rect.left, y: rect.bottom + 8 },
+              content: {
+                view: () => m("", {
+                  style: {
+                    display: "flex",
+                    flexDirection: "row",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    padding: "0.5rem",
+                    gap: "0.5rem"
+                  }
+                }, [
+                  // 复制
+                  m(Tag, {
+                    isBtn: true,
+                    color: "gray_2",
+                    styleExt: { margin: "0" },
+                    onclick: async () => {
+                      try {
+                        await navigator.clipboard.writeText(selectedStr)
+                        Notice.launch({ msg: trs("聊天界面/提示/已复制", { cn: "已复制到剪贴板", en: "Copied to clipboard" }), type: "success" })
+                      } catch (err) {
+                        Notice.launch({ msg: trs("聊天界面/提示/复制失败", { cn: "复制失败: ", en: "Copy failed: " }) + err.message, type: "error" })
+                      }
+                      const menu = Notice.data.dataArr.find((i) => i.sign === "chatItemSelMenu")
+                      if (menu) Notice.closeTab(menu)
+                    }
+                  }, trs("聊天界面/词汇/复制", { cn: "复制", en: "Copy" })),
+
+                  // 引用
+                  m(Tag, {
+                    isBtn: true,
+                    color: "blue_1",
+                    styleExt: { margin: "0" },
+                    onclick: () => {
+                      if (!data.focusEditor) {
+                        Notice.launch({ msg: trs("输入框/提示/请先聚焦", { cn: "请先点击一个聊天输入框，再引用喵", en: "Please focus a chat input box first" }), type: "info" })
+                        return
+                      }
+                      data.quoteMessage(chat.uuid, selectedStr)
+                      const menu = Notice.data.dataArr.find((i) => i.sign === "chatItemSelMenu")
+                      if (menu) Notice.closeTab(menu)
+                    }
+                  }, trs("聊天界面/词汇/引用按钮", { cn: "引用", en: "Quote" })),
+
+                  // 批注引用
+                  m(Tag, {
+                    isBtn: true,
+                    color: "pink_1",
+                    styleExt: { margin: "0" },
+                    onclick: () => {
+                      if (!data.focusEditor) {
+                        Notice.launch({ msg: trs("输入框/提示/请先聚焦", { cn: "请先点击一个聊天输入框，再引用喵", en: "Please focus a chat input box first" }), type: "info" })
+                        return
+                      }
+                      const menu = Notice.data.dataArr.find((i) => i.sign === "chatItemSelMenu")
+                      if (menu) Notice.closeTab(menu)
+
+                      let inputComment = ""
+                      Notice.launch({
+                        sign: "quote_comment_" + Date.now(),
+                        tip: trs("聊天界面/词汇/批注引用", { cn: "添加批注", en: "Add Note" }),
+                        useMinus: false,
+                        content: {
+                          view: () => [
+                            // 引用原文预览：Box 容器配合 format 与 .article 渲染富文本内容
+                            m(Box, {
+                              isBlock: true,
+                              color: "brown_3",
+                              style: {
+                                margin: "0.5rem 0.5rem 0.2rem 0.5rem",
+                                padding: "1rem",
+                                maxHeight: "15rem",
+                                overflowY: "auto"
+                              }
+                            }, [
+                              m(".article", m.trust(format(selectedStr, "markdown", {})))
+                            ]),
+                            // 批注输入框：使用系统标准 Box 表单与高对比标准主题色 gray_3
+                            m(Box, {
+                              tagName: "textarea",
+                              isBlock: true,
+                              noValue: true,
+                              color: "gray_3",
+                              style: {
+                                margin: "0.2rem 0.5rem 0.5rem 0.5rem",
+                                padding: "1rem",
+                                minHeight: "8rem",
+                                resize: "none",
+                                outline: "none"
+                              },
+                              ext: {
+                                placeholder: trs("聊天界面/词汇/批注占位符", { cn: "输入批注内容...", en: "Enter note..." }),
+                                rows: 4
+                              },
+                              oninput: (dom, e) => { inputComment = e.target.value }
+                            })
+                          ]
+                        },
+                        confirm: () => {
+                          data.quoteMessage(chat.uuid, selectedStr, inputComment)
+                        }
+                      })
+                    }
+                  }, trs("聊天界面/词汇/批注引用按钮", { cn: "批注引用", en: "Note Quote" }))
+                ])
+              }
+            })
+          }, 200)
+        },
         style: {
           display: "flex",
           flexDirection: "column",
@@ -434,15 +566,45 @@ export default ChatItem = () => {
                         }
                       }, "🗑️ 该子会话已被删除")
                     }
-                    return m("", {
-                      style: {
-                        maxHeight: "30rem",
-                        overflow: "auto",
+                    // 子会话预览默认折叠：内嵌的子 ChatList 会带来一整套虚拟滚动/测高/100ms 贴底定时器/流式重排开销，
+                    // 改为按需展开。展开状态存储方式与 ChatNote 的 expandedStates 一致（实例闭包 + 唯一键）
+                    const isChildExpanded = !!expandedChildLists[chat.uuid];
+                    const childToggle = m(Tag, {
+                      styleExt: {
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "0.4rem",
+                        margin: "0.4rem 0",
+                        background: isChildExpanded ? getColor("gray_2").back : getColor("purple_2").back,
+                        color: getColor("gray_9").front
+                      },
+                      isBtn: true,
+                      onclick: () => {
+                        expandedChildLists[chat.uuid] = !isChildExpanded;
+                        m.redraw();
                       }
                     }, [
-                      m(ChatList, {
-                        chatList: childListObj
-                      })
+                      m.trust(window.iconPark.getIcon(isChildExpanded ? "ExpandUp" : "ExpandDown", {
+                        fill: getColor("gray_9").front,
+                        size: "1.2rem"
+                      })),
+                      isChildExpanded
+                        ? trs("聊天/子会话/收起预览", { cn: "收起子会话预览", en: "Collapse sub-session preview" })
+                        : trs("聊天/子会话/展开预览", { cn: "展开子会话预览", en: "Expand sub-session preview" })
+                    ]);
+                    if (!isChildExpanded) return m("", [childToggle]);
+                    return m("", [
+                      childToggle,
+                      m("", {
+                        style: {
+                          maxHeight: "30rem",
+                          overflow: "auto",
+                        }
+                      }, [
+                        m(ChatList, {
+                          chatList: childListObj
+                        })
+                      ])
                     ])
 
                   case "preparing":
@@ -494,7 +656,7 @@ export default ChatItem = () => {
                           },
                         }, [
                           showMind
-                            ? m.trust(format(chat.content, "markdown"))
+                            ? m.trust(format(chat.content, "markdown", { noCache: true, isThinking: true }))
                             : (chat.content ? (chat.content.length > 20000 ? "..." + chat.content.slice(-20000) : chat.content) : "")
                           ,
                         ]),
@@ -697,14 +859,21 @@ export default ChatItem = () => {
                       tip: trs("聊天/撤销/提示标题", { cn: "是否撤销", en: "Undo Check" }),
                       msg: trs("聊天/撤销/提示内容", { cn: "是否撤销本条消息?（若为提问消息本条消息将重新加入到输入框）", en: "Undo this message? (User questions will return to the input box)" }),
                       async confirm() {
+                        if (chat.group === "user") {
+                          if (!data.focusEditor) {
+                            Notice.launch({ msg: "请先点击一个聊天输入框，再撤回喵", type: "info" })
+                            return
+                          }
+                          if (data.focusEditor.getListId() !== chat.chatListId) {
+                            Notice.launch({ msg: "请先切换到该会话的输入框，再撤回喵", type: "info" })
+                            return
+                          }
+                        }
                         debugHistory.log("撤销", { uuid: chat.uuid, chatListId: chat.chatListId });
                         await settingData.fnCall("undoChat", [chat.uuid, chat.chatListId])
                         data.getSessionState(chat.chatListId).isAtBottom = true
                         if (chat.group === "user") {
-                          data.inputText += chat.content
-                          await comData.data.edit((_data) => {
-                            _data.inputText = data.inputText
-                          })
+                          data.focusEditor.appendText(chat.content)
                         }
                       }
                     })
@@ -732,16 +901,22 @@ export default ChatItem = () => {
                       tip: trs("聊天/撤到此处/提示标题", { cn: "是否撤到本条？", en: "Undo to here?" }),
                       msg: trs("聊天/撤到此处/提示内容", { cn: "是否撤销到本条消息？（这将清空包括本条和本条以后的所有消息，若为提问消息本条消息将重新加入到输入框）", en: "Undo all messages from this point? (This clears everything after, and returns user questions to input)" }),
                       async confirm() {
+                        if (chat.group === "user") {
+                          if (!data.focusEditor) {
+                            Notice.launch({ msg: "请先点击一个聊天输入框，再撤到本条喵", type: "info" })
+                            return
+                          }
+                          if (data.focusEditor.getListId() !== chat.chatListId) {
+                            Notice.launch({ msg: "请先切换到该会话的输入框，再撤到本条喵", type: "info" })
+                            return
+                          }
+                        }
                         debugHistory.log("撤到本条", { uuid: chat.uuid, chatListId: chat.chatListId });
                         await settingData.fnCall("undoToChat", [chat.uuid, chat.chatListId])
                         data.getSessionState(chat.chatListId).isAtBottom = true
                         if (chat.group === "user") {
-                          data.inputText += chat.content
-                          const listId = chat.chatListId || 0
-                          data.getSessionState(listId).attachments = chat.attachments || []
-                          await comData.data.edit((_data) => {
-                            _data.inputText = data.inputText
-                          })
+                          data.getSessionState(chat.chatListId).attachments = chat.attachments || []
+                          data.focusEditor.appendText(chat.content)
                         }
                       }
                     })
@@ -851,9 +1026,12 @@ export default ChatItem = () => {
                   },
                   isBtn: true,
                   onclick: async () => {
-                    const listId = chat.chatListId;
-                    const session = data.getSessionState(listId);
-                    session.quotes = (session.quotes || []).filter((q) => q.uuid !== chat.uuid);
+                    if (!data.focusEditor) {
+                      Notice.launch({ msg: "请先点击一个聊天输入框，再引用喵", type: "info" })
+                      return
+                    }
+                    const session = data.getSessionState(data.focusEditor.getListId());
+                    session.quotes = session.quotes.filter((q) => q.uuid !== chat.uuid);
                     session.quotes.push({ ...chat });
                   },
                 }, [
@@ -862,6 +1040,34 @@ export default ChatItem = () => {
                   })),
                   trs("聊天界面/词汇/引用")
                 ]),
+
+                // 普通消息的独立窗口（子会话与终端各自已有窗口按钮，互不干扰）
+                (chat.group !== "childChatList" && !chat.tid && chat.group !== "preparing") ?
+                  m(Tag, {
+                    styleExt: {
+                      background: getColor('blue_1').back,
+                      color: getColor('blue_1').front,
+                      display: "inline-flex",
+                      alignItems: "center",
+                      marginLeft: "0",
+                      marginRight: "0.5rem",
+                    },
+                    isBtn: true,
+                    onclick: () => {
+                      Notice.launch({
+                        sign: "msg_" + chat.uuid,
+                        tip: chat.ask.title || trs("聊天/窗口/按钮", { cn: "单消息窗口", en: "Window" }),
+                        content: {
+                          view: () => m(ChatItem, { chat })
+                        }
+                      })
+                    }
+                  }, [
+                    m.trust(window.iconPark.getIcon("Browser", {
+                      fill: getColor('blue_1').front
+                    })),
+                    trs("聊天/窗口/按钮", { cn: "窗口", en: "Window" })
+                  ]) : null,
 
                 attrs.isChildren ?
                   m(IconTag, {

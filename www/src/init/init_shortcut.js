@@ -1,6 +1,7 @@
 import settingData from "../view/setting/settingData.js"
 import commonData from "../view/common/commonData.js"
 import Tip from "../view/common/tip.js"
+import WindowSwitcher from "../view/common/windowSwitcher.js"
 
 // 全局快捷键监听系统（独立文件，main.js 引入）
 // 参考 svgEditor/svgEditor/events/paperOncreate.js 的快捷键监听方式：
@@ -50,6 +51,22 @@ export default function initShortcut() {
 
     const keys = pressKeys.map(k => k.toLowerCase())
     const keysStr = JSON.stringify(keys)
+
+    // ctrl + tab：切换 Notice 已打开的窗口（与 VSCode 切换标签页一致）
+    if (keysStr === JSON.stringify(["control", "tab"]) ||
+      keysStr === JSON.stringify(["control", "shift", "tab"]) ||
+      keysStr === JSON.stringify(["shift", "control", "tab"])) {
+      e.preventDefault() // 拦截浏览器/系统默认的多标签切换
+      if (e.repeat) return // 按住 Tab 不连发
+      WindowSwitcher.toggle(keys.indexOf("shift") !== -1 ? -1 : 1)
+      return
+    }
+
+    // 预览打开中：esc 取消
+    if (keysStr === JSON.stringify(["escape"])) {
+      WindowSwitcher.cancel()
+      return
+    }
 
     // cmd+p (Mac) / ctrl+p (Win)：打开「快速打开」(quickOpen)
     if (keysStr === JSON.stringify(["meta", "p"]) || keysStr === JSON.stringify(["control", "p"])) {

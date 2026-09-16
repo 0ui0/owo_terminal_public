@@ -19,9 +19,13 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, chatData, set
   if (commonData.editorTheme === undefined) {
     commonData.editorTheme = "noctis-bordo"
   }
+  if (commonData.editorDiffSideBySide === undefined) {
+    commonData.editorDiffSideBySide = false
+  }
 
   // === Private State ===
   let isDiff = false
+  let showToolbar = true // 操作栏是否展开（手机窄屏可整条收起）
   let readOnly = false
   let isCheckoutMode = true
   let isDirty = false
@@ -53,7 +57,10 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, chatData, set
       minimap: { enabled: showMinimap }
     }
     editor?.updateOptions(opts)
-    diffEditor?.updateOptions(opts)
+    diffEditor?.updateOptions({
+      ...opts,
+      renderSideBySide: !!commonData.editorDiffSideBySide
+    })
   }
 
   let editor = null
@@ -445,7 +452,8 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, chatData, set
         theme: monacoTheme,
         automaticLayout: true,
         readOnly: true,
-        renderSideBySide: true,
+        renderSideBySide: !!commonData.editorDiffSideBySide,
+        useInlineViewWhenSmall: false,
         fontSize: 16,
         lineHeight: 24,
         fontFamily: 'Menlo, Monaco, "Courier New", Consolas, monospace'
@@ -563,7 +571,13 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, chatData, set
         wordWrap: wordWrap ? "on" : "off",
         readOnly: readOnly
       })
-      editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => { if (!readOnly) handleSave() })
+      editor.onKeyDown((e) => {
+        if ((e.ctrlKey || e.metaKey) && e.keyCode === monaco.KeyCode.KeyS) {
+          e.preventDefault()
+          e.stopPropagation()
+          if (!readOnly) handleSave()
+        }
+      })
 
       // 打开文件后定位到指定行（来自 quickOpen 全文搜索等场景）
       if (pendingLine > 0) {
@@ -803,6 +817,26 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, chatData, set
       currentTabSize = currentTabSize === 2 ? 4 : 2
       applyEditorOptions()
       redraw()
+    },
+    toggleDiffSideBySide: () => {
+      commonData.editorDiffSideBySide = !commonData.editorDiffSideBySide
+      applyEditorOptions()
+      redraw()
+    },
+    remeasureFonts: () => {
+      try {
+        if (window.monaco?.editor?.remeasureFonts) {
+          window.monaco.editor.remeasureFonts()
+        }
+        editor?.layout()
+        diffEditor?.layout()
+        Notice.launch({
+          msg: t("编辑器/提示/字体重新度量成功", { cn: "已重新校准字体与光标位置喵！", en: "Fonts and cursor recalibrated successfully!" }),
+          type: "success"
+        })
+      } catch (err) {
+        console.error(err)
+      }
     }
   }
 
@@ -883,6 +917,13 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, chatData, set
         tip: t("编辑器/菜单/视图", { cn: "视图", en: "View" }),
         getItems: () => [
           {
+            label: t("编辑器/菜单/Diff显示模式", { cn: "Diff双栏对比", en: "Diff Side by Side" }),
+            shortcut: commonData.editorDiffSideBySide ? t("系统/状态/开启", { cn: "双栏", en: "Side by Side" }) : t("系统/状态/关闭", { cn: "单栏", en: "Inline" }),
+            keepOpen: true,
+            action: actions.toggleDiffSideBySide
+          },
+          "sep",
+          {
             label: t("编辑器/菜单/自动换行", { cn: "自动换行", en: "Word Wrap" }),
             shortcut: wordWrap ? t("系统/状态/开启", { cn: "开启", en: "ON" }) : t("系统/状态/关闭", { cn: "关闭", en: "OFF" }),
             keepOpen: true,
@@ -910,6 +951,10 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, chatData, set
           {
             label: t("编辑器/菜单/重置字体", { cn: "重置字号 (16px)", en: "Reset Zoom" }),
             action: actions.zoomReset
+          },
+          {
+            label: t("编辑器/菜单/校准光标与字体", { cn: "校准光标位置 (重新测宽)", en: "Recalibrate Cursor & Fonts" }),
+            action: actions.remeasureFonts
           },
           "sep",
           {
@@ -1120,6 +1165,49 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, chatData, set
             closeFn();
           }
         };
+
+        // 💡 动态将编辑器菜单栏挂载到 Notice 窗口顶栏（按 Tab 独立显示）
+        config.titleBar = {
+          view: () => m("", {
+            onpointerdown: (e) => e.stopPropagation(),
+            style: {
+              display: "flex",
+              alignItems: "center",
+              gap: "0.4rem",
+              height: "100%"
+            }
+          }, [
+            ["file", t("编辑器/菜单/文件", { cn: "文件", en: "File" })],
+            ["edit", t("编辑器/菜单/编辑", { cn: "编辑", en: "Edit" })],
+            ["view", t("编辑器/菜单/视图", { cn: "视图", en: "View" })]
+          ].map(([menuKey, label]) => m(Box, {
+            tagName: "div",
+            isBtn: true,
+            color: "main",
+            noValue: true,
+            style: {
+              padding: "0.4rem 1rem",
+              borderRadius: "3rem",
+              fontSize: "1.2rem",
+              display: "inline-flex",
+              alignItems: "center",
+              cursor: "pointer",
+              margin: "0 0.3rem",
+              boxShadow: "0 0.2rem 0.6rem rgba(0, 0, 0, 0.15)",
+              "-webkit-app-region": "no-drag",
+              transition: "opacity 0.2s ease, box-shadow 0.2s ease"
+            },
+            ext: {
+              onpointerenter: function () {
+                this.style.opacity = "0.5"
+              },
+              onpointerleave: function () {
+                this.style.opacity = "1"
+              }
+            },
+            onclick: (dom, e) => openNoticeMenu(menuKey, e)
+          }, label)))
+        }
       }
     },
     oncreate(vnode) {
@@ -1156,135 +1244,22 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, chatData, set
           overflow: "hidden"
         }
       }, [
-        // Menu Bar
-        m("", {
-          onpointerdown: (e) => e.stopPropagation(),
+        // Row: Action Bar (随操作面板一起折叠)
+        showToolbar ? m("", {
           style: {
             display: "flex",
-            height: "3.5rem",
-            padding: "0 0.8rem",
+            flexWrap: "wrap",
+            minHeight: "3.5rem",
+            padding: "0.5rem 1.0rem",
             background: getColor('gray_12').back,
             color: getColor('gray_12').front,
             alignItems: "center",
-            fontSize: "1.3rem",
-            userSelect: "none",
-            borderBottom: "1px solid " + getColor('gray_3').back,
-            gap: "0.5rem"
-          }
-        }, [
-          m("",
-            {
-              style: {
-                padding: "0.4rem 1.2rem",
-                borderRadius: "3rem",
-                cursor: "pointer",
-                userSelect: "none",
-                background: "transparent",
-                color: getColor("gray_12").front,
-                display: "inline-flex",
-                alignItems: "center",
-                transition: "background 0.2s ease"
-              },
-              onpointerenter: function () {
-                this.style.background = "rgba(128, 128, 128, 0.15)"
-              },
-              onpointerleave: function () {
-                this.style.background = "transparent"
-              },
-              onclick: (e) => openNoticeMenu("file", e)
-            },
-            t("编辑器/菜单/文件",
-              {
-                cn: "文件",
-                en: "File"
-              }
-            )
-          ),
-
-          m("",
-            {
-              style: {
-                padding: "0.4rem 1.2rem",
-                borderRadius: "3rem",
-                cursor: "pointer",
-                userSelect: "none",
-                background: "transparent",
-                color: getColor("gray_12").front,
-                display: "inline-flex",
-                alignItems: "center",
-                transition: "background 0.2s ease"
-              },
-              onpointerenter: function () {
-                this.style.background = "rgba(128, 128, 128, 0.15)"
-              },
-              onpointerleave: function () {
-                this.style.background = "transparent"
-              },
-              onclick: (e) => openNoticeMenu("edit", e)
-            },
-            t("编辑器/菜单/编辑",
-              {
-                cn: "编辑",
-                en: "Edit"
-              }
-            )
-          ),
-
-          m("",
-            {
-              style: {
-                padding: "0.4rem 1.2rem",
-                borderRadius: "3rem",
-                cursor: "pointer",
-                userSelect: "none",
-                background: "transparent",
-                color: getColor("gray_12").front,
-                display: "inline-flex",
-                alignItems: "center",
-                transition: "background 0.2s ease"
-              },
-              onpointerenter: function () {
-                this.style.background = "rgba(128, 128, 128, 0.15)"
-              },
-              onpointerleave: function () {
-                this.style.background = "transparent"
-              },
-              onclick: (e) => openNoticeMenu("view", e)
-            },
-            t("编辑器/菜单/视图",
-              {
-                cn: "视图",
-                en: "View"
-              }
-            )
-          ),
-
-          m("", {
-            style: {
-              flex: 1,
-              textAlign: "center",
-              opacity: 0.6,
-              fontSize: "1.2rem",
-              letterSpacing: "0.1rem"
-            }
-          }, (filePath ? filePath.split("/").pop() : t("编辑器/顶栏/新文件", { cn: "新文件", en: "新文件" })) + (isDirty ? " *" : ""))
-        ]),
-
-        // Row 2: Action Bar (Always visible to keep layout consistent and give space to save/approve buttons)
-        m("", {
-          style: {
-            display: "flex",
-            height: "3.5rem",
-            padding: "0 1.0rem",
-            background: getColor('gray_12').back,
-            color: getColor('gray_12').front,
-            alignItems: "center",
-            gap: "1.0rem",
+            gap: "0.8rem",
             borderBottom: "1px solid " + getColor('gray_3').back,
             flexShrink: 0
           }
         }, [
-          isConflictDiff
+            isConflictDiff
             ? [
               m(Tag,
                 {
@@ -1410,7 +1385,8 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, chatData, set
                         value: commonData.editorOpenFileAfterAccept,
                         style: {
                           margin: "0",
-                          marginRight: "0.5rem"
+                          marginRight: "0.5rem",
+                          flexShrink: "0"
                         },
                         onclick: (el, e, v, box_this) => {
                           commonData.editorOpenFileAfterAccept = box_this.data.value
@@ -1433,7 +1409,8 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, chatData, set
                       value: localComment
                     },
                     styleExt: {
-                      flex: 1,
+                      flex: "1",
+                      minWidth: "12rem",
                       maxWidth: "30rem"
                     }
                   }
@@ -1443,6 +1420,9 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, chatData, set
                     isBtn: true,
                     isWide: true,
                     color: "green_1",
+                    styleExt: {
+                      flexShrink: 0
+                    },
                     onclick: (dom, e) => {
                       e.stopPropagation()
                       handleAccept()
@@ -1455,6 +1435,9 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, chatData, set
                     isBtn: true,
                     isWide: true,
                     color: "gray_2",
+                    styleExt: {
+                      flexShrink: 0
+                    },
                     onclick: (dom, e) => {
                       e.stopPropagation()
                       handleReject()
@@ -1491,9 +1474,9 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, chatData, set
                 )
               )
             )
-        ]),
-        // Reason Bar
-        (isDiff && reason)
+        ]) : null,
+        // Reason Bar（随操作面板一起折叠）
+        (isDiff && reason && showToolbar)
           ? m("",
             {
               style: {
@@ -1514,11 +1497,11 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, chatData, set
             ]
           )
           : null,
-        // Path
-        m("", { style: { display: "flex", height: "2.2rem", padding: "0 1.0rem", background: getColor('gray_1').back, alignItems: "center", fontSize: "1.1rem", color: readOnly ? getColor('pink_1').front : getColor('gray_1').front, boxShadow: "inset 0 0.1rem 0.3rem rgba(0,0,0,0.2)" } }, [
+        // Path（随操作面板一起折叠）
+        showToolbar ? m("", { style: { display: "flex", height: "2.2rem", padding: "0 1.0rem", background: getColor('gray_1').back, alignItems: "center", fontSize: "1.1rem", color: readOnly ? getColor('pink_1').front : getColor('gray_1').front, boxShadow: "inset 0 0.1rem 0.3rem rgba(0,0,0,0.2)" } }, [
           readOnly ? m("span", { style: { fontWeight: "bold", marginRight: "0.8rem" } }, "[只读预览]") : null,
           filePath || "未选择文件"
-        ]),
+        ]) : null,
         // Editor
         m("",
           {
@@ -1530,6 +1513,46 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, chatData, set
             }
           },
           [
+            // 贴顶无缝延伸的圆角标签把手(主色main + 图标化)
+            m(Box,
+              {
+                isBtn: true,
+                color: "main",
+                style: {
+                  position: "absolute",
+                  top: "-0.5rem",
+                  right: "10.5rem",
+                  zIndex: 100,
+                  margin: "0",
+                  padding: "0.25rem 0.8rem 0.35rem 0.8rem",
+                  borderRadius: "0 0 0.8rem 0.8rem",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  boxShadow: "0 0.3rem 0.8rem rgba(0,0,0,0.2)",
+                  cursor: "pointer",
+                  userSelect: "none"
+                },
+                onclick: (dom, e) => {
+                  e.stopPropagation()
+                  showToolbar = !showToolbar
+                  redraw()
+                }
+              },
+              showToolbar
+                ? m("svg", {
+                  viewBox: "0 0 24 24",
+                  style: { width: "1.2rem", height: "1.2rem", stroke: "currentColor", strokeWidth: "2.5", fill: "none", strokeLinecap: "round", strokeLinejoin: "round" }
+                }, [
+                  m("polyline", { points: "18 15 12 9 6 15" })
+                ])
+                : m("svg", {
+                  viewBox: "0 0 24 24",
+                  style: { width: "1.2rem", height: "1.2rem", stroke: "currentColor", strokeWidth: "2.5", fill: "none", strokeLinecap: "round", strokeLinejoin: "round" }
+                }, [
+                  m("polyline", { points: "6 9 12 15 18 9" })
+                ])
+            ),
             m("",
               {
                 class: "monaco-container",

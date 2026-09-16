@@ -9,7 +9,7 @@ import Box from "../common/box.js";
 
 /**
  * ChatInputEditor - 一个基于 contenteditable 的富文本编辑器
- * 支持将 [attachid:id] 和 [appid:id] 渲染为 Chip (标签)
+ * 标签转 Chip 的唯一实现位于 chatData.textToChipHtml(text, renderMode)
  */
 export default () => {
   let editorDom = null;
@@ -17,6 +17,12 @@ export default () => {
   let showTip = false;
   let tipText = "";
   let tipTimeout = null;
+  let listId = 0; // 本编辑器所属会话（窗口当前显示的会话）
+  let self = null; // 本组件实例
+  let savedRange = null; // 失焦时保存的光标 Range
+  let isExpanded = false; // 文章展开模式
+  let historyIndex = undefined; // 历史记录游标
+  let lastText = ""; // 本编辑器最近一次与 state 对齐的文本（用于判断 state 是否被其它窗口改过）
 
   const triggerToast = (text) => {
     tipText = text;
@@ -27,49 +33,6 @@ export default () => {
       showTip = false;
       m.redraw();
     }, 1000); // 3.5秒后消失
-  };
-
-  // 将纯文本转为 HTML (带 Chip 标签)
-  const textToHtml = (text) => {
-    if (!text) return "";
-    let html = text
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")
-      .replace(/\n/g, "<br>");
-
-    if (renderMode) {
-      // 渲染附件标签 [attachid:xxx]
-      html = html.replace(/\[attachid:([^\]]+)\]/g, (match, id) => {
-        return `<span contenteditable="false" class="editor-tag tag-attach" data-id="${id}">📎 ${id}</span>&nbsp;`;
-      });
-
-      // 渲染文件路径标签 [filePath:xxx]
-      html = html.replace(/\[filePath:([^\]]+)\]/g, (match, path) => {
-        const fileName = path.split(/[/\\]/).pop();
-        return `<span contenteditable="false" class="editor-tag tag-file" data-id="${path}" title="${path}">📄 ${fileName}</span>&nbsp;`;
-      });
-
-      // 渲染应用标签 [refAppid:xxx] 或兼容 [appid:xxx]
-      html = html.replace(/\[(?:refAppid|appid):([^\]]+)\]/gi, (match, id) => {
-        return `<span contenteditable="false" class="editor-tag tag-app" data-id="${id}">🚀 ${id}</span>&nbsp;`;
-      });
-
-      // 渲染代码引用标签 [codeQuote:path:range]
-      html = html.replace(/\[codeQuote:([^:\]]+)(?::([^\]]+))?\]/g, (match, path, range) => {
-        const fileName = path.split(/[/\\]/).pop();
-        const display = range ? `${fileName} (${range})` : fileName;
-        return `<span contenteditable="false" class="editor-tag tag-code" data-id="${path}${range ? ':' + range : ''}" title="${path}${range ? ' @ ' + range : ''}">📝 ${display}</span>&nbsp;`;
-      });
-
-      // 渲染图元/元素标签 [elementId:xxx] 或 [elementid:xxx]
-      html = html.replace(/\[elementId:([^\]]+)\]/gi, (match, id) => {
-        const displayId = id.length > 10 ? (id.includes('-') ? id.split('-')[0] : id.slice(0, 8) + '…') : id;
-        return `<span contenteditable="false" class="editor-tag tag-element" data-id="${id}" title="${id}">🎨 ${displayId}</span>&nbsp;`;
-      });
-    }
-
-    return html;
   };
 
   // 将 HTML 转回纯文本
@@ -88,6 +51,8 @@ export default () => {
       if (tag.classList.contains("tag-app")) type = "appid";
       else if (tag.classList.contains("tag-file")) type = "filePath";
       else if (tag.classList.contains("tag-code")) type = "codeQuote";
+      else if (tag.classList.contains("tag-element")) type = "elementId";
+      else if (tag.classList.contains("tag-msg")) type = "msg";
 
       const id = tag.getAttribute("data-id");
       tag.replaceWith(`[${type}:${id}]`);
@@ -136,7 +101,9 @@ export default () => {
       }
     }
 
-    const newHtml = textToHtml(data.inputText);
+    const text = data.getSessionState(listId).inputText || "";
+    lastText = text; // 记下本次对齐的文本
+    const newHtml = data.textToChipHtml(text, renderMode);
     if (editorDom.innerHTML !== newHtml) {
       editorDom.innerHTML = newHtml;
     }
@@ -223,9 +190,9 @@ export default () => {
     if (!editorDom) return;
     editorDom.focus();
     const selection = window.getSelection();
-    let savedRange = null;
+    let rangeBackup = null;
     if (selection.rangeCount > 0) {
-      savedRange = selection.getRangeAt(0).cloneRange();
+      rangeBackup = selection.getRangeAt(0).cloneRange();
     }
     const selectedText = selection.toString();
 
@@ -244,10 +211,9 @@ export default () => {
           selection.removeAllRanges();
           selection.addRange(newRange);
         } else {
-          data._insertAtCursor(newText);
+          insertAtCursor(newText);
         }
         editorDom.dispatchEvent(new Event('input', { bubbles: true }));
-        data.needSync = true;
         m.redraw();
       } else {
         // 没有选中文本，弹出 Notice 弹窗输入
@@ -261,13 +227,13 @@ export default () => {
             const text = LinkDialog.text.trim();
             if (url && text) {
               // 恢复原有的光标选区
-              if (savedRange) {
+              if (rangeBackup) {
                 const sel = window.getSelection();
                 sel.removeAllRanges();
-                sel.addRange(savedRange);
+                sel.addRange(rangeBackup);
               }
               // 插入
-              data._insertAtCursor(`[${text}](${url})`);
+              insertAtCursor(`[${text}](${url})`);
             }
             closeTabFn();
           }
@@ -288,10 +254,9 @@ export default () => {
           selection.removeAllRanges();
           selection.addRange(newRange);
         } else {
-          data._insertAtCursor(newText);
+          insertAtCursor(newText);
         }
         editorDom.dispatchEvent(new Event('input', { bubbles: true }));
-        data.needSync = true;
         m.redraw();
       } else {
         // 没有选中文本，弹出 Notice 弹窗输入引用
@@ -309,7 +274,7 @@ export default () => {
                 sel.addRange(savedRange);
               }
               // 插入
-              data._insertAtCursor(`\n> ${val}\n`);
+              insertAtCursor(`\n> ${val}\n`);
             }
             closeTabFn();
           }
@@ -329,28 +294,133 @@ export default () => {
         selection.removeAllRanges();
         selection.addRange(newRange);
       } else {
-        data._insertAtCursor(prefix + defaultText + suffix);
+        insertAtCursor(prefix + defaultText + suffix);
       }
       editorDom.dispatchEvent(new Event('input', { bubbles: true }));
-      data.needSync = true;
       m.redraw();
     }
   };
 
+  // 在光标处插入文本（渲染 Chip 胶囊），再把 DOM 反解回会话草稿
+  // 注：插入时恒按渲染模式生成 Chip（保持既有行为，源码模式下亦然）
+  const insertAtCursor = (text) => {
+    if (!editorDom) return;
+    editorDom.focus();
+    const selection = window.getSelection();
+    if (savedRange) {
+      selection.removeAllRanges();
+      selection.addRange(savedRange);
+      savedRange = null;
+    }
+    if (selection.rangeCount > 0) {
+      const range = selection.getRangeAt(0);
+      range.deleteContents();
+      const temp = document.createElement('span');
+      temp.innerHTML = data.textToChipHtml(text);
+      while (temp.firstChild) {
+        range.insertNode(temp.firstChild);
+        range.collapse(false);
+      }
+      selection.removeAllRanges();
+      selection.addRange(range);
+    } else {
+      editorDom.insertAdjacentHTML('beforeend', data.textToChipHtml(text));
+    }
+    data.getSessionState(listId).inputText = htmlToText(editorDom.innerHTML);
+    m.redraw();
+  };
+
   return {
+    oninit(vnode) {
+      self = vnode.state;
+    },
     oncreate(vnode) {
       editorDom = vnode.dom.querySelector('.chat-input-editor');
-      data.inputDom = editorDom;
+      if (vnode.attrs.onReady) vnode.attrs.onReady(vnode.state);
+      if (!data.focusEditor) data.focusEditor = vnode.state;
       syncToEditor();
     },
-    onremove() {
-      if (data.inputDom === editorDom) {
-        data.inputDom = null;
+    onupdate() {
+      // 同一会话可能被多个窗口同时打开：其它窗口改了 state 时，把内容回灌进本编辑器
+      if (!editorDom) return;
+      if (document.activeElement === editorDom) return; // 本编辑器正在输入，DOM 是权威，回灌会导致光标跳动
+      if ((data.getSessionState(listId).inputText || "") === lastText) return;
+      syncToEditor();
+    },
+    onremove(vnode) {
+      if (data.focusEditor === vnode.state) {
+        data.focusEditor = null;
       }
     },
+    insertAtCursor,
+    appendText(text) {
+      insertAtCursor(text);
+    },
+    addFiles(files) {
+      const session = data.getSessionState(listId);
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const attachObj = {
+          id: file.name,
+          url: URL.createObjectURL(file),
+          type: file.type.startsWith('image/') ? 'image' : 'file',
+          progress: 0,
+          status: 'uploading'
+        };
+        session.attachments.push(attachObj);
+        const formData = new FormData();
+        formData.append('file', file);
+        const xhr = new XMLHttpRequest();
+        attachObj.xhr = xhr;
+        xhr.upload.onprogress = (event) => {
+          if (event.lengthComputable) {
+            attachObj.progress = Math.round((event.loaded / event.total) * 100);
+            m.redraw();
+          }
+        };
+        xhr.onload = () => {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            const res = JSON.parse(xhr.responseText);
+            if (res && res.id) {
+              attachObj.id = res.id;
+              attachObj.url = res.url;
+              attachObj.status = 'done';
+              attachObj.progress = 100;
+              insertAtCursor(` [attachid:${res.id}] `);
+            }
+          }
+        };
+        xhr.onerror = () => {
+          attachObj.status = 'error';
+          Notice.launch({ msg: "上传失败: " + file.name });
+          m.redraw();
+        };
+        xhr.open('POST', `/api/attachments/set`);
+        xhr.send(formData);
+      }
+    },
+    getListId() {
+      return listId;
+    },
+    setText(text) {
+      data.getSessionState(listId).inputText = text;
+      syncToEditor();
+    },
+    clear() {
+      const session = data.getSessionState(listId);
+      session.inputText = "";
+      session.attachments = [];
+      session.quotes = [];
+      if (editorDom) editorDom.innerHTML = "";
+      m.redraw();
+    },
+    focus() {
+      if (editorDom) editorDom.focus();
+    },
     view({ attrs }) {
-      const isExpanded = data.isInputExpanded || false;
-      const charCount = data.inputText ? data.inputText.length : 0;
+      listId = attrs.listId || 0; // 锁定切换后窗口显示的会话会变，每次渲染同步
+      const draft = data.getSessionState(listId).inputText;
+      const charCount = draft ? draft.length : 0;
 
       // 按钮 1（展开/收起）
       const expIconColor = isExpanded ? getColor('pink_2').front : getColor('gray_3').front;
@@ -464,38 +534,27 @@ export default () => {
           ]) : null,
           m(".chat-input-editor", {
             onbeforeupdate() {
-              // 外部修改标记（如 quoteAttachId 插入标签后），强制同步
-              if (data.needSync) {
-                data.needSync = false;
-                syncToEditor();
-              }
-              // 在 Mithril diff 前，手动检查外部数据是否改变
-              if (editorDom) {
-                const currentText = htmlToText(editorDom.innerHTML);
-                if (currentText !== data.inputText) {
-                  // 当外部将 inputText 清空时（比如发完消息），或者当前输入框尚未聚焦时，强制覆盖内容
-                  if (data.inputText === "" || document.activeElement !== editorDom) {
-                    syncToEditor();
-                  }
-                }
-              }
               // 阻止 Mithril 对该元素的默认向下 Diff，由于内部包含 contenteditable 与手动管理的子节点
               return false;
             },
             contenteditable: true,
             placeholder: attrs.placeholder || "",
             onfocus: () => {
-              data.inputDom = editorDom;
+              data.focusEditor = self;
+              if (comData.data.get().targetChatListId !== listId) {
+                comData.data.edit((d) => { d.targetChatListId = listId });
+              }
             },
             onblur: () => {
               // 失焦时克隆保存当前光标 Range，用于 Notice 弹窗等场景恢复
               const sel = window.getSelection();
               if (sel.rangeCount > 0) {
-                data._savedRange = sel.getRangeAt(0).cloneRange();
+                savedRange = sel.getRangeAt(0).cloneRange();
               }
             },
             oninput: (e) => {
-              data.inputText = htmlToText(e.target.innerHTML);
+              lastText = htmlToText(e.target.innerHTML);
+              data.getSessionState(listId).inputText = lastText;
             },
             ondragover: (e) => {
               e.preventDefault();
@@ -505,130 +564,41 @@ export default () => {
               e.preventDefault();
               const files = e.dataTransfer.files;
               if (files && files.length > 0) {
-                const targetChatListId = (comData.data.get()?.targetChatListId || 0);
-                const sessionState = data.getSessionState(targetChatListId);
-                if (!sessionState.attachments) sessionState.attachments = [];
+                const imageFiles = [];
                 for (let i = 0; i < files.length; i++) {
                   const file = files[i];
-                  const isImage = file.type.startsWith('image/');
-
-                  let path = "";
-                  if (window.electronAPI && window.electronAPI.getPathForFile) {
-                    path = window.electronAPI.getPathForFile(file);
-                  }
-
-                  if (!path) {
-                    path = file.path || file.name;
-                  }
-
-                  if (isImage) {
-                    const attachObj = {
-                      id: file.name,
-                      url: URL.createObjectURL(file),
-                      type: 'image',
-                      progress: 0,
-                      status: 'uploading'
-                    };
-                    sessionState.attachments.push(attachObj);
-
-                    const formData = new FormData();
-                    formData.append('file', file);
-
-                    const xhr = new XMLHttpRequest();
-                    xhr.upload.onprogress = (event) => {
-                      if (event.lengthComputable) {
-                        attachObj.progress = Math.round((event.loaded / event.total) * 100);
-                        m.redraw();
-                      }
-                    };
-                    xhr.onload = () => {
-                      if (xhr.status >= 200 && xhr.status < 300) {
-                        const res = JSON.parse(xhr.responseText);
-                        if (res && res.id) {
-                          attachObj.id = res.id;
-                          attachObj.url = res.url;
-                          attachObj.type = res.type || attachObj.type;
-                          attachObj.status = 'done';
-                          attachObj.progress = 100;
-                          data.quoteAttachId(res.id);
-                          m.redraw();
-                        }
-                      }
-                    };
-                    xhr.open('POST', `/api/attachments/set`);
-                    xhr.send(formData);
+                  if (file.type.startsWith('image/')) {
+                    imageFiles.push(file);
                   } else {
-                    if (path) {
-                      data._insertAtCursor(` [filePath:${path}] `);
-                    }
+                    const path = window.electronAPI && window.electronAPI.getPathForFile ? window.electronAPI.getPathForFile(file) : (file.path || file.name);
+                    insertAtCursor(` [filePath:${path}] `);
                   }
                 }
+                if (imageFiles.length > 0) self.addFiles(imageFiles);
               } else {
                 const text = e.dataTransfer.getData('text/plain');
                 if (text) {
                   if (!text.includes("\n") && (text.startsWith("/") || /^[a-zA-Z]:[\\/]/.test(text))) {
-                    data._insertAtCursor(` [filePath:${text}] `);
+                    insertAtCursor(` [filePath:${text}] `);
                   } else {
-                    data._insertAtCursor(text);
+                    insertAtCursor(text);
                   }
                 }
               }
             },
             onpaste: (e) => {
               const items = (e.clipboardData || e.originalEvent.clipboardData).items;
+              const imageFiles = [];
               for (let i = 0; i < items.length; i++) {
                 if (items[i].type.indexOf("image") !== -1) {
                   const file = items[i].getAsFile();
-                  if (!file) continue;
-
-                  // 阻止默认粘贴行为（避免在 contenteditable 中直接插入原生 img 节点）
-                  e.preventDefault();
-
-                  // 准备上传
-                  const targetChatListId = (comData.data.get()?.targetChatListId || 0);
-                  const sessionState = data.getSessionState(targetChatListId);
-                  if (!sessionState.attachments) sessionState.attachments = [];
-
-                  // 创建临时占位对象
-                  const attachObj = {
-                    id: `pasting-${Date.now()}`,
-                    url: URL.createObjectURL(file),
-                    type: 'image',
-                    progress: 0,
-                    status: 'uploading'
-                  };
-                  sessionState.attachments.push(attachObj);
-
-                  const formData = new FormData();
-                  formData.append('file', file, `pasted-image-${Date.now()}.png`);
-
-                  const xhr = new XMLHttpRequest();
-                  xhr.upload.onprogress = (event) => {
-                    if (event.lengthComputable) {
-                      attachObj.progress = Math.round((event.loaded / event.total) * 100);
-                      m.redraw();
-                    }
-                  };
-
-                  xhr.onload = () => {
-                    if (xhr.status >= 200 && xhr.status < 300) {
-                      const res = JSON.parse(xhr.responseText);
-                      if (res && res.id) {
-                        attachObj.id = res.id;
-                        attachObj.url = res.url;
-                        attachObj.status = 'done';
-                        attachObj.progress = 100;
-                        data.quoteAttachId(res.id); // 自动插入标签
-                        m.redraw();
-                      }
-                    }
-                  };
-
-                  xhr.open('POST', `/api/attachments/set`);
-                  xhr.send(formData);
+                  if (file) imageFiles.push(file);
                 }
               }
-
+              if (imageFiles.length > 0) {
+                e.preventDefault();
+                self.addFiles(imageFiles);
+              }
             },
             onkeydown: (e) => {
               // 处理输入法组字状态，避免在选词时触发提交
@@ -640,17 +610,9 @@ export default () => {
                 data.loadHistory();
                 const history = data.inputHistory;
                 if (history && history.length > 0) {
-                  if (data.historyIndex === undefined) {
-                    data.historyIndex = 0;
-                  } else {
-                    if (e.key === "ArrowUp") {
-                      data.historyIndex = (data.historyIndex + 1) % history.length;
-                    } else {
-                      data.historyIndex = (data.historyIndex - 1 + history.length) % history.length;
-                    }
-                  }
-                  data.inputText = history[data.historyIndex];
-                  data.needSync = true;
+                  historyIndex = historyIndex === undefined ? 0 : (e.key === "ArrowUp" ? (historyIndex + 1) % history.length : (historyIndex - 1 + history.length) % history.length);
+                  data.getSessionState(listId).inputText = history[historyIndex];
+                  syncToEditor();
                   m.redraw();
                 }
                 return;
@@ -658,7 +620,7 @@ export default () => {
 
               // 在其他键盘输入时重置 historyIndex
               if (e.key !== "ArrowUp" && e.key !== "ArrowDown") {
-                data.historyIndex = undefined;
+                historyIndex = undefined;
               }
 
               if (e.key === "Backspace") {
@@ -680,7 +642,7 @@ export default () => {
                   if (prevNode && prevNode.nodeType === Node.ELEMENT_NODE && prevNode.classList.contains('editor-tag')) {
                     e.preventDefault();
                     prevNode.remove();
-                    data.inputText = htmlToText(e.target.innerHTML);
+                    data.getSessionState(listId).inputText = htmlToText(e.target.innerHTML);
                     syncToEditor(); // 重绘以确保状态同步一致
                     return;
                   }
@@ -688,7 +650,7 @@ export default () => {
               }
 
               if (e.key === "Enter") {
-                if (data.isInputExpanded) {
+                if (isExpanded) {
                   // 展开模式下：Enter 是换行，Ctrl/Cmd/Shift + Enter 是发送
                   if (e.metaKey || e.ctrlKey || e.shiftKey) {
                     e.preventDefault();
@@ -703,7 +665,7 @@ export default () => {
                   if (e.metaKey || e.ctrlKey || e.shiftKey) {
                     e.preventDefault();
                     document.execCommand('insertText', false, '\n');
-                    data.inputText = htmlToText(e.target.innerHTML);
+                    data.getSessionState(listId).inputText = htmlToText(e.target.innerHTML);
                     return;
                   }
 
@@ -769,8 +731,8 @@ export default () => {
                 },
                 title: isExpanded ? "收起输入框" : "展开为文章高度",
                 onclick: () => {
-                  data.isInputExpanded = !isExpanded;
-                  if (data.isInputExpanded) {
+                  isExpanded = !isExpanded;
+                  if (isExpanded) {
                     triggerToast(trs("输入框/提示/展开模式", { cn: "已进入文章展开模式：Enter 键换行，Cmd/Ctrl/Shift + Enter 发送消息喵~", en: "Switched to expanded mode: Enter to new line, Cmd/Ctrl/Shift + Enter to send." }));
                   }
                   m.redraw();
@@ -821,8 +783,8 @@ export default () => {
                               fontSize: "0.95rem"
                             },
                             onclick() {
-                              data.inputText = h;
-                              data.needSync = true;
+                              data.getSessionState(listId).inputText = h;
+                              syncToEditor();
                               m.redraw();
                               const noticeConfig = vnode.attrs.noticeConfig;
                               if (noticeConfig) {
@@ -852,7 +814,7 @@ export default () => {
                 },
                 title: renderMode ? "当前富文本模式，点击切换为原始模式" : "当前原始模式，点击切换为富文本模式",
                 onclick: () => {
-                  if (editorDom) data.inputText = htmlToText(editorDom.innerHTML);
+                  if (editorDom) data.getSessionState(listId).inputText = htmlToText(editorDom.innerHTML);
                   renderMode = !renderMode;
                   syncToEditor();
                 }
@@ -908,6 +870,22 @@ export default () => {
           .tag-element {
              background: ${getColor('cyan_1').back}; /* 青色/水蓝调图元 */
              color: ${getColor('cyan_1').front};
+          }
+          /* 批注引用：💬 Chip 内嵌的彩色批注原文方块（超长省略，悬停看全文） */
+          .tag-msg-comment {
+             display: inline-block;
+             max-width: 14rem;
+             overflow: hidden;
+             text-overflow: ellipsis;
+             white-space: nowrap;
+             vertical-align: middle;
+             background: ${getColor('yellow_1').back};
+             color: ${getColor('yellow_1').front};
+             border-radius: 0.25rem;
+             padding: 0 0.35rem;
+             margin-left: 0.3rem;
+             font-size: 0.85em;
+             line-height: 1.2rem;
           }
           .md-btn {
              color: ${getColor('gray_8').front};

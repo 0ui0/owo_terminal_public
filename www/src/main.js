@@ -90,7 +90,11 @@ import initShortcut from "./init/init_shortcut.js"
         },
         view({ attrs, children }) {
           return [
-            m(Notice)
+            m(Notice),
+            // 导航栏必须与 Notice 层「平级」渲染：
+            // Notice 容器固定为 zIndex:999999，而主窗口 .window-box 是 position:fixed + zIndex:0（自成层叠上下文），
+            // 导航栏若留在窗口内部，无论 z-index 调多高都压不过 Notice。
+            m(Nav)
           ]
         }
       }

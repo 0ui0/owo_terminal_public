@@ -18,6 +18,15 @@ let urlList = commonData.navList || []
 export default {
   oncreate: ({ dom }) => {
     commonData.navDom = dom
+    // 导航栏占用高度（px），供全屏窗口底部避让；底部锚定 ⇒ 视口尺寸变化不影响它
+    commonData.navInset = Math.max(0, Math.ceil(window.innerHeight - dom.getBoundingClientRect().top))
+    if (window.ResizeObserver) {
+      commonData.navInsetObserver?.disconnect?.()
+      commonData.navInsetObserver = new ResizeObserver(() => {
+        commonData.navInset = Math.max(0, Math.ceil(window.innerHeight - dom.getBoundingClientRect().top))
+      })
+      commonData.navInsetObserver.observe(dom)
+    }
   },
 
   onupdate: ({ dom }) => {
@@ -41,7 +50,8 @@ export default {
         left: "50%",
         transform: "translate(-50%,0)",
         transition: "all 0.5s ease",
-        zIndex: 999,
+        // 必须高于 Notice 层容器（notice.js 中固定容器 zIndex:999999），否则智能体窗口会遮住导航栏
+        zIndex: 1000000,
         ...(commonData.navWinMode ? {
           width: "100%",
           paddingTop: "1rem",

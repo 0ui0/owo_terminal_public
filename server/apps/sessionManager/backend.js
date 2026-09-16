@@ -114,6 +114,7 @@ export default {
         await comData.data.edit(data => {
           if (data.chatLists) {
             data.chatLists = data.chatLists.filter(l => l.id !== listId)
+            if (data.targetChatListId === listId) data.targetChatListId = 0
           }
         })
 

@@ -31,7 +31,7 @@ const socketOnChat = async (que, callback) => {
     }
 
     // 1. 参数与环境解析
-    let inputText = que.inputText ?? comData.data.get().inputText;
+    let inputText = que.inputText;
     let call = que.call ?? null;
     let quotes = que.quotes ?? [];
 

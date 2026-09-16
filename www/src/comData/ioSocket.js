@@ -34,6 +34,8 @@ export default {
 
     this.socket.on("connect", () => {
       console.log("连接成功")
+      // 刷新/重连后，把后端还活着的 App 窗口全部重建出来（等同逐个点击任务管理器里的眼睛按钮）
+      settingData.fnCall("appRestoreGui", []).catch(err => console.error("重建 App 窗口失败:", err))
     })
 
     this.socket.on("sys:pushMessage", (msg) => {

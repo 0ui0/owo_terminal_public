@@ -23,6 +23,9 @@ export default {
   // 导航DOM引用
   navDom: null,
 
+  // 导航栏占用的视口高度(px)：Notice 全屏窗口底部避让用
+  navInset: 0,
+
   // 版本信息
   version: "1.0.0",
 

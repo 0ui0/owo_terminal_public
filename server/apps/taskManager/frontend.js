@@ -77,8 +77,6 @@ export default ({ appId, m, Notice, ioSocket, commonData, chatData, settingData,
     if (commonData && commonData.registerApp) commonData.registerApp(appId, taskManagerData)
 
     fetchList()
-    // 启动定时拉取 (每 3 秒刷新一次)
-    pollTimer = setInterval(() => fetchList(true), 3000)
   }
 
   init()
@@ -247,6 +245,12 @@ export default ({ appId, m, Notice, ioSocket, commonData, chatData, settingData,
             }
           })
         }
+      }
+
+      // 💡 定时轮询必须在组件挂载后启动，才能与 onremove 成对回收；
+      // 写在工厂函数顶层会导致 Notice.launch 命中 sign 去重丢弃组件时产生无法回收的孤儿定时器
+      if (!pollTimer) {
+        pollTimer = setInterval(() => fetchList(true), 3000)
       }
     },
     oncreate(vnode) {

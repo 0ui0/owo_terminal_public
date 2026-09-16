@@ -10,6 +10,7 @@ import { trs } from "../common/i18n.js"
 import getColor from "../common/getColor.js"
 import ChatTasks from "./ChatTasks.js"
 import ChatFaceBubble from "./ChatFaceBubble.js"
+import settingData from "../setting/settingData.js"
 
 export default () => {
   // 实例闭包私有变量

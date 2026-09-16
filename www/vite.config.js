@@ -6,12 +6,12 @@ export default defineConfig({
     host: "0.0.0.0",
     port: 3000,
     https: false,
-    proxy: {
+/*     proxy: {
       "/api": { target: "http://localhost:9501", changeOrigin: true },
       "/socket.io": { target: "http://localhost:9501", ws: true },
       "/statics": { target: "http://localhost:9501", changeOrigin: true },
       "/attachment": { target: "http://localhost:9501", changeOrigin: true }
-    },
+    }, */
   },
   build: {
     minify: true,

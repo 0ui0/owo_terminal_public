@@ -2,6 +2,7 @@ import comData from "../../comData/comData.js"
 import settingData from "../setting/settingData.js"
 import Rows from "../../class/rows.js"
 import { trs } from "../common/i18n.js"
+import Notice from "../common/notice.js"
 
 export default {
   getModeOptions() {
@@ -18,12 +19,8 @@ export default {
       { value: "执行任务", label: trs("发送组/执行任务", { cn: "执行任务", en: "Execute" }), text: "用户批准执行当前任务，请更新任务面板进度并逐项完成" }
     ]
   },
-  inputDom: null,
-  inputText: "",
-  needSync: false, // 外部修改 inputText 后置 true，通知编辑器重渲染
+  focusEditor: null, // 最后聚焦的编辑器实例（唯一全局输入句柄）
   inputHistory: [],
-  historyIndex: undefined,
-  isInputExpanded: false,
   loadHistory() {
     try {
       const saved = localStorage.getItem("owo_chat_input_history");
@@ -216,9 +213,12 @@ export default {
         }
       })
     }
-    if (txt) {
-      this._insertAtCursor(` ${txt} `)
+    if (!txt) return
+    if (!this.focusEditor) {
+      Notice.launch({ msg: trs("输入框/提示/请先聚焦", { cn: "请先点击一个聊天输入框，再引用喵", en: "Please focus a chat input box first" }), type: "info" })
+      return
     }
+    this.focusEditor.insertAtCursor(` ${txt} `)
   },
   quoteAppId(appId) {
     this.quoteToChatInputText(appId, null)
@@ -230,15 +230,27 @@ export default {
     const val = lineRange ? `${path}:${lineRange}` : path
     this.quoteToChatInputText(appId, [{ key: "codeQuote", value: val }])
   },
-  // 在 contentEditable 失焦时保存的光标位置（克隆的 Range），解决 Notice 弹窗等场景光标丢失
-  _savedRange: null,
-  // 将纯文本中的 [xxx:yyy] 标签转为 Chip HTML 片段
-  _textToChipHtml(text) {
+  quoteMessage(msgId, content = "", comment = "") {
+    let payload = msgId
+    if (content || comment) {
+      payload += ":" + encodeURIComponent(content)
+      if (comment) {
+        payload += ":" + encodeURIComponent(comment)
+      }
+    }
+    this.quoteToChatInputText("system", [{ key: "msg", value: payload }])
+  },
+  // 将纯文本中的 [xxx:yyy] 标签转为 Chip HTML 片段（输入框唯一实现，编辑器与插入流程共用）
+  // renderMode=false 时保持源码形态（仅转义与换行），对应输入框的“源码模式”
+  textToChipHtml(text, renderMode = true) {
+    if (!text) return "";
     let html = text
       .replace(/&/g, "&amp;")
       .replace(/</g, "&lt;")
       .replace(/>/g, "&gt;")
       .replace(/\n/g, "<br>");
+
+    if (!renderMode) return html;
 
     html = html.replace(/\[attachid:([^\]]+)\]/g, (_, id) =>
       `<span contenteditable="false" class="editor-tag tag-attach" data-id="${id}">📎 ${id}</span>&nbsp;`);
@@ -257,57 +269,22 @@ export default {
       const displayId = id.length > 10 ? (id.includes('-') ? id.split('-')[0] : id.slice(0, 8) + '…') : id;
       return `<span contenteditable="false" class="editor-tag tag-element" data-id="${id}" title="${id}">🎨 ${displayId}</span>&nbsp;`;
     });
+    html = html.replace(/\[msg:([^\]]+)\]/gi, (_, val) => {
+      const parts = val.split(":");
+      const id = parts[0] || "";
+      const display = id.slice(0, 7);
+      // 第 3 段是 encodeURIComponent 编码的批注原文，解出来用内嵌彩色方块展示
+      let comment = "";
+      if (parts.length > 2 && parts[2]) {
+        try { comment = decodeURIComponent(parts[2]); } catch (e) { comment = ""; }
+      }
+      // 转义一次，属性与节点文本复用（不另建函数）
+      if (comment) comment = comment.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+      const commentHtml = comment ? `<span class="tag-msg-comment" title="${comment}">${comment}</span>` : "";
+      const titleAttr = comment || val;
+      return `<span contenteditable="false" class="editor-tag tag-msg" data-id="${val}" title="${titleAttr}">💬 ${display}${commentHtml}</span>&nbsp;`;
+    });
 
     return html;
   },
-
-  // 在光标处插入文本（直接渲染 Chip HTML），然后同步数据
-  _insertAtCursor(text) {
-    const dom = this.inputDom
-    if (dom && dom.contentEditable === "true") {
-      dom.focus()
-      const selection = window.getSelection()
-
-      // 恢复 blur 时保存的光标位置（解决 focus() 后光标跑到开头的问题）
-      if (this._savedRange) {
-        try {
-          selection.removeAllRanges()
-          selection.addRange(this._savedRange)
-        } catch (_) { /* 克隆的 range 已失效则忽略 */ }
-        this._savedRange = null
-      }
-
-      if (selection.rangeCount > 0) {
-        const range = selection.getRangeAt(0)
-        range.deleteContents()
-
-        // 构建 Chip HTML，通过临时容器逐个移动子节点以追踪光标位置
-        const chipHtml = this._textToChipHtml(text)
-        const temp = document.createElement('span')
-        temp.innerHTML = chipHtml
-
-        while (temp.firstChild) {
-          const child = temp.firstChild
-          range.insertNode(child)
-          range.collapse(false) // 折叠到刚插入节点之后
-        }
-
-        // range 现在在插入内容末尾，设为光标位置
-        selection.removeAllRanges()
-        selection.addRange(range)
-      } else {
-        // 无光标位置，追加到末尾
-        dom.insertAdjacentHTML('beforeend', this._textToChipHtml(text))
-      }
-
-      // 从 DOM 反解回纯文本，同步到 inputText
-      dom.dispatchEvent(new Event('input', { bubbles: true }))
-      // 不设 needSync，Chip 已在 DOM 中渲染好，避免 syncToEditor→innerHTML 导致光标丢失
-      m.redraw()
-    } else {
-      this.inputText += text
-      this.needSync = true
-      m.redraw()
-    }
-  }
 }

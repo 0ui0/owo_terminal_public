@@ -36,16 +36,61 @@ export default {
   },
 
   // 启动/激活窗口
-  launch: function (obj) {
+  launch: function (rawObj = {}) {
     const _this = this
 
-    // 1. 生成唯一标识
-    if (!obj.sign) {
-      obj.sign = Date.now() + "_" + Math.random().toString(36).substr(2, 9)
+    // 💡 标准 Tab 默认配置表（对齐 aiDocs/Notice说明.md「完整参数字典」+ noticeBox.js 实际读取的全部字段）
+    // 约定：undefined 表示“无默认值”，由对应的 UI 分支自行兜底（例如 confirmWords 缺省时渲染对勾图标）
+    const defaultTabConfig = {
+      // ---- 窗口标识 / 分组 ----
+      sign: Date.now() + "_" + Math.random().toString(36).substr(2, 9),
+                                  // 唯一标识；缺省随机生成，调用方传入的 sign 优先级最高（同 sign 再次 launch 会直接激活置顶）
+      group: undefined,           // 窗口分组名，同组 Tab 自动合并到同一个多标签窗口
+      newWindow: false,           // 是否强制在新窗口打开（即使指定了 group）
+      // ---- 标题栏 ----
+      tip: "提示",                 // 标题文字（多标签时作为 Tab 名）
+      icon: undefined,            // 标题图标（优先于 appType）
+      appType: undefined,         // App 类型，用于 getAppIconUrl 取图标
+      isMini: false,              // 迷你模式：窄窗紧凑排版（标题栏上下两行）
+      titleBar: undefined,        // 标题栏中部的自定义菜单栏组件
+      headerButtons: [],          // 标题栏自定义按钮数组 [{ icon, color, onclick }]
+      // ---- 内容区 ----
+      msg: undefined,             // 简易通知文本：未提供 content 时自动用 Box 渲染该文字
+      content: undefined,         // 窗口内容区主体 Mithril 组件
+      contentAttrs: undefined,    // 透传给 content 组件的初始化属性
+      transparentContent: false,  // 内容区是否透明（true 不铺 brown_2 底色）
+      // ---- 窗口初始化（几何 / 窗口状态：优先取 win，其次取 x/y/width/height 兼容写法）----
+      win: undefined,             // 推荐写法：{ x, y, width, height, isPinned }；不传则自动居中 + 内容自适应
+      x: 0,                       // 兼容写法：窗口初始 X（win.x 优先；0 = 自动居中）
+      y: 0,                       // 兼容写法：窗口初始 Y（win.y 优先；0 = 自动居中）
+      width: 0,                   // 兼容写法：窗口初始宽（win.width 优先；0 = 宽度自适应）
+      height: 0,                  // 兼容写法：窗口初始高（win.height 优先；0 = 高度自适应）
+      isPinned: false,            // 是否置顶窗口（win.isPinned 优先）
+      isMainWindow: false,        // 是否主窗口（不参与层级自增，也不参与任务栏最小化切换）
+      minimized: false,           // 初始化时是否默认最小化
+      closeOnClickOutside: false, // 点击窗口外部是否自动关闭本 Tab
+      // ---- 三大系统按钮 ----
+      hideBtn: 0,                 // 0=确认+取消都显示；1=都隐藏；2=仅取消；3=仅确认
+      useMinus: true,             // 是否显示最小化按钮
+      useMaximize: false,         // 是否显示最大化按钮
+      confirmWords: undefined,    // 确认按钮文案，缺省渲染粉色对勾图标
+      cancelWords: undefined,     // 取消按钮文案，缺省渲染灰色叉号图标
+      // ---- 事件钩子 ----
+      confirm: undefined,         // async (box, closeTabFn, tabData, event)  返回非 undefined 表示拦截关闭
+      cancel: undefined,          // async (box, closeTabFn, tabData, event)  返回非 undefined 表示拦截关闭
+      minimize: undefined,        // async (box, closeTabFn, tabData, event)  自定义最小化行为
+      maximize: undefined,        // async (box, closeTabFn, tabData, event)  自定义最大化行为
+      pin: undefined,             // async (box, closeTabFn, tabData, event)  自定义置顶行为
+      onWindowUpdate: undefined,  // (winConfig) => {}  窗口移动/缩放/最小化状态变化回调
+      // ---- 运行时字段（由 launch 内部写入，调用方无需传入）----
+      show: true,                 // 是否为显示状态（调用方可覆盖）
+      _winConfig: undefined       // 窗口配置对象引用（id/x/y/width/height/minimized/zIndex/activeSign…），launch 内部分配；App 窗口（ioSocket 拉起）会在 launch 之后读它做最小化/还原
     }
 
-    // 默认显示属性
-    obj.show = true
+    // 💡 用户的配置优先级最高：...rawObj 放在最后，可覆盖全部默认值（含 sign / show）
+    // 用 Object.assign 原地写入，保持调用方传入对象引用不变
+    // （ioSocket.js 等调用方会在 Notice.launch 之后读取 noticeObj._winConfig，不能替换成新对象）
+    const obj = Object.assign(rawObj, { ...defaultTabConfig, ...rawObj })
 
     // 如果只有 msg 没有 content，自动挂载一个简易消息组件
     if (!obj.content && obj.msg) {
@@ -124,6 +169,20 @@ export default {
     if (obj.onWindowUpdate) obj.onWindowUpdate(targetConfig)
 
     this.activateWindow(obj._winConfig.id)
+
+    // 绑定全局点击监听器（单例，只绑定一次）：当点击窗口外部时，关闭所有开启了 closeOnClickOutside 开关的 Tab
+    if (!this._hasCloseOnClickOutsideListener) {
+      this._hasCloseOnClickOutsideListener = true
+      document.addEventListener("pointerdown", (e) => {
+        const closeItems = this.data.dataArr.filter(item => item.closeOnClickOutside)
+        if (closeItems.length > 0) {
+          closeItems.forEach(item => {
+            this.requestCloseTab(item, e)
+          })
+        }
+      })
+    }
+
     m.redraw()
   },
 

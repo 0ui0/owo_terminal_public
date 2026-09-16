@@ -1,6 +1,6 @@
 import Css from "../css/Css.js"
 import Notice from "../common/notice.js"
-import Nav from "../common/nav.js"
+// Nav 已上移到 main.js 的 Run 视图：必须渲染在 .window-box（position:fixed 自成层叠上下文）之外
 import TitleBar from "../common/TitleBar.js"
 import getColor from "../common/getColor.js"
 import Tip from "../common/tip.js"
@@ -35,7 +35,7 @@ export default () => {
           }
         }, children),
 
-        m(Nav),
+        // 导航栏已上移到 main.js 的 Run 视图（否则层叠上下文被困在 .window-box 内，永远压不过 Notice）
         //m(Notice),
         m(Tip)
       ])

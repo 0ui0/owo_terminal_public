@@ -88,12 +88,8 @@ const createWindow = () => {
     }
   })
 
-  //win.loadFile('www/dist/index.html')
-  if (!app.isPackaged) {
-    win.loadURL(`http://localhost:3000`)
-  } else {
-    win.loadURL(`http://localhost:${port}`)
-  }
+  // 传统模式：一律加载后端托管的编译产物（www/dist），不再依赖 vite dev server
+  win.loadURL(`http://localhost:${port}`)
 
   // === Close Confirmation ===
   let forceClose = false

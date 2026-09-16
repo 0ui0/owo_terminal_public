@@ -178,7 +178,12 @@ export default {
     switch (action) {
       case "commitTask": {
         app.data.cancelTask = false
-        const targetListId = comData.data.get().targetChatListId || 0
+        let targetListId
+      try {
+        targetListId = comData.getChatList(comData.data.get().targetChatListId).id
+      } catch {
+        return { ok: false, msg: "请先点击一下聊天输入框，再重新操作" }
+      }
         
         const config = args.config || {}
         const { sysMsg } = buildSopPrompt(app.id, config)

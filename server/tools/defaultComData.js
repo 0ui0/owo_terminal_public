@@ -2,7 +2,6 @@ export default function getDefaultComData() {
   return {
     currentModel: "",
     call: null,
-    inputText: "",
     chatLists: [
       {
         id: 0,
@@ -48,7 +47,7 @@ export default function getDefaultComData() {
     },
     currentTid: "",
     toolsMode: 5, //1提示词模式 2标准工具模式 3 miao模式 4 嫁接模式 5编程模式
-    targetChatListId: 0, //默认用户锁定的聊天列表id
+    targetChatListId: 0, //光标最后聚焦的会话 id
     enableThinking: false, //深度思考
     thinkControl: false, //思考控制
     thinkStrength: "medium",

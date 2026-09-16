@@ -53,7 +53,7 @@ export default () => {
               attrs.updateListSession(selectedChatListId, { currentModelId: selectedModelId })
             }
 
-            chatData?.inputDom?.focus()
+            chatData.focusEditor?.focus()
             return undefined
           } catch (err) {
             console.error(err)
