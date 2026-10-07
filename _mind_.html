@@ -6570,3 +6570,73 @@ graph TD
 ```
   </n-graph>
 </n-main>
+<n-main>
+  <n-time>[时间:2026/10/08 03:00:30]</n-time>
+  <n-mem>[记忆：啦沐达反映打包发布到GitHub下载后应用启动报500错误，经由终端/Applications/owo-terminal.app/Contents/MacOS/owo-terminal启动获取到核心日志：找不到模块 package.json: mithril -> /Applications/owo-terminal.app/Contents/Resources/app/node_modules/mithril/package.json。深入调查发现package.json中mithril等前端运行时库被放置在devDependencies中，打包时被electron-builder修剪剔除。经啦沐达确认，已完成将mithril、katex、mermaid、highlight.js、abcjs、@icon-park/svg共6个运行时核心库迁移至dependencies。]</n-mem>
+  <n-tasks>[总任务：1.调查GitHub打包应用启动报500与找不到mithril原因(已完成) 2.列举并分类当前devDependencies(已完成) 3.将前端运行时依赖迁移至dependencies(已完成)]</n-tasks>
+  <n-ul>
+    <n-li>[任务1/1:迁移package.json中运行时依赖]
+    <n-focus>[关注1:文件package.json,行号136-153,代码片段|>
+    "uuid": "^13.0.0",
+    "ws": "^8.20.0",
+    "@icon-park/svg": "^1.4.2",
+    "abcjs": "^6.6.3",
+    "highlight.js": "^11.11.1",
+    "katex": "^0.16.22",
+    "mermaid": "^11.14.0",
+    "mithril": "^2.3.7"
+  },
+  "devDependencies": {
+    "@electron/rebuild": "^4.0.1",
+    "concurrently": "^9.2.1",
+    "electron": "^38.2.1",
+    "electron-builder": "^26.0.12",
+    "typescript": "^6.0.3",
+    "typescript-language-server": "^6.0.0",
+    "vite": "^7.1.9"
+  }
+<|,调查情况:electron-builder默认只打包dependencies，devDependencies在生产构建时会被prune。迁移后打包产物node_modules中将完整包含上述前端库,计划修改:已成功迁移完成]</n-focus>
+    </n-li>
+  </n-ul>
+  <n-graph>
+```mermaid
+graph TD
+  A[打包构建 electron-builder] --> B{依赖检查}
+  B -->|dependencies| C[打包进 app/node_modules]
+  B -->|devDependencies| D[构建修剪 Pruned]
+  C --> E[api_npm_modules.js 成功解析 mithril 等包]
+  D -.旧状态导致缺失.-> F[报 500 找不到模块]
+```
+  </n-graph>
+</n-main>
+<n-main>
+  <n-time>[时间:2026/10/08 03:03:15]</n-time>
+  <n-mem>[记忆：啦沐达询问并指示将 TS 语言服务相关依赖也进行迁移。经调查，LspServerManager.js 对 .js/.ts/.coffee 均绑定了 typescript-language-server 提供代码跳转、定义与诊断。此前它们位于 devDependencies，打包时会被修剪。经啦沐达确认并在终端输出确认提示后，已成功将 typescript (^6.0.3) 与 typescript-language-server (^6.0.0) 迁移至 dependencies。同时在架构排查中发现 LspServerManager.resolveCommandPath 目前仅搜索了 mainDir 与 ~/.owo-terminal/ext，建议后续加入应用自身内置 node_modules/.bin 寻址回退。]</n-mem>
+  <n-tasks>[总任务：1.迁移package.json前端运行时依赖至dependencies(已完成) 2.调查TS语言服务使用情况与依赖归属(已完成) 3.迁移typescript与typescript-language-server至dependencies(已完成) 4.向啦沐达反馈LspServerManager寻址机制优化点(待讨论)]</n-tasks>
+  <n-ul>
+    <n-li>[任务1/1:迁移TS语言服务依赖]
+    <n-focus>[关注1:文件package.json,行号142-153,代码片段|>
+    "mithril": "^2.3.7",
+    "typescript": "^6.0.3",
+    "typescript-language-server": "^6.0.0"
+  },
+  "devDependencies": {
+    "@electron/rebuild": "^4.0.1",
+    "concurrently": "^9.2.1",
+    "electron": "^38.2.1",
+    "electron-builder": "^26.0.12",
+    "vite": "^7.1.9"
+  }
+<|,调查情况:依赖已顺利迁移入dependencies，打包时将直接包含TS语言服务,计划修改:已修改完成]</n-focus>
+    </n-li>
+  </n-ul>
+  <n-graph>
+```mermaid
+graph TD
+  A[package.json] -->|dependencies| B[typescript & typescript-language-server]
+  B --> C[electron-builder 打包]
+  C --> D[内置进 App node_modules/.bin]
+  D -.建议优化寻址.-> E[LspServerManager 回退内置 bin]
+```
+  </n-graph>
+</n-main>
