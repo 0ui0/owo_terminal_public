@@ -4,6 +4,10 @@ import appManager from "../../../apps/appManager.js"
 export default {
   name: "打开资源管理器目录",
   id: "explorerOpen",
+  mode: {
+    read: true,
+    write: false
+  },
 
 
   async fn(argObj, metaData) {

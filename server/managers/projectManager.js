@@ -40,7 +40,7 @@ class ProjectManager {
       try {
         const data = {
           meta: {
-            version: "1.3.0",
+            version: "1.3.1",
             timestamp: Date.now(),
             platform: process.platform
           },
@@ -123,7 +123,7 @@ class ProjectManager {
       const fileBuffer = await fs.readFile(filePath)
       let data = null
 
-      const CURRENT_VERSION = "1.3.0"; // 最新系统存档版本号
+      const CURRENT_VERSION = "1.3.1"; // 最新系统存档版本号
 
       // 嗅探格式：根据文件头判定 (ZIP 的签名是 PK\x03\x04, hex: 50 4b 03 04)
       let zip = null
@@ -136,9 +136,10 @@ class ProjectManager {
         const projectText = zip.readAsText(projectEntry)
         data = JSON.parse(projectText)
       } else {
-        console.log("[ProjectManager] Detected legacy JSON format")
-        const projectText = fileBuffer.toString("utf-8")
-        data = JSON.parse(projectText)
+        return {
+          ok: false,
+          msg: "非法存档格式请检查是否是owo存档"
+        }
       }
 
       // 结构迁移：无版本号或低于当前版本的存档，跑迁移链对齐到当前结构
@@ -221,6 +222,13 @@ class ProjectManager {
       await comData.data.edit(d => {
         for (const key in d) if (key !== "version") delete d[key];
         Object.assign(d, data.comData);
+
+        // 🌟 导入存档时自动将主会话 (listId: 0) 的 defaultTools 更新为系统最新工具底座
+        const mainList = d.chatLists?.find(l => l.id === 0);
+        if (mainList) {
+          const latestToolIds = appManager.getTools().map(tool => tool.id);
+          mainList.defaultTools = [...latestToolIds];
+        }
       })
 
       // 2. 按存档中的模型重建各沙盒实例（currentModel 转换已由迁移链完成）
@@ -310,7 +318,7 @@ class ProjectManager {
     if (comData.data) {
       await comData.data.edit(d => {
         for (const key in d) if (key !== "version") delete d[key];
-        Object.assign(d, defaultComData());
+        Object.assign(d, defaultComData(appManager));
       })
     }
 

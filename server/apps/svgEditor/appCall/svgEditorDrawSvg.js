@@ -36,6 +36,10 @@ function validateSvgForAi(svgString) {
 export default {
   name: "通过SVG代码画图",
   id: "svgEditorDrawSvg",
+  mode: {
+    read: true,
+    write: false
+  },
 
   async fn(argObj, metaData) {
     const { value, error } = this.joi().validate(argObj)

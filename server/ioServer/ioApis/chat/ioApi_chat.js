@@ -103,6 +103,8 @@ const socketOnChat = async (que, callback) => {
         chatListId: listId
       }
       await chats.add(errorChat, listId);
+      // 双通道："chat" 推消息实体（前端事实收到消息），"chat:push" 触发列表刷新
+      ioServer.io.emit("chat", errorChat)
       ioServer.io.emit("chat:push", { listId })
       return;
     }
@@ -120,6 +122,8 @@ const socketOnChat = async (que, callback) => {
 
     // 6. 落库及同步事件
     await chats.add(chat, listId);
+    // 双通道："chat" 推消息实体（前端事实收到消息），"chat:push" 触发列表刷新
+    ioServer.io.emit("chat", chat)
     ioServer.io.emit("chat:push", { listId })
 
     // 同步给物理 QQ 群
@@ -163,6 +167,12 @@ const socketOnChat = async (que, callback) => {
     // 启动开关
     agent.noStopRun()
 
+    // 会话事务编号：本轮从触发到收尾期间落库的消息都带上它，供前端按任务聚合
+    const procId = idTool.get("proc");
+    await comData.editChatList(listId, (list) => {
+      list.procId = procId;
+    });
+
     // 正式触发大模型
     await agent.sendAskByMsgProtocol(getMsgProtocalConfig({
       targetModel: agent,
@@ -170,12 +180,21 @@ const socketOnChat = async (que, callback) => {
       currentTokenConfig
     }));
 
+    await comData.editChatList(listId, (list) => {
+      list.procId = null;
+    });
+
+    if (ioServer?.io) {
+      ioServer.io.emit("sound:play", { type: "done", listId });
+    }
+
   } catch (error) {
     console.error(error);
     let errorListId = listId
 
     await comData.editChatList(errorListId, list => {
       list.replying = false;
+      list.procId = null;
     });
 
     let chat = {
@@ -187,6 +206,8 @@ const socketOnChat = async (que, callback) => {
       chatListId: errorListId || 0
     };
     await chats.add(chat, chat.chatListId);
+    // 双通道："chat" 推消息实体（前端事实收到消息），"chat:push" 触发列表刷新
+    ioServer.io.emit("chat", chat)
     ioServer.io.emit("chat:push", { listId: errorListId })
   }
 }

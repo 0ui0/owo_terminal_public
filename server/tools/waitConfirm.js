@@ -2,6 +2,7 @@ import { v4 as uuidV4 } from "uuid"
 import comData from "../comData/comData.js"
 import Joi from "joi"
 import appManager from "../apps/appManager.js"
+import ioServer from "../ioServer/ioServer.js"
 
 
 export default async (config) => {
@@ -33,7 +34,18 @@ export default async (config) => {
   const currentList = comData.getChatList(listId)
   
   if (currentList && toolId && Array.isArray(currentList.skipConfirmTools) && currentList.skipConfirmTools.includes(toolId)) {
-    return { ok: true, comment: "系统自动免用户确认" }
+    const autoApprovedFiles = Array.isArray(value.ext?.files)
+      ? value.ext.files.map(f => ({ ...f, status: "approved" }))
+      : undefined
+
+    return {
+      ok: true,
+      comment: "系统自动免用户确认",
+      ext: {
+        ...value.ext,
+        ...(autoApprovedFiles ? { files: autoApprovedFiles } : {})
+      }
+    }
   }
 
   // 💡 根据列表设置项，决定是否要针对审核内容自动唤起编辑器弹窗
@@ -81,6 +93,10 @@ export default async (config) => {
         console.error(`waitConfirm: List ${listId} not found`)
       }
     })
+
+    if (ioServer?.io) {
+      ioServer.io.emit("sound:play", { type: "confirm", listId })
+    }
 
     let result = await new Promise((res) => {
       let check = () => {

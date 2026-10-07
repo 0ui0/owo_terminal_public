@@ -4,6 +4,10 @@ import appManager from "../../../apps/appManager.js"
 export default {
   name: "调整组层级",
   id: "svgEditorLayer",
+  mode: {
+    read: true,
+    write: false
+  },
 
   async fn(argObj, metaData) {
     const { value, error } = this.joi().validate(argObj)

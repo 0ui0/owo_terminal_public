@@ -5,6 +5,10 @@ import yaml from "js-yaml"
 export default {
   name: "查看全量网点",
   id: "graphView",
+  mode: {
+    read: true,
+    write: false
+  },
 
   async fn(argObj, context) {
     const listId = context.listId ?? 0

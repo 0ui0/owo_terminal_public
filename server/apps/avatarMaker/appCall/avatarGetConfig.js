@@ -4,6 +4,10 @@ import appManager from "../../../apps/appManager.js"
 export default {
   name: "获取角色包制作配置",
   id: "avatarGetConfig",
+  mode: {
+    read: true,
+    write: false
+  },
 
   async fn(argObj, metaData) {
     const { value, error } = this.joi().validate(argObj)

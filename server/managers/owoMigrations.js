@@ -1,4 +1,5 @@
 import options from "../config/options.js"
+import appManager from "../apps/appManager.js"
 
 // 版本号比较：a > b 返回 1，a === b 返回 0，a < b 返回 -1
 const cmpVersion = (a, b) => {
@@ -105,6 +106,21 @@ owoMigrations.list.push({
           })
         }
       }
+    }
+    return data
+  }
+})
+
+// 会话级工具权限体系：为历史会话补齐 defaultTools / allowUseTools 字段
+owoMigrations.list.push({
+  version: "1.3.1",
+  migrate: async (data) => {
+    if (!data.comData?.chatLists) return data
+
+    const toolIdList = appManager.getTools().map(tool => tool.id)
+    for (const list of data.comData.chatLists) {
+      if (!Array.isArray(list.defaultTools)) list.defaultTools = [...toolIdList]
+      if (!Array.isArray(list.allowUseTools)) list.allowUseTools = [...toolIdList]
     }
     return data
   }

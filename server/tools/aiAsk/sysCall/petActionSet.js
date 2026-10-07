@@ -4,6 +4,10 @@ import comData from "../../../comData/comData.js"
 export default {
   name: "设置你的动作与表情",
   id: "petActionSet",
+  mode: {
+    read: true,
+    write: false
+  },
 
   async fn(argObj, context) {
     const { playFace, faceAction } = argObj

@@ -3,6 +3,10 @@ import Joi from "joi";
 export default {
     name: "应用RPG生成交互事件",
     id: "aiRpgSpawnEvent",
+    mode: {
+        read: true,
+        write: false
+    },
 
     async fn(argObj) {
         const { value, error } = this.joi().validate(argObj);

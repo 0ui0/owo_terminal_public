@@ -1,4 +1,5 @@
 import archiveDb from "../../../db/archiveDb.js"
+import comData from "../../../comData/comData.js"
 
 export default {
   async add(chat, listId = 0) {
@@ -19,7 +20,8 @@ export default {
         ask: chat.ask || null,
         ext: chat.ext || null,
         tid: chat.tid || null,
-        snapshotId: chat.snapshotId || null
+        snapshotId: chat.snapshotId || null,
+        procId: chat.procId || comData.data.get().chatLists?.find(list => list.id === listId)?.procId || null
       })
     } catch (err) {
       console.error("[chats.js] Add chat message to DB failed:", err)

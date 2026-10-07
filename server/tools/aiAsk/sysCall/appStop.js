@@ -4,6 +4,10 @@ import appClose from "../../../crossFuncs/appClose.js"
 export default {
   name: "停止应用",
   id: "appStop",
+  mode: {
+    read: true,
+    write: false
+  },
 
   async fn(argObj) {
     const { value, error } = this.joi().validate(argObj)

@@ -12,6 +12,10 @@ import getMsgProtocalConfig from "../../../ioServer/ioApis/chat/getMsgProtocalCo
 export default {
   name: "呼叫智能体",
   id: "callAgent",
+  mode: {
+    read: true,
+    write: false
+  },
   async fn(argObj, metaData) {
     try {
       const { value, error } = this.joi().validate(argObj);
@@ -67,6 +71,8 @@ export default {
 
       // 4. 广播 & 存库
       await chats.add(chat, targetListId);
+      // 双通道："chat" 推消息实体（前端事实收到消息），"chat:push" 触发列表刷新
+      ioServer.io.emit("chat", chat);
       ioServer.io.emit("chat:push", { listId: targetListId });
 
       // 5. 触发执行循环 (复制 ioApi_chat.js 核心逻辑)
@@ -87,11 +93,21 @@ export default {
 
           targetAgent.noStopRun();
 
+          // 会话事务编号：子智能体本轮从触发到收尾期间落库的消息都带上它，供前端按任务聚合折叠
+          const procId = idTool.get("proc");
+          await comData.editChatList(targetListId, (list) => {
+            list.procId = procId;
+          });
+
           await targetAgent.sendAskByMsgProtocol(getMsgProtocalConfig({
             targetModel: targetAgent,
             listId: targetListId,
             currentTokenConfig
           }))
+
+          await comData.editChatList(targetListId, (list) => {
+            list.procId = null;
+          });
 
           // 自动汇报检测逻辑
           if (targetListId !== 0) { // 仅针对子智能体
@@ -138,12 +154,19 @@ export default {
             timestamp: Date.now(),
             chatListId: targetListId
           };
-          if (ioServer.io) ioServer.io.emit("chat", errorChat);
           await chats.add(errorChat, targetListId);
+          // 双通道："chat" 推消息实体（前端事实收到消息），"chat:push" 触发列表刷新
+          if (ioServer.io) {
+            ioServer.io.emit("chat", errorChat);
+            ioServer.io.emit("chat:push", { listId: targetListId });
+          }
 
           await comData.data.edit(data => {
             const l = data.chatLists.find(x => x.id === targetListId);
-            if (l) l.replying = false;
+            if (l) {
+              l.replying = false;
+              l.procId = null;
+            }
           });
         }
       })();

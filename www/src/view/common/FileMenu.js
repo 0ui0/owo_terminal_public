@@ -75,7 +75,6 @@ export default () => {
 
     Notice.launch({
       group: "fileMenu",
-      width: 180,
       win: { x, y }, // 支持强制更新位置
       tip: trs("菜单栏/分类/文件"),
       content: {
@@ -105,6 +104,13 @@ export default () => {
                   tip: trs("菜单栏/操作/模型请求上下文(动态视图)", { cn: "模型请求上下文 (动态视图)", en: "Model Request Context (Dynamic)" }),
                   content: aiContext
                 })
+              }
+            },
+            {
+              name: trs("菜单栏/操作/聊天轨迹", { cn: "聊天轨迹", en: "Chat Trajectory" }),
+              onclick: async () => {
+                v.attrs.delete()
+                await settingData.fnCall("appLaunch", ["chatTrajectory"])
               }
             },
             {
@@ -191,6 +197,25 @@ export default () => {
                   Notice.launch({ msg: resImport.msg })
                 }
               }
+            },
+            {
+              name: trs("菜单栏/操作/安装app", { cn: "安装App", en: "Install App" }),
+              onclick: async () => {
+                try {
+                  v.attrs.delete()
+                  const resDialog = await settingData.fnCall("appOpenDialog", [{
+                    title: trs("菜单栏/操作/安装app", { cn: "选择 App ZIP 安装包", en: "Select App Package ZIP" }),
+                    filters: [{ name: "Zip App", extensions: ["zip"] }]
+                  }])
+
+                  if (!resDialog.ok || !resDialog.filePath) return
+
+                  const resInstall = await settingData.fnCall("appPkgInstall", [{ path: resDialog.filePath }])
+                  Notice.launch({ msg: resInstall.msg })
+                } catch (err) {
+                  console.error("[FileMenu] 安装App 出错:", err)
+                }
+              }
             }
           ]
         })
@@ -203,35 +228,30 @@ export default () => {
       return m(Box, {
         tagName: "div",
         isBtn: true,
-        color: "transparent",
+        color: "main",
         noValue: true,
         style: {
-          padding: "6px 12px",
+          padding: "0.4rem 1rem",
           borderRadius: "3rem",
-          fontSize: "13px",
-          fontWeight: "500",
-          display: "flex",
+          fontSize: "1.2rem",
+          display: "inline-flex",
           alignItems: "center",
           cursor: "pointer",
-          color: getColor("main").front,
-          border: "1px solid rgba(0,0,0,0.1)",
-          background: "rgba(255,255,255,0.05)",
+          margin: "0 0.3rem",
+          boxShadow: "0 0.2rem 0.6rem rgba(0, 0, 0, 0.15)",
           "-webkit-app-region": "no-drag",
-          marginLeft: "10px",
-          transition: "background 0.2s ease"
+          transition: "opacity 0.2s ease, box-shadow 0.2s ease"
         },
         ext: {
           onpointerenter: function () {
-            this.style.background = "rgba(128, 128, 128, 0.18)"
+            this.style.opacity = "0.5"
           },
           onpointerleave: function () {
-            this.style.background = "rgba(255, 255, 255, 0.05)"
+            this.style.opacity = "1"
           }
         },
         onclick: (_, e) => showFileMenu(e)
-      }, [
-        m("span", trs("菜单栏/分类/文件"))
-      ])
+      }, trs("菜单栏/分类/文件"))
     }
   }
 }

@@ -42,7 +42,7 @@ export default {
       try {
         const { filePaths, canceled } = await dialog.showOpenDialog({
           title: "打开项目",
-          filters: [{ name: "Owo Project", extensions: ["owo", "json"] }],
+          filters: [{ name: "Owo Project", extensions: ["owo"] }],
           properties: ["openFile"]
         })
 

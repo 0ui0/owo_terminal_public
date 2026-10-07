@@ -3,17 +3,22 @@ let format, formatHide, renderMD;
 
 import {
   marked
-} from "marked";
+} from "/@npm/marked.js";
 
-import katex from "katex/dist/katex.min.js";
+import katex from "/@npm/katex/dist/katex.min.js";
 
-import hljs from "highlight.js";
+import hljs from "/@npm/highlight.js";
 
-import mermaid from "mermaid";
+import mermaid from "/@npm/mermaid.js";
 import commonData from "./commonData.js";
 import getColor from "./getColor.js";
-import abcjs from "abcjs";
+import abcjs from "/@npm/abcjs.js";
 import settingData from "../setting/settingData.js";
+import dzCode from "./dzCode.js";
+import Notice from "./notice.js";
+import Box from "./box.js";
+import Tag from "./tag.js";
+import admonition from '/@npm/marked-admonition-extension.js';
 
 
 mermaid.initialize({
@@ -146,17 +151,6 @@ const scheduleRenderAbc = function () {
     });
   }, 50);
 };
-
-import dzCode from "./dzCode.js";
-
-import Notice from "../common/notice";
-
-import Box from "../common/box";
-
-import Tag from "../common/tag";
-
-import admonition from 'marked-admonition-extension';
-
 
 function htmlEncode(src) {
   return [...src].map(c => `&#${Math.random() < 0.5 ? c.codePointAt(0).toString() : "x" + c.codePointAt(0).toString(16)
@@ -295,7 +289,60 @@ renderMD.code = function (arg) {
   } catch (e) {
     highlighted = hljs.highlightAuto(codeText).value;
   }
-  return `<pre><code class="language-${lang}">${highlighted}</code></pre>`;
+
+  // 跨行高亮标签栈自闭合与恢复算法，确保切行后每一行都是合法独立的 HTML 片段
+  const lines = [];
+  const tagStack = [];
+  let curLine = '';
+  const tokenRegex = /(<span[^>]*>)|(<\/span>)|(\r?\n)|([^<>\r\n]+)/g;
+  let match;
+  while ((match = tokenRegex.exec(highlighted)) !== null) {
+    const [, openTag, closeTag, newLine, text] = match;
+    if (openTag) {
+      tagStack.push(openTag);
+      curLine += openTag;
+    } else if (closeTag) {
+      tagStack.pop();
+      curLine += closeTag;
+    } else if (newLine) {
+      for (let i = tagStack.length - 1; i >= 0; i--) curLine += '</span>';
+      lines.push(curLine);
+      curLine = '';
+      for (let i = 0; i < tagStack.length; i++) curLine += tagStack[i];
+    } else if (text) {
+      curLine += text;
+    }
+  }
+  for (let i = tagStack.length - 1; i >= 0; i--) curLine += '</span>';
+  lines.push(curLine);
+
+  // 渲染每一行：支持折行(pre-wrap)，行号(user-select:none)与代码同行包裹永不错位
+  const linesHtml = lines.map((lineContent, idx) => {
+    return `<div style="display: flex; align-items: flex-start; line-height: 1.6; min-width: 0;">
+      <span style="user-select: none; width: 3.8rem; flex-shrink: 0; text-align: right; padding-right: 1.2rem; color: #88888866; font-size: 1.2rem; box-sizing: border-box; font-family: monospace;">${idx + 1}</span>
+      <span class="owo-code-line-content" style="flex: 1 1 0%; min-width: 0; white-space: pre-wrap; word-break: break-all; overflow-wrap: anywhere; font-family: inherit;">${lineContent || '<br>'}</span>
+    </div>`;
+  }).join("");
+
+  const displayLang = (lang || 'code').toUpperCase();
+
+  return `<div class="owo-code-card" style="width: 100%; max-width: 100%; box-sizing: border-box; margin: 1.2rem 0; border-radius: 1rem; overflow: hidden; background: ${getColor('gray_3').back}; border: 1px solid ${getColor('gray_4').front}22;">
+    <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.35rem 1rem; background: ${getColor('gray_4').back}; border-bottom: 1px solid ${getColor('gray_4').front}18; user-select: none;">
+      <span style="font-size: 1.15rem; font-weight: 600; color: ${getColor('gray_4').front}; letter-spacing: 0.05rem;">${displayLang}</span>
+      <button style="background: transparent; color: ${getColor('gray_4').front}; border: none; padding: 0.1rem 0.4rem; font-size: 1.15rem; cursor: pointer; opacity: 0.85; transition: opacity 0.2s;" onmouseover="this.style.opacity='1'; this.style.textDecoration='underline';" onmouseout="this.style.opacity='0.85'; this.style.textDecoration='none';" onclick="
+        const card = this.closest('.owo-code-card');
+        const code = Array.from(card.querySelectorAll('.owo-code-line-content')).map(el => el.textContent).join('\\n');
+        navigator.clipboard.writeText(code);
+        this.innerText = '已复制 ✓';
+        setTimeout(() => {
+          this.innerText = '复制';
+        }, 1500);
+      ">复制</button>
+    </div>
+    <div class="hljs" style="padding: 1rem 0.5rem; font-family: Menlo, Monaco, Consolas, monospace; font-size: 1.3rem; background: transparent; overflow: hidden;">
+      ${linesHtml}
+    </div>
+  </div>`;
 };
 
 marked.setOptions({
@@ -344,7 +391,7 @@ if (!window.__owoFormatListenerAdded) {
 const formatImpl = function (content, type, opt) {
   let code, err, imgCounter;
   if (!content) return "";
-  
+
   // --- 调试控制区 ---
   const FORMAT_MAX_LENGTH = 100000; // TODO: 调试完毕后请改回 100000 
   const FORMAT_SHOW_LENGTH = 10000;
@@ -361,7 +408,7 @@ const formatImpl = function (content, type, opt) {
     const actualShow = Math.min(content.length, FORMAT_SHOW_LENGTH);
     const sliced = content.slice(0, actualShow);
     const escaped = sliced.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-    
+
     const trsText = window.trs ? window.trs("组件/拦截器/极长文本警告", {
       cn: `<b>性能保护机制：</b>本文本极长（共 ${content.length} 字符），为防止浏览器排版引擎卡死，已在<b>视觉上</b>极度截断为前 ${actualShow} 字符展示。`,
       en: `<b>Performance Protection:</b> The text is too long (${content.length} chars). To prevent UI freezing, it's visually truncated to ${actualShow} chars.`
@@ -415,10 +462,10 @@ const formatImpl = function (content, type, opt) {
       return `<a>${$1}</a>`;
     });
     content = content.replace(/\[flash\](.+)\[\/flash\]/g, (item, x1) => {
-      return `<embed src="${transUrl(x1)}" width="100%" height="auto" type="application/x-shockwave-flash"></embed>`;
+      return `<embed src="${typeof transUrl === "function" ? transUrl(x1) : x1}" width="100%" height="auto" type="application/x-shockwave-flash"></embed>`;
     });
     content = content.replace(/\[flash=(\d+),(\d+)\](.+)\[\/flash\]/g, (item, w, h, x) => {
-      return `<embed src="${transUrl(x)}" width="${w}" height="${h}" type="application/x-shockwave-flash"></embed>`;
+      return `<embed src="${typeof transUrl === "function" ? transUrl(x) : x}" width="${w}" height="${h}" type="application/x-shockwave-flash"></embed>`;
     });
 
     // --- 附件渲染渲染 (Attachment Rendering) ---
@@ -524,10 +571,10 @@ const formatImpl = function (content, type, opt) {
     });
     content = dzCode.parse(content);
     content = content.replace(/\[flash\](.+)\[\/flash\]/g, (item, x1) => {
-      return `<embed src="${transUrl(x1)}" width="100%" height="auto" type="application/x-shockwave-flash"></embed>`;
+      return `<embed src="${typeof transUrl === "function" ? transUrl(x1) : x1}" width="100%" height="auto" type="application/x-shockwave-flash"></embed>`;
     });
     content = content.replace(/\[flash=(\d+),(\d+)\](.+)\[\/flash\]/g, (item, w, h, src) => {
-      return `<embed src="${transUrl(src)}" width="${w}px" height="${h}px" type="application/x-shockwave-flash"></embed>`;
+      return `<embed src="${typeof transUrl === "function" ? transUrl(src) : src}" width="${w}px" height="${h}px" type="application/x-shockwave-flash"></embed>`;
     });
     content = formatHide(content);
     content = content.split("\n").map((line) => {

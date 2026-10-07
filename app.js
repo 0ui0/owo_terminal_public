@@ -1,19 +1,18 @@
-import { app, BrowserWindow, Menu, dialog } from "electron"
+import { app, BrowserWindow, dialog } from "electron"
 import fs from "fs-extra"
-import { exec } from "child_process"
-import pkgUpdater from "electron-updater"
-const { autoUpdater } = pkgUpdater
 import serve from "./server/serve.js"
 import pathLib from "path"
 import { fileURLToPath, pathToFileURL } from 'url';
 import projectManager from "./server/managers/projectManager.js"
-import ioServer from "./server/ioServer/ioServer.js"
 import { trs } from "./server/tools/i18n.js"
 import comData from "./server/comData/comData.js"
-import projectSave from "./server/crossFuncs/projectSave.js"
-import projectLoad from "./server/crossFuncs/projectLoad.js"
 import tempPath from "./server/tools/tempPath.js"
-import crypto from "crypto"
+import setupAppMenu from "./server/tools/appMenu.js"
+import appUpdater from "./appUpdater.js"
+import ioServer from "./server/ioServer/ioServer.js"
+
+let port
+
 
 // --- Portable Mode Detection (便携模式检测) ---
 // 存在 .portable 标记文件或 owo_data 文件夹时，自动重定向用户数据根目录至 ./owo_data (参考 VSCode Portable 规范)
@@ -26,24 +25,13 @@ if (hasPortableFlag || hasDataDir) {
   console.log("[App] 激活便携模式，userData 已重定向至:", portableDataDir)
 }
 
-// --- Auto Updater Configuration ---
-autoUpdater.autoDownload = false // 2026-02-06 Changed to false for manual confirmation
-autoUpdater.autoInstallOnAppQuit = true
-// 显式配置更新路径，杜绝工作目录切换至 server/ 导致的寻址偏离
-try {
-  if (process.resourcesPath) {
-    const ymlPath = pathLib.join(process.resourcesPath, "app-update.yml")
-    if (fs.existsSync(ymlPath)) {
-      autoUpdater.updateConfigPath = ymlPath
-    }
-  }
-} catch (e) { }
 
-autoUpdater.setFeedURL({
-  provider: "github",
-  owner: "0ui0",
-  repo: "owo_terminal_public"
-})
+
+
+
+
+// --- Auto Updater Configuration ---
+appUpdater.init()
 
 
 
@@ -51,27 +39,55 @@ autoUpdater.setFeedURL({
 let serveDir = pathLib.dirname(fileURLToPath(import.meta.url))
 process.chdir(pathLib.join(serveDir, "/server/"))
 
+
+
 // 生命周期标志：指示是否正处于应用整体退出流程，避免更新重启被 isDirty 拦截
 let isQuitting = false
 
-app.on('before-quit', () => {
-  isQuitting = true
-})
 
-// 退出清理：仅精准清理当前实例专属的 temp/{pid} 临时目录
-app.on('will-quit', () => {
-  try {
-    tempPath.clean()
-  } catch (e) {
-    console.warn("[App] will-quit 清理异常:", e)
+
+// 全局单例监听新创建的子视窗，依据 URL 中的 winId 自动为窗口实例注入 win.winId，杜绝多次开窗重复注册泄漏
+app.on('browser-window-created', (event, subWin) => {
+  const bindWinId = (stage) => {
+    try {
+      const curUrl = subWin.webContents.getURL()
+      const match = curUrl.match(/[?&]winId=([^&#]+)/)
+      if (match) {
+        subWin.winId = decodeURIComponent(match[1])
+      }
+    } catch (e) {
+      console.error(`[Electron subWin:${stage}] bindWinId error:`, e)
+    }
   }
+  subWin.webContents.on('did-navigate', () => bindWinId('did-navigate'))
+  subWin.webContents.on('did-navigate-in-page', () => bindWinId('did-navigate-in-page'))
+  subWin.webContents.on('did-finish-load', () => bindWinId('did-finish-load'))
+
+  // 监听操作系统物理视窗生命周期事件，通过 Socket 向前端实时广播状态同步
+  subWin.on('minimize', () => {
+    if (subWin.winId) ioServer.io?.emit('window:state', { winId: subWin.winId, minimized: true })
+  })
+  subWin.on('restore', () => {
+    if (subWin.winId) ioServer.io?.emit('window:state', { winId: subWin.winId, minimized: false })
+  })
+  subWin.on('closed', () => {
+    if (subWin.winId) ioServer.io?.emit('window:state', { winId: subWin.winId, closed: true })
+  })
+
+  // 注入快捷键支持：在无边框子窗口按 F12 或 Cmd+Option+I (Mac) / Ctrl+Shift+I (Win) 自动唤出独立 DevTools
+  subWin.webContents.on('before-input-event', (event, input) => {
+    if (input.type === 'keyDown') {
+      const isF12 = input.key === 'F12'
+      const isDevToolsMac = (input.meta || input.control) && input.alt && (input.key === 'i' || input.key === 'I')
+      const isDevToolsWin = input.control && input.shift && (input.key === 'i' || input.key === 'I')
+      if (isF12 || isDevToolsMac || isDevToolsWin) {
+        subWin.webContents.toggleDevTools({ mode: 'detach' })
+      }
+    }
+  })
 })
 
-
-
-let port
-
-const createWindow = () => {
+const createWindow = (port) => {
   const win = new BrowserWindow({
     width: 1440,
     height: 900,
@@ -85,6 +101,24 @@ const createWindow = () => {
       nodeIntegration: false,
       contextIsolation: true,
       preload: pathLib.join(serveDir, "server/preload.js")
+    }
+  })
+  win.winId = 'main'
+
+  // 拦截 window.open，开启原生透明无边框辅助窗口
+  win.webContents.setWindowOpenHandler(({ url }) => {
+    return {
+      action: 'allow',
+      overrideBrowserWindowOptions: {
+        titleBarStyle: 'hiddenInset',
+        frame: false,
+        transparent: true,
+        backgroundColor: '#00000000',
+        hasShadow: false,
+        webPreferences: {
+          preload: pathLib.join(serveDir, "server/preload.js")
+        }
+      }
     }
   })
 
@@ -124,451 +158,12 @@ const createWindow = () => {
     }
   })
 
-  // --- Auto Updater Events ---
-  let latestUpdateInfo = null
-  const PUSH_TITLE = () => trs("系统/消息/系统更新", { cn: "系统更新", en: "System Update" })
-  const pushUpdateMessage = (msg) => {
-    if (ioServer.io) {
-      ioServer.io.emit("sys:pushMessage", msg)
-    }
-  }
-
-  // Helper: Handle successful update ready (Manual flow)
-  const handleManualUpdateReady = (savePath) => {
-    win.setProgressBar(-1)
-    pushUpdateMessage({
-      id: crypto.randomUUID(),
-      title: trs("系统/消息/下载完成", { cn: "下载完成", en: "Download complete" }),
-      type: "success",
-      content: trs("系统/更新/等待安装", { cn: "文件已保存，等待执行安装", en: "File saved, waiting for install" }),
-      isRead: false,
-      tag: "sys-update",
-      merge: "cover",
-      action: { type: "emit", event: "sys:quitAndInstall" }
-    })
-
-    const isArchive = savePath.endsWith('.zip')
-
-    dialog.showMessageBox(win, {
-      type: 'info',
-      title: trs("系统/消息/更新就绪", { cn: "更新就绪", en: "Update Ready" }),
-      message: trs("系统/更新/就绪提示详细", {
-        cn: `程序包已下载完毕。\n保存位置：${savePath}\n\n建议操作：\n1. 点击“启动安装并退出”，系统将拉起向导并安全退出本程序，以免占用文件。\n2. 或者仅打开下载目录查看文件。`,
-        en: `Update downloaded to:\n${savePath}\n\nSuggested actions:\n1. Click 'Install & Quit' to launch installer and safely quit app.\n2. Or just open download folder.`
-      }),
-      buttons: [
-        isArchive ? trs("系统/动作/打开并解压", { cn: "打开目录并手动解压", en: "Open & Extract" }) : trs("系统/动作/启动安装并退出", { cn: "启动安装并退出", en: "Install & Quit" }),
-        trs("系统/动作/前往目录", { cn: "仅前往下载目录", en: "Open Download Folder" }),
-        trs("系统/动作/稍后", { cn: "稍后", en: "Later" })
-      ],
-      cancelId: 2
-    }).then((result) => {
-      if (result.response === 0) { // 启动安装并退出 / 打开解压
-        import("electron").then(async ({ shell }) => {
-          if (isArchive) {
-            shell.showItemInFolder(savePath)
-            app.quit()
-          } else {
-            await shell.openPath(savePath)
-            if (process.platform === 'darwin') {
-              setTimeout(() => exec("open -a Finder"), 500)
-            }
-            app.quit() // 无论是 Mac 还是 Win，启动向导后直接退出本程序腾出文件句柄
-          }
-        })
-      } else if (result.response === 1) { // 仅前往下载目录
-        import("electron").then(({ shell }) => shell.showItemInFolder(savePath))
-      }
-    })
-  }
-
-  // Handle manual downloads (for macOS DMG update & Windows manual flow)
-  win.webContents.session.on('will-download', (event, item, webContents) => {
-    item.on('updated', (event, state) => {
-      if (win.isDestroyed()) return
-      if (!item.getSavePath()) return // Don't show progress until path selected
-      if (state === 'interrupted') {
-        pushUpdateMessage({
-          id: crypto.randomUUID(),
-          title: "下载被中断 / Download interrupted",
-          type: "error",
-          content: trs("系统/更新/中断提示", { cn: "下载进度已被中断，请重试", en: "Download was interrupted, please try again" }),
-          isRead: false,
-          tag: "sys-update",
-          merge: "cover"
-        })
-      } else if (state === 'progressing') {
-        if (!item.isPaused()) {
-          const progress = item.getReceivedBytes() / item.getTotalBytes() * 100
-          win.setProgressBar(progress / 100)
-
-          const now = Date.now()
-          if (!item._lastProgressTime || now - item._lastProgressTime > 500 || progress === 100) {
-            item._lastProgressTime = now
-            pushUpdateMessage({
-              id: crypto.randomUUID(),
-              title: trs("系统/更新/下载中", { cn: "正在下载...", en: "Downloading..." }) + ` ${Math.round(progress)}%`,
-              type: "downloading",
-              content: trs("系统/更新/保存本地", { cn: "正在将更新文件保存到本地...", en: "Saving update files locally..." }),
-              isRead: false,
-              tag: "sys-update",
-              merge: "cover",
-              meta: { progress: Math.round(progress) }
-            })
-          }
-        }
-      }
-    })
-    item.once('done', (event, state) => {
-      if (win.isDestroyed()) return
-      if (state === 'completed') {
-        const savePath = item.getSavePath()
-        handleManualUpdateReady(savePath)
-      } else {
-        win.setProgressBar(-1)
-        pushUpdateMessage({
-          id: crypto.randomUUID(),
-          title: `下载失败: ${state} / Download failed`,
-          type: "error",
-          content: trs("系统/更新/异常提示", { cn: "下载过程中出现异常", en: "An exception occurred during download" }),
-          isRead: false,
-          tag: "sys-update",
-          merge: "cover"
-        })
-      }
-    })
+  // 挂载窗口级自动更新事件监听与通信交互
+  appUpdater.setupWindowUpdater(win, {
+    onBeforeQuit: () => { isQuitting = true }
   })
 
-  autoUpdater.on('checking-for-update', () => {
-    pushUpdateMessage({
-      id: crypto.randomUUID(),
-      title: trs("系统/更新/检查中", { cn: "正在检查更新...", en: "Checking for updates..." }),
-      type: "info",
-      content: trs("系统/更新/连接中", { cn: "正在与发布服务器通信...", en: "Communicating with release server..." }),
-      isRead: false,
-      tag: "sys-update",
-      merge: "cover"
-    })
-  })
-
-  autoUpdater.on('update-available', (info) => {
-    latestUpdateInfo = info
-    pushUpdateMessage({
-      id: crypto.randomUUID(),
-      title: trs("系统/更新/发现新版本", { cn: "发现新版本", en: "New version found" }) + ` v${info.version}`,
-      type: "info",
-      content: trs("系统/更新/准备下载", { cn: "已准备好获取更新文件", en: "Ready to fetch update files" }),
-      isRead: false,
-      tag: "sys-update",
-      merge: "cover"
-    })
-
-    let releaseNotes = info.releaseNotes || ''
-    if (typeof releaseNotes !== 'string') {
-      try {
-        releaseNotes = releaseNotes.toString()
-      } catch (e) { }
-    }
-    if (releaseNotes) {
-      releaseNotes = releaseNotes.replace(/<[^>]+>/g, '').trim()
-    }
-    const detailText = releaseNotes ? trs("系统/更新/更新说明", { cn: "更新说明：\n", en: "Release Notes:\n" }) + releaseNotes : undefined
-
-    // 发现新版本时不静默下载，弹窗询问用户确认
-    dialog.showMessageBox(win, {
-      type: 'info',
-      title: trs("系统/更新/发现新版本", { cn: "发现新版本", en: "New version found" }),
-      message: trs("系统/更新/发现新版本提示", { cn: `发现新版本 ${info.version}，是否立即更新？`, en: `New version ${info.version} found. Update now?` }),
-      detail: detailText,
-      buttons: [trs("系统/动作/立即更新", { cn: "立即更新", en: "Update Now" }), trs("通用/取消", { cn: "取消", en: "Cancel" })],
-      cancelId: 1
-    }).then((result) => {
-      if (result.response === 0) {
-        // 动态获取下载链接 (EXE or DMG or ZIP)
-        let downloadUrl
-        if (info.files && Array.isArray(info.files)) {
-          let isMac = process.platform === 'darwin'
-          let isWin = process.platform === 'win32'
-          let archStr = process.arch === 'arm64' ? 'arm64' : 'x64'
-
-          let fileEntry = info.files.find(f => {
-            let url = f.url || ''
-            if (isMac && url.endsWith('.dmg') && url.includes(archStr)) return true
-            if (isWin && url.endsWith('.exe') && url.includes(archStr)) return true
-            return false
-          })
-
-          if (!fileEntry) {
-            fileEntry = info.files.find(f => isMac ? f.url.endsWith('.dmg') : (isWin ? f.url.endsWith('.exe') : false))
-          }
-          if (!fileEntry) {
-            fileEntry = info.files.find(f => isWin ? f.url.endsWith('.zip') : false)
-          }
-
-          if (fileEntry) {
-            let filename = fileEntry.url
-            if (filename.startsWith('http')) {
-              downloadUrl = filename
-            } else {
-              downloadUrl = `https://github.com/0ui0/owo_terminal_public/releases/download/v${info.version}/${filename}`
-            }
-          }
-        }
-
-        // 极限情况回退（以防 info.files 解析出错）
-        if (!downloadUrl) {
-          const arch = process.arch === 'arm64' ? (process.platform === 'darwin' ? '-arm64' : 'arm64') : (process.platform === 'darwin' ? '' : 'x64')
-          const platform = process.platform === 'win32' ? 'win' : 'mac'
-          const ext = process.platform === 'win32' ? 'exe' : 'dmg'
-          const filename = process.platform === 'darwin' ? `owo-terminal-${info.version}${arch}.${ext}` : `owo-terminal-${info.version}-${platform}-${arch}.${ext}`
-          downloadUrl = `https://github.com/0ui0/owo_terminal_public/releases/download/v${info.version}/${filename}`
-        }
-
-        pushUpdateMessage({
-          id: crypto.randomUUID(),
-          title: trs("系统/更新/开始下载", { cn: "正在开始下载...", en: "Starting download..." }),
-          type: "downloading",
-          content: trs("系统/更新/启动浏览器下载", { cn: "即将启动浏览器下载文件", en: "Starting browser to download file" }),
-          isRead: false,
-          tag: "sys-update",
-          merge: "cover"
-        })
-        win.webContents.downloadURL(downloadUrl)
-      }
-    })
-  })
-
-  let lastAutoUpdaterProgressTime = 0
-  autoUpdater.on('download-progress', (progressObj) => {
-    win.setProgressBar(progressObj.percent / 100) // Keep taskbar progress
-    const now = Date.now()
-    if (!lastAutoUpdaterProgressTime || now - lastAutoUpdaterProgressTime > 500 || progressObj.percent === 100) {
-      lastAutoUpdaterProgressTime = now
-      pushUpdateMessage({
-        id: crypto.randomUUID(),
-        title: trs("系统/更新/下载中", { cn: "正在下载...", en: "Downloading..." }) + ` ${Math.round(progressObj.percent)}%`,
-        type: "downloading",
-        content: trs("系统/更新/保存本地", { cn: "正在拉取服务器资源文件...", en: "Fetching resource files from server..." }),
-        isRead: false,
-        tag: "sys-update",
-        merge: "cover",
-        meta: { progress: Math.round(progressObj.percent) }
-      })
-    }
-  })
-
-  autoUpdater.on('update-not-available', (info) => {
-    pushUpdateMessage({
-      id: crypto.randomUUID(),
-      title: trs("系统/更新/已是最新", { cn: "当前已是最新版本", en: "Already up to date" }) + ` (v${info.version})`,
-      type: "success",
-      content: trs("系统/更新/无需更新", { cn: "无需更新", en: "No update needed" }),
-      isRead: true,
-      tag: "sys-update",
-      merge: "cover"
-    })
-  })
-
-  autoUpdater.on('update-downloaded', (info) => {
-    // 理论上由于接管了 downloadURL，此原生流不会被触发，作为兜底
-    win.setProgressBar(-1)
-    pushUpdateMessage({
-      id: crypto.randomUUID(),
-      title: trs("系统/消息/下载完成", { cn: "下载完成", en: "Download complete" }),
-      type: "success",
-      content: trs("系统/更新/点击安装", { cn: "点击这里重新启动并安装", en: "Click to restart and install" }),
-      isRead: false,
-      tag: "sys-update",
-      merge: "cover",
-      action: { type: "emit", event: "sys:quitAndInstall" }
-    })
-  })
-
-  autoUpdater.on('error', (err) => {
-    win.setProgressBar(-1)
-    let missAppUpdate = ""
-    const errStr = String(err)
-    if (errStr.includes('app-update.yml') || errStr.includes('ENOENT')) {
-      missAppUpdate = "\n" + trs("系统/更新/绿色版提示", {
-        cn: "（提示，当前为绿色版，无法自动检测更新）",
-        en: "(Note: This is a portable version, and cannot auto-check for updates.)"
-      })
-    }
-    const errorMsg = (err.message || String(err)) + missAppUpdate
-    pushUpdateMessage({
-      id: crypto.randomUUID(),
-      title: trs("系统/错误/更新出错", { cn: "更新出错", en: "Update Error" }),
-      type: "error",
-      content: trs("系统/更新/手动下载提示", {
-        cn: "更新出错，请手动前往下载最新版本：\nhttps://github.com/0ui0/owo_terminal_public/releases\n\n",
-        en: "Update failed, please download the latest version manually:\nhttps://github.com/0ui0/owo_terminal_public/releases\n\n"
-      }) + (missAppUpdate ? missAppUpdate.trim() + "\n\n" : "") + (err.message || String(err)),
-      isRead: false,
-      tag: "sys-update",
-      merge: "cover"
-    })
-  })
-
-  // 监听前端更新与重启安装请求
-  if (ioServer.io) {
-    ioServer.io.on('connection', (socket) => {
-      socket.on('sys:checkUpdate', async () => {
-        pushUpdateMessage({
-          id: crypto.randomUUID(),
-          title: trs("系统/更新/检查中", { cn: "正在检查更新...", en: "Checking for updates..." }),
-          type: "info",
-          content: trs("系统/更新/连接中", { cn: "正在与发布服务器通信...", en: "Communicating with release server..." }),
-          isRead: false,
-          tag: "sys-update",
-          merge: "cover"
-        })
-        const result = await autoUpdater.checkForUpdatesAndNotify()
-        if (!result && !app.isPackaged) {
-          pushUpdateMessage({
-            id: crypto.randomUUID(),
-            title: trs("系统/更新/开发环境", { cn: "开发环境跳过检查", en: "Skipped in Dev Mode" }),
-            type: "error",
-            content: trs("系统/更新/打包后可用", { cn: "仅打包后的版本可执行自动更新", en: "Only packaged app supports auto-update" }),
-            isRead: false,
-            tag: "sys-update",
-            merge: "cover"
-          })
-        }
-      })
-
-      socket.on('sys:startDownload', () => {
-        pushUpdateMessage({
-          id: crypto.randomUUID(),
-          title: trs("系统/更新/开始下载", { cn: "正在开始下载...", en: "Starting download..." }),
-          type: "downloading",
-          content: trs("系统/更新/初始化", { cn: "正在初始化下载资源...", en: "Initializing download resources..." }),
-          isRead: false,
-          tag: "sys-update",
-          merge: "cover"
-        })
-        autoUpdater.downloadUpdate()
-      })
-
-      socket.on('sys:quitAndInstall', () => {
-        isQuitting = true
-        autoUpdater.quitAndInstall()
-      })
-    })
-  }
-
-  const template = [
-    {
-      label: process.platform === 'darwin' ? app.name : trs("菜单栏/分类/文件"), // Use trs for menu
-      submenu: [
-        {
-          label: trs("菜单栏/操作/打开"),
-          accelerator: 'CmdOrCtrl+O',
-          click: async () => {
-            await projectLoad.func({})
-          }
-        },
-        {
-          label: trs("菜单栏/操作/保存"),
-          accelerator: 'CmdOrCtrl+S',
-          click: async () => {
-            await projectSave.func({ saveAs: false })
-          }
-        },
-        {
-          label: trs("菜单栏/操作/另存为"),
-          accelerator: 'CmdOrCtrl+Shift+S',
-          click: async () => {
-            await projectSave.func({ saveAs: true })
-          }
-        },
-        { type: 'separator' },
-        {
-          label: trs("菜单栏/操作/检查更新", { cn: "检查更新", en: "Check for Updates" }),
-          click: async () => {
-            pushUpdateMessage({
-              id: crypto.randomUUID(),
-              title: trs("系统/更新/检查中", { cn: "正在检查更新...", en: "Checking for updates..." }),
-              type: "info",
-              content: trs("系统/更新/连接中", { cn: "正在与发布服务器通信...", en: "Communicating with release server..." }),
-              isRead: false,
-              tag: "sys-update",
-              merge: "cover"
-            })
-            const result = await autoUpdater.checkForUpdatesAndNotify()
-            if (!result && !app.isPackaged) {
-              pushUpdateMessage({
-                id: crypto.randomUUID(),
-                title: trs("系统/更新/开发环境", { cn: "开发环境跳过检查", en: "Skipped in Dev Mode" }),
-                type: "error",
-                content: trs("系统/更新/打包后可用", { cn: "仅打包后的版本可执行自动更新", en: "Only packaged app supports auto-update" }),
-                isRead: false,
-                tag: "sys-update",
-                merge: "cover"
-              })
-              dialog.showMessageBox({
-                type: 'info',
-                title: trs("系统/更新/开发环境标题", { cn: "开发环境", en: "Dev Environment" }),
-                message: trs("系统/更新/开发环境提示", { cn: "当前处于开发环境，已跳过更新检查。请打包后测试更新功能。", en: "Skipped update check in dev mode. Please package the app to test." }),
-                buttons: [trs("通用/确认", { cn: "确定", en: "OK" })]
-              })
-            }
-          }
-        },
-        { type: 'separator' },
-        {
-          role: 'quit',
-          label: trs("菜单栏/操作/退出", { cn: "退出", en: "Quit" })
-        }
-      ]
-    },
-
-    {
-      label: trs("菜单栏/分类/编辑", { cn: "编辑", en: "Edit" }),
-      submenu: [
-        { role: 'undo', label: trs("菜单栏/编辑/撤销", { cn: "撤销", en: "Undo" }) },
-        { role: 'redo', label: trs("菜单栏/编辑/重做", { cn: "重做", en: "Redo" }) },
-        { type: 'separator' },
-        { role: 'cut', label: trs("菜单栏/编辑/剪切", { cn: "剪切", en: "Cut" }) },
-        { role: 'copy', label: trs("菜单栏/编辑/复制", { cn: "复制", en: "Copy" }) },
-        { role: 'paste', label: trs("菜单栏/编辑/粘贴", { cn: "粘贴", en: "Paste" }) },
-        { role: 'pasteAndMatchStyle', label: trs("菜单栏/编辑/粘贴样式", { cn: "粘贴并匹配样式", en: "Paste and Match Style" }) }, // macOS 特有
-        { role: 'delete', label: trs("菜单栏/编辑/删除", { cn: "删除", en: "Delete" }) }, // Note: "删除" key was "通用/删除" or specific? i18n.js has "通用/删除" but let's check menu section
-        { role: 'selectAll', label: trs("菜单栏/编辑/全选", { cn: "全选", en: "Select All" }) }
-      ]
-    },
-
-    {
-      label: trs("菜单栏/分类/视图", { cn: "视图", en: "View" }),
-      submenu: [
-        {
-          label: trs("菜单栏/操作/刷新", { cn: "刷新", en: "Reload" }),
-          accelerator: process.platform === 'darwin' ? 'Command+R' : 'Ctrl+R',
-          click: () => {
-            win.webContents.reload()
-          }
-        }
-      ]
-    },
-    {
-      label: trs("菜单栏/分类/开发", { cn: "开发", en: "Develop" }),
-      submenu: [
-        {
-          label: trs("菜单栏/操作/调试工具", { cn: "开发者工具", en: "Developer Tools" }),
-          accelerator: process.platform === 'darwin' ? 'Command+Option+I' : 'Ctrl+Shift+I',
-          click: () => {
-            win.webContents.toggleDevTools()
-          }
-        }
-      ]
-    }
-  ]
-
-
-  const menu = Menu.buildFromTemplate(template)
-  Menu.setApplicationMenu(menu)
-
-
-
+  setupAppMenu(win, (msg) => appUpdater.pushMessage(msg))
 }
 
 
@@ -606,21 +201,22 @@ app.whenReady().then(async () => {
       }
     }
 
-    const serveResult = await serve()
-    port = serveResult.port
-
-    // 在 server 启动后注册 Loader Hook（动态注册，避免 Electron 初始化阶段的 data: URL 冲突）
+    // 1. 优先注册 Loader Hook：确保外部 App 虚拟路径投射机制在服务与 App 加载前全局就绪
     try {
       const { register } = await import("node:module")
       const { MessageChannel } = await import("worker_threads")
       const { setLoaderPort } = await import("./server/apps/moduleRegistry.js")
+      const tempPath = (await import("./server/tools/tempPath.js")).default
+
+      const userDataAppsDir = pathLib.join(tempPath.getUserDataDir(), "apps")
+      process.env.USER_APPS_DIR = userDataAppsDir
 
       const { port1, port2 } = new MessageChannel()
       const loaderUrl = pathToFileURL(pathLib.join(serveDir, "server/apps/moduleRegistry.js")).href
 
       register(loaderUrl, {
         parentURL: import.meta.url,
-        data: { port: port2 },
+        data: { port: port2, userDataAppsDir },
         transferList: [port2]
       })
 
@@ -630,14 +226,18 @@ app.whenReady().then(async () => {
       console.warn("[HMR] Loader hook not supported:", e.message)
     }
 
+    // 2. 启动服务（内部调用 ioServer.run -> appManager.init -> loadappDefs）
+    const serveResult = await serve()
+    port = serveResult.port
+
     // 脏检查：利用 DynamicData 原生的观察者机制，当 comData 数据变动时标记项目为脏
     if (comData.data) {
       comData.data.addObserver('markProjectDirty', () => projectManager.markDirty())
     }
 
 
-    createWindow()
-    autoUpdater.checkForUpdatesAndNotify()
+    createWindow(port)
+    appUpdater.checkForUpdates()
   } catch (err) {
     if (err.code === 'EADDRINUSE') {
       dialog.showErrorBox(trs("系统/错误/启动失败"), trs("系统/错误/端口占用"))
@@ -651,12 +251,26 @@ app.whenReady().then(async () => {
 
 app.on('activate', () => {
   if (BrowserWindow.getAllWindows().length === 0) {
-    createWindow()
+    createWindow(port)
   }
 })
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
     app.quit()
+  }
+})
+
+
+app.on('before-quit', () => {
+  isQuitting = true
+})
+
+// 退出清理：仅精准清理当前实例专属的 temp/{pid} 临时目录
+app.on('will-quit', () => {
+  try {
+    tempPath.clean()
+  } catch (e) {
+    console.warn("[App] will-quit 清理异常:", e)
   }
 })

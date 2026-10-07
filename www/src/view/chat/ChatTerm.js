@@ -1,11 +1,11 @@
 
-import { Terminal } from '@xterm/xterm'
-import { FitAddon } from '@xterm/addon-fit'
-import settingData from "../setting/settingData"
-import getColor from "../common/getColor"
+import { Terminal } from '/@npm/@xterm/xterm.js'
+import { FitAddon } from '/@npm/@xterm/addon-fit.js'
+import settingData from "../setting/settingData.js"
+import getColor from "../common/getColor.js"
 
 
-import data from "./chatData"
+import data from "./chatData.js"
 import ioSocket from '../../comData/ioSocket.js'
 
 export default () => {

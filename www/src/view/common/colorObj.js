@@ -5,7 +5,7 @@ export default {
   pink_1: { back: "#a75e5e", front: "#463838" },
   pink_2: { back: "#8e6c8e", front: "#eeeeee" },
 
-  gray_1: { back: "#393432", front: "#eeeeee" },
+  gray_1: { back: "#393432", front: "#ffe1bb" },
   gray_2: { back: "#7a7a7a", front: "#333333" },
   gray_3: { back: "#2d2d2d", front: "#eeeeee" },
   gray_4: { back: "#47464f", front: "#999999" }, //菜单背景色等

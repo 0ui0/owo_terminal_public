@@ -1,7 +1,8 @@
-import getColor from "./getColor"
-import commonData from "./commonData"
-import NavItem from "./navItem"
-import Notice from "./notice"
+import getColor from "./getColor.js"
+import commonData from "./commonData.js"
+import NavItem from "./navItem.js"
+import Notice from "./notice.js"
+import settingData from "../setting/settingData.js"
 import { trs } from "./i18n.js"
 
 let barWidth = 0
@@ -203,7 +204,7 @@ export default {
                     tip: activeTab.tip,
                     url: "/program_",
                     icon: activeTab.icon || "icon.svg",
-                    appType: activeTab.appType || activeTab.group,
+                    appType: activeTab.appType,
                     sizeRate: 1,
                     power: 1,
                     onBar: false,
@@ -213,13 +214,19 @@ export default {
                     // 1. 如果窗口当前是激活状态且未最小化 -> 最小化
                     // 2. 否则 (最小化/未激活) -> 激活/还原
                     onClick: () => {
-                      // 主窗口暂不响应任务栏的最小化/还原切换交互
-                      if (config.isMainWindow) return
+                      // 主窗口底座不响应任务栏的最小化/还原切换交互，防止用户误触
+                      if (config.isMain) return
                       const isTop = Notice.data.activeWindowId === config.id
+
                       if (isTop && !config.minimized) {
                         Notice.minimizeWindow(config.id)
                       } else {
                         Notice.activateWindow(config.id)
+                        if (config.isWindow) {
+                          setTimeout(async () => {
+                            await settingData.fnCall("sysWinControl", ["focus", config.id])
+                          }, 100)
+                        }
                       }
                     }
                   };

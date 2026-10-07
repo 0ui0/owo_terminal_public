@@ -30,6 +30,10 @@ async function buildAgentNameMap() {
 export default {
   name: "列出智能体会话",
   id: "listAgents",
+  mode: {
+    read: true,
+    write: false
+  },
   async fn(argObj, metaData) {
     try {
       const data = comData.data.get()

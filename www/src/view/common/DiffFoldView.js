@@ -1,4 +1,4 @@
-import m from "mithril"
+import m from "/@npm/mithril.js"
 import Tag from "./tag.js"
 import getColor from "./getColor.js"
 

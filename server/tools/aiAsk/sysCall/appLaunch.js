@@ -4,6 +4,10 @@ import appLaunch from "../../../crossFuncs/appLaunch.js"
 export default {
   name: "启动应用",
   id: "appLaunch",
+  mode: {
+    read: true,
+    write: false
+  },
 
   async fn(argObj) {
     const { value, error } = this.joi().validate(argObj)

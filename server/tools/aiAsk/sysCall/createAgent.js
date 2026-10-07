@@ -7,10 +7,15 @@ import ioServer from "../../../ioServer/ioServer.js"
 import Joi from "joi"
 import defaultComData from "../../defaultComData.js"
 import tempPath from "../../tempPath.js"
+import appManager from "../../../apps/appManager.js"
 
 export default {
   name: "创建智能体",
   id: "createAgent",
+  mode: {
+    read: true,
+    write: false
+  },
   async fn(argObj, metaData) {
     try {
       //系统QQ机器人用特殊参数，对ai隐藏
@@ -79,7 +84,7 @@ export default {
       await comData.data.edit((data) => {
         // 计算新 ID
         if (!data.chatLists) {
-          data.chatLists = [{ ...defaultComData().chatLists[0], id: 0 }];
+          data.chatLists = [{ ...defaultComData(appManager).chatLists[0], id: 0 }];
         }
 
         // 获取最大 ID
@@ -89,13 +94,18 @@ export default {
         // 确定当前上下文（父级）已经在上面确定了 (currentListId)
         // currentListId = data.targetChatListId || 0; // Removed legacy fallback block
 
+        // 获取当前创建者的父会话记录以就地继承工具权限
+        const parentChatList = data.chatLists.find(l => l.id === currentListId);
+
         // 创建物理列表 (以系统默认模板为基础，防止将来新增字段丢失)
-        const templateList = defaultComData().chatLists[0];
+        const templateList = defaultComData(appManager).chatLists[0];
         data.chatLists.push({
           ...templateList,
           id: newListId,
           linkid: currentListId,
-          currentModelId: targetModelId
+          currentModelId: targetModelId,
+          defaultTools: metaData?.defaultTools || parentChatList.defaultTools,
+          allowUseTools: metaData?.allowUseTools || parentChatList.allowUseTools
         });
       });
 

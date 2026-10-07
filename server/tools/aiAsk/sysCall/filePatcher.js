@@ -85,6 +85,59 @@ function computeLineStartOffsets(text) {
   return offsets
 }
 
+// 当 target 匹配失败时，进行行级深度诊断，定位首个断点行与空格差异
+function diagnoseTargetMismatch(windowText, target, startLineNum = 1) {
+  const targetLines = target.split("\n")
+  const fileLines = windowText.split("\n")
+
+  const firstNonEmptyTargetIdx = targetLines.findIndex(l => l.trim().length > 0)
+  if (firstNonEmptyTargetIdx === -1) return ""
+
+  const anchorTrimmed = targetLines[firstNonEmptyTargetIdx].trim()
+  let maxMatchedLines = 0
+  let mismatchDetail = null
+
+  for (let fIdx = 0; fIdx < fileLines.length; fIdx++) {
+    if (fileLines[fIdx].trim() === anchorTrimmed) {
+      let matchedCount = 0
+      let currentMismatch = null
+      const checkLimit = Math.min(targetLines.length - firstNonEmptyTargetIdx, fileLines.length - fIdx)
+
+      for (let k = 0; k < checkLimit; k++) {
+        const tLine = targetLines[firstNonEmptyTargetIdx + k]
+        const fLine = fileLines[fIdx + k]
+        if (tLine === fLine) {
+          matchedCount++
+        } else {
+          const isTrimSame = fLine.trim() === tLine.trim()
+          const isWhitespaceOnlyDiff = fLine.replace(/\s+/g, "") === tLine.replace(/\s+/g, "")
+          currentMismatch = {
+            lineNum: startLineNum + fIdx + k,
+            fileLine: fLine,
+            targetLine: tLine,
+            hasWhitespaceDiffOnly: isTrimSame || isWhitespaceOnlyDiff
+          }
+          break
+        }
+      }
+
+      if (matchedCount > maxMatchedLines || !mismatchDetail) {
+        maxMatchedLines = matchedCount
+        mismatchDetail = currentMismatch
+      }
+    }
+  }
+
+  if (mismatchDetail) {
+    const whitespaceHint = mismatchDetail.hasWhitespaceDiffOnly
+      ? "\n  【提示】: 忽略空白后字符完全一致，但存在缩进、行尾或内部空格数量差异！"
+      : ""
+    return `\n【精准断点诊断】：\n前面已连续匹配 ${maxMatchedLines} 行。从文件第 ${mismatchDetail.lineNum} 行开始出现差异：\n  - 文件原文: [${mismatchDetail.fileLine}] (长度: ${mismatchDetail.fileLine.length})\n  - 你的输入: [${mismatchDetail.targetLine}] (长度: ${mismatchDetail.targetLine.length})${whitespaceHint}`
+  }
+
+  return ""
+}
+
 function applyEditsToContent(originalContent, edits) {
   const eol = originalContent.includes("\r\n") ? "\r\n" : "\n"
   let content = originalContent.replace(/\r\n/g, "\n")
@@ -127,13 +180,16 @@ function applyEditsToContent(originalContent, edits) {
     const globalCount = countOccurrences(content, target)
 
     if (windowCount === 0) {
+      const startLineNum = rangeStart != null ? rangeStart : 1
+      const diagInfo = diagnoseTargetMismatch(windowText, target, startLineNum)
+
       if (globalCount === 0) {
-        throw new Error(`第 ${i + 1} 个 edit 块未能在文件中找到对应的目标原文(target)。本次修改要求完全一字不差的精准匹配，包括首尾空格！请核对后重试。\n目标片段前缀：\n${target.substring(0, 50)}...`)
+        throw new Error(`第 ${i + 1} 个 edit 块未能在文件中找到对应的目标原文(target)。本次修改要求完全一字不差的精准匹配，包括首尾空格！请核对后重试。${diagInfo}\n目标片段前缀：\n${target.substring(0, 50)}...`)
       }
       const rangeDesc = rangeStart != null
         ? `第 ${rangeStart}~${rangeEnd ?? "末尾"} 行`
         : "整个文件"
-      throw new Error(`第 ${i + 1} 个 edit 块的目标原文在文件其他位置共出现 ${globalCount} 次，但在限定的行范围(${rangeDesc})内未找到。请检查 startLine/endLine 是否准确，或提供更长的 target 使其完整落在该范围内。\n目标片段前缀：\n${target.substring(0, 50)}...`)
+      throw new Error(`第 ${i + 1} 个 edit 块的目标原文在文件其他位置共出现 ${globalCount} 次，但在限定的行范围(${rangeDesc})内未找到。请检查 startLine/endLine 是否准确，或提供更长的 target 使其完整落在该范围内。${diagInfo}\n目标片段前缀：\n${target.substring(0, 50)}...`)
     }
 
     if (windowCount > 1) {
@@ -171,6 +227,10 @@ function applyEditsToContent(originalContent, edits) {
 export default {
   name: "文件增删改工具",
   id: "filePatcher",
+  mode: {
+    read: false,
+    write: true
+  },
 
   async fn(argObj, metaData) {
     const { value, error } = this.joi().validate(argObj)

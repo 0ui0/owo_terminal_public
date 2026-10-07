@@ -4,6 +4,10 @@ import appManager from "../../appManager.js"
 export default {
   name: "阅读编辑器内容",
   id: "editorGetContent",
+  mode: {
+    read: true,
+    write: false
+  },
 
   async fn(argObj) {
     const { value, error } = this.joi().validate(argObj)

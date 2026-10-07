@@ -1,4 +1,5 @@
-export default function getDefaultComData() {
+export default function getDefaultComData(appManager) {
+  const toolIdList = appManager.getTools().map(tool => tool.id)
   return {
     currentModel: "",
     call: null,
@@ -16,6 +17,8 @@ export default function getDefaultComData() {
         tokenCompressSwitch: true,
         autoLaunchEditor: false,
         skipConfirmTools: [],
+        defaultTools: [...toolIdList],
+        allowUseTools: [...toolIdList],
         replying: false,
         streamChunks: "",
         streamDisplayContent: "",

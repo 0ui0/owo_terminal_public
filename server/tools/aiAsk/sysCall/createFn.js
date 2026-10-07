@@ -7,6 +7,10 @@ import tempPath from "../../tempPath.js"
 export default {
   name: "创建自定义函数",
   id: "createFn",
+  mode: {
+    read: false,
+    write: true
+  },
   async fn(argObj, metaData) {
     try {
       let { value, error } = this.joi().validate(argObj)

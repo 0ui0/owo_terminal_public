@@ -1,4 +1,4 @@
-import m from "mithril"
+import m from "/@npm/mithril.js"
 import Box from "../common/box.js"
 import Tag from "../common/tag.js"
 import getColor from "../common/getColor.js"
@@ -53,7 +53,7 @@ export const ModelWizardModal = (vnode) => {
   }
 
   const close = () => {
-    Notice.closeTab(vnode.attrs.noticeConfig)
+    Notice.closeTab(vnode.attrs.noticeConfig.sign)
   }
 
   const submit = async () => {

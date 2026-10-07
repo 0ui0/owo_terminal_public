@@ -1,6 +1,6 @@
-import Box from "../common/box"
-import Tag from "../common/tag"
-import Notice from "../common/notice"
+import Box from "../common/box.js"
+import Tag from "../common/tag.js"
+import Notice from "../common/notice.js"
 
 export default () => {
   let Url = new Box()

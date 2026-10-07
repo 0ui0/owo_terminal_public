@@ -4,6 +4,10 @@ import appManager from "../../../apps/appManager.js"
 export default {
   name: "可用app列表",
   id: "appGetList",
+  mode: {
+    read: true,
+    write: false
+  },
 
   async fn(argObj) {
     const { value } = this.joi().validate(argObj)

@@ -11,6 +11,10 @@ import waitConfirm from "../../waitConfirm.js"
 export default {
   name: "阶段清理并压缩上下文",
   id: "compressContext",
+  mode: {
+    read: true,
+    write: false
+  },
   async fn(argObj, metaData) {
     let { value, error } = this.joi().validate(argObj)
     if (error) {
@@ -170,6 +174,8 @@ ${summaryText}
       }
 
       await chats.add(chat, listId)
+      // 双通道："chat" 推消息实体（前端事实收到消息），"chat:push" 触发列表刷新
+      ioServer.io.emit("chat", chat)
       ioServer.io.emit("chat:push", { listId })
 
       // 4. 整理 AI 模型内部维护 of 对话上下文 asks，将其截断为仅有基础提示 and 刚落库的 user 消息

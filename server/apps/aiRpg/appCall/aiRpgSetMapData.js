@@ -11,6 +11,10 @@ const PREFABS_LIST = [
 export default {
     name: "应用RPG地图_批量布局",
     id: "aiRpgSetMapData",
+    mode: {
+        read: true,
+        write: false
+    },
 
     async fn(argObj) {
         const { value, error } = this.joi().validate(argObj);

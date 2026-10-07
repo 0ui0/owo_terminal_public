@@ -28,141 +28,146 @@ class AppManager {
 
   /** [HMR] 监听 apps 目录变动：当文件改变时，驱动整个热更新流程 */
   watchAppDefs() {
-    const appsDir = path.resolve(import.meta.dirname, "../apps")
-    console.log(`[AppManager] 监听app更改: ${appsDir}`)
+    for (const appsDir of [path.resolve(import.meta.dirname, "../apps"), tempPath.getUserAppsDir()]) {
+      console.log(`[AppManager] 监听app更改: ${appsDir}`)
 
-    // 使用 fs.watch (非 promise 版本更适合长期监听)
-    fs.watch(appsDir, { recursive: true }, async (eventType, filename) => {
-      if (!filename) return
+      // 使用 fs.watch (非 promise 版本更适合长期监听)
+      fs.watch(appsDir, { recursive: true }, async (eventType, filename) => {
+        if (!filename) return
 
-      const parts = filename.split(path.sep)
-      const appDirName = parts[0]
-      if (!appDirName) return
+        const parts = filename.split(path.sep)
+        const appDirName = parts[0]
+        if (!appDirName) return
 
-      // [HMR 第一步] 检测到核心文件变动：.js / .coffee / .json
-      if (filename.endsWith(".json") || filename.endsWith(".js") || filename.endsWith(".coffee")) {
-        const appDirPath = path.join(appsDir, appDirName)
+        // [HMR 第一步] 检测到核心文件变动：.js / .coffee / .json
+        if (filename.endsWith(".json") || filename.endsWith(".js") || filename.endsWith(".coffee")) {
+          const appDirPath = path.join(appsDir, appDirName)
 
-        // 过滤：如果 appDirName 只是一个文件（比如 appManager.js 自身变动），则跳过目录遍历
-        const stat = fs.statSync(appDirPath, { throwIfNoEntry: false })
-        if (!stat || !stat.isDirectory()) return
+          // 过滤：如果 appDirName 只是一个文件（比如 appManager.js 自身变动），则跳过目录遍历
+          const stat = fs.statSync(appDirPath, { throwIfNoEntry: false })
+          if (!stat || !stat.isDirectory()) return
 
-        // [HMR 第二步] 关键：递增该目录版本号。这会通过 MessageChannel 同步给 Loader 线程，粉碎后续 import 缓存
-        // 【硬核修正】显式 await 同步过程，确保 Loader 线程收到 ACK 后再继续，杜绝竞态冲突
-        const start = Date.now()
-        await bumpAppDir(appDirPath)
+          // [HMR 第二步] 关键：递增该目录版本号。这会通过 MessageChannel 同步给 Loader 线程，粉碎后续 import 缓存
+          // 【硬核修正】显式 await 同步过程，确保 Loader 线程收到 ACK 后再继续，杜绝竞态冲突
+          const start = Date.now()
+          await bumpAppDir(appDirPath)
 
-        const timeStr = new Date().toLocaleTimeString()
-        const syncTime = Date.now() - start
-        console.log(`\x1b[36m[HMR]\x1b[0m \x1b[90m${timeStr}\x1b[0m \x1b[32m${filename} 已同步至 Loader 线程 (${syncTime}ms)\x1b[0m`)
+          const timeStr = new Date().toLocaleTimeString()
+          const syncTime = Date.now() - start
+          console.log(`\x1b[36m[HMR]\x1b[0m \x1b[90m${timeStr}\x1b[0m \x1b[32m${filename} 已同步至 Loader 线程 (${syncTime}ms)\x1b[0m`)
 
-        // [HMR 第三步] 重新触发加载流程
-        this.loadappDefs(appDirName).then(() => {
-          const totalTime = Date.now() - start
-          console.log(`\x1b[36m[HMR]\x1b[0m \x1b[32m${appDirName} 已原地复活 (${totalTime}ms)\x1b[0m`)
-          if (this.io) this.io.emit("appDefs:updated", this.getappDefs())
-        })
-      }
-    })
+          // [HMR 第三步] 重新触发加载流程
+          this.loadappDefs(appDirName).then(() => {
+            const totalTime = Date.now() - start
+            console.log(`\x1b[36m[HMR]\x1b[0m \x1b[32m${appDirName} 已原地复活 (${totalTime}ms)\x1b[0m`)
+            if (this.io) this.io.emit("appDefs:updated", this.getappDefs())
+          })
+        }
+      })
+    }
   }
 
   // 读取 apps 目录，注册所有 App 类型
   async loadappDefs(specificDir = null) {
-    const appsDir = path.resolve(import.meta.dirname, "../apps")
-    console.log(`[AppManager] 从${appsDir}读取app`)
-    try {
-      const dirNames = specificDir ? [specificDir] : await fsP.readdir(appsDir)
+    for (const appsDir of [path.resolve(import.meta.dirname, "../apps"), tempPath.getUserAppsDir()]) {
+      console.log(`[AppManager] 从${appsDir}读取app`)
+      try {
+        const dirNames = specificDir ? [specificDir] : await fsP.readdir(appsDir)
 
-      for (const dirName of dirNames) {
-        const appDirPath = path.join(appsDir, dirName)
-        const stat = await fsP.stat(appDirPath).catch(() => null)
-        if (!stat || !stat.isDirectory()) continue
+        for (const dirName of dirNames) {
+          const appDirPath = path.join(appsDir, dirName)
+          const stat = await fsP.stat(appDirPath).catch(() => null)
+          if (!stat || !stat.isDirectory()) continue
 
-        const appJsonPath = path.join(appDirPath, "app.json")
-        try {
-          const appJsonStr = await fsP.readFile(appJsonPath, "utf-8")
-          let appJson
+          const appJsonPath = path.join(appDirPath, "app.json")
           try {
-            appJson = JSON.parse(appJsonStr)
-          } catch (pe) {
-            throw new Error(`app.json 解析失败: ${pe.message}`)
-          }
-
-          if (!appJson.id) {
-            throw new Error(`app.json 缺少 'id' 字段`)
-          }
-
-          const backendFile = appJson.backend || "backend.js"
-          const backendPath = path.join(appDirPath, backendFile)
-
-          let backend
-          try {
-            // [HMR 第四步] 执行加载。因为路径带了 v=...，Node.js 会认为这是新模块，触发 Loader 拦截
-            const backendUrl = pathToFileURL(backendPath).href
-            const v = getAppVersion(dirName)
-            const cacheBust = v > 0 ? `?v=${v}` : ""
-            backend = (await import(`${backendUrl}${cacheBust}`)).default
-          } catch (ie) {
-            throw new Error(`加载后端 backend.js 失败: ${ie.message}`)
-          }
-
-          // Call setup hook if available (for global initialization)
-          if (backend.setup) {
+            const appJsonStr = await fsP.readFile(appJsonPath, "utf-8")
+            let appJson
             try {
-              backend.setup({ manager: this })
-            } catch (se) {
-              console.error(`[AppManager] ${appJson.id} 的 Setup 钩子执行失败:`, se)
+              appJson = JSON.parse(appJsonStr)
+            } catch (pe) {
+              throw new Error(`app.json 解析失败: ${pe.message}`)
             }
-          }
 
-          // [HMR 第五步] 资源回收：在应用新代码前，强制旧实例执行 destroy 钩子，清理如 WebSocket 等长链接
-          const oldAppDef = this.appDefs.get(appJson.id)
-          if (oldAppDef?.backend?.destroy) {
-            for (const app of this.apps.values()) {
-              if (app.type === appJson.id) {
-                console.log(`[AppManager] 热更新清理: 销毁旧实例 ${app.id}...`)
-                try {
-                  await oldAppDef.backend.destroy(app, this)
-                } catch (de) {
-                  console.error(`[AppManager] 销毁旧实例出错:`, de)
+            if (!appJson.id) {
+              throw new Error(`app.json 缺少 'id' 字段`)
+            }
+
+            // 先加载系统，再加载用户，重名直接跳过并输出日志
+            if (this.appDefs.has(appJson.id) && !specificDir) {
+              console.log(`[AppManager] 发现重名 App: ${appJson.id} 已由系统加载，跳过该重复定义: ${appDirPath}`)
+              continue
+            }
+
+            const backendFile = appJson.backend || "backend.js"
+            const backendPath = path.join(appDirPath, backendFile)
+
+            let backend
+            try {
+              // [HMR 第四步] 执行加载。因为路径带了 v=...，Node.js 会认为这是新模块，触发 Loader 拦截
+              const backendUrl = pathToFileURL(backendPath).href
+              const v = getAppVersion(dirName)
+              const cacheBust = v > 0 ? `?v=${v}` : ""
+              backend = (await import(`${backendUrl}${cacheBust}`)).default
+            } catch (ie) {
+              throw new Error(`加载后端 backend.js 失败: ${ie.message}`)
+            }
+
+            // Call setup hook if available (for global initialization)
+            if (backend.setup) {
+              try {
+                backend.setup({ manager: this })
+              } catch (se) {
+                console.error(`[AppManager] ${appJson.id} 的 Setup 钩子执行失败:`, se)
+              }
+            }
+
+            // [HMR 第五步] 资源回收：在应用新代码前，强制旧实例执行 destroy 钩子，清理如 WebSocket 等长链接
+            const oldAppDef = this.appDefs.get(appJson.id)
+            if (oldAppDef?.backend?.destroy) {
+              for (const app of this.apps.values()) {
+                if (app.type === appJson.id) {
+                  console.log(`[AppManager] 热更新清理: 销毁旧实例 ${app.id}...`)
+                  try {
+                    await oldAppDef.backend.destroy(app, this)
+                  } catch (de) {
+                    console.error(`[AppManager] 销毁旧实例出错:`, de)
+                  }
                 }
               }
             }
-          }
 
-          this.appDefs.set(appJson.id, { // 此时内存中的 appDef 已正式替换为新代码
-            ...appJson,
-            icon: appJson.icon || "icon.svg",
-            backend,
-            frontendPath: path.join(appDirPath, appJson.frontend || "frontend.js")
-          })
-          this.appDefsErrors.delete(appJson.id) // 加载成功，清除错误记录
-          console.log(`[AppManager] 加载app: ${appJson.id}`)
+            this.appDefs.set(appJson.id, { // 此时内存中的 appDef 已正式替换为新代码
+              ...appJson,
+              appDirPath,
+              icon: appJson.icon || "icon.svg",
+              backend,
+              frontendPath: path.join(appDirPath, appJson.frontend || "frontend.js")
+            })
+            this.appDefsErrors.delete(appJson.id) // 加载成功，清除错误记录
+            console.log(`[AppManager] 加载app: ${appJson.id}`)
 
-          // [HMR 第六步] 状态恢复：对正在运行的实例执行新后端的 init，让业务逻辑带著新代码原地复活
-          for (const app of this.apps.values()) {
-            if (app.type === appJson.id && backend.init) {
-              console.log(`[AppManager] 热更新恢复: 重新初始化新实例 ${app.id}...`)
-              try {
-                await backend.init(app, this)
-              } catch (ie) {
-                console.error(`[AppManager] 重新初始化新实例出错:`, ie)
+            // [HMR 第六步] 状态恢复：对正在运行的实例执行新后端的 init，让业务逻辑带著新代码原地复活
+            for (const app of this.apps.values()) {
+              if (app.type === appJson.id && backend.init) {
+                console.log(`[AppManager] 热更新恢复: 重新初始化新实例 ${app.id}...`)
+                try {
+                  await backend.init(app, this)
+                } catch (ie) {
+                  console.error(`[AppManager] 重新初始化新实例出错:`, ie)
+                }
               }
             }
-          }
-        } catch (e) {
-          const errorMsg = `加载 App 失败 (${dirName}): ${e.message}`
-          this.appDefsErrors.set(dirName, errorMsg)
-          if (!specificDir) {
-            // 静默加载
-          } else {
-            console.error(`[AppManager] 错误: ${errorMsg}`)
+          } catch (e) {
+            const errorMsg = `加载 App 失败 (${dirName}): ${e.message}`
+            this.appDefsErrors.set(dirName, errorMsg)
+            console.error(`[AppManager] 错误: ${errorMsg}`, e.stack || e)
             if (this.io) this.io.emit("app:error", { msg: errorMsg })
           }
         }
+      } catch (e) {
+        console.log("[AppManager] 读取 apps 目录失败:", e.message)
       }
-    } catch (e) {
-      console.log("[AppManager] 读取 apps 目录失败:", e.message)
     }
   }
 
@@ -500,9 +505,7 @@ class AppManager {
     if (!appDef) return []
 
     // 找到 app 目录
-    const appsDir = path.resolve(import.meta.dirname, "../apps")
-    const appDirPath = path.join(appsDir, appType)
-    const appCallDir = path.join(appDirPath, "appCall")
+    const appCallDir = path.join(appDef.appDirPath, "appCall")
 
     try {
       const stat = await fsP.stat(appCallDir)

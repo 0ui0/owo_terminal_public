@@ -1,5 +1,5 @@
-import m from "mithril"
-import { v4 as uuidv4 } from "uuid"
+import m from "/@npm/mithril.js"
+import { v4 as uuidv4 } from "/@npm/uuid.js"
 
 const apiHost = window.apiHost || ""
 

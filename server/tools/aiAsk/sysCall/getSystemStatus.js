@@ -6,6 +6,10 @@ import options from "../../../config/options.js"
 export default {
   name: "获取系统状态",
   id: "getSystemStatus",
+  mode: {
+    read: true,
+    write: false
+  },
 
   async fn(argObj, context) {
     const listId = context.listId ?? 0

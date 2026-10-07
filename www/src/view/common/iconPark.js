@@ -91,7 +91,7 @@ import {
   Success,
   Attention,
   More
-} from '@icon-park/svg';
+} from '/@npm/@icon-park/svg.js';
 
 let iconPark = {
   Check,

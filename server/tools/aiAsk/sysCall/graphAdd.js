@@ -5,6 +5,10 @@ import idTool from "../../idTool.js"
 export default {
   name: "新增网点",
   id: "graphAdd",
+  mode: {
+    read: true,
+    write: false
+  },
 
   async fn(argObj, context) {
     const listId = context.listId ?? 0

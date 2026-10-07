@@ -4,6 +4,10 @@ import appActive from "../../../crossFuncs/appActive.js"
 export default {
   name: "唤醒应用",
   id: "appActive",
+  mode: {
+    read: true,
+    write: false
+  },
 
   async fn(argObj) {
     const { value, error } = this.joi().validate(argObj)

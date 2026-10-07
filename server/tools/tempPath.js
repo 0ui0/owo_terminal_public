@@ -26,6 +26,13 @@ class TempPathManager {
     return businessDataDir
   }
 
+  // 获取用户外部应用目录 (userData/owo_data/apps，自动确保目录存在)
+  getUserAppsDir() {
+    const userAppsDir = pathLib.join(this.getUserDataDir(), "apps")
+    fs.ensureDirSync(userAppsDir)
+    return userAppsDir
+  }
+
   // 获取当前实例 temp/{pid} 下的物理路径（自动确保目录存在）
   get(subPath = "") {
     const userData = this.getUserDataDir()

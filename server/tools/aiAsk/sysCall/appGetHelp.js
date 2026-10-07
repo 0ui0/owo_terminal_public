@@ -5,6 +5,10 @@ import joiToText from "../../joiToText.js"
 export default {
   name: "查询App说明",
   id: "appGetHelp",
+  mode: {
+    read: true,
+    write: false
+  },
 
   async fn(argObj) {
     const { value, error } = this.joi().validate(argObj)
@@ -23,17 +27,10 @@ export default {
     doc += `应用说明: ${appDef.description || "无描述"}\n`
 
     if (appTools.length > 0) {
-      doc += `\n此 App 支持以下动作(action)可供调用。请通过 sysCalls.appCall 执行：\n`
+      doc += `\n此 App 包含以下专属工具，未直接注册到全局系统。请通过 appCall 代理调用：\n`
       for (const tool of appTools) {
-        // 剥离 appType 前缀得到小驼峰 action 名
-        let rawAction = tool.id
-        if (rawAction.toLowerCase().startsWith(appType.toLowerCase())) {
-          rawAction = rawAction.slice(appType.length)
-        }
-        const actionName = rawAction.charAt(0).toLowerCase() + rawAction.slice(1)
-        
         doc += `\n----------------------------------------\n`
-        doc += `▶ 动作名称(action): "${actionName}"\n`
+        doc += `▶ 工具 ID (id): "${tool.id}"\n`
         doc += `  中文名称: ${tool.name}\n`
         doc += `  功能描述: ${tool.getDoc ? tool.getDoc() : "无描述"}\n`
         
@@ -42,7 +39,7 @@ export default {
           if (schema) {
             const schemaText = joiToText(schema, "    ")
             if (schemaText) {
-              doc += `  参数规范 (请传入 args 参数对象中):\n${schemaText}\n`
+              doc += `  参数规范 (请传入 arguments 参数对象中):\n${schemaText}\n`
             } else {
               doc += `  参数规范: 无需入参\n`
             }
@@ -50,9 +47,11 @@ export default {
         } else {
           doc += `  参数规范: 无需入参\n`
         }
+
+        doc += `  调用范例:\n  appCall({ appType: "${appType}", id: "${tool.id}", arguments: { ... } })\n`
       }
     } else {
-      doc += `\n提示：该 App 当前没有可对外暴露的动作/工具。`
+      doc += `\n提示：该 App 当前没有可对外暴露的专属工具。`
     }
 
     return doc
@@ -60,11 +59,11 @@ export default {
 
   joi() {
     return Joi.object({
-      appType: Joi.string().required().description("要查询动作文档的 App 类型 ID（如 browser, aiRpg）")
+      appType: Joi.string().required().description("查询某个app下未注册到系统的工具及其调用文档")
     })
   },
 
   getDoc() {
-    return `查询指定 App 支持的动作列表及详细参数规范文档`
+    return `查询指定 App 下未直接注册到全局系统的工具列表及详细参数规范文档`
   }
 }

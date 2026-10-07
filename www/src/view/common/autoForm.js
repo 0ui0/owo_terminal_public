@@ -1,7 +1,7 @@
 import Box from "./box.js";
 import Tag from "./tag.js";
 import Notice from "./notice.js";
-import lodash from "lodash";
+import lodash from "/@npm/lodash.js";
 import RefinedText from "./RefinedText.js";
 
 /*

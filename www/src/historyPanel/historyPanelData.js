@@ -1,4 +1,4 @@
-import m from "mithril"
+import m from "/@npm/mithril.js"
 
 const debugHistory = {
   logs: [],

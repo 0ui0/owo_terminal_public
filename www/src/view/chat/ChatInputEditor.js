@@ -386,7 +386,7 @@ export default () => {
               attachObj.url = res.url;
               attachObj.status = 'done';
               attachObj.progress = 100;
-              insertAtCursor(` [attachid:${res.id}] `);
+              data.quoteAttachId(res.id);
             }
           }
         };
@@ -571,7 +571,7 @@ export default () => {
                     imageFiles.push(file);
                   } else {
                     const path = window.electronAPI && window.electronAPI.getPathForFile ? window.electronAPI.getPathForFile(file) : (file.path || file.name);
-                    insertAtCursor(` [filePath:${path}] `);
+                    data.quoteFilePath(path);
                   }
                 }
                 if (imageFiles.length > 0) self.addFiles(imageFiles);
@@ -579,7 +579,7 @@ export default () => {
                 const text = e.dataTransfer.getData('text/plain');
                 if (text) {
                   if (!text.includes("\n") && (text.startsWith("/") || /^[a-zA-Z]:[\\/]/.test(text))) {
-                    insertAtCursor(` [filePath:${text}] `);
+                    data.quoteFilePath(text);
                   } else {
                     insertAtCursor(text);
                   }
@@ -788,7 +788,7 @@ export default () => {
                               m.redraw();
                               const noticeConfig = vnode.attrs.noticeConfig;
                               if (noticeConfig) {
-                                Notice.closeTab(noticeConfig);
+                                Notice.closeTab(noticeConfig.sign);
                               }
                             }
                           }, `${idx + 1}. ${h.slice(0, 80)}${h.length > 80 ? '...' : ''}`);

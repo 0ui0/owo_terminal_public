@@ -15,13 +15,15 @@ import fs from "fs-extra"
 import options from "./config/options.js"
 import crypto from "crypto"
 import tempPath from "./tools/tempPath.js"
+import portTool from "./tools/portTool.js"
 
 
 
 
 const init = async (config) => {
 
-  let { port = 9501 } = config || {}
+  let { port = 9501, host = '0.0.0.0' } = config || {}
+  port = await portTool.getAvailablePort(port, host)
 
   process.on('unhandledRejection', (err) => {
     console.log(err);
@@ -36,7 +38,7 @@ const init = async (config) => {
 
   const serverOpts = (usePort) => ({
     port: usePort,
-    host: '0.0.0.0',
+    host,
     routes: {
       cors: {
         origin: ['*'],
@@ -49,12 +51,13 @@ const init = async (config) => {
   })
 
   const registerRoutes = async (server) => {
+    // 原生 ESM 模式：静态根直接指向 www，入口为 www/index.html（引 /src/main.js）
     server.route({
       method: "get",
       path: "/{param*}",
       handler: {
         directory: {
-          path: `${pathLib.join("../www/dist")}`,
+          path: `${pathLib.join("../www")}`,
           redirectToSlash: true
         }
       }
@@ -132,13 +135,6 @@ const init = async (config) => {
     return { server, port: server.info.port }
   }
   catch (err) {
-    if (port !== 0 && err.code === 'EADDRINUSE') {
-      console.log('Port %s in use, trying dynamic port...', port)
-      const server = await buildServer(0)
-      await server.start()
-      console.log('Server running on %s', server.info.uri);
-      return { server, port: server.info.port }
-    }
     console.log(err)
     throw err
   }

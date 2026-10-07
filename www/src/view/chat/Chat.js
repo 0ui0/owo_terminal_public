@@ -21,6 +21,7 @@ export default () => {
     view() {
       const playFaces = comData.data.get()?.playFaces
       const playDoms = []
+      const chatList = comData.getChatList(data.getSessionState(0).lockedListId) || comData.getChatList(0);
 
       return m("", {
         style: {
@@ -96,15 +97,19 @@ export default () => {
             width: "100%",
           }
         }, [
-          (() => {
-            if (!comData.data?.get()?.chatLists) return null; // 数据尚未从 Socket 同步，挂起渲染
-            return m(ChatList, {
-              chatList: comData.getChatList(data.getSessionState(0).lockedListId) || comData.getChatList(0),
+          chatList
+            ? m(ChatList,{
+              key: chatList.id,
+              chatList,
               listId: 0
             })
-          })(),
-          m(InputBar, { listId: 0 }),
+            : m.fragment({ key: "empty_chatList" }),
+          m(InputBar, { 
+            listId: 0,
+            key: "inputBar"
+          }),
           m("", {
+            key:"face",
             style: {
               position: "absolute",
               width: "100%",

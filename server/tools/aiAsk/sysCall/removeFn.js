@@ -5,8 +5,12 @@ import fs from "fs/promises"
 import tempPath from "../../tempPath.js"
 
 export default {
-  name:"删除自定义函数",
-  id:"removeFn",
+  name: "删除自定义函数",
+  id: "removeFn",
+  mode: {
+    read: false,
+    write: true
+  },
   async fn(argObj){
     let {value,error} = this.joi().validate(argObj)
     if(error){

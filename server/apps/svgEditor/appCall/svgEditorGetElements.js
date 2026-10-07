@@ -4,6 +4,10 @@ import appManager from "../../../apps/appManager.js"
 export default {
   name: "获取图元列表或详情",
   id: "svgEditorGetElements",
+  mode: {
+    read: true,
+    write: false
+  },
 
   async fn(argObj, metaData) {
     const { value, error } = this.joi().validate(argObj)

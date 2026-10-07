@@ -2,24 +2,8 @@
 import backend from "../../backend.js";
 import options from "../../../../config/options.js";
 import getMsgProtocalConfig from "../../../../ioServer/ioApis/chat/getMsgProtocalConfig.js";
-// ==========================================
-// ⚙️ 社交脉冲配置字典 (UI可配置)
-// ==========================================
-const botPulseConfig = {
-  dailyGroupLimit: { cnName: "群组每日消息上限", enName: "dailyGroupLimit", value: 160 },
-  dailyUserLimit: { cnName: "个人每日消息上限", enName: "dailyUserLimit", value: 20 },
-  cooldownMs: { cnName: "回复冷却时间(毫秒)", enName: "cooldownMs", value: 20000 },
-  energyCost: { cnName: "回复消耗能量", enName: "energyCost", value: 10 },
-  energyThreshold: { cnName: "回复能量门槛", enName: "energyThreshold", value: 10 },
-  maxEnergy: { cnName: "能量槽上限", enName: "maxEnergy", value: 100 },
-  energyRegenPerHour: { cnName: "每小时自然恢复能量", enName: "energyRegenPerHour", value: 20 },
-  activeWindowMs: { cnName: "活跃窗口时长(毫秒)", enName: "activeWindowMs", value: 300000 },
-  excitementAdd: { cnName: "每条消息增加兴奋度", enName: "excitementAdd", value: 0.05 },
-  passiveProbMax: { cnName: "最大插嘴概率", enName: "passiveProbMax", value: 0.05 },
-  chargePerMsg: { cnName: "单条消息充能", enName: "chargePerMsg", value: 0.5 },
-  chargeUserDailyMax: { cnName: "单人每日充能上限", enName: "chargeUserDailyMax", value: 5 },
-  chargeGroupDailyMax: { cnName: "全群每日充能总上限", enName: "chargeGroupDailyMax", value: 50 }
-};
+import { qlog } from "../logger.js";
+import { getPulseConfig } from "../pulseDefaults.js";
 
 // ==========================================
 // 🧠 本地状态存储 (持久化于模块内存)
@@ -38,10 +22,11 @@ const Guard = {
   getGroupState: (fromId) => {
     const now = Date.now();
     const nowDay = new Date().toLocaleDateString();
+    const pulse = getPulseConfig();
 
     if (!_localStore.groups[fromId]) {
       _localStore.groups[fromId] = {
-        excitement: 0, energy: botPulseConfig.maxEnergy.value, windowEndTime: 0,
+        excitement: 0, energy: pulse.maxEnergy, windowEndTime: 0,
         lastReplyTime: 0, lastUserMsgTime: 0, lastEnergyRegenTime: now,
         dailyUsage: 0, dailyExtraEnergy: 0, lastResetDate: nowDay,
         debounceTimer: null,
@@ -52,7 +37,7 @@ const Guard = {
 
     // 每日重置检查 (单群)
     if (groupState.lastResetDate !== nowDay) {
-      console.log(`[qqBot][${fromId}] 跨日重置: ${groupState.lastResetDate} -> ${nowDay}`);
+      qlog(`[qqBot][${fromId}] 跨日重置: ${groupState.lastResetDate} -> ${nowDay}`, "info");
       groupState.dailyUsage = 0;
       groupState.dailyExtraEnergy = 0;
       groupState.lastResetDate = nowDay;
@@ -60,7 +45,7 @@ const Guard = {
 
     // 全局用户重置检查
     if (_localStore.lastGlobalResetDate !== nowDay) {
-      console.log(`[qqBot] 触发全局跨日重置: ${_localStore.lastGlobalResetDate} -> ${nowDay}`);
+      qlog(`[qqBot] 触发全局跨日重置: ${_localStore.lastGlobalResetDate} -> ${nowDay}`, "info");
       _localStore.lastGlobalResetDate = nowDay;
       for (const uid in _localStore.users) {
         _localStore.users[uid].usage = 0;
@@ -70,8 +55,8 @@ const Guard = {
 
     // 社交能量自然恢复
     const elapsedHours = (Date.now() - groupState.lastEnergyRegenTime) / (1000 * 60 * 60);
-    const regenAmount = isNaN(elapsedHours) ? 0 : elapsedHours * botPulseConfig.energyRegenPerHour.value;
-    groupState.energy = Math.min(botPulseConfig.maxEnergy.value, groupState.energy + regenAmount);
+    const regenAmount = isNaN(elapsedHours) ? 0 : elapsedHours * pulse.energyRegenPerHour;
+    groupState.energy = Math.min(pulse.maxEnergy, groupState.energy + regenAmount);
     groupState.lastEnergyRegenTime = Date.now();
     return groupState;
   },
@@ -79,6 +64,7 @@ const Guard = {
   // 2. 注意力更新
   updateAttention: (msg, isAtMe, groupState, userId, fromId, userNickname) => {
     const now = Date.now();
+    const pulse = getPulseConfig();
     // 指数衰减兴奋度
     if (groupState.lastUserMsgTime > 0) {
       const elapsed = (now - groupState.lastUserMsgTime) / 1000;
@@ -91,14 +77,14 @@ const Guard = {
       if (!_localStore.users[userId]) _localStore.users[userId] = { usage: 0, providedEnergy: 0 };
       const userState = _localStore.users[userId];
 
-      if ((groupState.dailyExtraEnergy || 0) < botPulseConfig.chargeGroupDailyMax.value &&
-        (userState.providedEnergy || 0) < botPulseConfig.chargeUserDailyMax.value) {
+      if ((groupState.dailyExtraEnergy || 0) < pulse.chargeGroupDailyMax &&
+        (userState.providedEnergy || 0) < pulse.chargeUserDailyMax) {
 
-        const charge = botPulseConfig.chargePerMsg.value;
-        groupState.energy = Math.min(botPulseConfig.maxEnergy.value, groupState.energy + charge);
+        const charge = pulse.chargePerMsg;
+        groupState.energy = Math.min(pulse.maxEnergy, groupState.energy + charge);
         groupState.dailyExtraEnergy = (groupState.dailyExtraEnergy || 0) + charge;
         userState.providedEnergy = (userState.providedEnergy || 0) + charge;
-        console.log(`[qqBot][充能] 群:${fromId} | 人:${userNickname}(${userId}) 贡献 ${charge} 点 (⚡${groupState.energy.toFixed(1)} 🔥${groupState.excitement.toFixed(2)} 📊${groupState.dailyUsage})`);
+        qlog(`[qqBot][充能] 群:${fromId} | 人:${userNickname}(${userId}) 贡献 ${charge} 点 (⚡${groupState.energy.toFixed(1)} 🔥${groupState.excitement.toFixed(2)} 📊${groupState.dailyUsage})`, "energy");
       }
     }
 
@@ -107,32 +93,33 @@ const Guard = {
     if (isAtMe || hasKeyword) {
       groupState.excitement = 1.0;
       if (now > groupState.windowEndTime) {
-        groupState.windowEndTime = now + botPulseConfig.activeWindowMs.value;
+        groupState.windowEndTime = now + pulse.activeWindowMs;
       }
     } else {
       // [被动累积]
-      groupState.excitement = Math.min(1.0, groupState.excitement + botPulseConfig.excitementAdd.value);
+      groupState.excitement = Math.min(1.0, groupState.excitement + pulse.excitementAdd);
     }
   },
 
   // 3. 拦截判定
   shouldRespond: async (isAtMe, userId, groupState, msgCenter, listId, meta) => {
     const now = Date.now();
+    const pulse = getPulseConfig();
 
     // [思维锁拦截]
     if (groupState.isThinking) return false;
 
     // [每日熔断] 单群限额
-    if (groupState.dailyUsage >= botPulseConfig.dailyGroupLimit.value) {
-      console.log(`[qqBot][拦截] 达到群组日限额 (${groupState.dailyUsage}) (⚡${groupState.energy.toFixed(1)} 🔥${groupState.excitement.toFixed(2)})`);
+    if (groupState.dailyUsage >= pulse.dailyGroupLimit) {
+      qlog(`[qqBot][拦截] 达到群组日限额 (${groupState.dailyUsage}) (⚡${groupState.energy.toFixed(1)} 🔥${groupState.excitement.toFixed(2)})`, "block");
       return false;
     }
 
     // [用户级限流] 单人限额
     if (!_localStore.users[userId]) _localStore.users[userId] = { usage: 0, providedEnergy: 0 };
-    if (_localStore.users[userId].usage >= botPulseConfig.dailyUserLimit.value) {
+    if (_localStore.users[userId].usage >= pulse.dailyUserLimit) {
       if (isAtMe) {
-        console.log(`[qqBot][拦截] 用户 ${userId} 达到个人日限额 (⚡${groupState.energy.toFixed(1)} 🔥${groupState.excitement.toFixed(2)})`);
+        qlog(`[qqBot][拦截] 用户 ${userId} 达到个人日限额 (⚡${groupState.energy.toFixed(1)} 🔥${groupState.excitement.toFixed(2)})`, "block");
         const tips = ["米卡卡累了喵~", "别吵，明天再来！", "额度不足喵~"];
         const tip = tips[Math.floor(Math.random() * tips.length)];
         const replyExt = { listId, meta };
@@ -144,29 +131,29 @@ const Guard = {
     }
 
     // [冷静期]
-    if (now - groupState.lastReplyTime < botPulseConfig.cooldownMs.value) return false;
+    if (now - groupState.lastReplyTime < pulse.cooldownMs) return false;
 
     // [能量判定]
-    if (groupState.energy < botPulseConfig.energyThreshold.value) {
-      console.log(`[qqBot][拦截] 能量不足门槛 (${groupState.energy.toFixed(1)}) (🔥${groupState.excitement.toFixed(2)} 📊${groupState.dailyUsage})`);
+    if (groupState.energy < pulse.energyThreshold) {
+      qlog(`[qqBot][拦截] 能量不足门槛 (${groupState.energy.toFixed(1)}) (🔥${groupState.excitement.toFixed(2)} 📊${groupState.dailyUsage})`, "block");
       return false;
     }
 
     // [核心判定逻辑]
     if (isAtMe) {
-      console.log(`[qqBot][触发] 艾特响应 (⚡${groupState.energy.toFixed(1)} 🔥${groupState.excitement.toFixed(2)} 📊${groupState.dailyUsage})`);
+      qlog(`[qqBot][触发] 艾特响应 (⚡${groupState.energy.toFixed(1)} 🔥${groupState.excitement.toFixed(2)} 📊${groupState.dailyUsage})`, "trigger");
       return true;
     }
 
     if (now < groupState.windowEndTime) {
-      console.log(`[qqBot][触发] 活跃窗口响应 (⚡${groupState.energy.toFixed(1)} 🔥${groupState.excitement.toFixed(2)} 📊${groupState.dailyUsage})`);
+      qlog(`[qqBot][触发] 活跃窗口响应 (⚡${groupState.energy.toFixed(1)} 🔥${groupState.excitement.toFixed(2)} 📊${groupState.dailyUsage})`, "trigger");
       return true;
     } else {
-      const passiveProb = groupState.excitement * botPulseConfig.passiveProbMax.value;
+      const passiveProb = groupState.excitement * pulse.passiveProbMax;
       const dice = Math.random();
       const isPassive = dice < passiveProb;
       if (isPassive) {
-        console.log(`[qqBot][触发] 被动脉冲插嘴 (概率: ${(passiveProb * 100).toFixed(1)}%) (⚡${groupState.energy.toFixed(1)} 🔥${groupState.excitement.toFixed(2)})`);
+        qlog(`[qqBot][触发] 被动脉冲插嘴 (概率: ${(passiveProb * 100).toFixed(1)}%) (⚡${groupState.energy.toFixed(1)} 🔥${groupState.excitement.toFixed(2)})`, "trigger");
       }
       return isPassive;
     }
@@ -223,6 +210,7 @@ const Executor = {
   executeThinking: async (sendParams) => {
     const { msgCenter, ext, meta, source, user } = sendParams;
     const { fromId, userId, isAtMe, groupState } = Executor.resolveContext(sendParams);
+    const pulse = getPulseConfig();
 
     // [开启思维锁]
     groupState.isThinking = true;
@@ -246,22 +234,23 @@ const Executor = {
       groupState.lastReplyTime = Date.now();
       groupState.dailyUsage += 1;
       _localStore.users[userId].usage += 1;
-      groupState.energy -= botPulseConfig.energyCost.value;
-      console.log(`[qqBot][耗能] 回复完成。剩余能量: ${groupState.energy.toFixed(1)} (📊${groupState.dailyUsage}/${botPulseConfig.dailyGroupLimit.value})`);
+      groupState.energy -= pulse.energyCost;
+      qlog(`[qqBot][耗能] 回复完成。剩余能量: ${groupState.energy.toFixed(1)} (📊${groupState.dailyUsage}/${pulse.dailyGroupLimit})`, "energy");
 
       const aiList = await options.get("ai_aiList");
       const currentTokenConfig = aiList.find(m => m.id === targetModelId);
 
-      const allowApps = ["browser"];
-      for (const app of allowApps) await backend.appManager.registerAppTools(app);
-      const tools = backend.appManager.getTools().filter(t => allowApps.includes(t._appType) || t.id === 'findHistoryChats');
-
       const currentToolsMode = 5;
 
+      // 启动开关：重置中断控制器并把 agent.replying 置真（与 ioApi_chat 的标准流程一致）
+      // 作用①：beforeRun 会把 list.replying 同步给会话 ⇒ 前端才会出现「暂停」按钮，能看出它正在回复
+      // 作用②：重置 abortController，避免上一次被中断后 signal 永久为 aborted，导致之后再也无法回复
+      agent.noStopRun();
+
+      // 与主系统一致：由 getMsgProtocalConfig 统一从当前会话 defaultTools 装配工具，不再自行过滤并覆盖 tools
       await agent.sendAskByMsgProtocol(getMsgProtocalConfig({
         targetModel: agent, listId, currentTokenConfig,
         extraConfig: {
-          tools, toolsMode: currentToolsMode,
           // 【核心修复】强制覆盖全局钩子，消除 preToken 读取错误
           onSendAskBefore: async () => {
             const innerAiList = await options.get("ai_aiList");
@@ -295,7 +284,7 @@ const Executor = {
                     extConfig = JSON.parse(match[1].trim());
                   } catch (err) {
                     parseSuccess = false;
-                    console.error("[qqBot] 模式 5 extJsonConfig 解析失败:", err.message);
+                    qlog(`[qqBot] 模式 5 extJsonConfig 解析失败: ${err.message}`, "error");
                   }
                 }
                 content = content.replace(/<extJsonConfig>[\s\S]*?<\/extJsonConfig>/, "").trim();
@@ -322,7 +311,7 @@ const Executor = {
           }
         }
       }));
-    } catch (err) { console.error("[qqBot] AI 响应失败:", err); }
+    } catch (err) { qlog(`[qqBot] AI 响应失败: ${err.message}`, "error"); }
     finally {
       // [解除思维锁]
       groupState.isThinking = false;

@@ -24,6 +24,10 @@ function getNonConflictingPath(targetPath) {
 export default {
   name: "生成表情静态图",
   id: "avatarMakeImage",
+  mode: {
+    read: false,
+    write: true
+  },
 
   async fn(argObj, metaData) {
     const { value, error } = this.joi().validate(argObj)

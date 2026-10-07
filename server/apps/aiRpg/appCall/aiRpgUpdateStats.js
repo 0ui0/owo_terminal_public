@@ -3,6 +3,10 @@ import Joi from "joi";
 export default {
   name: "更新RPG玩家角色状态",
   id: "aiRpgUpdateStats",
+  mode: {
+    read: true,
+    write: false
+  },
 
   async fn(argObj) {
     const { value, error } = this.joi().validate(argObj);

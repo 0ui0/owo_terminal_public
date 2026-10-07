@@ -4,6 +4,10 @@ import appManager from "../../../apps/appManager.js"
 export default {
   name: "添加文本",
   id: "svgEditorDrawText",
+  mode: {
+    read: true,
+    write: false
+  },
 
   async fn(argObj, metaData) {
     const { value, error } = this.joi().validate(argObj)

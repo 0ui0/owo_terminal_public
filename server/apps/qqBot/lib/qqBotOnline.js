@@ -1,5 +1,7 @@
 /* qqBotOnline.js - QQ 官方机器人 API 封装（纯 HTTP 调用） */
 
+import { qlog } from "./logger.js";
+
 export default {
   secret: null,
   accessToken: {
@@ -75,7 +77,7 @@ export default {
       });
       const req = await res0.json();
       if (req.err_code) {
-        console.error("[用户消息]", { type, content, req });
+        qlog(`[QQBot/用户消息] 发送失败: ${JSON.stringify(req)}`, "error");
       }
       return req;
     } catch (err) {
@@ -110,7 +112,7 @@ export default {
       });
       const req = await res0.json();
       if (req.err_code) {
-        console.error("[群消息]", { type, content, req });
+        qlog(`[QQBot/群消息] 发送失败: ${JSON.stringify(req)}`, "error");
       }
       return req;
     } catch (err) {
@@ -144,7 +146,7 @@ export default {
       });
       const req = await res0.json();
       if (req.err_code && String(req.code) !== "304023") {
-        console.error("[频道消息]", { type, content, req });
+        qlog(`[QQBot/频道消息] 发送失败: ${JSON.stringify(req)}`, "error");
       }
       return req;
     } catch (err) {
@@ -177,7 +179,7 @@ export default {
       });
       const req = await res0.json();
       if (req.err_code) {
-        console.error("[频道私信消息]", { type, content, req });
+        qlog(`[QQBot/频道私信消息] 发送失败: ${JSON.stringify(req)}`, "error");
       }
       return req;
     } catch (err) {

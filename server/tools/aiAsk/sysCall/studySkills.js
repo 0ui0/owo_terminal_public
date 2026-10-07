@@ -11,6 +11,10 @@ import pathLib from "path"
 export default {
   name: "学习技能",
   id: "studySkills",
+  mode: {
+    read: true,
+    write: false
+  },
 
   async fn(argObj) {
     const { value, error } = this.joi().validate(argObj)

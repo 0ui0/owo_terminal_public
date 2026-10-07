@@ -4,6 +4,10 @@ import appManager from "../../../apps/appManager.js"
 export default {
   name: "注册App工具",
   id: "appCallsRegistar",
+  mode: {
+    read: true,
+    write: false
+  },
   hidden: true,
 
   async fn(argObj) {

@@ -4,6 +4,10 @@ import comData from "../../../comData/comData.js"
 export default {
   name: "设置任务",
   id: "taskSet",
+  mode: {
+    read: true,
+    write: false
+  },
   hidden(toolsMode) {
     return toolsMode !== 5
   },

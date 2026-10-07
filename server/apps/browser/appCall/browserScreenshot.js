@@ -8,6 +8,10 @@ import tempPath from "../../../tools/tempPath.js"
 export default {
   name: "浏览器截图",
   id: "browserScreenshot",
+  mode: {
+    read: true,
+    write: false
+  },
 
   async fn(argObj, metaData) {
     const { value, error } = this.joi().validate(argObj)

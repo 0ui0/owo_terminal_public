@@ -3,11 +3,13 @@ import commonData from "../view/common/commonData.js"
 import chatData from "../view/chat/chatData.js"
 import Notice from "../view/common/notice.js"
 import ChatTerm from "../view/chat/ChatTerm.js"
-import m from "mithril"
+import m from "/@npm/mithril.js"
 import Box from "../view/common/box.js"
 import Tag from "../view/common/tag.js"
 import AutoForm from "../view/common/autoForm.js"
 import FormItem from "../view/common/FormItem.js"
+import ChatToolSelect from "../view/chat/ChatToolSelect.js"
+import ChatFaceBubble from "../view/chat/ChatFaceBubble.js"
 import settingData from "../view/setting/settingData.js"
 import format from "../view/common/format.js"
 import { trs } from "../view/common/i18n.js"
@@ -15,11 +17,12 @@ import getColor from "../view/common/getColor.js"
 import Menu from "../view/common/menu.js"
 import sysMenu from "../view/common/sysMenu.js"
 import Tip from "../view/common/tip.js"
-import jsonpatch from "fast-json-patch"
-import _ from "lodash"
-import { Terminal } from "@xterm/xterm"
-import { FitAddon } from "@xterm/addon-fit"
-import { v4 as uuidv4 } from "uuid"
+import jsonpatch from "/@npm/fast-json-patch.js"
+import _ from "/@npm/lodash.js"
+import { Terminal } from "/@npm/@xterm/xterm.js"
+import { FitAddon } from "/@npm/@xterm/addon-fit.js"
+import { v4 as uuidv4 } from "/@npm/uuid.js"
+import sound from "../help/sound.js"
 const { applyPatch } = jsonpatch
 
 export default {
@@ -36,6 +39,10 @@ export default {
       console.log("连接成功")
       // 刷新/重连后，把后端还活着的 App 窗口全部重建出来（等同逐个点击任务管理器里的眼睛按钮）
       settingData.fnCall("appRestoreGui", []).catch(err => console.error("重建 App 窗口失败:", err))
+    })
+
+    this.socket.on("sound:play", (msg) => {
+      sound.play(msg.type)
     })
 
     this.socket.on("sys:pushMessage", (msg) => {
@@ -116,10 +123,11 @@ export default {
 
     this.socket.on("chat", async (msg) => {
       // 终端流已通过 app:dispatch 处理，这里仅处理尚未迁移的直推消息（兼容旧逻辑）
-      if (msg.group !== "user") {
+      //后端推送的消息处理，暂时没有使用而是直接使用chat:push
+      /*       if (msg.group !== "user") {
         chatData.preparing = false
       }
-      m.redraw()
+      m.redraw() */
     })
 
     this.socket.on("chat:refresh", async (config = {}) => {
@@ -133,6 +141,27 @@ export default {
       chatData.getHistoryList(listId)
       chatData.getSessionState(listId).unreadCount = 0
       m.redraw()
+    })
+
+    this.socket.on("chat:faceAction", ({ faceAction, url } = {}) => {
+      if (!faceAction || faceAction === "none") return
+      const defaultPet = comData.data.get().defaultPet
+      const imgUrl = url || `./statics/petPkgs/${defaultPet}/pet/${faceAction}.png`
+      const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 10
+      const winWidth = Math.round(21 * rem)
+      const x = Math.max(0, Math.round((window.innerWidth - winWidth) / 2))
+      const y = Math.round(2 * rem)
+      Notice.launch({
+        tip: faceAction,
+        isMini: true,
+        transparentContent: true,
+        hideBtn: 2,
+        useMinus: false,
+        closeOnClickOutside: true,
+        win: { x, y },
+        content: ChatFaceBubble,
+        contentAttrs: { url: imgUrl }
+      })
     })
 
     this.socket.on("project:loaded", async () => {
@@ -239,7 +268,8 @@ export default {
             uuid: uuidv4,
             jsonpatch,
             AutoForm,
-            FormItem
+            FormItem,
+            ChatToolSelect
           })
         }
         // Window Management: Resolve Geometry
@@ -323,7 +353,7 @@ export default {
       } catch (e) {
         console.log("app加载失败:", e)
         Notice.launch({
-          msg: `app加载失败: ${e.message}`,
+          msg: `app:${msg.appId} ${msg.name} 加载失败: ${e.message}`,
           timeout: 5000,
           color: "red"
         })
@@ -341,7 +371,7 @@ export default {
             (typeof tab.sign === 'string' && tab.sign.startsWith(msg.appId + "_"))
 
           if (isMatch) {
-            Notice.closeTab(tab)
+            Notice.closeTab(tab.sign)
           }
         }
       }
@@ -400,6 +430,29 @@ export default {
           // 借用 Notice 模块已有的成熟逻辑，它会自动触发 handleWindowUpdate 从而完成对后端的确认回执
           Notice.minimizeWindow(tab._winConfig.id)
           m.redraw()
+        }
+      }
+    })
+
+    // === 操作系统物理窗口生命周期状态同步 ===
+    // 当独立原生窗口在 macOS Dock、Windows 任务栏或原生红绿灯处被最小化、还原时触发
+    this.socket.on("window:state", async (msg) => {
+      const { winId, minimized } = msg || {}
+      if (!winId) return
+
+      if (minimized !== undefined) {
+        const item = Notice.data.dataArr.find(t => t._winConfig.id === winId)
+        if (item) {
+          const config = item._winConfig
+          if (config.minimized !== minimized) {
+            config.minimized = minimized
+            if (!minimized) {
+              Notice.activateWindow(config.id)
+            } else {
+              Notice.handleWindowUpdate(config)
+              m.redraw()
+            }
+          }
         }
       }
     })

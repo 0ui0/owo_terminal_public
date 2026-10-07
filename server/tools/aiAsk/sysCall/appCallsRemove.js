@@ -4,6 +4,10 @@ import appManager from "../../../apps/appManager.js"
 export default {
   name: "卸载App工具",
   id: "appCallsRemove",
+  mode: {
+    read: true,
+    write: false
+  },
   hidden: true,
 
   async fn(argObj) {

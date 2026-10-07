@@ -4,6 +4,10 @@ import appManager from "../../../apps/appManager.js"
 export default {
   name: "发送模板",
   id: "sendTemplate",
+  mode: {
+    read: true,
+    write: false
+  },
   async fn(argObj) {
     let { value, error } = this.joi().validate(argObj)
     if (error) {

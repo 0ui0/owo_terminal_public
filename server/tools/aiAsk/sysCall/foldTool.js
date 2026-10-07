@@ -3,6 +3,10 @@ import Joi from "joi"
 export default {
   name: "工具缓存池折叠工具",
   id: "foldTool",
+  mode: {
+    read: true,
+    write: false
+  },
   async fn(argObj, metaData) {
     const { value, error } = this.joi().validate(argObj)
     if (error) return "错误：" + error.details[0].message

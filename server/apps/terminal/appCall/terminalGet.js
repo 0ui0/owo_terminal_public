@@ -5,6 +5,10 @@ import backend from "../backend.js"
 export default {
   name: "获取终端列表或历史输出",
   id: "terminalGet",
+  mode: {
+    read: true,
+    write: false
+  },
 
   fn(argObj, metaData) {
     const { value, error } = this.joi().validate(argObj)

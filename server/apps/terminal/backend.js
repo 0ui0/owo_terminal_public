@@ -45,6 +45,30 @@ async function createShell(cwd) {
   })
 }
 
+function decodeLsofPath(rawPath) {
+  if (!rawPath || !rawPath.includes("\\x")) return rawPath
+  try {
+    const byteList = []
+    for (let i = 0; i < rawPath.length; ) {
+      if (rawPath[i] === "\\" && rawPath[i + 1] === "x" && i + 3 < rawPath.length) {
+        const hex = rawPath.slice(i + 2, i + 4)
+        const byte = parseInt(hex, 16)
+        if (!isNaN(byte)) {
+          byteList.push(byte)
+          i += 4
+          continue
+        }
+      }
+      const buf = Buffer.from(rawPath[i], "utf8")
+      for (const b of buf) byteList.push(b)
+      i++
+    }
+    return Buffer.from(byteList).toString("utf8")
+  } catch (e) {
+    return rawPath
+  }
+}
+
 async function checkCwd(app, shell, io) {
   const session = sessions.get(app.id)
   if (!session) return
@@ -55,7 +79,7 @@ async function checkCwd(app, shell, io) {
       const { stdout } = await execAsync(`lsof -a -p ${shell.pid} -d cwd -F n`)
       const pathLine = stdout.split("\n").find(l => l.startsWith("n"))
       if (pathLine) {
-        const newCwd = pathLine.substring(1)
+        const newCwd = decodeLsofPath(pathLine.substring(1))
         if (newCwd !== session.cwd) {
           session.cwd = newCwd
           app.data.cwd = newCwd

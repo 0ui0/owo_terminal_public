@@ -1,6 +1,6 @@
 import path from "path"
 import fs from "fs"
-import { fileURLToPath } from "url"
+import { fileURLToPath, pathToFileURL } from "url"
 
 // 模块元数据
 const appsDir = path.resolve(import.meta.dirname)
@@ -57,11 +57,15 @@ export function setLoaderPort(port) {
 
 // Loader 线程逻辑（独立线程，无法访问主线程的 fileVersions）
 let remoteDirVersions = new Map()
+let remoteUserDataAppsDir = process.env.USER_APPS_DIR || ""
 
 /**
  * Loader 初始化钩子
  */
 export function initialize(data) {
+  if (data?.userDataAppsDir) {
+    remoteUserDataAppsDir = data.userDataAppsDir
+  }
   if (data?.port) {
     data.port.on("message", (msg) => {
       if (msg?.type === "UPDATE_DIR_VERSION") {
@@ -90,6 +94,24 @@ export async function resolve(specifier, context, nextResolve) {
   }
 
   try {
+    // 外部用户目录 App 虚拟路径投射：将 userData/apps 越界相对引用投射到主系统 server/apps
+    if (remoteUserDataAppsDir && context.parentURL.startsWith("file://")) {
+      const parentPath = fileURLToPath(context.parentURL)
+      if (parentPath.startsWith(remoteUserDataAppsDir)) {
+        const appDirName = path.relative(remoteUserDataAppsDir, parentPath).split(path.sep)[0]
+        const appRoot = path.join(remoteUserDataAppsDir, appDirName)
+        const localTarget = path.resolve(path.dirname(parentPath), specifier)
+
+        // 核心守卫：仅当相对导入跨出了当前 App 自身根目录时，才触发主系统投射
+        if (path.relative(appRoot, localTarget).startsWith("..")) {
+          const sysTargetPath = path.resolve(path.dirname(parentPath.replace(remoteUserDataAppsDir, appsDir)), specifier)
+          if (fs.existsSync(sysTargetPath)) {
+            return { url: pathToFileURL(sysTargetPath).href, shortCircuit: true }
+          }
+        }
+      }
+    }
+
     const result = await nextResolve(specifier, context)
     if (!result?.url?.startsWith("file://")) return result
 
@@ -102,7 +124,10 @@ export async function resolve(specifier, context, nextResolve) {
     }
 
     // 检查是否属于 App 目录，并获取所属的 App 文件夹名称
-    const relativePath = path.relative(appsDir, resolvedPath)
+    const baseDir = resolvedPath.startsWith(appsDir) ? appsDir : remoteUserDataAppsDir
+    if (!baseDir) return result
+
+    const relativePath = path.relative(baseDir, resolvedPath)
     if (relativePath.startsWith("..") || path.isAbsolute(relativePath)) return result
 
     const appDirName = relativePath.split(path.sep)[0]

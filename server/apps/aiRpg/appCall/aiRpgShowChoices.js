@@ -4,6 +4,10 @@ import subAgents from "../../../tools/aiAsk/subAgents.js";
 export default {
     name: "显示RPG选项对话框",
     id: "aiRpgShowChoices",
+    mode: {
+        read: true,
+        write: false
+    },
 
     async fn(argObj, metaData) {
         const { value, error } = this.joi().validate(argObj);

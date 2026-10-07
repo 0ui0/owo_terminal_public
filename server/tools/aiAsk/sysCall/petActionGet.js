@@ -4,6 +4,10 @@ import actorAction from "../actorAction.js"
 export default {
   name: "获取可用动作与表情",
   id: "petActionGet",
+  mode: {
+    read: true,
+    write: false
+  },
 
   async fn(argObj, context) {
     const playFaces = actorAction.getPlayFaces()

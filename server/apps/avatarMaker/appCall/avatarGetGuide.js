@@ -135,6 +135,10 @@ const GUIDE_MARKDOWN = `# 🎭 角色包制作 (avatarMaker) 程序执行逻辑�
 export default {
   name: "获取角色包制作说明文档",
   id: "avatarGetGuide",
+  mode: {
+    read: true,
+    write: false
+  },
 
   async fn(argObj, metaData) {
     return {

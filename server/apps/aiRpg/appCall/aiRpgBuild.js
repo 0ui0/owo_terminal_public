@@ -11,6 +11,10 @@ const PREFABS_LIST = [
 export default {
     name: "建造RPG预制件",
     id: "aiRpgBuild",
+    mode: {
+        read: true,
+        write: false
+    },
 
     async fn(argObj) {
         const { value, error } = this.joi().validate(argObj);

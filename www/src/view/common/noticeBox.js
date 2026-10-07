@@ -4,6 +4,7 @@ import getColor from "./getColor.js";
 import Notice from "./notice.js";
 import commonData from "./commonData.js";
 import getAppIconUrl from "./getAppIconUrl.js";
+import settingData from "../setting/settingData.js";
 
 export default function () {
   let isResizing = false
@@ -304,7 +305,7 @@ export default function () {
     view: function ({ attrs }) {
       currentAttrs = attrs; // Update current attrs
       const win = attrs.windowData
-      const isMainWindow = win.isMainWindow || false
+      const isHostWindow = win.isMain || m.route.param("winId") === win.id
       const realTabs = attrs.tabs || []
 
       // 同步稳定物理列表
@@ -341,7 +342,7 @@ export default function () {
 
       const isAuto = (win.width === 0 || win.height === 0)
 
-      const resizeHandles = (!win.isMaximized && !isMainWindow) ? ["n", "s", "w", "e", "nw", "ne", "sw", "se"].map(dir => {
+      const resizeHandles = (!win.isMaximized && !isHostWindow) ? ["n", "s", "w", "e", "nw", "ne", "sw", "se"].map(dir => {
         const isCorner = dir.length === 2
         return m("", {
           style: {
@@ -363,15 +364,16 @@ export default function () {
       }) : []
 
       return m(".animated.zoomIn.window-box", {
+        "data-win-id": win.id,
         style: {
           position: "fixed",
           zIndex: win.zIndex,
-          display: win.minimized ? "none" : "flex",
+          display: (win.minimized && !isHostWindow) ? "none" : "flex",
           "-webkit-app-region": "no-drag",
           flexDirection: "column",
           background: getColor('gray_1').back,
           borderRadius: win.isMaximized ? "0" : "3rem",
-          boxShadow: isMainWindow ? "none" : "0 0 2rem rgba(0,0,0,0.3)",
+          boxShadow: isHostWindow ? "none" : "0 0 2rem rgba(0,0,0,0.3)",
           // 已移除 backdrop-filter: blur(10px)：窗口底色不透明，模糊根本看不见，纯粹是每帧重绘的额外开销
           //overflow: "hidden",
           border: win.isMaximized ? "none" : `0.1rem solid ${getColor('main').back}`,
@@ -379,27 +381,31 @@ export default function () {
           transition: isResizing || isMoving ? "none" : "display 0.3s, opacity 0.3s",
           minWidth: isMini ? "8rem" : "20rem",
 
-          ...(isMainWindow ? {
+          ...(isHostWindow ? {
             left: "0.5rem", top: "0.5rem", width: "calc(100% - 1rem)", height: "calc(100% - 1rem)"
           } : win.isMaximized ? {
             // 底部避让导航栏：Nav 已是独立于窗口层的高层级覆盖层，全屏窗口不能压住它
-            left: "0px", top: "38px", width: "100%", height: `calc(100% - 38px - ${commonData.navInset || 0}px)`
+            left: "0px", top: "2.5rem", width: "100%", height: `calc(100% - 2.5rem - ${commonData.navInset || 0}px)`
           } : {
             // 位置统一交给 transform：改 x/y 只触发合成层位移，不再触发重排（left/top 恒为 0）
             left: (win.x === 0 && win.y === 0 && isAuto) ? "50%" : "0px",
-            top: (win.x === 0 && win.y === 0 && isAuto) ? "50%" : "0px",
+            top: (win.x === 0 && win.y === 0 && isAuto) ? `calc(50% + (2.5rem - ${commonData.navInset || 0}px) / 2)` : "0px",
             transform: (win.x === 0 && win.y === 0 && isAuto) ? "translate(-50%, -50%)" : `translate3d(${win.x}px, ${win.y}px, 0)`,
             width: win.width === 0 ? "auto" : (win.width + "px"),
             height: win.height === 0 ? "auto" : (win.height + "px"),
-            maxWidth: "95vw", maxHeight: "95vh"
-          })
+            maxWidth: isAuto ? "95vw" : "none",
+            maxHeight: isAuto ? `calc(100vh - 2.5rem - ${commonData.navInset || 0}px - 2rem)` : "none"
+          }),
+          // 透明内容模式：窗口外壳同步去底，使内容整体悬浮
+          ...(activeTab.transparentContent ? {
+            background: "transparent",
+            border: "none",
+            boxShadow: "none"
+          } : {})
         },
-        onpointerdown: (e) => {
-          if (!isMainWindow) {
-            e.stopPropagation()
-          }
+        onpointerdown: () => {
           attrs.onActivate()
-        }
+        },
       }, [
         // ---------------- Header ----------------
         m("", {
@@ -413,16 +419,14 @@ export default function () {
             flexDirection: "column",
             flexShrink: 0,
             userSelect: "none",
-            padding: (isMainWindow && /macintosh|mac os x/i.test(navigator.userAgent))
-              ? (isMini ? "0.2rem 0.5rem 0.2rem 80px" : "0.4rem 1rem 0.4rem 80px")
-              : (isMini ? "0.2rem 0.5rem" : "0.4rem 1rem"),
+            padding: isMini ? "0.2rem 0.5rem" : "0.4rem 1rem",
             minHeight: isMini ? "1.7rem" : "3.3rem",
-            "-webkit-app-region": isMainWindow ? "drag" : "no-drag",
+            "-webkit-app-region": isHostWindow ? "drag" : "no-drag",
             position: "relative",
             zIndex: 5
           },
           onpointerdown: (e) => {
-            if (!isMainWindow) handleTitleDown(e, win, attrs.onActivate)
+            if (!isHostWindow) handleTitleDown(e, win, attrs.onActivate)
           },
           ondblclick: (e) => {
             attrs.onMaximize(e)
@@ -437,15 +441,14 @@ export default function () {
               height: "100%"
             }
           }, [
-            (isMainWindow && /macintosh|mac os x/i.test(navigator.userAgent)) ? m("", {
+            (isHostWindow && /macintosh|mac os x/i.test(navigator.userAgent)) ? m("", {
               style: {
-                position: "absolute",
-                left: "0.3rem",
-                top: "0.35rem",
-                width: "6.2rem",
-                height: "1.9rem",
+                width: isMini ? "4.5rem" : "6.2rem",
+                height: isMini ? "1.4rem" : "1.9rem",
                 background: "#00000033",
                 borderRadius: "3rem",
+                marginRight: isMini ? "0.3rem" : "0.5rem",
+                flexShrink: 0,
                 pointerEvents: "none"
               }
             }) : null,
@@ -468,8 +471,8 @@ export default function () {
                 flexShrink: 0,
                 minWidth: isMini ? "2rem" : "4rem",
                 fontSize: isMini ? "1.1rem" : undefined,
-                "-webkit-app-region": "no-drag",
-                cursor: "default"
+                cursor: "default",
+                "-webkit-app-region": isHostWindow ? "drag" : "no-drag"
               },
               ext: {
                 ondblclick: (e) => {
@@ -527,6 +530,41 @@ export default function () {
               ])
             ]),
 
+            // 独立窗口打开按钮 (在非主底座时始终显示，用于状态切换)
+            !win.isMain ? m(Box, {
+              class: "win-btn",
+              isBtn: true,
+              title: win.childWin && !win.childWin.closed ? "还原回虚拟窗口" : "独立窗口打开",
+              style: {
+                background: getColor('gray_2').back,
+                color: getColor('gray_2').front,
+                border: `0.1rem solid ${getColor('gray_1').back}`,
+                borderRadius: "50%",
+                display: "inline-flex",
+                justifyContent: "center",
+                alignItems: "center",
+                padding: "0",
+                width: isMini ? "1.3rem" : "2.2rem",
+                height: isMini ? "1.3rem" : "2.2rem",
+                marginLeft: isMini ? "0.2rem" : "0.5rem",
+                flexShrink: 0,
+                "-webkit-app-region": "no-drag"
+              },
+              ext: {
+                onpointerdown: (e) => e.stopPropagation(),
+                onclick: (e) => {
+                  e.stopPropagation()
+                  const rootDom = e.target.closest(".window-box")
+                  materialize(rootDom, win)
+                  attrs.onWebWindowOpen(e)
+                }
+              }
+            }, [
+              m("", { style: { pointerEvents: "none", display: "inline-flex", alignItems: "center", justifyContent: "center" } }, [
+                m.trust(iconPark.getIcon("OffScreenOne", { fill: getColor('gray_6').front, size: isMini ? "8px" : "12px" }))
+              ])
+            ]) : null,
+
             // 宽屏时：标题栏内的菜单栏占位
             m("", {
               style: {
@@ -537,7 +575,7 @@ export default function () {
                 height: "100%"
               }
             }, [
-              (!isMini && (win.width === 0 || win.width >= 520) && activeTab.titleBar)
+              (activeTab.titleBar && !isMini && (isHostWindow ? window.innerWidth >= 700 : (win.width === 0 || win.width >= 700)))
                 ? m(activeTab.titleBar)
                 : null
             ]),
@@ -712,7 +750,7 @@ export default function () {
           ]),
 
           // 第二行（在标题栏胶囊内部）：窄窗时用有颜色的独立圆角胶囊容器包裹菜单栏
-          (activeTab.titleBar && (isMini || (win.width > 0 && win.width < 700))) ? m(Box, {
+          (activeTab.titleBar && (isMini || (isHostWindow ? window.innerWidth < 700 : (win.width > 0 && win.width < 700)))) ? m(Box, {
             isBlock: true,
             style: {
               display: "block",
@@ -796,7 +834,7 @@ export default function () {
             },
             onpointerdown: (e) => {
               e.stopPropagation()
-              attrs.onSwitchTab(tab)
+              attrs.onSwitchTab(tab.sign)
               handleTabDown(e, tab, realTabs, attrs.onSetTabOrder)
             }
           }, [
@@ -821,7 +859,7 @@ export default function () {
               onpointerdown: (e) => { e.stopPropagation() }, // 防止触发拖拽
               onclick: (e) => {
                 e.stopPropagation()
-                attrs.onCloseTab(tab, e)
+                attrs.onCloseTab(tab.sign, e)
               }
             }, "×")
           ])
@@ -843,6 +881,32 @@ export default function () {
           }
         }, stablePhysicalTabs.map(tab => { // 绝对物理稳定渲染，保证 webview 不重连
           const isActive = tab.sign === win.activeSign
+
+          // 主窗口渲染外部独立窗口时：无 style 的 Box 呈现 SVG 占位图标，点击激活外部视窗
+          if (!isHostWindow && win.isWindow) {
+            return m("div", {
+              key: tab.sign,
+              style: {
+                display: isActive ? "flex" : "none",
+                flex: 1,
+                alignItems: "center",
+                justifyContent: "center"
+              }
+            }, [
+              m(Box, {
+                isBtn: true,
+                ext: {
+                  onclick: () => {
+                    if (win.childWin && !win.childWin.closed) win.childWin.focus()
+                    settingData.fnCall("sysWinControl", ["focus", win.id])
+                  }
+                }
+              }, [
+                m.trust(iconPark.getIcon("OffScreenOne", { size: "48px" }))
+              ])
+            ])
+          }
+
           const ContentComp = tab.content
           if (!ContentComp) return null
 
@@ -860,7 +924,7 @@ export default function () {
               noticeConfig: tab,
               key: tab.sign + "_content",
               ...tab.contentAttrs,
-              delete: () => attrs.onCloseTab(tab),
+              delete: () => attrs.onCloseTab(tab.sign),
               // 备注：closeLayer 为旧版“遮罩层弹窗”的遗留接口，当前无任何 App 使用（仅保留兼容）
               closeLayer: () => attrs.onCloseWindow()
             })

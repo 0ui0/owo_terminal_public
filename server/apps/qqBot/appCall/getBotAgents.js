@@ -1,9 +1,14 @@
 import Joi from "joi"
 import appManager from "../../../apps/appManager.js"
+import { qlog } from "../lib/logger.js"
 
 export default {
   name: "获取QQ机器人列表",
   id: "getBotAgents",
+  mode: {
+    read: true,
+    write: false
+  },
   async fn(argObj) {
     try {
       const { _localStore } = await import("../lib/botCmds/botCmd_aiAsk.js")
@@ -22,7 +27,7 @@ export default {
             const groupid = group.groupid || group.channelid;
             const state = _localStore.groups[groupid] || {};
             const typeLabel = key.includes("Local") ? "本地" : (key.includes("channels") ? "频道" : "官方");
-            const agentName = agent ? agent.name : group.name;
+            const agentName = subAgents.get(group.listId)?.name || group.name;
 
             bots.push({
               listId: group.listId,
@@ -49,7 +54,7 @@ export default {
         data: bots
       }
     } catch (err) {
-      console.log(err)
+      qlog(`[qqBot/getBotAgents] ${err.message}`, "error")
       return { ok: false, msg: err.message }
     }
   },

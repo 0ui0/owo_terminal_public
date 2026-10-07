@@ -1,7 +1,7 @@
 import { trs } from "../common/i18n.js"
 import getColor from "../common/getColor.js"
 import Tag from "../common/tag.js"
-import mermaid from "mermaid"
+import mermaid from "/@npm/mermaid.js"
 import format from "../common/format.js"
 import settingData from "../setting/settingData.js"
 

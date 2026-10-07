@@ -62,6 +62,10 @@ const byteRangeToCharRange = (text, byteStart, byteEnd) => {
 export default {
   name: "全局代码搜索",
   id: "codeSearch",
+  mode: {
+    read: true,
+    write: false
+  },
   async fn(argObj, metaData) {
     let { value, error } = this.joi().validate(argObj)
     if (error) {

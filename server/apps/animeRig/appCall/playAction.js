@@ -4,6 +4,10 @@ import appManager from "../../../apps/appManager.js"
 export default {
   name: "执行骨骼小人动作表情",
   id: "playAction",
+  mode: {
+    read: true,
+    write: false
+  },
 
   async fn(argObj) {
     try {

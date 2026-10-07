@@ -1,7 +1,11 @@
 import Joi from "joi"
 export default {
-  name:"叮咚",
-  id:"dingDong",
+  name: "叮咚",
+  id: "dingDong",
+  mode: {
+    read: true,
+    write: false
+  },
   fn(argObj){
     let {value,error} = this.joi().validate(argObj)
     if(error){

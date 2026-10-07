@@ -1,5 +1,5 @@
-import colorObj from "./colorObj"
-import commonData from "./commonData"
+import colorObj from "./colorObj.js"
+import commonData from "./commonData.js"
 
 export default function (colorStr) {
   const themeId = commonData.themeColor || 0

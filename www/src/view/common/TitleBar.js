@@ -1,5 +1,6 @@
-import m from "mithril"
+import m from "/@npm/mithril.js"
 import FileMenu from "./FileMenu.js"
+import ViewMenu from "./ViewMenu.js"
 import commonData from "./commonData.js"
 import { trs } from "./i18n.js"
 import MessageInbox from "./MessageInbox.js"
@@ -27,10 +28,12 @@ export default () => {
           style: {
             display: "inline-flex",
             alignItems: "center",
-            transform: "scale(0.85)",
-            transformOrigin: "left center"
+            gap: "0.2rem"
           }
-        }, m(FileMenu)),
+        }, [
+          m(FileMenu),
+          m(ViewMenu)
+        ]),
         m("div", { style: { marginLeft: "auto", display: "flex", alignItems: "center", gap: "8px" } }, [
           // Message Inbox
           m("div", {

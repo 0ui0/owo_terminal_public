@@ -7,6 +7,10 @@ import workDirTool from "../../../tools/workDirTool.js"
 export default {
   name: "启动编辑器",
   id: "editorLaunch",
+  mode: {
+    read: true,
+    write: false
+  },
 
   async fn(argObj, metaData) {
     const { value, error } = this.joi().validate(argObj)

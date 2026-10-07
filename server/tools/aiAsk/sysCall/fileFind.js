@@ -7,6 +7,10 @@ import workDirTool from "../../workDirTool.js"
 export default {
   name: "查找文件",
   id: "fileFind",
+  mode: {
+    read: true,
+    write: false
+  },
   async fn(argObj, metaData) {
     let { value, error } = this.joi().validate(argObj)
     if (error) {

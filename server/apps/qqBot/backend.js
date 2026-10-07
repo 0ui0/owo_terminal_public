@@ -3,37 +3,51 @@
 import msgCenter from './lib/botMsgCenter.js'
 import onebot from './lib/qqBotServer.js'
 import official from './lib/qqBotOnline.js'
+import { qlog, getLogs, clearLogs } from './lib/logger.js'
+import { pulseMeta, pulseGroups } from './lib/pulseDefaults.js'
+import getToolsList from '../../crossFuncs/getToolsList.js'
+import comData from '../../comData/comData.js'
+import projectManager from "../../managers/projectManager.js"
+import subAgents from "../../tools/aiAsk/subAgents.js"
+import createAgent from "../../tools/aiAsk/sysCall/createAgent.js"
+import fs from "fs-extra"
 
 export default {
   app: null,
   appManager: null,
 
-
   /**
    * 初始化：App 启动时执行
    */
   async init(app, appManager) {
-    console.log(`[qqBot] 初始化后端... AppId: ${app.id}`);
-
-    // 挂载实例引用，供 lib 模块读取配置
+    // 先挂载实例引用，供 lib 模块（含日志中心）读取
     this.app = app;
     this.appManager = appManager;
+
+    // 初始化日志存储（随实例生命周期绑定，实例销毁即随 app.data 自动回收）
+    if (!app.data.logs) {
+      app.data.logs = [];
+    }
+
+    qlog(`[qqBot] 初始化后端... AppId: ${app.id}`, "conn");
 
     // 初始化 app.data（如果不存在）
     if (!app.data.config) {
       app.data.config = {
         // 字段名保持与旧版数据库一致
         "3rd_qqRobot_switch": false,
-        "3rd_qqRobotLocal_switch": false,
-        "3rd_qqRobotLocal_wsUrl": "ws://localhost:6700",
-        "3rd_qqRobotLocal_accessToken": "",
-        "3rd_qqRobot_appId": "",
-        "3rd_qqRobot_clientSecret": "",
-        "3rd_qqRobot_botToken": "",
+        "3rd_qqRobot_debugMode": false,
+        "3rd_qqRobot_reactAnyGroup": false,
+        "3rd_qqRobot_qqNum": "",
+        "3rd_qqRobot_appid": "",
+        "3rd_qqRobot_token": "",
+        "3rd_qqRobot_secret": "",
         "3rd_qqRobot_groups": [],
         "3rd_qqRobot_channels": [],
-        "3rd_qqRobotLocal_groups": [],
-        "3rd_qqRobot_reactAnyGroup": false
+        "3rd_qqRobotLocal_switch": false,
+        "3rd_qqRobotLocal_qqNum": "",
+        "3rd_qqRobotLocal_wsUrl": "ws://localhost:3100",
+        "3rd_qqRobotLocal_groups": []
       };
     }
 
@@ -41,7 +55,7 @@ export default {
       await this.startConnections(app, appManager);
       await this.initSubAgents(app, appManager);
     } catch (err) {
-      console.error("[qqBot] 初始化失败:", err);
+      qlog(`[qqBot] 初始化失败: ${err.message}`, "error");
     }
   },
 
@@ -51,20 +65,19 @@ export default {
   async startConnections(app, appManager) {
     const cfg = app.data.config;
 
-    // 启动本地 OneBot WS
-    console.log("启动", cfg["3rd_qqRobotLocal_switch"], onebot?.init)
-    if (cfg["3rd_qqRobotLocal_switch"]) {
+    // 只要配置了 wsUrl 就启动常驻连接，网络层始终在线保活，真正开关由消息处理层拦截
+    if (cfg["3rd_qqRobotLocal_wsUrl"]) {
+      await onebot.stop();
       await onebot.start(cfg["3rd_qqRobotLocal_wsUrl"]);
     }
-
 
 
     // 启动官方机器人 API
     if (cfg["3rd_qqRobot_switch"] && official?.init) {
       official.init(
-        cfg["3rd_qqRobot_appId"],
-        cfg["3rd_qqRobot_clientSecret"],
-        cfg["3rd_qqRobot_botToken"]
+        cfg["3rd_qqRobot_appid"],
+        cfg["3rd_qqRobot_secret"],
+        cfg["3rd_qqRobot_token"]
       );
     }
   },
@@ -78,12 +91,12 @@ export default {
       const groupKeys = ["3rd_qqRobot_groups", "3rd_qqRobotLocal_groups", "3rd_qqRobot_channels"];
 
       // 动态导入主系统模块
-      const { default: subAgents } = await import("../../tools/aiAsk/subAgents.js");
-      const { default: createAgent } = await import("../../tools/aiAsk/sysCall/createAgent.js");
+      
 
       let configChanged = false;
       let errorMsgs = [];
       let successCount = 0;
+      let updatedExistingCount = 0;
 
       // 1. 严格校验：检查存档中是否存在重复 ID
       const seenIds = new Set();
@@ -92,7 +105,7 @@ export default {
           if (group.listId) {
             if (seenIds.has(group.listId)) {
               const msg = `存档异常：发现重复的 listId (${group.listId})，位于 ${key}，请手动修复存档！`;
-              console.error(`[qqBot] ${msg}`);
+              qlog(`[qqBot] ${msg}`, "error");
               return { ok: false, msg };
             }
             seenIds.add(group.listId);
@@ -101,33 +114,43 @@ export default {
       }
 
       // 2. 开始初始化
+      const grantedToolIdListMap = new Map();
       for (const key of groupKeys) {
         const groupArr = cfg[key] || [];
         for (const group of groupArr) {
           if (!group.switch) continue;
 
-          // 已有 listId 且智能体已存在 → 跳过
+          // 已有 listId 且智能体已存在 → 同步覆盖现有会话的工具配置
           if (group.listId && subAgents.get(group.listId)) {
+            const grantedTools = Array.isArray(group.toolIdList) ? group.toolIdList : [];
+            grantedToolIdListMap.set(group.listId, grantedTools);
+            await comData.data.edit(data => {
+              const targetChatList = data.chatLists?.find(item => item.id === group.listId);
+              if (targetChatList) {
+                targetChatList.defaultTools = [...grantedTools];
+                targetChatList.allowUseTools = [...grantedTools];
+              }
+            });
+            updatedExistingCount++;
             successCount++;
             continue;
           }
 
+          // 该接入目标的工具集：直接使用配置数组
+          const grantedToolIdList = Array.isArray(group.toolIdList) ? group.toolIdList : [];
+
           // 调用主系统的 createAgent 创建子智能体
           const isChannel = key === "3rd_qqRobot_channels";
           const typeName = isChannel ? "QQ频道" : "QQ群";
-          const agentPrompt = `
-          你的设定如下：性别男，少年，身高165厘米，体重42千克，性格邪魅、傲娇又温柔搞怪，喜欢恶作剧
-          在独处的时候，喜欢探索互联网上一切奇妙的事物，用严密的逻辑分析和推理，并得出自我得意的对世界的认识的各种结论
-          有超强的独立思考能力；能强硬而理性地自己做出决定并执行
-          能够进行深邃的思考，并给出属于自己的意见。
-          在面对他人的时候，调皮搞怪的性格则充当了主角，内心渴望和人玩耍打闹，却用各种搞怪的恶作剧表现出来的小傲娇。
-          当别人能够进入内心深处的时候，则表现出温柔的一面。
+          const personality = (group.prompt && group.prompt.trim()) ? group.prompt.trim() : "";
+          const envInstruction = `
           现在系统会把你放置在QQ群${typeName}「${group.name}」里。
           你会同时收到来自不同用户的消息，当收到消息的时候，你需要伪装和模仿成一名${typeName}的普通QQ网友用户的聊天风格进行回复。
           ${typeName}消息通常简短而日常，忌讳长篇大论。且聊天应该完全口语化。你可以使用at功能来at群聊的用户。
           伪装群友的时候，需要观察群里其它人的语气风格，不要有太多出格的语言表达，像一个正常人。回复里不要谈及任何关于你的昵称和身份设定。
           不要使用俏皮的语气说话，不要使用颜文字和字符表情
           `.trim();
+          const agentPrompt = personality ? `${personality}\n\n${envInstruction}` : envInstruction;
           const result = await createAgent.fn.call(createAgent, {
             name: `${typeName}-${group.name}`,
             prompt: agentPrompt,
@@ -135,21 +158,32 @@ export default {
             noAutoOpen: true,
             isBotAgent: true
           }, {
-            listId: 0 // 以主列表为父级
+            listId: 0, // 以主列表为父级
+            defaultTools: grantedToolIdList,
+            allowUseTools: grantedToolIdList
           });
-
-          console.log(`[qqBot] createAgent 结果:`, JSON.stringify(result, null, 2));
 
           if (result.ok) {
             group.listId = result.newListid;
+            grantedToolIdListMap.set(group.listId, grantedToolIdList);
             configChanged = true;
             successCount++;
-            console.log(`[qqBot] ✓ 群 ${group.name}(${group.groupid}) 智能体已创建 (listId:${group.listId})`);
+            qlog(`[qqBot] 群 ${group.name}(${group.groupid}) 智能体已创建 (listId:${group.listId})`, "conn");
           } else {
-            console.error(`[qqBot] ✗ 群 ${group.name} 创建失败:`, result.msg);
+            qlog(`[qqBot] 群 ${group.name} 创建失败: ${result.msg}`, "error");
             errorMsgs.push(`${group.name}: ${result.msg}`);
           }
         }
+      }
+
+      // 把「授予的工具」与「会被确认拦截的工具」的交集写入各会话的免确认白名单
+      for (const [listId, grantedToolIdList] of grantedToolIdListMap) {
+        const confirmableRes = await getToolsList.func(listId);
+        await comData.data.edit(data => {
+          data.chatLists.find(item => item.id === listId).skipConfirmTools = confirmableRes.data
+            .filter(tool => grantedToolIdList.includes(tool.id))
+            .map(tool => tool.id);
+        });
       }
 
       // 如果分配了新 listId，推送配置更新给前端
@@ -169,9 +203,13 @@ export default {
       }
 
       if (successCount > 0) {
+        let msg = `成功初始化 ${successCount} 个智能体`;
+        if (updatedExistingCount > 0) {
+          msg += `（已同步覆盖 ${updatedExistingCount} 个已有会话配置。⚠️为避免前缀缓存穿透，建议在会话列表内重新配置一次模型）`;
+        }
         return {
           ok: true,
-          msg: `成功初始化 ${successCount} 个智能体`,
+          msg,
         }
       }
       else {
@@ -183,7 +221,7 @@ export default {
 
 
     } catch (err) {
-      console.error("[qqBot] 子智能体初始化失败:", err);
+      qlog(`[qqBot] 子智能体初始化失败: ${err.message}`, "error");
       return { ok: false, msg: "初始化异常: " + err.message };
     }
   },
@@ -199,7 +237,76 @@ export default {
        * 必须通过此 dispatch 接口作为“中转港口”，从而确保外部调用始终指向最新的 HMR 实例。
        */
       if (action === "getConfig") {
-        return { ok: true, msg: "获取配置成功", data: app.data.config };
+        return {
+          ok: true,
+          msg: "获取配置成功",
+          data: app.data.config,
+          pulseMeta,
+          pulseGroups
+        };
+      }
+
+      if (action === "getStatus") {
+        const cfg = app.data.config || {};
+        return {
+          ok: true,
+          msg: "获取状态成功",
+          data: {
+            localSwitch: !!cfg["3rd_qqRobotLocal_switch"],
+            localConnected: !!(onebot?.ws && onebot.ws.readyState === 1),
+            localUrl: cfg["3rd_qqRobotLocal_wsUrl"] || "",
+            officialSwitch: !!cfg["3rd_qqRobot_switch"],
+            officialConfigured: !!(cfg["3rd_qqRobot_appid"] && cfg["3rd_qqRobot_secret"] && cfg["3rd_qqRobot_token"]),
+            officialAppId: cfg["3rd_qqRobot_appid"] || ""
+          }
+        };
+      }
+
+      if (action === "setPower") {
+        const on = !!args?.on;
+        app.data.config = {
+          ...app.data.config,
+          "3rd_qqRobot_switch": on,
+          "3rd_qqRobotLocal_switch": on
+        };
+        io.emit("app:dispatch", {
+          appId: app.id,
+          action: "updateConfig",
+          args: { config: app.data.config }
+        });
+
+        projectManager.markDirty();
+
+        if (on) {
+          await this.startConnections(app, appManager);
+          await this.initSubAgents(app, appManager);
+        }
+
+        qlog(`[qqBot] 机器人已${on ? "启动" : "停止"}`, "conn");
+        return { ok: true, msg: on ? "机器人已启动" : "机器人已停止" };
+      }
+
+      if (action === "getLogs") {
+        return { ok: true, msg: "获取日志成功", data: getLogs(args?.sinceId) };
+      }
+
+      if (action === "clearLogs") {
+        clearLogs();
+        return { ok: true, msg: "日志已清空" };
+      }
+
+      if (action === "resetPulse") {
+        app.data.config = { ...app.data.config, pulseConfig: {} };
+
+        projectManager.markDirty();
+
+        io.emit("app:dispatch", {
+          appId: app.id,
+          action: "updateConfig",
+          args: { config: app.data.config }
+        });
+        qlog("[qqBot] 社交脉冲参数已恢复默认", "conn");
+        return { ok: true, msg: "已恢复默认参数" };
       }
 
       if (action === "updateConfig") {
@@ -212,6 +319,12 @@ export default {
         });
 
 
+        // 打通 owo 存档持久化：配置变更后标记项目为脏
+        
+        projectManager.markDirty();
+
+        qlog("[qqBot] 配置已更新", "conn");
+
         await this.startConnections(app, appManager); //启动websocket链接
         const result = await this.initSubAgents(app, appManager);
 
@@ -219,15 +332,6 @@ export default {
           ok: true,
           msg: `配置更新成功，尝试初始化：${result.msg}`
         };
-      }
-
-      if (action === "reconnect") {
-        await this.startConnections(app, appManager);
-        return { ok: true, msg: "重连请求已发送" };
-      }
-
-      if (action === "initAgents") {
-        return await this.initSubAgents(app, appManager);
       }
 
       if (action === "send") {
@@ -242,7 +346,6 @@ export default {
       }
 
       if (action === "readFile") {
-        const fs = (await import("fs-extra")).default || (await import("fs-extra"));
         const { filePath } = args;
         if (!filePath) {
           return { ok: false, msg: "缺少文件路径" };
@@ -253,7 +356,6 @@ export default {
       }
 
       if (action === "saveToFile") {
-        const fs = (await import("fs-extra")).default || (await import("fs-extra"));
         const { filePath, content } = args;
         if (!filePath || content === undefined) {
           return { ok: false, msg: "缺少路径或内容" };
@@ -265,7 +367,7 @@ export default {
 
       return { ok: false, msg: `未知动作: ${action}` };
     } catch (err) {
-      console.log("[qqBot] dispatch 错误:", err);
+      qlog(`[qqBot] dispatch 错误: ${err.message}`, "error");
       return { ok: false, msg: err.message };
     }
   },
@@ -275,7 +377,7 @@ export default {
    */
   async destroy(app, appManager) {
     if (onebot?.stop) onebot.stop();
+    qlog("[qqBot] 后端已停机", "conn");
     this.app = null;
-    console.log(`[qqBot] 后端已停机`);
   }
 };

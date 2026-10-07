@@ -487,7 +487,7 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, chatData, set
             const range = startLine === endLine ? `L${startLine}` : `L${startLine}-L${endLine}`
             if (chatData && chatData.quoteCode) {
               chatData.quoteCode(filePath, range)
-              Notice.launch({ msg: "已引用到聊天框" })
+              //Notice.launch({ msg: "已引用到聊天框" })
             } else {
               Notice.launch({ msg: "未找到聊天框实例" })
             }
@@ -614,7 +614,7 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, chatData, set
           const range = startLine === endLine ? `L${startLine}` : `L${startLine}-L${endLine}`
           if (chatData && chatData.quoteCode) {
             chatData.quoteCode(filePath, range)
-            Notice.launch({ msg: "已引用到聊天框" })
+            //Notice.launch({ msg: "已引用到聊天框" })
           } else {
             Notice.launch({ msg: "未找到聊天框实例" })
           }
@@ -1091,7 +1091,7 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, chatData, set
           const oldAppId = oldTab.contentAttrs.appId
           const oldInstance = commonData?.appsData?.[oldAppId]?.instances?.get(oldAppId)
           // 关闭旧窗口走它自身的关闭钩子（未保存时编辑器会再弹出保存选择）
-          const closeOldTab = () => oldTab.cancel(null, () => Notice.closeTab(oldTab), oldTab, null)
+          const closeOldTab = () => oldTab.cancel(null, () => Notice.closeTab(oldTab.sign), oldTab, null)
           if (oldInstance && oldInstance.isDirty) {
             Notice.launch({
               sign: "ask_close_" + oldAppId,

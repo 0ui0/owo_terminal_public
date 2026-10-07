@@ -8,6 +8,7 @@ export default {
   getModeOptions() {
     return [
       { value: "readWrite", label: trs("下拉栏/读写模式", { cn: "工具读写", en: "Read/Write" }), desc: trs("下拉栏/读写描述", { cn: "正常模式，允许调用所有工具", en: "Normal mode, allows all tool calls" }) },
+      { value: "readOnly", label: trs("下拉栏/只读模式", { cn: "只读", en: "Read Only" }), desc: trs("下拉栏/只读描述", { cn: "只读模式，仅允许调用只读工具", en: "Read-only mode, only allows read-only tools" }) },
       { value: "chatOnly", label: trs("下拉栏/仅聊天", { cn: "仅聊天", en: "Chat Only" }), desc: trs("下拉栏/仅聊天描述", { cn: "禁止大模型实际执行所有系统级工具", en: "Prevent AI from executing any system tools" }) }
     ]
   },
@@ -105,7 +106,7 @@ export default {
     return null
   },
   userHasScrolledUp: false,
-  checkDomScrollAtBottom(listId, buffer = 120) {
+  checkDomScrollAtBottom(listId, buffer = 20) {
     const el = this.getChatListDom(listId)
     if (!el) return true
     return (el.scrollHeight - el.scrollTop - el.clientHeight) <= buffer
@@ -218,13 +219,16 @@ export default {
       Notice.launch({ msg: trs("输入框/提示/请先聚焦", { cn: "请先点击一个聊天输入框，再引用喵", en: "Please focus a chat input box first" }), type: "info" })
       return
     }
-    this.focusEditor.insertAtCursor(` ${txt} `)
+    this.focusEditor.insertAtCursor(txt)
   },
   quoteAppId(appId) {
     this.quoteToChatInputText(appId, null)
   },
   quoteAttachId(attachId) {
     this.quoteToChatInputText("system", [{ key: "attachid", value: attachId }])
+  },
+  quoteFilePath(path) {
+    this.quoteToChatInputText("system", [{ key: "filePath", value: path }])
   },
   quoteCode(path, lineRange, appId = null) {
     const val = lineRange ? `${path}:${lineRange}` : path

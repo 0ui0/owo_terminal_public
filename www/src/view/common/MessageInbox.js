@@ -1,4 +1,4 @@
-import m from "mithril"
+import m from "/@npm/mithril.js"
 import commonData from "./commonData.js"
 import Notice from "./notice.js"
 import { trs } from "./i18n.js"

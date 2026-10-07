@@ -31,7 +31,7 @@ export default async () => {
           })
           return h.response(content).type('application/javascript').header('Cache-Control', 'no-cache, no-store, must-revalidate')
         }
-        return h.file(filePath).header('Cache-Control', 'no-cache, no-store, must-revalidate')
+        return h.file(filePath, { confine: false }).header('Cache-Control', 'no-cache, no-store, must-revalidate')
       } catch (e) {
         return h.response("File not found").code(404)
       }

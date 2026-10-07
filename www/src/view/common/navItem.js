@@ -1,6 +1,6 @@
-import getColor from "./getColor"
-import commonData from "./commonData"
-import Notice from "./notice"
+import getColor from "./getColor.js"
+import commonData from "./commonData.js"
+import Notice from "./notice.js"
 import { trs } from "./i18n.js"
 import getAppIconUrl from "./getAppIconUrl.js"
 
@@ -8,6 +8,7 @@ export default {
   view: ({ attrs }) => {
     const { item, index, urlList, barZoomRate } = attrs
     const navWinMode = commonData.navWinMode // 默认不启用winMode
+    const tab = item.type === "program" ? Notice.data.dataArr.find(t => t.sign === item.sign) : null
 
     return m(".animated.bounceIn", {
       style: {
@@ -79,6 +80,7 @@ export default {
             height: Mob
               ? `${(3.5 * item.sizeRate * barZoomRate).toFixed(2)}rem`
               : `${(3 * item.sizeRate * barZoomRate).toFixed(2)}rem`,
+            opacity: tab && tab._winConfig.minimized ? 0.55 : 1,
             willChange: "width,height,transform",
             transform: "translateZ(0)",
             cursor: "pointer",
@@ -100,7 +102,23 @@ export default {
               ROUTE.set(item.url);
             }
           }
-        })
+        }),
+        tab ? m(".nav-indicator", {
+          style: {
+            position: "absolute",
+            bottom: "-0.25rem",
+            left: "50%",
+            transform: "translateX(-50%)",
+            width: !tab._winConfig.minimized && Notice.data.activeWindowId === tab._winConfig.id ? "1.4rem" : "0.5rem",
+            height: !tab._winConfig.minimized && Notice.data.activeWindowId === tab._winConfig.id ? "0.3rem" : "0.5rem",
+            borderRadius: !tab._winConfig.minimized && Notice.data.activeWindowId === tab._winConfig.id ? "0.2rem" : "50%",
+            backgroundColor: tab._winConfig.minimized ? getColor('yellow_1').back : (Notice.data.activeWindowId === tab._winConfig.id ? getColor('green_1').back : getColor('gray_8').back),
+            boxShadow: !tab._winConfig.minimized && Notice.data.activeWindowId === tab._winConfig.id ? `0 0 6px ${getColor('green_1').back}` : (tab._winConfig.minimized ? `0 0 6px ${getColor('yellow_1').back}` : `0 0 3px ${getColor('gray_6').back}`),
+            border: tab._winConfig.minimized ? `1.5px solid ${getColor('gray_8').back}` : "none",
+            pointerEvents: "none",
+            transition: "all 0.3s ease"
+          }
+        }) : null
       ]),
 
       // 指示条

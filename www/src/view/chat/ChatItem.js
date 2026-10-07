@@ -16,7 +16,6 @@ import AgentWindow from "./AgentWindow.js"
 import { trs } from "../common/i18n.js"
 import getColor from "../common/getColor.js"
 import getBlurBg from "../common/getBlurBg.js"
-import { override } from "joi"
 import Avatar from "./Avatar.js"
 import ChatiTmRestoreDialog from "./ChatiTmRestoreDialog.js"
 import Row from "../../class/row.js"
@@ -245,8 +244,7 @@ export default ChatItem = () => {
             const range = sel.getRangeAt(0)
             if (!dom.contains(range.commonAncestorContainer)) return
             const selectedStr = sel.toString()
-            const old = Notice.data.dataArr.find((i) => i.sign === "chatItemSelMenu")
-            if (old) Notice.closeTab(old)
+            Notice.closeTab("chatItemSelMenu")
             const rect = range.getBoundingClientRect()
             Notice.launch({
               sign: "chatItemSelMenu",
@@ -275,12 +273,11 @@ export default ChatItem = () => {
                     onclick: async () => {
                       try {
                         await navigator.clipboard.writeText(selectedStr)
-                        Notice.launch({ msg: trs("聊天界面/提示/已复制", { cn: "已复制到剪贴板", en: "Copied to clipboard" }), type: "success" })
+                        //Notice.launch({ msg: trs("聊天界面/提示/已复制", { cn: "已复制到剪贴板", en: "Copied to clipboard" }), type: "success" })
                       } catch (err) {
                         Notice.launch({ msg: trs("聊天界面/提示/复制失败", { cn: "复制失败: ", en: "Copy failed: " }) + err.message, type: "error" })
                       }
-                      const menu = Notice.data.dataArr.find((i) => i.sign === "chatItemSelMenu")
-                      if (menu) Notice.closeTab(menu)
+                      Notice.closeTab("chatItemSelMenu")
                     }
                   }, trs("聊天界面/词汇/复制", { cn: "复制", en: "Copy" })),
 
@@ -295,8 +292,7 @@ export default ChatItem = () => {
                         return
                       }
                       data.quoteMessage(chat.uuid, selectedStr)
-                      const menu = Notice.data.dataArr.find((i) => i.sign === "chatItemSelMenu")
-                      if (menu) Notice.closeTab(menu)
+                      Notice.closeTab("chatItemSelMenu")
                     }
                   }, trs("聊天界面/词汇/引用按钮", { cn: "引用", en: "Quote" })),
 
@@ -310,8 +306,7 @@ export default ChatItem = () => {
                         Notice.launch({ msg: trs("输入框/提示/请先聚焦", { cn: "请先点击一个聊天输入框，再引用喵", en: "Please focus a chat input box first" }), type: "info" })
                         return
                       }
-                      const menu = Notice.data.dataArr.find((i) => i.sign === "chatItemSelMenu")
-                      if (menu) Notice.closeTab(menu)
+                      Notice.closeTab("chatItemSelMenu")
 
                       let inputComment = ""
                       Notice.launch({
@@ -443,6 +438,7 @@ export default ChatItem = () => {
                 borderRight: `0.4rem solid ${getColor('我方气泡高亮边框色')}`,
                 borderRadius: "2rem 0.5rem 0.5rem 2rem",
                 background: getBlurBg("我方气泡高亮边框色", "我方气泡背景色"),
+                
                 //boxShadow: `0rem 0rem 2rem ${getColor("我方气泡高亮边框色") + "33"}`,
 
               } : {
@@ -533,6 +529,8 @@ export default ChatItem = () => {
                 //width:chat.group == "terminal" ? "500px" : "auto",
                 //height:chat.group == "terminal" ? "500px" : "auto"
                 boxSizing: "border-box",
+                maxHeight:chat.group == "user" ? "20rem" : "unset",
+                overflow:"auto"
               }
             }, [
               //正文内容
@@ -819,7 +817,7 @@ export default ChatItem = () => {
                   m(Tag, {
                     styleExt: {
                       background: getColor('blue_1').back,
-                      color: getColor('gray_9').front,
+                      color: getColor('blue_1').front,
                       display: "inline-flex",
                       alignItems: "center",
                       marginLeft: "0",
@@ -839,9 +837,9 @@ export default ChatItem = () => {
                     },
                   }, [
                     m.trust(window.iconPark.getIcon("Browser", {
-                      fill: getColor('gray_6').front
+                      fill: getColor('blue_1').front
                     })),
-                    trs("聊天/窗口/按钮", { cn: "窗口", en: "Window" })
+                    trs("聊天/子会话/打开窗口按钮", { cn: "打开子会话", en: "Open Sub-session" })
                   ]) : null,
 
                 m(Tag, {

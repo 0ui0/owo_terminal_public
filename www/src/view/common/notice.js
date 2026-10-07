@@ -1,5 +1,6 @@
 import Box from "./box.js"
 import NBox from "./noticeBox.js"
+import settingData from "../setting/settingData.js"
 
 function clampWindow(config) {
   const isAuto = config.width === 0 || config.height === 0
@@ -66,7 +67,12 @@ export default {
       width: 0,                   // 兼容写法：窗口初始宽（win.width 优先；0 = 宽度自适应）
       height: 0,                  // 兼容写法：窗口初始高（win.height 优先；0 = 高度自适应）
       isPinned: false,            // 是否置顶窗口（win.isPinned 优先）
-      isMainWindow: false,        // 是否主窗口（不参与层级自增，也不参与任务栏最小化切换）
+      isWindow: false,            // 是否独立系统窗口（不参与层级自增，也不参与任务栏最小化切换）
+      isMain: false,              // 是否为主程序主窗口底座（主底座在任务栏不响应最小化切换）
+
+      useWebWindowOpen: false,    // 是否使用 window.open 打开独立原生辅助窗口
+      //useElectronWindowOpen: false, // 是否使用独立 Electron BrowserWindow 打开窗口，尚未实现
+      childWin:undefined,         //启动子窗口后存储的子窗口window
       minimized: false,           // 初始化时是否默认最小化
       closeOnClickOutside: false, // 点击窗口外部是否自动关闭本 Tab
       // ---- 三大系统按钮 ----
@@ -75,12 +81,118 @@ export default {
       useMaximize: false,         // 是否显示最大化按钮
       confirmWords: undefined,    // 确认按钮文案，缺省渲染粉色对勾图标
       cancelWords: undefined,     // 取消按钮文案，缺省渲染灰色叉号图标
-      // ---- 事件钩子 ----
-      confirm: undefined,         // async (box, closeTabFn, tabData, event)  返回非 undefined 表示拦截关闭
-      cancel: undefined,          // async (box, closeTabFn, tabData, event)  返回非 undefined 表示拦截关闭
-      minimize: undefined,        // async (box, closeTabFn, tabData, event)  自定义最小化行为
-      maximize: undefined,        // async (box, closeTabFn, tabData, event)  自定义最大化行为
-      pin: undefined,             // async (box, closeTabFn, tabData, event)  自定义置顶行为
+      // ---- 事件钩子（默认提供标准基类实现，支持外部覆盖与 super 调用）----
+      confirm: async (dom, closeFn, tabData, event) => {
+        if (tabData.isMain) {
+          settingData.fnCall("sysWinControl", ["close", tabData._winConfig.id])
+          return "不是undefined不关窗"
+        }
+        closeFn()
+        return "不是undefined不关窗"
+      },
+      cancel: async (dom, closeFn, tabData, event) => {
+        if (tabData.isMain) {
+          settingData.fnCall("sysWinControl", ["close", tabData._winConfig.id])
+          return "不是undefined不关窗"
+        }
+        closeFn()
+        return "不是undefined不关窗"
+      },
+      minimize: async (dom, closeFn, tabData, event) => {
+        const win = tabData?._winConfig
+        if (win) {
+          win.minimized = true
+          _this.handleWindowUpdate(win)
+        }
+        if (tabData.isWindow) {
+          settingData.fnCall("sysWinControl", ["minimize", tabData._winConfig.id])
+          if (window.opener?.__Notice) {
+            const parentItem = window.opener.__Notice.data.dataArr.find(i => i.sign === tabData.sign)
+            if (parentItem?._winConfig) {
+              parentItem._winConfig.minimized = true
+              window.opener.m?.redraw()
+            }
+          }
+        }
+        m.redraw()
+      },
+      maximize: async (dom, closeFn, tabData, event) => {
+        if (tabData.isWindow) {
+          settingData.fnCall("sysWinControl", ["maximize", tabData._winConfig.id])
+        } else {
+          const win = tabData?._winConfig
+          if (!win) return
+          const targetDom = event?.currentTarget || event?.target
+          const rect = (targetDom?.closest?.(".window-box") || document.querySelector(`[data-win-id="${win.id}"]`))?.getBoundingClientRect()
+          if (rect && (!win.width || !win.height)) Object.assign(win, { width: rect.width, height: rect.height, x: rect.left, y: rect.top })
+
+          if (win.isMaximized) Object.assign(win, win._preMaxState, { isMaximized: false })
+          else { win._preMaxState = { x: win.x, y: win.y, width: win.width, height: win.height }; win.isMaximized = true }
+
+          _this.handleWindowUpdate(win)
+        }
+        m.redraw()
+      },
+      pin: async (dom, closeFn, tabData, event) => {
+        const win = tabData?._winConfig
+        if (!win) return
+        win.isPinned = !win.isPinned
+        _this.handleWindowUpdate(win)
+        m.redraw()
+      },
+      openWebWindow: async (dom, closeFn, tabData, event) => {
+        const win = tabData?._winConfig
+        if (!win) return
+
+        const isCurrentlyOuter = Boolean(win.childWin && !win.childWin.closed)
+        const promptMsg = isCurrentlyOuter
+          ? "确定要将此独立窗口还原收回至主界面吗？此操作可能会清除应用内部运行状态。"
+          : "确定要将此窗口以独立原生窗口打开吗？此操作可能会清除应用内部运行状态。"
+
+        _this.launch({
+          tip: "窗口切换提示",
+          msg: promptMsg,
+          confirm: async () => {
+            if (isCurrentlyOuter) {
+              // 💡 还原回虚拟窗口
+              const outerWin = win.childWin
+              win.childWin = null
+              const siblings = _this.data.dataArr.filter(i => i._winConfig === win)
+              siblings.forEach(tab => {
+                tab.useWebWindowOpen = false
+                tab.isWindow = false
+              })
+              win.isWindow = false
+              if (outerWin && !outerWin.closed) {
+                outerWin.close()
+              }
+              _this.activateWindow(win.id)
+            } else {
+              // 💡 独立窗口打开
+              const siblings = _this.data.dataArr.filter(i => i._winConfig === win)
+              siblings.forEach(tab => {
+                tab.useWebWindowOpen = true
+                tab.isWindow = true
+              })
+              win.isWindow = true
+
+              const winW = Math.ceil(win.width || 800)
+              const winH = Math.ceil(win.height || 600)
+              const screenBaseX = window.screenX !== undefined ? window.screenX : (window.screenLeft || 0)
+              const screenBaseY = window.screenY !== undefined ? window.screenY : (window.screenTop || 0)
+              const winX = win.x !== undefined ? Math.ceil(screenBaseX + win.x) : 0
+              const winY = win.y !== undefined ? Math.ceil(screenBaseY + win.y) : 0
+              const features = `width=${winW},height=${winH},left=${winX},top=${winY}`
+              win.childWin = window.open(
+                `${location.protocol}//${location.host}/#!/window?winId=${encodeURIComponent(win.id)}`,
+                '_blank',
+                features
+              )
+            }
+            m.redraw()
+          }
+        })
+      },
       onWindowUpdate: undefined,  // (winConfig) => {}  窗口移动/缩放/最小化状态变化回调
       // ---- 运行时字段（由 launch 内部写入，调用方无需传入）----
       show: true,                 // 是否为显示状态（调用方可覆盖）
@@ -89,8 +201,13 @@ export default {
 
     // 💡 用户的配置优先级最高：...rawObj 放在最后，可覆盖全部默认值（含 sign / show）
     // 用 Object.assign 原地写入，保持调用方传入对象引用不变
-    // （ioSocket.js 等调用方会在 Notice.launch 之后读取 noticeObj._winConfig，不能替换成新对象）
     const obj = Object.assign(rawObj, { ...defaultTabConfig, ...rawObj })
+
+    if (obj.useWebWindowOpen) {
+      obj.isWindow = true
+    }
+
+
 
     // 如果只有 msg 没有 content，自动挂载一个简易消息组件
     if (!obj.content && obj.msg) {
@@ -117,10 +234,10 @@ export default {
     // 3. 确定窗口配置 (_winConfig)
     // 逻辑：如果 obj.group 存在，寻找现有同组 item，共享其 _winConfig
     // 否则，创建新的 _winConfig
-    let targetConfig = null
+    let targetConfig = obj._winConfig || null
 
     if (!obj.newWindow && obj.group) {
-      const groupMate = this.data.dataArr.find(item => item.group === obj.group)
+      const groupMate = this.data.dataArr.find(item => item.group === obj.group && Boolean(item.useWebWindowOpen) === Boolean(obj.useWebWindowOpen))
       if (groupMate) {
         targetConfig = groupMate._winConfig
         // 如果提供了 win 参数，强制更新窗口位置/大小
@@ -135,7 +252,7 @@ export default {
 
     if (!targetConfig) {
       // 创建新窗口配置
-      const newWinId = "win_" + Date.now() + "_" + Math.random().toString(36).substr(2, 5)
+      const newWinId = obj.isMain ? "main" : ("win_" + Date.now() + "_" + Math.random().toString(36).substr(2, 5))
       // 优先使用 obj.win 中的配置，其次是 obj 直接属性
       const win = obj.win || {}
       targetConfig = {
@@ -147,12 +264,17 @@ export default {
         isMaximized: false,
         minimized: obj.minimized || false,
         isPinned: win.isPinned !== undefined ? win.isPinned : (obj.isPinned || false),
-        zIndex: obj.isMainWindow ? 0 : (obj.isPinned || win.isPinned ? 900000 : 0) + this.data.zIndexBase + 1, // 初始层级
+        zIndex: (obj.isPinned || win.isPinned ? 900000 : 0) + this.data.zIndexBase + 1, // 初始层级
         activeSign: obj.sign, // 默认激活当前新增的 tab
-        isMainWindow: obj.isMainWindow || false,
-        isInit: true
+        isWindow: obj.isWindow || false,
+        isMain: obj.isMain || false,
+        isInit: true,
+        toJSON() {
+          const { childWin, ...rest } = this
+          return rest
+        }
       }
-      if (!obj.isMainWindow) this.data.zIndexBase++
+      this.data.zIndexBase++
     }
 
     // 绑定配置
@@ -160,6 +282,7 @@ export default {
 
     // 如果是合并到现有窗口，切换激活状态
     targetConfig.activeSign = obj.sign
+
     this.data.dataArr.push(obj)
 
     // 限制在可视区域
@@ -167,6 +290,7 @@ export default {
 
     // Trigger initial update
     if (obj.onWindowUpdate) obj.onWindowUpdate(targetConfig)
+
 
     this.activateWindow(obj._winConfig.id)
 
@@ -177,13 +301,50 @@ export default {
         const closeItems = this.data.dataArr.filter(item => item.closeOnClickOutside)
         if (closeItems.length > 0) {
           closeItems.forEach(item => {
-            this.requestCloseTab(item, e)
+            const winDom = document.querySelector(`[data-win-id="${item._winConfig?.id}"]`)
+            if (winDom && !winDom.contains(e.target)) {
+              this.requestCloseTab(item.sign, e)
+            }
           })
         }
       })
     }
 
+    // 支持 useWebWindowOpen 模式：在独立窗口中打开
+    if (obj.useWebWindowOpen) {
+
+      if (!targetConfig.childWin || targetConfig.childWin.closed) {
+        this.openWebWindow(targetConfig.id)
+      } else {
+        if (!window.opener) {
+          targetConfig.childWin.Notice.launch(obj)
+          targetConfig.childWin.focus()
+        }
+      }
+
+    }
+
+
     m.redraw()
+
+    return obj
+  },
+
+  // 独立原生窗口打开/脱壳
+  openWebWindow: async function (winId, e) {
+    try {
+      const win = this.data.dataArr.find(item => item._winConfig && item._winConfig.id === winId)?._winConfig
+      if (!win) return
+      const activeTab = this.data.dataArr.find(item => item.sign === win.activeSign)
+      if (!activeTab) return
+
+      const closeFn = this.createCloseFn(activeTab.sign)
+
+      await activeTab.openWebWindow(e?.currentTarget || e?.target, closeFn, activeTab, e)
+    } catch (err) {
+      console.log(err)
+      throw err
+    }
   },
 
   // 激活窗口
@@ -192,6 +353,12 @@ export default {
     const item = this.data.dataArr.find(i => i._winConfig.id === winId)
     if (item) {
       const config = item._winConfig
+
+      // 💡 激活防抖守卫：如果当前窗口已经是激活前台窗口且未最小化，直接跳过，绝不打断内部绘图与高频指针流！
+      if (this.data.activeWindowId === winId && !config.minimized) {
+        return
+      }
+
       let needsUpdate = false
       if (config.minimized) {
         config.minimized = false
@@ -209,26 +376,28 @@ export default {
         this.handleWindowUpdate(config)
       }
 
-      if (!config.isMainWindow) {
-        this.data.zIndexBase++
-        config.zIndex = (config.isPinned ? 900000 : 0) + this.data.zIndexBase
-      }
+      this.data.zIndexBase++
+      config.zIndex = (config.isPinned ? 900000 : 0) + this.data.zIndexBase
       this.data.activeWindowId = winId
+
       m.redraw()
+
+
     }
   },
 
   // 关闭 Tab
-  closeTab: function (item) {
-    const idx = this.data.dataArr.indexOf(item)
+  closeTab: function (sign) {
+    const idx = this.data.dataArr.findIndex((tab) => tab.sign === sign)
     if (idx !== -1) {
-      const config = item._winConfig
+      const targetItem = this.data.dataArr[idx]
+      const config = targetItem._winConfig
 
       // 如果关闭的是当前激活的 Tab，需要尝试切换到同窗口下的其他 Tab
-      if (config.activeSign === item.sign) {
+      if (config.activeSign === sign) {
         // 获取该窗口所有 Tab
         const siblings = this.data.dataArr.filter(i => i._winConfig === config)
-        const myIndexInGroup = siblings.indexOf(item)
+        const myIndexInGroup = siblings.findIndex((tab) => tab.sign === sign)
 
         // 尝试找下一个，或者上一个
         let nextActive = null
@@ -246,20 +415,41 @@ export default {
       // 物理删除
       this.data.dataArr.splice(idx, 1)
 
-      //自动激活下一个顶层窗口
+      // 关闭窗口
+      if (config && !this.data.dataArr.some(i => i._winConfig === config)) {
+        // 💡 只有当这个窗口的最后一个 Tab 都被删光、窗口彻底空了时：
+        if (config.isWindow) {
+          settingData.fnCall("sysWinControl", ["close", config.id])
+        }
+      }
 
+      // 自动激活下一个顶层窗口
       if (config && !this.data.dataArr.some(i => i._winConfig === config)) {
         this.activateTopWindow()
+      } else {
+        m.redraw()
       }
+
+
+    }
+  },
+
+  // 提供快速关闭的快捷函数
+  createCloseFn(sign) {
+    return () => {
+      this.closeTab(sign)
     }
   },
 
   // 请求关闭单个 Tab：先走该 Tab 的 cancel 钩子（App 借此拦截未保存数据提示、通知后端销毁等），
   // 钩子返回 undefined 时才真正关闭；返回其它值表示 App 拦截了本次关闭
-  requestCloseTab: async function (item, e) {
+  requestCloseTab: async function (sign, e) {
     try {
-      const closeFn = () => this.closeTab(item)
-      if ((await (item.cancel || (() => { }))(e?.target, closeFn, item, e)) === undefined) {
+      const item = this.data.dataArr.find(tab => tab.sign === sign)
+      if (!item) return
+      const closeFn = this.createCloseFn(sign)
+
+      if ((await item.cancel(e?.target, closeFn, item, e)) === undefined) {
         closeFn()
       }
     } catch (err) {
@@ -275,6 +465,8 @@ export default {
         this.data.dataArr.splice(i, 1)
       }
     }
+    this.activateTopWindow()
+    m.redraw()
   },
 
   // 自动激活最上层的可见窗口
@@ -307,8 +499,11 @@ export default {
       if (!win) return
       const activeTab = this.data.dataArr.find(item => item.sign === win.activeSign)
       if (!activeTab) return
-      if ((await (activeTab.confirm || (() => { }))(e?.currentTarget || e?.target, () => this.closeTab(activeTab), activeTab, e)) === undefined) {
-        this.closeTab(activeTab)
+
+      const closeFn = this.createCloseFn(activeTab.sign)
+
+      if ((await activeTab.confirm(e?.currentTarget || e?.target, closeFn, activeTab, e)) === undefined) {
+        closeFn()
       }
     } catch (err) {
       console.log(err)
@@ -323,8 +518,10 @@ export default {
       if (!win) return
       const activeTab = this.data.dataArr.find(item => item.sign === win.activeSign)
       if (!activeTab) return
-      const closeFn = () => this.closeTab(activeTab)
-      if ((await (activeTab.cancel || (() => { }))(e?.currentTarget || e?.target, closeFn, activeTab, e)) === undefined) {
+
+      const closeFn = this.createCloseFn(activeTab.sign)
+
+      if ((await activeTab.cancel(e?.currentTarget || e?.target, closeFn, activeTab, e)) === undefined) {
         closeFn()
       }
     } catch (err) {
@@ -339,14 +536,11 @@ export default {
       const win = this.data.dataArr.find(item => item._winConfig && item._winConfig.id === winId)?._winConfig
       if (!win) return
       const activeTab = this.data.dataArr.find(item => item.sign === win.activeSign)
-      const closeFn = () => this.closeTab(activeTab)
-      if (activeTab?.minimize) {
-        await activeTab.minimize(e?.currentTarget || e?.target, closeFn, activeTab, e)
-      } else {
-        win.minimized = true
-        this.handleWindowUpdate(win)
-        m.redraw()
-      }
+      if (!activeTab) return
+
+      const closeFn = this.createCloseFn(activeTab.sign)
+
+      await activeTab.minimize(e?.currentTarget || e?.target, closeFn, activeTab, e)
     } catch (err) {
       console.log(err)
       throw err
@@ -359,19 +553,11 @@ export default {
       const win = this.data.dataArr.find(item => item._winConfig && item._winConfig.id === winId)?._winConfig
       if (!win) return
       const activeTab = this.data.dataArr.find(item => item.sign === win.activeSign)
-      const closeFn = () => this.closeTab(activeTab)
-      if (activeTab?.maximize) {
-        await activeTab.maximize(e?.currentTarget || e?.target, closeFn, activeTab, e)
-      } else {
-        const rect = ((e?.currentTarget || e?.target)?.closest?.(".window-box") || document.querySelector(`[data-win-id="${win.id}"]`))?.getBoundingClientRect()
-        if (rect && (!win.width || !win.height)) Object.assign(win, { width: rect.width, height: rect.height, x: rect.left, y: rect.top })
+      if (!activeTab) return
 
-        if (win.isMaximized) Object.assign(win, win._preMaxState, { isMaximized: false })
-        else { win._preMaxState = { x: win.x, y: win.y, width: win.width, height: win.height }; win.isMaximized = true }
-
-        this.handleWindowUpdate(win)
-        m.redraw()
-      }
+      const closeFn = this.createCloseFn(activeTab.sign)
+      
+      await activeTab.maximize(e?.currentTarget || e?.target, closeFn, activeTab, e)
     } catch (err) {
       console.log(err)
       throw err
@@ -384,14 +570,11 @@ export default {
       const win = this.data.dataArr.find(item => item._winConfig && item._winConfig.id === winId)?._winConfig
       if (!win) return
       const activeTab = this.data.dataArr.find(item => item.sign === win.activeSign)
-      const closeFn = () => this.closeTab(activeTab)
-      if (activeTab?.pin) {
-        await activeTab.pin(e?.currentTarget || e?.target, closeFn, activeTab, e)
-      } else {
-        win.isPinned = !win.isPinned
-        this.handleWindowUpdate(win)
-        m.redraw()
-      }
+      if (!activeTab) return
+
+      const closeFn = this.createCloseFn(activeTab.sign)
+
+      await activeTab.pin(e?.currentTarget || e?.target, closeFn, activeTab, e)
     } catch (err) {
       console.log(err)
       throw err
@@ -402,7 +585,7 @@ export default {
   toggleMinimizeAll: function () {
     const configs = new Set()
     this.data.dataArr.forEach(item => {
-      if (item._winConfig && !item._winConfig.isMainWindow) configs.add(item._winConfig)
+      if (item._winConfig && !item._winConfig.isWindow) configs.add(item._winConfig)
     })
 
     if (configs.size === 0) return
@@ -547,13 +730,14 @@ export default {
           this.closeWindow(config.id)
           this.activateTopWindow()
         },
-        onCloseTab: (tabItem, e) => this.requestCloseTab(tabItem, e),
-        onSwitchTab: (tabItem) => { config.activeSign = tabItem.sign },
+        onCloseTab: (sign, e) => this.requestCloseTab(sign, e),
+        onSwitchTab: (sign) => { config.activeSign = sign },
         onConfirm: (e) => this.confirmWindow(config.id, e),
         onCancel: (e) => this.cancelWindow(config.id, e),
         onMinimize: (e) => this.minimizeWindow(config.id, e),
         onMaximize: (e) => this.maximizeWindow(config.id, e),
         onPin: (e) => this.pinWindow(config.id, e),
+        onWebWindowOpen: (e) => this.openWebWindow(config.id, e),
         onReorder: (fromSign, toSign) => this.reorderTab(fromSign, toSign),
         onSetTabOrder: (newOrder) => this.setTabOrder(config.id, newOrder),
         onWindowUpdate: (win) => this.handleWindowUpdate(win)

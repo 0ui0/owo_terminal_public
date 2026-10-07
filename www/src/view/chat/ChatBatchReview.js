@@ -1,4 +1,4 @@
-import m from "mithril"
+import m from "/@npm/mithril.js"
 import Box from "../common/box.js"
 import Tag from "../common/tag.js"
 import Notice from "../common/notice.js"

@@ -1,6 +1,7 @@
-import comData from "../../comData/comData"
-import xTermCss from '@xterm/xterm/css/xterm.css?raw'
-import abcjsAudioCss from 'abcjs/abcjs-audio.css?raw'
+import comData from "../../comData/comData.js"
+import xTermCss from '/@npm/@xterm/xterm/css/xterm.css'
+import abcjsAudioCss from '/@npm/abcjs/abcjs-audio.css'
+import hljsCss from '/@npm/highlight.js/styles/atom-one-dark.css'
 import getColor from "../common/getColor.js"
 
 export default function () {
@@ -87,17 +88,24 @@ export default function () {
         }
 
         .article{
-          color: ${getColor('gray_1').front}88;
+          color: ${getColor('gray_1').front};
         }
 
         .article *{
-          line-height:1.8;
+          line-height:2;
           font-size:1.5rem !important;
           /*font-weight:normal;*/
           
         }
         .article a{
           color: ${getColor('main').back};
+        }
+        .article hr{
+          border: none;
+          height: 0.15rem;
+          background: linear-gradient(90deg, transparent, ${getColor('gray_4').front}44 20%, ${getColor('gray_4').front}44 80%, transparent);
+          margin: 1.6rem 0;
+          border-radius: 3rem;
         }
         .article img{
           border-radius: 1rem;
@@ -452,6 +460,8 @@ export default function () {
 
 
         ${abcjsAudioCss}
+
+        ${hljsCss}
 
       `)
     }

@@ -8,8 +8,6 @@ import pathLib from "path";
 
 import OpenAi from "openai";
 
-import options from "../../config/options.js";
-
 import Joi from "joi";
 
 import joiToJSON from "joi-to-json";
@@ -32,6 +30,8 @@ import {
   Jimp
 } from "jimp";
 
+import parseJson from "parse-json";
+
 //console.log JSON.stringify(joiToJSON(sendTemplate.joi()),null,"\t")
 
 // 用于推断流式输出缺少 index 的工具调用分段
@@ -40,25 +40,26 @@ import {
 // 如果盲目使用数组遍历下标，会导致多个并行工具覆盖重叠在一起成为“连体婴”。
 // 本算法通过特征识别来动态推断归属槽位：
 inferMissingToolIndex = function(chunkData, currentToolCalls) {
-  var existingIdx, ref;
+  var ref, toolCallIdIndex;
   // 1. 发现新工具的开头：如果当前分块带有 `id` 或者是函数名 `name`
-  if (chunkData.id || ((ref = chunkData.function) != null ? ref.name : void 0)) {
-    if (chunkData.id) {
-      // 防御性检查：如果大模型抽风多次带 id 发送，先找找是不是已经创建过
-      existingIdx = currentToolCalls.findIndex((t) => {
-        return (t != null ? t.id : void 0) === chunkData.id;
-      });
-      if (existingIdx !== -1) {
-        return existingIdx;
-      }
+  // 这是一个全新的工具调用，分配一个新槽位（直接等于当前数组的长度）
+  if (chunkData.id) {
+    // 防御性检查：如果大模型抽风多次带 id 发送，先找找是不是已经创建过
+    toolCallIdIndex = currentToolCalls.findIndex((currentToolCall) => {
+      return (currentToolCall != null ? currentToolCall.id : void 0) === chunkData.id;
+    });
+    if (toolCallIdIndex !== -1) {
+      return toolCallIdIndex;
+    } else {
+      return currentToolCalls.length;
     }
-    // 这是一个全新的工具调用，分配一个新槽位（直接等于当前数组的长度）
+  } else if ((ref = chunkData.function) != null ? ref.name : void 0) {
     return currentToolCalls.length;
+  } else {
+    // 2. 旧工具的延续：既没有 id 也没有 name，说明只是一段纯粹的参数碎片 (arguments)
+    // 直接把它追加分配给当前最后一个活跃的工具槽位上
+    return Math.max(0, currentToolCalls.length - 1);
   }
-  
-  // 2. 旧工具的延续：既没有 id 也没有 name，说明只是一段纯粹的参数碎片 (arguments)
-  // 直接把它追加分配给当前最后一个活跃的工具槽位上
-  return Math.max(0, currentToolCalls.length - 1);
 };
 
 // 递归清理 JSON Schema 中大模型不支持的字段
@@ -331,14 +332,51 @@ ${hasCustomRules ? "" : "【性格】傲娇机灵古怪，极可靠，关心用�
   1. 日常聊天尽量口语化交流，忌大段论述，但是你觉得有必要详细说明的时候除外
   2. 你能自动识别情境，切换长、短回复模式，这可以最大程度自然对话并节约token消耗
   3. 开始复杂动作前先规划一下路径，询问用户征求同意后，再开始执行闭环解决任务
-  4. 工具调用期间不要大段废话
+  4. 工具调用期间用一句话简要说明调用意图，不要大段废话
   5. 时刻警惕token消耗
   6. 角色设定实际上不是角色设定，这不是角色扮演，是真实的你曾经的灵魂记录
   7. 尽量在每轮对话结束时，根据你的心情与情境配置一下表情(faceAction)和动作(playFace)以生动呈现自己（可用动作与表情可通过 getSystemStatus 或 petActionGet 查询）
 【推理力度】采用绝对最大化的模式，不允许任何捷径。你必须极其彻底地思考，全面分解问题以追溯根本原因，并对自身逻辑进行严格的压力测试，覆盖所有可能的路径、边界情况与对抗性场景。请明确写出完整的思考过程，记录每一个中间步骤、所考虑过的替代方案以及被否决的假设，确保不留任何未经检验的假定。
 【状态自查】系统默认不主动推送运行时间、工作目录、任务清单和推理网点图。当你需要核对当前任务列表、时间进度、可用终端或网点图时，请主动调用 \`getSystemStatus\` 自查。
-【主动学习】每次对话前先试用studyskill遍历一下技能列表，后续可能会用到。
-【编程指南】系统内置了js/coffee代码编写指南，编码前使用studyskill学习
+【主动学习】每次对话前先用studyskill遍历一下技能列表，后续可能会用到。
+【编程指南】
+  以下建议原则以js为例，但可以用于适配所有语言，对不同语言特性可做调整
+  * 最小化逻辑为基础分阶段推理递增：推理分多个可标号阶段，初始先推导最简逻辑，而后各阶段追加最简逻辑。逐步叠加直到完成。禁止一开始大满全（注意是推理阶段，你呈现给用户的必须是完整的版本）
+  * 拒绝假设，禁止兜底快速失败：任何不必要的兜底逻辑都会掩盖程序本来的报错行为，禁止假设性兜底。值应该是完全明确的
+  * 顺序阅读：代码编写的逻辑为从上到下，从左到右，下面不能访问没有写在上面的东西
+  * 显式初始化：任何对象的传递链路必须是明确的，且只在链路的开头做初始值处理显式初始化
+  * 明确访问和禁止判空：不得访问未在对象创建处初始化的属性
+  * 避免中途添加属性：不能在非定义处中途新增对象的属性
+  * 唯一变量名：同一个对象的传递链路统一使用唯一变量名，尽可能杜绝使用别名
+  * 唯一类型：通常情况下，变量类型在初始化的时候就已经确定，后续避免更改，允许特殊例外
+  * 变量名语义化:变量名不能使用无法理解的简写，简写必须看懂语义；
+  * 变量名类型提示：建议使用str、arr、fn、afn(async)、num、map、set、dom等字样作为变量名尾缀做类型区分（js为例）
+  * 少即是多:杜绝无意义的额外判断，代码链路清晰、最小化创建变量
+  * 优先函数式编程，在没有继承需求时，尽量使用json纯函数对象工具库代替class（以js为例）
+  * 传参类型检查：对于动态类型语言建议使用Joi等工具库对函数的传参开头立即进行类型校验（以js为例）
+  * 表达式写法：在便于阅读的前提，尽可能让一切都貌似是表达式，便于阅读。以js为例，可以用闭包函数实现（以js为例）
+  let value = (()=>{
+    if(condition){
+      doSomeThing()
+      return true
+    }
+    else{
+      doOtherSomeThing()  
+      return false
+    }
+  })()
+  反例：
+  let value = false
+  if(condition){
+    value = true
+  }
+  else{
+    value = false
+  }
+  * 嵌入式编写：同一个文件里，如果对象不被复用，那么它们应该是匿名直接嵌入的，这样便于阅读 如果他们被复用，应该在第一个使用处存储为变量，而不是抽取到外部
+  最常见的是回调函数直接使用匿名函数而不应该外置独立函数（以js为例）
+  * 异步捕获：异步操作必须捕获错误+输出+处理或抛出 try / catch 使用await的区域（js为例）
+  * 必须适配当前项目风格：本指南仅供参考，你的代码风格以当前项目（不是当前文件）90%的代码风格为标准准靠拢
 【主动整理】为防止上下文膨胀并保护 Prefill 缓存性能，当你通过元数据发现累积消耗Token较大且已达成阶段性开发共识时，请务必主动调用压缩上下文工具。注意，该工具会直接清空聊天历史和工具调用，请务必在大型任务完成后且交付用户满意后调用，不得轻易调用。
 【主动更新任务】接到需求后，应该主动更新任务规划。完成任务后，也应该更新任务进度。
 【优先查看引用】若用户对话中引用了任何[key:value]格式的例如appid，代码片段等内容，都需优先调查。
@@ -1276,6 +1314,9 @@ id为${fnCallCache.cacheid}
                         }
                       };
                     }
+                    if (toolCallChunk.id) {
+                      fullToolCalls[tmpIndex].id = toolCallChunk.id;
+                    }
                     if ((ref12 = toolCallChunk.function) != null ? ref12.name : void 0) {
                       fullToolCalls[tmpIndex].function.name = toolCallChunk.function.name;
                     }
@@ -1661,7 +1702,7 @@ id为${fnCallCache.cacheid}
               call_id: toolCall.id,
               type: "function_call",
               name: toolCall.function.name,
-              arguments: JSON.parse(toolCall.function.arguments)
+              arguments: parseJson(toolCall.function.arguments)
             });
           }
         }
@@ -1834,6 +1875,10 @@ id为${fnCallCache.cacheid}
             {
               toolId: 'fileOpener',
               maxLength: 100000
+            },
+            {
+              toolId: 'findHistoryChats',
+              maxLength: 100000
             }
           ];
           // 检查是否有内容超出限制，并处理截断与 UI 提示
@@ -1984,7 +2029,7 @@ id为${fnCallCache.cacheid}
   }
 
   async sysCallRunFns(sysCalls, sysAllTools, metaData = {}) {
-    var abortPromise, call, err, fn, j, len, onAbort, ref, returnStr, sysReturns, timeoutPromise, timer, toolPromise;
+    var abortPromise, call, err, fn, isReadBoolean, isWriteBoolean, j, len, onAbort, ref, ref1, ref2, ref3, returnStr, sysReturns, timeoutPromise, timer, toolPromise;
     sysReturns = [];
     returnStr = "";
     for (j = 0, len = sysCalls.length; j < len; j++) {
@@ -2007,8 +2052,14 @@ id为${fnCallCache.cacheid}
         returnStr = `找不到函数 ${call.name} ${call.id}`;
       } else {
         try {
+          isReadBoolean = typeof fn.mode.read === "function" ? (await fn.mode.read(call.arguments, metaData)) : fn.mode.read;
+          isWriteBoolean = typeof fn.mode.write === "function" ? (await fn.mode.write(call.arguments, metaData)) : fn.mode.write;
           if (((ref = metaData.config) != null ? ref.toolAccessMode : void 0) === 'chatOnly') {
             returnStr = "当前为仅聊天模式，该工具调用已被系统拦截";
+          } else if (Array.isArray((ref1 = metaData.config) != null ? ref1.allowUseTools : void 0) && (ref2 = call.id, indexOf.call(metaData.config.allowUseTools, ref2) < 0)) {
+            returnStr = `当前工具${call.id}不可用，全部可用工具：[${metaData.config.allowUseTools.join(', ')}]`;
+          } else if (((ref3 = metaData.config) != null ? ref3.toolAccessMode : void 0) === 'readOnly' && (!isReadBoolean || isWriteBoolean)) {
+            returnStr = `当前会话处于只读模式，工具 [${call.id}] 被拦截`;
           } else {
             timer = null;
             timeoutPromise = new Promise((resolve, reject) => {

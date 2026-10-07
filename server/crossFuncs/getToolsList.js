@@ -14,7 +14,7 @@ const isWaitConfirmTool = (tool) => {
 
 export default {
   name: "getToolsList",
-  func: async (listId = 0) => {
+  func: async (listId = 0, mode = "confirmable") => {
     try {
       const chatList = comData.data.get()?.chatLists?.find(l => l.id === listId) || { toolsMode: 5 }
       const toolsMode = chatList.toolsMode ?? 5
@@ -32,7 +32,19 @@ export default {
       // 2. 自动化嗅探：仅保留真正具备 waitConfirm 拦截能力的工具
       const confirmableTools = visibleTools.filter(isWaitConfirmTool)
 
-      const data = confirmableTools.map(t => ({
+      let targetTools = visibleTools
+      if (mode === "confirmable") {
+        targetTools = confirmableTools
+      } else if (mode === "inheritable") {
+        const parentId = chatList?.linkid ?? 0
+        const parentList = comData.data.get()?.chatLists?.find(l => l.id === parentId)
+        const parentTools = parentList?.defaultTools || parentList?.allowUseTools
+        if (Array.isArray(parentTools)) {
+          targetTools = visibleTools.filter(t => parentTools.includes(t.id))
+        }
+      }
+
+      const data = targetTools.map(t => ({
         id: t.id,
         name: t.name || t.id,
         type: t.type || "sysCall",

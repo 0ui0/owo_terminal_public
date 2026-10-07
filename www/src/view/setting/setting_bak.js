@@ -2,7 +2,7 @@ import Box from "../common/box.js"
 import AutoForm from "../common/autoForm.js"
 import data from "./settingData.js"
 import Notice from "../common/notice.js"
-import { BackgroundColor, FontSize } from "@icon-park/svg"
+import { BackgroundColor, FontSize } from "/@npm/@icon-park/svg.js"
 
 export default ()=>{
   let currentGroup = ["全局","人工智能","大模型"]

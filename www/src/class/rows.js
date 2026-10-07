@@ -1,6 +1,6 @@
 import Row from "./row.js"
-import { v4 as uuidv4 } from "uuid"
-import m from "mithril"
+import { v4 as uuidv4 } from "/@npm/uuid.js"
+import m from "/@npm/mithril.js"
 
 const apiHost = window.apiHost || ""
 

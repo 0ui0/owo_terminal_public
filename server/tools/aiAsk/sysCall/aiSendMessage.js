@@ -7,6 +7,10 @@ import Joi from "joi"
 export default {
   name: "发送消息",
   id: "aiSendMessage",
+  mode: {
+    read: true,
+    write: false
+  },
   async fn(argObj, metaData) {
     const { value, error } = this.joi().validate(argObj);
     if (error) return "错误：" + error.details[0].message;
@@ -44,13 +48,14 @@ export default {
         ask: ask
       };
 
-      // 3. 广播到前端
+      // 3. 存入数据库
+      await chats.add(chat, listId);
+
+      // 4. 广播到前端（双通道："chat" 推消息实体 = 前端事实收到消息；"chat:push" 触发列表刷新）
       if (ioServer.io) {
         ioServer.io.emit("chat", chat);
+        ioServer.io.emit("chat:push", { listId });
       }
-
-      // 4. 存入数据库
-      await chats.add(chat, listId);
     };
 
     // 如果处于工具调用周期中（deferredFns 由底层注入），进入延迟队列，确保安全执行

@@ -10,6 +10,12 @@ import lspManager from "../../lsp/LspServerManager.js"
 export default {
   name: "lsp代码感知搜索与语法诊断",
   id: "lspTool",
+  mode: {
+    read: true,
+    write(argObj) {
+      return Boolean(argObj && argObj.installServer)
+    }
+  },
   async fn(argObj, metaData) {
     const validOps = [
       'get_errors',

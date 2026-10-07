@@ -11,6 +11,7 @@ import pathLib from "path";
 import { fileURLToPath } from "url";
 import fs from "fs-extra";
 import backend from "../backend.js";
+import { qlog } from "./logger.js";
 
 // 通过 backend.js 注入 io 实例（由 backend.js 在 init 时设置 this.appManager）
 
@@ -22,6 +23,9 @@ const options = {
     }
   }
 };
+
+// 已提示过的“未配置目标”集合，避免同一目标反复刷屏
+const _ignoredTargets = new Set();
 
 const createMsg = (tag, user, msg) => {
   const tagStr = tag ? `【${tag}】` : "";
@@ -61,9 +65,19 @@ export default {
       const allGroups = [...groups, ...localGroups, ...channels];
       const groupConfig = allGroups.find(g => String(g.groupid || g.channelid) === String(fromGroupid));
 
+      // 归属判定：群/频道消息必须落到其对应的子智能体会话。
+      // 若该目标不在配置里（或尚未创建子智能体），它就不属于任何会话，直接丢弃。
+      // 【重要】绝不能兜底到 0（主会话），否则未配置群的消息会污染主 AI 的上下文。
       let listId = ext?.listId || 0;
       if (groupConfig?.switch && groupConfig.listId > 0) {
         listId = groupConfig.listId;
+      }
+      else if (!ext?.listId) {
+        if (!_ignoredTargets.has(String(fromGroupid))) {
+          _ignoredTargets.add(String(fromGroupid));
+          qlog(`[qqBot/msgCenter] 目标未配置或子智能体未就绪，已忽略该目标的消息 (from: ${fromGroupid})`, "info");
+        }
+        return;
       }
 
       const agent = subAgents.get(listId);
@@ -83,9 +97,13 @@ export default {
           id: chat.uuid,
           listId
         });
-        // 推送到前端 UI
+        // 推送到前端 UI（双通道：职责不同，互补，缺一不可）
+        // "chat"      —— 消息实体推送：把完整 chat 对象推给前端，是“前端事实收到消息”的接口，供未来实时消费/流式渲染等使用
+        // "chat:push" —— 列表刷新指令：只携带 listId，前端收到后清页 + 重新 pull + 滚到底
+        // 注意：chat:push 不携带消息内容，只发它前端不会新增消息
         if (backend.appManager?.io) {
           backend.appManager.io.emit("chat", chat);
+          backend.appManager.io.emit("chat:push", { listId });
         }
       }
       else {
@@ -93,7 +111,7 @@ export default {
       }
 
     } catch (innerErr) {
-      console.error("[qqBot/msgCenter] localSend 失败:", innerErr, { tag, user, msg, ext });
+      qlog(`[qqBot/msgCenter] localSend 失败: ${innerErr?.message || innerErr}`, "error");
     }
   },
 
@@ -108,7 +126,7 @@ export default {
         await qqBotOnline.msgUser(uid, 0, createMsg(tag, user, msg), ext);
       }
     } catch (err) {
-      console.error("[qqBot/msgCenter] qqUserSend 错误:", err);
+      qlog(`[qqBot/msgCenter] qqUserSend 错误: ${err.message}`, "error");
     }
   },
 
@@ -131,7 +149,7 @@ export default {
         }));
       }
     } catch (err) {
-      console.error("[qqBot/msgCenter] qqLocalUserSend 错误:", err);
+      qlog(`[qqBot/msgCenter] qqLocalUserSend 错误: ${err.message}`, "error");
     }
   },
 
@@ -148,7 +166,7 @@ export default {
         await qqBotOnline.msgChannel(channelid, 0, createMsg(tag, user, msg), ext);
       }
     } catch (err) {
-      console.error("[qqBot/msgCenter] qqChannelSend 错误:", err);
+      qlog(`[qqBot/msgCenter] qqChannelSend 错误: ${err.message}`, "error");
     }
   },
 
@@ -176,7 +194,7 @@ export default {
         await qqBotOnline.msgChannelUser(guildid, 0, createMsg(tag, user, msg), ext);
       }
     } catch (err) {
-      console.error("[qqBot/msgCenter] qqChannelUserSend 错误:", err);
+      qlog(`[qqBot/msgCenter] qqChannelUserSend 错误: ${err.message}`, "error");
     }
   },
 
@@ -191,7 +209,7 @@ export default {
         await qqBotOnline.msgGroup(groupid, 0, createMsg(tag, user, msg), ext);
       }
     } catch (err) {
-      console.error("[qqBot/msgCenter] qqGroupSend 错误:", err);
+      qlog(`[qqBot/msgCenter] qqGroupSend 错误: ${err.message}`, "error");
     }
   },
 
@@ -219,7 +237,12 @@ export default {
       const localSwitch = await options.get("3rd_qqRobotLocal_switch");
       if (localSwitch) {
         if (!qqWsServer.ws) {
-          console.log("【错误】qqWsServer.ws未初始化");
+          // HMR / 重连期间模块实例可能被重建，ws 会丢失；这里主动按配置里的地址补连一次，下一条消息即可恢复正常
+          const wsUrl = backend.app?.data?.config?.["3rd_qqRobotLocal_wsUrl"];
+          qlog(`[qqBot/msgCenter] 本地 WS 未就绪，已触发自动重连 (${wsUrl || "无地址"})，本次发送跳过`, "conn");
+          if (wsUrl) {
+            qqWsServer.start(wsUrl).catch(err => qlog(`[qqBot/msgCenter] 自动重连失败: ${err.message}`, "error"));
+          }
           return;
         }
         qqWsServer.ws.send(JSON.stringify({
@@ -233,7 +256,7 @@ export default {
         }));
       }
     } catch (err) {
-      console.error("[qqBot/msgCenter] qqLocalGroupSend 错误:", err);
+      qlog(`[qqBot/msgCenter] qqLocalGroupSend 错误: ${err.message}`, "error");
     }
   },
 
@@ -252,7 +275,7 @@ export default {
 
   async privateSend(tag, user, msg, ext) {
     if (!ext?.source) {
-      console.error("[qqBot/msgCenter] allSend 缺少 source 参数");
+      qlog("[qqBot/msgCenter] privateSend 缺少 source 参数", "error");
       return;
     }
     if (ext.source === "qqOnline/private") {
@@ -282,7 +305,7 @@ export default {
    */
   allSend_noUse: async function (tag, user, msg, ext) {
     if (!ext?.source) {
-      console.error("[qqBot/msgCenter] allSend 缺少 source 参数");
+      qlog("[qqBot/msgCenter] allSend_noUse 缺少 source 参数", "error");
       return;
     }
     await this.privateSend(tag, user, msg, ext);
@@ -349,11 +372,11 @@ export default {
             }
           }
         } catch (cmdErr) {
-          console.error(`[qqBot/msgCenter] 命令 ${file} 执行失败:`, cmdErr);
+          qlog(`[qqBot/msgCenter] 命令 ${file} 执行失败: ${cmdErr?.message || cmdErr}`, "error");
         }
       }
     } catch (err) {
-      console.error("[qqBot/msgCenter] send 错误:", err);
+      qlog(`[qqBot/msgCenter] send 错误: ${err.message}`, "error");
     }
   }
 };

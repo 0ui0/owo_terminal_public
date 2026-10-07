@@ -55,6 +55,10 @@ export default async (db) => {
     snapshotId: {
       type: DataTypes.STRING,
       allowNull: true,
+    },
+    procId: {
+      type: DataTypes.STRING,
+      allowNull: true,
     }
   }, {
     indexes: [

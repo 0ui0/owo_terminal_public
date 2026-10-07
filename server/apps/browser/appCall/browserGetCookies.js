@@ -6,6 +6,10 @@ import appManager from "../../../apps/appManager.js"
 export default {
   name: "获取浏览器Cookie",
   id: "browserGetCookies",
+  mode: {
+    read: true,
+    write: false
+  },
 
   async fn(argObj, metaData) {
     const { value, error } = this.joi().validate(argObj)

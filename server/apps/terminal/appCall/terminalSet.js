@@ -5,9 +5,37 @@ import terminalBackend from "../backend.js"
 import pathLib from "path"
 import workDirTool from "../../../tools/workDirTool.js"
 
+function decodeLsofPath(rawPath) {
+  if (!rawPath || typeof rawPath !== "string" || !rawPath.includes("\\x")) return rawPath
+  try {
+    const byteList = []
+    for (let i = 0; i < rawPath.length; ) {
+      if (rawPath[i] === "\\" && rawPath[i + 1] === "x" && i + 3 < rawPath.length) {
+        const hex = rawPath.slice(i + 2, i + 4)
+        const byte = parseInt(hex, 16)
+        if (!isNaN(byte)) {
+          byteList.push(byte)
+          i += 4
+          continue
+        }
+      }
+      const buf = Buffer.from(rawPath[i], "utf8")
+      for (const b of buf) byteList.push(b)
+      i++
+    }
+    return Buffer.from(byteList).toString("utf8")
+  } catch (e) {
+    return rawPath
+  }
+}
+
 export default {
   name: "执行终端命令",
   id: "terminalSet",
+  mode: {
+    read: true,
+    write: true
+  },
 
   async fn(argObj, metaData) {
     const { value, error } = this.joi().validate(argObj)
@@ -123,7 +151,7 @@ export default {
       const targetApp = appManager.get(appId)
       if (targetApp) {
         const session = terminalBackend.getSession(targetApp.id)
-        targetCwd = session?.cwd || targetApp.data.cwd || defaultCwd
+        targetCwd = decodeLsofPath(session?.cwd || targetApp.data.cwd || defaultCwd)
         termModeDesc = `将使用指定终端 (${appId})`
       } else {
         termModeDesc = `指定终端不存在 (${appId})`

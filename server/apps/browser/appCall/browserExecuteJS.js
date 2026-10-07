@@ -6,6 +6,10 @@ import appManager from "../../../apps/appManager.js"
 export default {
   name: "在浏览器中执行自定义 JS 脚本",
   id: "browserExecuteJS",
+  mode: {
+    read: true,
+    write: false
+  },
 
   async fn(argObj, metaData) {
     const { value, error } = this.joi().validate(argObj)

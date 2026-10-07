@@ -1,6 +1,6 @@
-import ioSocket from "./ioSocket"
-import jsonpatch from "fast-json-patch"
-import _ from "lodash"
+import ioSocket from "./ioSocket.js"
+import jsonpatch from "/@npm/fast-json-patch.js"
+import _ from "/@npm/lodash.js"
 
 const { compare } = jsonpatch
 

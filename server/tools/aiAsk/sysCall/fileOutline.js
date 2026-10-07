@@ -8,6 +8,10 @@ import waitConfirm from "../../waitConfirm.js"
 export default {
   name: "获取文件大纲",
   id: "fileOutline",
+  mode: {
+    read: true,
+    write: false
+  },
   async fn(argObj, metaData) {
     let { value, error } = this.joi().validate(argObj)
     if (error) {

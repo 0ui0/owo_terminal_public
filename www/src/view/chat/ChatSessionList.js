@@ -1,4 +1,4 @@
-import Session from "./ChatSession"
+import Session from "./ChatSession.js"
 export default ()=>{
   return {
     view(){

@@ -3,6 +3,10 @@ import Joi from "joi";
 export default {
   name: "更新RPG场景_地图和事件",
   id: "aiRpgUpdateScene",
+  mode: {
+    read: true,
+    write: false
+  },
 
   async fn(argObj) {
     const { value, error } = this.joi().validate(argObj);

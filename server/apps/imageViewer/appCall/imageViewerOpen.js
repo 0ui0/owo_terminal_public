@@ -4,6 +4,10 @@ import appManager from "../../../apps/appManager.js"
 export default {
   name: "打开图片查看器",
   id: "imageViewerOpen",
+  mode: {
+    read: true,
+    write: false
+  },
 
 
 

@@ -1,4 +1,4 @@
-import m from "mithril"
+import m from "/@npm/mithril.js"
 import debugHistory from "./historyPanelData.js"
 import { JsonNode } from "../view/titleMenu/aiContext.js"
 

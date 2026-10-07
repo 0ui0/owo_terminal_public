@@ -1,4 +1,4 @@
-import m from "mithril"
+import m from "/@npm/mithril.js"
 import Tag from "../common/tag.js"
 import { trs } from "../common/i18n.js"
 import chatData from "./chatData.js"
@@ -61,6 +61,28 @@ export default () => {
               m(Tag,
                 {
                   isBtn: true,
+                  color: currentMode === "readOnly" ? "main" : "gray_4",
+                  styleExt: {
+                    margin: 0
+                  },
+                  ext: {
+                    onclick: async () => {
+                      try {
+                        if (updateListSession) {
+                          await updateListSession(targetChatListId, { toolAccessMode: "readOnly" })
+                        }
+                      } catch (err) {
+                        console.error("[ChatSendQuickMenu]", err)
+                      }
+                    }
+                  }
+                },
+                trs("下拉栏/只读模式", { cn: "只读", en: "Read Only" })
+              ),
+
+              m(Tag,
+                {
+                  isBtn: true,
                   color: currentMode === "chatOnly" ? "main" : "gray_4",
                   styleExt: {
                     margin: 0
@@ -105,7 +127,13 @@ export default () => {
                       onclick: async () => {
                         try {
                           if (updateListSession) {
-                            await updateListSession(targetChatListId, { workStage: opt.value })
+                            const updateData = { workStage: opt.value }
+                            if (opt.value === "调查并讨论") {
+                              updateData.toolAccessMode = "readOnly"
+                            } else {
+                              updateData.toolAccessMode = "readWrite"
+                            }
+                            await updateListSession(targetChatListId, updateData)
                           }
                         } catch (err) {
                           console.error("[ChatSendQuickMenu]", err)

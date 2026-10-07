@@ -8,6 +8,10 @@ import tempPath from "../../../tools/tempPath.js"
 export default {
   name: "获取画布截图",
   id: "svgEditorScreenshot",
+  mode: {
+    read: true,
+    write: false
+  },
 
   async fn(argObj, metaData) {
     const { value, error } = this.joi().validate(argObj)

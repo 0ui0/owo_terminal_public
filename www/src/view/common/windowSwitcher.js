@@ -5,8 +5,8 @@
 // - 面板不会自动关闭（没有松手/超时逻辑）
 // - 键盘监听：oncreate 注册（注册前先摘掉旧监听）/ onremove 清理，不会重复注册
 import Box from "./box.js"
-import getColor from "./getColor"
-import Notice from "./notice"
+import getColor from "./getColor.js"
+import Notice from "./notice.js"
 import getAppIconUrl from "./getAppIconUrl.js"
 import { trs } from "./i18n.js"
 
@@ -40,7 +40,7 @@ export default {
 
     ;(Notice.data.dataArr || []).forEach(item => {
       const config = item._winConfig
-      if (!config || config.isMainWindow) return
+      if (!config || config.isWindow) return
       if (item.sign === SWITCHER_SIGN) return // 切换器自身不参与
       if (!windows.has(config)) windows.set(config, [])
       windows.get(config).push(item)
@@ -136,7 +136,7 @@ export default {
     this.applySelection()
 
     const panel = this.switcherTab()
-    if (panel) Notice.closeTab(panel)
+    if (panel) Notice.closeTab(panel.sign)
 
     this.reset()
   },
@@ -168,7 +168,7 @@ export default {
   // 关闭面板（仅清状态，Tab 由 Notice 自己关）
   cancel: function () {
     const panel = this.switcherTab()
-    if (panel) Notice.closeTab(panel)
+    if (panel) Notice.closeTab(panel.sign)
 
     this.reset()
   },

@@ -27,8 +27,8 @@ export default {
   },
   async run() {
     const io = this.io
-    await comData.init()
     await appManager.init(io)
+    await comData.init(appManager)
 
 
     this.last = _.cloneDeep(comData.data.get() || {})
@@ -132,7 +132,7 @@ export default {
 
 
       await comData.data.edit((data, self) => {
-        const defaultData = defaultComData()
+        const defaultData = defaultComData(appManager)
         for (let key in defaultData) {
           data[key] ??= defaultData[key]
         }

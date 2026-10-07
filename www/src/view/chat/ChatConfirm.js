@@ -50,7 +50,7 @@ export default () => {
           background: getColor("确认框背景"),
           color: getColor("确认框文字"),
           //maxHeight: "40%",
-          maxWidth: "60rem",
+          //maxWidth: "60rem",
           zIndex: "100",
           position: "relative",
           borderLeft: `0.4rem solid ${getColor("确认框标题边框")}`
@@ -60,7 +60,11 @@ export default () => {
           style: {
             fontWeight: "bold",
             marginBottom: "1rem",
-            color: getColor("确认框标题")
+            color: getColor("确认框标题"),
+            overflowWrap: "break-word",
+            wordBreak: "break-all",
+            whiteSpace: "pre-wrap",
+            lineHeight: "1.5"
           }
         }, confirmCmd.title || "是否执行操作？"),
         m(Box, {

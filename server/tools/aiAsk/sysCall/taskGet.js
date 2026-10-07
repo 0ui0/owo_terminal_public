@@ -5,6 +5,10 @@ import yaml from "js-yaml"
 export default {
   name: "查看任务",
   id: "taskGet",
+  mode: {
+    read: true,
+    write: false
+  },
 
   async fn(argObj, context) {
     const listId = context.listId ?? 0

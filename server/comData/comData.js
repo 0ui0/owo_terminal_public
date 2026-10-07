@@ -2,8 +2,8 @@ import DynamicData from "./DynamicData.js"
 import defaultComData from "../tools/defaultComData.js"
 export default {
   data:null,
-  async init(){
-    this.data = new DynamicData(defaultComData())
+  async init(appManager){
+    this.data = new DynamicData(defaultComData(appManager))
   },
   getChatList(listId) {
     const list = this.data.get().chatLists?.find(l => l.id === listId);

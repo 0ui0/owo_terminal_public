@@ -3,6 +3,7 @@ import subAgents from "../../tools/aiAsk/subAgents.js"
 import archiveDb from "../../db/archiveDb.js"
 import ioServer from "../../ioServer/ioServer.js"
 import createAgent from "../../tools/aiAsk/sysCall/createAgent.js"
+import appManager from "../../apps/appManager.js"
 
 // 一次性扫描父列表中的容器消息，构建 targetSubListId -> agentName 映射
 // 用于重启后 subAgents 为空时，仍能恢复会话名称（持久化兜底）
@@ -96,10 +97,48 @@ export default {
           createArgs.derivedFromModelId = modelId
         }
 
+        // 工具名单：直接使用调用方（前端）显式传入的名单数组
+        const grantedToolIdList = Array.isArray(args.defaultTools)
+          ? args.defaultTools
+          : []
+
         const result = await createAgent.fn.call(createAgent, createArgs, {
-          listId: parentId || 0
+          listId: checkParentId,
+          defaultTools: grantedToolIdList,
+          allowUseTools: grantedToolIdList
         })
         return result
+      }
+
+      if (action === "get") {
+        const { listId } = args || {}
+        if (listId === undefined) return { ok: false, msg: "缺少 listId" }
+
+        const list = comData.getChatList(Number(listId))
+        const agent = subAgents.get(Number(listId))
+        const nameMap = await buildAgentNameMap()
+
+        return {
+          ok: true,
+          data: {
+            listId: list.id,
+            name: getSessionName(list, agent, nameMap),
+            prompt: agent?.aiConfig?.prompt ?? "",
+            modelId: list.currentModelId,
+            defaultTools: list.defaultTools || []
+          }
+        }
+      }
+
+      if (action === "update") {
+        const { listId, defaultTools } = args || {}
+        if (listId === undefined) return { ok: false, msg: "缺少 listId" }
+
+        await comData.editChatList(Number(listId), (list) => {
+          list.defaultTools = [...defaultTools]
+        })
+
+        return { ok: true, msg: `会话 ${listId} 初始工具已更新` }
       }
 
       if (action === "del") {

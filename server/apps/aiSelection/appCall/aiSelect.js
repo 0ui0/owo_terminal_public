@@ -6,6 +6,10 @@ import aiSelectionData from "../aiSelectionData.js"
 export default {
   name: "气泡选择器",
   id: "aiSelect",
+  mode: {
+    read: true,
+    write: false
+  },
 
   async fn(argObj) {
     const { value, error } = this.joi().validate(argObj)

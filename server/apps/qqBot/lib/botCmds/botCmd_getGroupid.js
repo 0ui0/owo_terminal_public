@@ -1,4 +1,6 @@
 /* botCmd_getGroupid.js - 获取群聊标识指令 */
+import { qlog } from "../logger.js";
+
 export default {
   cmd: "获取群聊标识",
   run: async function(sendParams) {
@@ -15,7 +17,7 @@ export default {
         await msgCenter.allSend("系统消息", "系统", "请在群聊使用本功能", { source, meta });
       }
     } catch (err) {
-      console.error("[qqBot/getGroupid]", err);
+      qlog(`[qqBot/getGroupid] ${err.message}`, "error");
     }
   }
 };

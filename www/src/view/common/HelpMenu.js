@@ -1,4 +1,4 @@
-import m from "mithril"
+import m from "/@npm/mithril.js"
 import Box from "./box.js"
 import { trs } from "./i18n.js"
 

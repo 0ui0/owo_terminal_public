@@ -29,20 +29,35 @@ export default function (json) {
   const thinkControl = chatList.thinkControl;
   const thinkStrength = chatList.thinkStrength;
 
+  const toolMap = new Map(appManager.getTools().map(tool => [tool.id, tool]));
+  const tools = (chatList.defaultTools || [])
+    .map(toolId => {
+      let tool = toolMap.get(toolId);
+      if (tool) {
+        return tool;
+      } else {
+        console.error("[getMsgProtocalConfig.js]检测到不存在的工具：" + toolId);
+        return null;
+      }
+    })
+    .filter(tool => {
+      if (!tool) {
+        return false;
+      }
+      const isHidden = typeof tool.hidden === "function" ? tool.hidden(toolsMode) : !!tool.hidden;
+      return !isHidden;
+    });
+
   return {
     tokenCompressSwitch: tokenCompressSwitch,
     toolsMode: toolsMode,
     listId: listId,
     toolAccessMode: chatList.toolAccessMode,
+    allowUseTools: chatList.allowUseTools,
     enableThinking: enableThinking,
     thinkControl: thinkControl,
     thinkStrength: thinkStrength,
-    tools: toolsMode === 3
-      ? appManager.getTools()
-      : appManager.getTools().filter((tool) => {
-        const isHidden = typeof tool.hidden === 'function' ? tool.hidden(toolsMode) : !!tool.hidden
-        return !isHidden
-      }),
+    tools: tools,
 
     onMemoryChange: async (aiAskInstance, notes) => {
       await comData.data.edit((data) => {
@@ -124,6 +139,8 @@ export default function (json) {
             chatListId: listId
           }
           await chats.add(chat, listId)
+          // 双通道："chat" 推消息实体（前端事实收到消息），"chat:push" 触发列表刷新
+          ioServer.io.emit("chat", chat)
           ioServer.io.emit("chat:push", { listId })
 
           // 抛出错误以告知 AiAsk 触发重试喵
@@ -334,6 +351,12 @@ export default function (json) {
 
 
           }
+
+          if (contentJSON.faceAction && contentJSON.faceAction !== "none") {
+            if (io) {
+              io.emit("chat:faceAction", { faceAction: contentJSON.faceAction, listId })
+            }
+          }
         } catch (error) {
 
           replyJSON = {
@@ -364,6 +387,8 @@ export default function (json) {
         }
       }
       await chats.add(chat, listId)
+      // 双通道："chat" 推消息实体（前端事实收到消息），"chat:push" 触发列表刷新
+      ioServer.io.emit("chat", chat)
       ioServer.io.emit("chat:push", { listId })
       /* 这里不用添加，已经aiAsk里面是先加了Ask再执行这个函数
       aiBasic.list.forEach((model)=>{

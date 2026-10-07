@@ -1,4 +1,4 @@
-import m from "mithril"
+import m from "/@npm/mithril.js"
 import Box from "../common/box.js"
 import getColor from "../common/getColor.js"
 import { trs } from "../common/i18n.js"
@@ -123,6 +123,11 @@ export default () => {
                 },
                 onclick: () => {
                   selectedStage = opt.value
+                  if (opt.value === "调查并讨论") {
+                    selectedMode = "readOnly"
+                  } else {
+                    selectedMode = "readWrite"
+                  }
                   m.redraw()
                 }
               }, opt.label)

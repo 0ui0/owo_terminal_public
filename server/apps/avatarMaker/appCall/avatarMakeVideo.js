@@ -25,6 +25,10 @@ function getNonConflictingPath(targetPath) {
 export default {
   name: "生成并合成视频",
   id: "avatarMakeVideo",
+  mode: {
+    read: false,
+    write: true
+  },
 
   async fn(argObj, metaData) {
     const { value, error } = this.joi().validate(argObj)

@@ -4,6 +4,10 @@ import comData from "../../../comData/comData.js"
 export default {
   name: "删除任务",
   id: "taskDel",
+  mode: {
+    read: true,
+    write: false
+  },
 
   async fn(argObj, context) {
     const listId = context.listId ?? 0

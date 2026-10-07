@@ -1,21 +1,17 @@
-import m from "mithril"
+import m from "/@npm/mithril.js"
 import Box from "../common/box.js"
 import Tag from "../common/tag.js"
 import getColor from "../common/getColor.js"
 import { trs } from "../common/i18n.js"
 import settingData from "../setting/settingData.js"
-import Notice from "../common/Notice.js"
+import Notice from "../common/notice.js"
 import ChatToolSelect from "./ChatToolSelect.js"
 
 export default () => {
   let toolsList = []
+  let allToolsList = []
   let loadingTools = true
   let modalDraft = null
-
-  const getToolDisplayName = (id) => {
-    const found = toolsList.find(t => t.id === id)
-    return found?.name || id
-  }
 
   return {
     async oninit(vnode) {
@@ -28,7 +24,8 @@ export default () => {
         thinkStrength: targetSession?.thinkStrength || "medium",
         tokenCompressSwitch: targetSession?.tokenCompressSwitch ?? true,
         autoLaunchEditor: !!targetSession?.autoLaunchEditor,
-        skipConfirmTools: [...(targetSession?.skipConfirmTools || [])]
+        skipConfirmTools: [...(targetSession?.skipConfirmTools || [])],
+        allowUseTools: Array.isArray(targetSession?.allowUseTools) ? [...targetSession.allowUseTools] : null
       }
 
       // 💡 遵循 Notice 规范：在模块内部接管 noticeConfig 的 confirm 回调
@@ -44,7 +41,8 @@ export default () => {
                 thinkStrength: modalDraft.thinkStrength,
                 tokenCompressSwitch: modalDraft.tokenCompressSwitch,
                 autoLaunchEditor: modalDraft.autoLaunchEditor,
-                skipConfirmTools: modalDraft.skipConfirmTools
+                skipConfirmTools: modalDraft.skipConfirmTools,
+                allowUseTools: modalDraft.allowUseTools
               })
 
               // 💡 服务端返回 ok: false 时弹出 Notice 报警，并返回 true 拦截窗口关闭
@@ -83,6 +81,10 @@ export default () => {
             // 完全信任后端通过反射动态过 滤出的具备 waitConfirm 的工具
             toolsList = res.data
           }
+          const resAll = await settingData.fnCall("getToolsList", [targetChatListId || 0, "all"])
+          if (resAll?.ok && Array.isArray(resAll.data)) {
+            allToolsList = resAll.data
+          }
         }
       } catch (e) {
         console.warn("[ChatSendParamsModal] 加载工具列表失败:", e)
@@ -92,7 +94,7 @@ export default () => {
       }
     },
 
-    view() {
+    view(vnode) {
       if (!modalDraft) return null
 
       const isThinkControl = !!modalDraft.thinkControl
@@ -101,6 +103,7 @@ export default () => {
       const isTokenCompress = modalDraft.tokenCompressSwitch ?? true
       const isAutoLaunchEditor = !!modalDraft.autoLaunchEditor
       const skipConfirmTools = modalDraft.skipConfirmTools || []
+      const allowUseToolIdList = modalDraft.allowUseTools
 
       return m(
         "",
@@ -495,7 +498,7 @@ export default () => {
                           content: ChatToolSelect,
                           contentAttrs: {
                             toolsList,
-                            modalDraft,
+                            getSelectedList: () => modalDraft.skipConfirmTools,
                             onToggleTool: (toolId) => {
                               if (modalDraft.skipConfirmTools.includes(toolId)) {
                                 modalDraft.skipConfirmTools = modalDraft.skipConfirmTools.filter(id => id !== toolId)
@@ -530,77 +533,179 @@ export default () => {
                 })
               ),
 
-              // 纯粹的已选标签流容器
+              skipConfirmTools.length === 0
+                ? m("div", {
+                  style: {
+                    fontSize: "1.2rem",
+                    opacity: 0.5,
+                    paddingLeft: "0.2rem",
+                    paddingTop: "0.4rem"
+                  }
+                }, trs("输入栏/参数/暂无免确认工具", {
+                  cn: "暂无免确认工具（点击右上角“+ 添加工具”）",
+                  en: "No tools configured (click '+ Add Tool' above)"
+                }))
+                : null
+            ]
+          ),
+
+          // 卡片: 工具许可（只有列入名单的工具才允许被 AI 调用）
+          m(
+            Box,
+            {
+              color: "gray_4",
+              style: {
+                borderRadius: "3rem",
+                margin: "0",
+                padding: "1.2rem 1.5rem",
+                display: "flex",
+                flexDirection: "column",
+                gap: "1rem"
+              }
+            },
+            [
               m(
                 "",
                 {
                   style: {
                     display: "flex",
-                    flexWrap: "wrap",
-                    gap: "0.8rem",
-                    paddingTop: "0.4rem",
-                    alignItems: "center",
-                    minHeight: "2.4rem"
+                    justifyContent: "space-between",
+                    alignItems: "center"
                   }
                 },
-                skipConfirmTools.length === 0
-                  ? [
-                    m(
-                      "span",
-                      {
-                        key: "empty_tip",
-                        style: {
-                          fontSize: "1.2rem",
-                          opacity: 0.5,
-                          padding: "0.2rem 0"
-                        }
-                      },
-                      trs("输入栏/参数/暂无免确认工具", {
-                        cn: "暂无免确认工具（点击右上角“+ 添加工具”）",
-                        en: "No tools configured (click '+ Add Tool' above)"
-                      })
-                    )
-                  ]
-                  : skipConfirmTools.map(toolId => {
-                    const name = getToolDisplayName(toolId)
-                    return m(
-                      Tag,
-                      {
-                        key: toolId,
-                        color: "main",
-                        styleExt: {
-                          margin: "0",
-                          fontSize: "1.3rem",
-                          padding: "0.4rem 1rem",
-                          borderRadius: "3rem",
-                          display: "inline-flex",
-                          alignItems: "center",
-                          gap: "0.5rem"
-                        }
-                      },
-                      [
-                        m("span", name),
-                        m(
-                          "span",
-                          {
-                            style: {
-                              cursor: "pointer",
-                              opacity: 0.7,
-                              fontSize: "1.2rem",
-                              paddingLeft: "0.2rem"
-                            },
-                            onclick: (e) => {
-                              e.stopPropagation()
-                              modalDraft.skipConfirmTools = modalDraft.skipConfirmTools.filter(id => id !== toolId)
-                              m.redraw()
-                            }
+                [
+                  m(
+                    "",
+                    {
+                      style: {
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "0.6rem"
+                      }
+                    },
+                    [
+                      m(
+                        "span",
+                        {
+                          style: {
+                            fontSize: "1.5rem"
+                          }
+                        },
+                        trs("输入栏/参数/工具许可", {
+                          cn: "工具许可",
+                          en: "Tool Access"
+                        })
+                      ),
+                      m(
+                        "span",
+                        {
+                          style: {
+                            fontSize: "1.2rem",
+                            opacity: 0.6
+                          }
+                        },
+                        allowUseToolIdList === null
+                          ? trs("输入栏/参数/工具许可未限制标记", {
+                            cn: "未限制",
+                            en: "Unrestricted"
+                          })
+                          : `(${allowUseToolIdList.length})`
+                      )
+                    ]
+                  ),
+
+                  m(
+                    "",
+                    {
+                      style: {
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "0.5rem"
+                      }
+                    },
+                    [
+                      m(
+                        Tag,
+                        {
+                          isBtn: true,
+                          color: "yellow_1",
+                          styleExt: {
+                            margin: "0",
+                            fontSize: "1.2rem",
+                            padding: "0.3rem 0.8rem",
+                            borderRadius: "3rem"
                           },
-                          "✕"
-                        )
-                      ]
-                    )
+                          onclick: () => {
+                            Notice.launch({
+                              sign: "chat_tool_access_modal_" + vnode.attrs.targetChatListId,
+                              tip: trs("输入栏/参数/选择工具许可", {
+                                cn: "选择允许使用的工具",
+                                en: "Select Allowed Tools"
+                              }),
+                              hideBtn: 2,
+                              content: ChatToolSelect,
+                              contentAttrs: {
+                                toolsList: allToolsList,
+                                getSelectedList: () => modalDraft.allowUseTools || [],
+                                onSetAll: (idList) => {
+                                  modalDraft.allowUseTools = [...idList]
+                                  m.redraw()
+                                },
+                                onToggleTool: (toolId) => {
+                                  const currentList = modalDraft.allowUseTools || []
+                                  if (currentList.includes(toolId)) {
+                                    modalDraft.allowUseTools = currentList.filter(id => id !== toolId)
+                                  } else {
+                                    modalDraft.allowUseTools = [...currentList, toolId]
+                                  }
+                                  m.redraw()
+                                }
+                              }
+                            })
+                          }
+                        },
+                        trs("输入栏/参数/选择工具按钮", {
+                          cn: "选择工具",
+                          en: "Select Tools"
+                        })
+                      )
+                    ]
+                  )
+                ]
+              ),
+
+              m(
+                "div",
+                {
+                  style: {
+                    fontSize: "1.2rem",
+                    opacity: 0.6
+                  }
+                },
+                trs("输入栏/参数/工具许可说明", {
+                  cn: "只有列入名单的工具才允许被 AI 调用；未设置时不受限制，名单为空时全部禁用",
+                  en: "Only listed tools can be called by AI; unrestricted when unset, all disabled when the list is empty"
+                })
+              ),
+
+              allowUseToolIdList === null || allowUseToolIdList.length === 0
+                ? m("div", {
+                  style: {
+                    fontSize: "1.2rem",
+                    opacity: 0.5,
+                    paddingLeft: "0.2rem",
+                    paddingTop: "0.4rem"
+                  }
+                }, allowUseToolIdList === null
+                  ? trs("输入栏/参数/工具许可未限制说明", {
+                    cn: "当前未限制，全部可用工具均可被调用",
+                    en: "Currently unrestricted: every available tool can be called"
                   })
-              )
+                  : trs("输入栏/参数/工具许可全禁说明", {
+                    cn: "名单为空，全部工具均被禁用",
+                    en: "The list is empty: all tools are disabled"
+                  }))
+                : null
             ]
           )
         ]

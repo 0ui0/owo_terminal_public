@@ -1,6 +1,6 @@
 import sessionManagerData from "./sessionManagerData.js"
 
-export default ({ appId, m, Notice, ioSocket, commonData, chatData, settingData, Box, Tag, iconPark, getColor, AutoForm, FormItem }) => {
+export default ({ appId, m, Notice, ioSocket, commonData, chatData, settingData, Box, Tag, iconPark, getColor, AutoForm, FormItem, ChatToolSelect, trs }) => {
   // === State ===
   let sessionList = []
   let isLoading = false
@@ -41,14 +41,7 @@ export default ({ appId, m, Notice, ioSocket, commonData, chatData, settingData,
 
   // 关闭指定 listId 的会话窗口（若已打开）
   const closeAgentWindow = (listId) => {
-    const dataArr = Notice.data.dataArr
-    if (dataArr) {
-      for (let i = dataArr.length - 1; i >= 0; i--) {
-        if (dataArr[i].sign === "agent_" + listId) {
-          Notice.closeTab(dataArr[i])
-        }
-      }
-    }
+    Notice.closeTab("agent_" + listId)
   }
 
   const delSession = async (listId, name) => {
@@ -83,10 +76,32 @@ export default ({ appId, m, Notice, ioSocket, commonData, chatData, settingData,
       prompt: "",
       parentId: 0
     }
+    // 默认工具：默认填入全部可见工具，可手动调整
+    let allToolIdList = []
+    let defaultToolIdList = []
+    let toolsLoaded = false
+
+    // 拉取全部可见工具作为白名单配置候选，并默认继承父会话的可继承工具
+    const loadTools = async () => {
+      const pId = Number(formData.parentId) || 0
+      const [allRes, inheritRes] = await Promise.all([
+        settingData.fnCall("getToolsList", [0, "all"]),
+        settingData.fnCall("getToolsList", [pId, "inheritable"])
+      ])
+      if (allRes?.ok && Array.isArray(allRes.data)) {
+        allToolIdList = allRes.data
+        if (inheritRes?.ok && Array.isArray(inheritRes.data) && inheritRes.data.length > 0) {
+          defaultToolIdList = inheritRes.data.map(tool => tool.id)
+        } else {
+          defaultToolIdList = allRes.data.map(tool => tool.id)
+        }
+      }
+      m.redraw()
+    }
     const enabledAgents = settingData.options.get("ai_aiList")?.filter(m => m.switch) || []
     let submitting = false
 
-    const close = () => Notice.closeTab(vnode.attrs.noticeConfig)
+    const close = () => Notice.closeTab(vnode.attrs.noticeConfig.sign)
     const submit = async () => {
       // AutoForm 会把纯数字输入转成 number，统一 String() 包裹为字符串
       const nameStr = String(formData.name ?? "").trim()
@@ -102,7 +117,8 @@ export default ({ appId, m, Notice, ioSocket, commonData, chatData, settingData,
           name: nameStr,
           prompt: promptStr,
           parentId: Number(formData.parentId) || 0,
-          modelId: formData.modelId
+          modelId: formData.modelId,
+          defaultTools: defaultToolIdList
         }])
         if (res.ok) {
           close()
@@ -119,6 +135,11 @@ export default ({ appId, m, Notice, ioSocket, commonData, chatData, settingData,
       }
     }
     return {
+      oninit() {
+        if (toolsLoaded) return
+        toolsLoaded = true
+        loadTools()
+      },
       view() {
         return m("", {
           style: {
@@ -167,6 +188,59 @@ export default ({ appId, m, Notice, ioSocket, commonData, chatData, settingData,
           }, [
             m(AutoForm, { dataObj: formData, dataName: "parentId", extEditMode: false })
           ]),
+          m(FormItem, {
+            label: "初始工具（可手动调整）"
+          }, [
+            m("", {
+              style: {
+                display: "flex",
+                alignItems: "center",
+                gap: "0.5rem",
+                flexWrap: "wrap"
+              }
+            }, [
+              m(Tag, {
+                isBtn: true,
+                color: "yellow_1",
+                styleExt: {
+                  margin: "0",
+                  cursor: "pointer",
+                  fontSize: "1.2rem",
+                  padding: "0.4rem 1rem",
+                  borderRadius: "3rem"
+                },
+                onclick: () => {
+                  Notice.launch({
+                    sign: "session_create_tool_modal",
+                    tip: "选择允许使用的工具",
+                    hideBtn: 2,
+                    content: ChatToolSelect,
+                    contentAttrs: {
+                      toolsList: allToolIdList,
+                      getSelectedList: () => defaultToolIdList,
+                      onToggleTool: (toolId) => {
+                        defaultToolIdList = defaultToolIdList.includes(toolId)
+                          ? defaultToolIdList.filter(id => id !== toolId)
+                          : [...defaultToolIdList, toolId]
+                        m.redraw()
+                      },
+                      onSetAll: (idList) => {
+                        defaultToolIdList = [...idList]
+                        m.redraw()
+                      }
+                    }
+                  })
+                }
+              }, `选择工具 (${defaultToolIdList.length})`)
+            ]),
+            m("div", {
+              style: {
+                fontSize: "1.2rem",
+                opacity: 0.6,
+                marginTop: "0.4rem"
+              }
+            }, `新会话将默认允许使用 ${defaultToolIdList.length} 个工具；创建后仍可在输入栏的「更多参数配置」中调整工具许可`)
+          ]),
           m("", { style: { display: "flex", justifyContent: "flex-end", gap: "1rem" } }, [
             m(Box, {
               isBtn: true,
@@ -194,6 +268,299 @@ export default ({ appId, m, Notice, ioSocket, commonData, chatData, settingData,
       useMinus: false,
       width: 480
     })
+  }
+
+  // === 编辑会话初始工具弹窗 ===
+  const EditSessionForm = (vnode) => {
+    const { listId, sessionData } = vnode.attrs
+    let allToolIdList = []
+    let defaultToolIdList = [...sessionData.defaultTools]
+    let toolsLoaded = false
+    let submitting = false
+
+    const close = () => Notice.closeTab(vnode.attrs.noticeConfig.sign)
+
+    const loadTools = async () => {
+      try {
+        const res = await settingData.fnCall("getToolsList", [0, "all"])
+        if (res.ok) allToolIdList = res.data
+      } catch (err) {
+        console.error(err)
+      }
+      m.redraw()
+    }
+
+    const submit = async () => {
+      submitting = true
+      m.redraw()
+      try {
+        const res = await settingData.fnCall("appDispatch", [appId, "update", {
+          listId,
+          defaultTools: defaultToolIdList
+        }])
+        if (!res.ok) {
+          Notice.launch({
+            msg: res.msg,
+            color: "red"
+          })
+          return
+        }
+        close()
+        Notice.launch({
+          msg: res.msg,
+          color: "green"
+        })
+        await fetchList(true)
+      } catch (err) {
+        console.error(err)
+      } finally {
+        submitting = false
+        m.redraw()
+      }
+    }
+
+    return {
+      oninit() {
+        if (toolsLoaded) return
+        toolsLoaded = true
+        loadTools()
+      },
+      view() {
+        return m(
+          "",
+          {
+            style: {
+              display: "flex",
+              flexDirection: "column",
+              gap: "1rem",
+              width: "100%"
+            }
+          },
+          [
+            // 缓存穿透风险提示卡片（遵循 Box 颜色对齐）
+            m(
+              Box,
+              {
+                color: "yellow_1",
+                style: {
+                  fontSize: "1.2rem",
+                  lineHeight: "1.6",
+                  margin: "0"
+                }
+              },
+              trs("会话管理器/编辑/穿透警示", {
+                cn: "⚠️ 缓存穿透风险提示：修改会话初始工具底座（defaultTools）会改变底层 System Prompt 与工具签名哈希，将导致云端已有的 Prompt Cache（前缀缓存）彻底失效并重新计算。",
+                en: "⚠️ Prompt Cache Invalidation Warning: Changing defaultTools will alter the System Prompt and tool signature hash, causing existing cloud KV cache to be recomputed."
+              })
+            ),
+
+            // 只读项：会话名称
+            m(
+              FormItem,
+              {
+                label: trs("会话管理器/表单/名称", { cn: "会话名称", en: "Session Name" })
+              },
+              [
+                m(
+                  Box,
+                  {
+                    color: "gray_3",
+                    style: {
+                      margin: "0",
+                      opacity: 0.7,
+                      wordBreak: "break-all"
+                    }
+                  },
+                  sessionData.name + (listId === 0
+                    ? trs("会话管理器/标签/主会话", { cn: "（主会话）", en: " (Main)" })
+                    : `（ID: ${listId}）`)
+                )
+              ]
+            ),
+
+            // 只读项：AI 模型
+            m(
+              FormItem,
+              {
+                label: trs("会话管理器/表单/模型只读", { cn: "AI 模型配置（只读）", en: "AI Model (Readonly)" })
+              },
+              [
+                m(
+                  Box,
+                  {
+                    color: "gray_3",
+                    style: {
+                      margin: "0",
+                      opacity: 0.7,
+                      wordBreak: "break-all"
+                    }
+                  },
+                  sessionData.modelId || trs("会话管理器/选项/继承父级模型", { cn: "继承父级模型", en: "Inherit parent model" })
+                )
+              ]
+            ),
+
+            // 只读项：提示词
+            m(
+              FormItem,
+              {
+                label: trs("会话管理器/表单/提示词只读", { cn: "提示词（只读）", en: "Prompt (Readonly)" })
+              },
+              [
+                m(
+                  Box,
+                  {
+                    color: "gray_3",
+                    style: {
+                      margin: "0",
+                      opacity: 0.7,
+                      maxHeight: "12rem",
+                      overflowY: "auto",
+                      wordBreak: "break-all"
+                    }
+                  },
+                  sessionData.prompt || trs("会话管理器/提示/无提示词", { cn: "（未配置特定提示词）", en: "(No specific prompt)" })
+                )
+              ]
+            ),
+
+            // 初始工具底座（唯一可编辑项）
+            m(
+              FormItem,
+              {
+                label: trs("会话管理器/表单/初始工具", { cn: "初始工具底座（defaultTools）", en: "Default Tools" })
+              },
+              [
+                m(
+                  "",
+                  {
+                    style: {
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "0.5rem",
+                      flexWrap: "wrap"
+                    }
+                  },
+                  [
+                    m(
+                      Tag,
+                      {
+                        isBtn: true,
+                        color: "yellow_1",
+                        onclick: () => {
+                          Notice.launch({
+                            sign: "session_edit_tool_modal",
+                            tip: trs("会话管理器/弹窗/选择工具", { cn: "选择允许使用的工具", en: "Select Allowed Tools" }),
+                            hideBtn: 2,
+                            content: ChatToolSelect,
+                            contentAttrs: {
+                              toolsList: allToolIdList,
+                              getSelectedList: () => defaultToolIdList,
+                              onToggleTool: (toolId) => {
+                                defaultToolIdList = defaultToolIdList.includes(toolId)
+                                  ? defaultToolIdList.filter(id => id !== toolId)
+                                  : [...defaultToolIdList, toolId]
+                                m.redraw()
+                              },
+                              onSetAll: (idList) => {
+                                defaultToolIdList = [...idList]
+                                m.redraw()
+                              }
+                            }
+                          })
+                        }
+                      },
+                      trs("会话管理器/按钮/选择工具数", {
+                        cn: `选择工具 (${defaultToolIdList.length})`,
+                        en: `Select Tools (${defaultToolIdList.length})`
+                      })
+                    )
+                  ]
+                ),
+                m(
+                  "div",
+                  {
+                    style: {
+                      fontSize: "1.2rem",
+                      opacity: 0.6,
+                      marginTop: "0.4rem"
+                    }
+                  },
+                  trs("会话管理器/提示/工具生效说明", {
+                    cn: `当前已选 ${defaultToolIdList.length} 个初始工具；保存后立即生效于该会话的大模型工具底座。`,
+                    en: `${defaultToolIdList.length} tools selected; will take effect as the model's base tools upon saving.`
+                  })
+                )
+              ]
+            ),
+
+            // 操作按钮
+            m(
+              "",
+              {
+                style: {
+                  display: "flex",
+                  justifyContent: "flex-end",
+                  gap: "1rem",
+                  marginTop: "0.5rem"
+                }
+              },
+              [
+                m(
+                  Box,
+                  {
+                    isBtn: true,
+                    color: "gray_4",
+                    onclick: close
+                  },
+                  trs("通用/按钮/取消", { cn: "取消", en: "Cancel" })
+                ),
+                m(
+                  Box,
+                  {
+                    isBtn: true,
+                    color: "green_1",
+                    onclick: submit
+                  },
+                  submitting
+                    ? trs("通用/提示/保存中", { cn: "保存中...", en: "Saving..." })
+                    : trs("会话管理器/按钮/保存初始工具", { cn: "保存初始工具", en: "Save Tools" })
+                )
+              ]
+            )
+          ]
+        )
+      }
+    }
+  }
+
+  // 先向服务端预取会话数据，成功后才唤起编辑弹窗
+  const openEditForm = async (listId) => {
+    try {
+      const res = await settingData.fnCall("appDispatch", [appId, "get", { listId }])
+      if (!res.ok) {
+        Notice.launch({
+          msg: res.msg,
+          color: "red"
+        })
+        return
+      }
+      Notice.launch({
+        sign: "session_edit_form_" + listId,
+        tip: "编辑会话",
+        appType: "sessionManager",
+        content: EditSessionForm,
+        contentAttrs: {
+          listId,
+          sessionData: res.data
+        },
+        hideBtn: 2,
+        useMinus: false,
+        width: 480
+      })
+    } catch (err) {
+      console.error(err)
+    }
   }
 
   // === Instance Interface ===
@@ -315,6 +682,13 @@ export default ({ appId, m, Notice, ioSocket, commonData, chatData, settingData,
         gap: "1.0rem"
       }
     }, [
+      // 配置初始工具底座（设置齿轮图标，合法存在于 iconPark.js）
+      m(Tag, {
+        isBtn: true,
+        color: "yellow_1",
+        onclick: () => openEditForm(session.listId)
+      }, m.trust(iconPark.getIcon("SettingTwo", { fill: getColor("yellow_1").front, size: "1.2rem" }))),
+
       // 唤起会话窗口
       m(Tag, {
         isBtn: true,
