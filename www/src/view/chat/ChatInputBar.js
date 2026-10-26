@@ -232,7 +232,7 @@ export default () => {
           m("div", {
             style: {
               display: "inline-flex",
-              alignItems: "stretch"
+              alignItems: "center"
             }
           }, [
             m(IconTag, {
@@ -330,12 +330,13 @@ export default () => {
               }, [
                 (settingData.options.get("ai_aiList")?.find(m => m.id === targetSession.currentModelId)?.name) || "请选择模型"
               ]),
-              m.trust(window.iconPark.getIcon("Down"))
+              m.trust(window.iconPark.getIcon("Down", { size: "1.3rem" }))
             ]),
 
             m(IconTag, {
               iconName: "Terminal",
               bgColor: getColor('main').back,
+              fgColor: getColor('main').front,
               styleExt: {
                 margin: 0,
                 marginLeft: 0,
@@ -494,7 +495,7 @@ export default () => {
                     style: {
                       marginLeft: "0.2rem",
                       marginRight: "0.2rem",
-                      fontSize: "1.2rem",
+                      fontSize: "1.3rem",
                       verticalAlign: "middle"
                     }
                   }, [
@@ -503,7 +504,7 @@ export default () => {
                       en: "Strength"
                     }) + ({ low: 1, medium: 2, high: 3 }[targetSession.thinkStrength] || 2),
                   ]),
-                  m.trust(window.iconPark.getIcon("Down")),
+                  m.trust(window.iconPark.getIcon("Down", { size: "1.3rem" })),
 
                   showThinkStrengthList
                     ? m("", {
@@ -556,6 +557,7 @@ export default () => {
           m(IconTag, {
             iconName: "MagicWand",
             bgColor: getColor('main').back,
+            fgColor: getColor('main').front,
             styleExt: {
               margin: 0,
               marginLeft: 0,
@@ -599,7 +601,7 @@ export default () => {
               targetSession.toolsMode === 5
                 ? trs("输入栏/模式/编程模式", { cn: "编程模式", en: "Coding Mode" }) : null,
             ]),
-            m.trust(window.iconPark.getIcon("Down")),
+            m.trust(window.iconPark.getIcon("Down", { size: "1.3rem" })),
 
             showToolsList ? m("", {
               style: {

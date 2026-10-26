@@ -2,6 +2,7 @@ import comData from "../../comData/comData.js"
 import xTermCss from '/@npm/@xterm/xterm/css/xterm.css'
 import abcjsAudioCss from '/@npm/abcjs/abcjs-audio.css'
 import hljsCss from '/@npm/highlight.js/styles/atom-one-dark.css'
+import katexCss from '/@npm/katex/dist/katex.min.css'
 import getColor from "../common/getColor.js"
 
 export default function () {
@@ -10,6 +11,10 @@ export default function () {
       return m("style", `
         html{
           font-size:10px;
+          border-radius:3rem;
+          //border:0.1rem solid ${getColor("main").back};
+          //box-sizing:border-box;
+          //background:rgba(0,0,0,0.8);
         }
         html,body,#app{
           padding:0;margin:0;
@@ -462,6 +467,19 @@ export default function () {
         ${abcjsAudioCss}
 
         ${hljsCss}
+
+        ${katexCss}
+        .katex-display {
+          overflow-x: auto;
+          overflow-y: hidden;
+          max-width: 100%;
+          margin: 0.8rem 0;
+          padding: 0.2rem 0;
+        }
+        .katex {
+          font-size: 1.15em;
+          text-indent: 0;
+        }
 
       `)
     }

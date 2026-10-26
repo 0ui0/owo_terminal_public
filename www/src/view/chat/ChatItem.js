@@ -85,7 +85,7 @@ const ReasoningBlock = () => {
           m("", {
             style: {
               float: "right",
-              whiteSpace: show ? "wrap" : "nowrap",
+              whiteSpace: show ? "normal" : "nowrap",
               fontSize: "1rem",
               margin: "0.5rem",
               maxHeight: "10rem",
@@ -523,14 +523,14 @@ export default ChatItem = () => {
               style: {
                 flex: 1,
                 marginBottom: "0.5rem",
-                overflowWrap: "break-word",
+                overflowWrap: "anywhere",
                 wordBreak: "break-all",
-                whiteSpace: "wrap",
+                whiteSpace: "normal",
                 //width:chat.group == "terminal" ? "500px" : "auto",
                 //height:chat.group == "terminal" ? "500px" : "auto"
                 boxSizing: "border-box",
                 maxHeight:chat.group == "user" ? "20rem" : "unset",
-                overflow:"auto"
+                overflow:"auto",
               }
             }, [
               //正文内容
@@ -631,7 +631,7 @@ export default ChatItem = () => {
                         m("", {
                           style: {
                             float: showMind ? "unset" : "right",
-                            whiteSpace: showMind ? "wrap" : "nowrap",
+                            whiteSpace: showMind ? "normal" : "nowrap",
                             fontSize: "0.8rem",
                             maxHeight: "20rem",
                             overflow: "auto",
@@ -842,140 +842,116 @@ export default ChatItem = () => {
                     trs("聊天/子会话/打开窗口按钮", { cn: "打开子会话", en: "Open Sub-session" })
                   ]) : null,
 
-                m(Tag, {
-                  styleExt: {
-                    background: getColor('purple_2').back,
-                    color: getColor('purple_2').front,
-                    display: "inline-flex",
-                    alignItems: "center",
-                    marginLeft: "0",
-                    marginRight: "0.5rem",
-                  },
-                  isBtn: true,
-                  onclick: async () => {
-                    Notice.launch({
-                      tip: trs("聊天/撤销/提示标题", { cn: "是否撤销", en: "Undo Check" }),
-                      msg: trs("聊天/撤销/提示内容", { cn: "是否撤销本条消息?（若为提问消息本条消息将重新加入到输入框）", en: "Undo this message? (User questions will return to the input box)" }),
-                      async confirm() {
-                        if (chat.group === "user") {
-                          if (!data.focusEditor) {
-                            Notice.launch({ msg: "请先点击一个聊天输入框，再撤回喵", type: "info" })
-                            return
-                          }
-                          if (data.focusEditor.getListId() !== chat.chatListId) {
-                            Notice.launch({ msg: "请先切换到该会话的输入框，再撤回喵", type: "info" })
-                            return
-                          }
-                        }
-                        debugHistory.log("撤销", { uuid: chat.uuid, chatListId: chat.chatListId });
-                        await settingData.fnCall("undoChat", [chat.uuid, chat.chatListId])
-                        data.getSessionState(chat.chatListId).isAtBottom = true
-                        if (chat.group === "user") {
-                          data.focusEditor.appendText(chat.content)
-                        }
-                      }
-                    })
-                  },
-                }, [
-                  m.trust(window.iconPark.getIcon("Undo", {
-                    fill: getColor('purple_2').front
-                  })),
-                  trs("聊天界面/词汇/撤销")
-                ]),
-                // 1. 撤到此处按钮 (Undo)
-                m(Tag, {
-                  styleExt: {
-                    background: getColor('purple_2').back,
-                    color: getColor('purple_2').front,
-                    display: "inline-flex",
-                    alignItems: "center",
-                    marginLeft: "0",
-                    marginRight: "0.5rem",
-                    display: attrs.isChildren ? "none" : "inline-flex"
-                  },
-                  isBtn: true,
-                  onclick: async () => {
-                    Notice.launch({
-                      tip: trs("聊天/撤到此处/提示标题", { cn: "是否撤到本条？", en: "Undo to here?" }),
-                      msg: trs("聊天/撤到此处/提示内容", { cn: "是否撤销到本条消息？（这将清空包括本条和本条以后的所有消息，若为提问消息本条消息将重新加入到输入框）", en: "Undo all messages from this point? (This clears everything after, and returns user questions to input)" }),
-                      async confirm() {
-                        if (chat.group === "user") {
-                          if (!data.focusEditor) {
-                            Notice.launch({ msg: "请先点击一个聊天输入框，再撤到本条喵", type: "info" })
-                            return
-                          }
-                          if (data.focusEditor.getListId() !== chat.chatListId) {
-                            Notice.launch({ msg: "请先切换到该会话的输入框，再撤到本条喵", type: "info" })
-                            return
-                          }
-                        }
-                        debugHistory.log("撤到本条", { uuid: chat.uuid, chatListId: chat.chatListId });
-                        await settingData.fnCall("undoToChat", [chat.uuid, chat.chatListId])
-                        data.getSessionState(chat.chatListId).isAtBottom = true
-                        if (chat.group === "user") {
-                          data.getSessionState(chat.chatListId).attachments = chat.attachments || []
-                          data.focusEditor.appendText(chat.content)
-                        }
-                      }
-                    })
-                  },
-                }, [
-                  m.trust(window.iconPark.getIcon("Return", {
-                    fill: getColor('purple_2').front
-                  })),
-                  trs("聊天/撤到此处/按钮", { cn: "撤到本条", en: "Undo to here" })
-                ]),
-
-                // 2. 时光机还原按钮
-                (chat.uuid && chat.group !== "preparing" && chat.snapshotId) ? m(Tag, {
-                  styleExt: {
-                    background: getColor('green_1').back,
-                    color: getColor('green_1').front,
-                    display: "inline-flex",
-                    alignItems: "center",
-                    marginLeft: "0",
-                    marginRight: "0.5rem",
-                  },
-                  isBtn: true,
-                  onclick: async () => {
-                    try {
-                      const listId = attrs.listId || 0
-                      const diffRes = await settingData.fnCall("restoreChatFile", [{ uuid: chat.uuid, listId }])
-                      if (!diffRes.ok) {
-                        Notice.launch({ msg: diffRes.msg, type: "error" })
-                        return
-                      }
-                      const diffList = diffRes.data
+                m(IconTag, {
+                  iconName: "Undo",
+                  bgColor: getColor('purple_2').back,
+                  fgColor: getColor('purple_2').front,
+                  ext: {
+                    onclick: async () => {
                       Notice.launch({
-                        tip: trs("时光机/还原", { cn: "时光机还原", en: "Time Machine Restore" }),
-                        content: ChatiTmRestoreDialog,
-                        contentAttrs: {
-                          diffList,
-                          uuid: chat.uuid,
-                          listId
+                        tip: trs("聊天/撤销/提示标题", { cn: "是否撤销", en: "Undo Check" }),
+                        msg: trs("聊天/撤销/提示内容", { cn: "是否撤销本条消息?（若为提问消息本条消息将重新加入到输入框）", en: "Undo this message? (User questions will return to the input box)" }),
+                        async confirm() {
+                          if (chat.group === "user") {
+                            if (!data.focusEditor) {
+                              Notice.launch({ msg: "请先点击一个聊天输入框，再撤回喵", type: "info" })
+                              return
+                            }
+                            if (data.focusEditor.getListId() !== chat.chatListId) {
+                              Notice.launch({ msg: "请先切换到该会话的输入框，再撤回喵", type: "info" })
+                              return
+                            }
+                          }
+                          debugHistory.log("撤销", { uuid: chat.uuid, chatListId: chat.chatListId });
+                          await settingData.fnCall("undoChat", [chat.uuid, chat.chatListId])
+                          data.getSessionState(chat.chatListId).isAtBottom = true
+                          if (chat.group === "user") {
+                            data.focusEditor.appendText(chat.content)
+                          }
                         }
                       })
                     }
-                    catch (err) {
-                      console.log(err)
-                      Notice.launch({ msg: "时光机还原出错: " + (err.message || err), type: "error" })
+                  }
+                }, trs("聊天界面/词汇/撤销")),
+                // 1. 撤到此处按钮 (Undo)
+                m(IconTag, {
+                  iconName: "Return",
+                  bgColor: getColor('purple_2').back,
+                  fgColor: getColor('purple_2').front,
+                  styleExt: {
+                    display: attrs.isChildren ? "none" : "inline-flex"
+                  },
+                  ext: {
+                    onclick: async () => {
+                      Notice.launch({
+                        tip: trs("聊天/撤到此处/提示标题", { cn: "是否撤到本条？", en: "Undo to here?" }),
+                        msg: trs("聊天/撤到此处/提示内容", { cn: "是否撤销到本条消息？（这将清空包括本条和本条以后的所有消息，若为提问消息本条消息将重新加入到输入框）", en: "Undo all messages from this point? (This clears everything after, and returns user questions to input)" }),
+                        async confirm() {
+                          if (chat.group === "user") {
+                            if (!data.focusEditor) {
+                              Notice.launch({ msg: "请先点击一个聊天输入框，再撤到本条喵", type: "info" })
+                              return
+                            }
+                            if (data.focusEditor.getListId() !== chat.chatListId) {
+                              Notice.launch({ msg: "请先切换到该会话的输入框，再撤到本条喵", type: "info" })
+                              return
+                            }
+                          }
+                          debugHistory.log("撤到本条", { uuid: chat.uuid, chatListId: chat.chatListId });
+                          await settingData.fnCall("undoToChat", [chat.uuid, chat.chatListId])
+                          data.getSessionState(chat.chatListId).isAtBottom = true
+                          if (chat.group === "user") {
+                            data.getSessionState(chat.chatListId).attachments = chat.attachments || []
+                            data.focusEditor.appendText(chat.content)
+                          }
+                        }
+                      })
                     }
                   }
-                }, [
-                  m.trust(window.iconPark.getIcon("History", { fill: getColor('green_1').front })),
-                  "还原文件变动"
-                ]) : null,
+                }, trs("聊天/撤到此处/按钮", { cn: "撤到本条", en: "Undo to here" })),
+
+                // 2. 时光机还原按钮
+                (chat.uuid && chat.group !== "preparing" && chat.snapshotId) ? m(IconTag, {
+                  iconName: "History",
+                  bgColor: getColor('green_1').back,
+                  fgColor: getColor('green_1').front,
+                  ext: {
+                    onclick: async () => {
+                      try {
+                        const listId = attrs.listId || 0
+                        const diffRes = await settingData.fnCall("restoreChatFile", [{ uuid: chat.uuid, listId }])
+                        if (!diffRes.ok) {
+                          Notice.launch({ msg: diffRes.msg, type: "error" })
+                          return
+                        }
+                        const diffList = diffRes.data
+                        Notice.launch({
+                          tip: trs("时光机/还原", { cn: "时光机还原", en: "Time Machine Restore" }),
+                          content: ChatiTmRestoreDialog,
+                          contentAttrs: {
+                            diffList,
+                            uuid: chat.uuid,
+                            listId
+                          }
+                        })
+                      }
+                      catch (err) {
+                        console.log(err)
+                        Notice.launch({ msg: "时光机还原出错: " + (err.message || err), type: "error" })
+                      }
+                    }
+                  }
+                }, "还原文件变动") : null,
 
 
                 m(Tag, {
                   styleExt: {
                     background: getColor('purple_2').back,
                     color: getColor('purple_2').front,
-                    display: "inline-flex",
+                    display: attrs.isChildren ? "none" : "inline-flex",
                     alignItems: "center",
                     marginLeft: "0",
                     marginRight: "0.5rem",
-                    display: attrs.isChildren ? "none" : "inline-flex"
                   },
                   isBtn: true,
                   onclick: async () => {
@@ -991,81 +967,86 @@ export default ChatItem = () => {
                 }, trs("聊天/清除之前/按钮", { cn: "清除本条之前", en: "Clear before" })),
 
 
-                m(Tag, {
-                  styleExt: {
-                    background: getColor('yellow_1').back,
-                    color: getColor('yellow_1').front,
-                    display: "inline-flex",
-                    alignItems: "center",
-                    marginLeft: "0",
-                    marginRight: "0.5rem",
-                  },
-                  isBtn: true,
-                  onclick: async () => {
-                    data.getSessionState(chat.chatListId).call = {
-                      uuid: chat.uuid,
-                    };
-                  },
-                }, [
-                  m.trust(window.iconPark.getIcon("Message", {
-                    fill: getColor('yellow_1').front
-                  })),
-                  trs("聊天界面/词汇/回复")
-                ]),
-
-                m(Tag, {
-                  styleExt: {
-                    background: getColor('yellow_1').back,
-                    color: getColor('yellow_1').front,
-                    display: "inline-flex",
-                    alignItems: "center",
-                    marginLeft: "0",
-                    marginRight: "0.5rem",
-                  },
-                  isBtn: true,
-                  onclick: async () => {
-                    if (!data.focusEditor) {
-                      Notice.launch({ msg: "请先点击一个聊天输入框，再引用喵", type: "info" })
-                      return
+                m(IconTag, {
+                  iconName: "Message",
+                  bgColor: getColor('yellow_1').back,
+                  fgColor: getColor('yellow_1').front,
+                  ext: {
+                    onclick: async () => {
+                      data.getSessionState(chat.chatListId).call = {
+                        uuid: chat.uuid,
+                      };
                     }
-                    const session = data.getSessionState(data.focusEditor.getListId());
-                    session.quotes = session.quotes.filter((q) => q.uuid !== chat.uuid);
-                    session.quotes.push({ ...chat });
-                  },
-                }, [
-                  m.trust(window.iconPark.getIcon("Quote", {
-                    fill: getColor('yellow_1').front
-                  })),
-                  trs("聊天界面/词汇/引用")
-                ]),
+                  }
+                }, trs("聊天界面/词汇/回复")),
+
+                m(IconTag, {
+                  iconName: "Quote",
+                  bgColor: getColor('yellow_1').back,
+                  fgColor: getColor('yellow_1').front,
+                  ext: {
+                    onclick: async () => {
+                      if (!data.focusEditor) {
+                        Notice.launch({ msg: "请先点击一个聊天输入框，再引用喵", type: "info" })
+                        return
+                      }
+                      const session = data.getSessionState(data.focusEditor.getListId());
+                      session.quotes = session.quotes.filter((q) => q.uuid !== chat.uuid);
+                      session.quotes.push({ ...chat });
+                    }
+                  }
+                }, trs("聊天界面/词汇/引用")),
 
                 // 普通消息的独立窗口（子会话与终端各自已有窗口按钮，互不干扰）
                 (chat.group !== "childChatList" && !chat.tid && chat.group !== "preparing") ?
-                  m(Tag, {
-                    styleExt: {
-                      background: getColor('blue_1').back,
-                      color: getColor('blue_1').front,
-                      display: "inline-flex",
-                      alignItems: "center",
-                      marginLeft: "0",
-                      marginRight: "0.5rem",
-                    },
-                    isBtn: true,
-                    onclick: () => {
-                      Notice.launch({
-                        sign: "msg_" + chat.uuid,
-                        tip: chat.ask.title || trs("聊天/窗口/按钮", { cn: "单消息窗口", en: "Window" }),
-                        content: {
-                          view: () => m(ChatItem, { chat })
-                        }
-                      })
+                  m(IconTag, {
+                    iconName: "Browser",
+                    bgColor: getColor('blue_1').back,
+                    fgColor: getColor('blue_1').front,
+                    ext: {
+                      onclick: () => {
+                        Notice.launch({
+                          sign: "msg_" + chat.uuid,
+                          tip: chat.ask.title || trs("聊天/窗口/按钮", { cn: "单消息窗口", en: "Window" }),
+                          content: {
+                            view: () => m(ChatItem, { chat })
+                          }
+                        })
+                      }
                     }
-                  }, [
-                    m.trust(window.iconPark.getIcon("Browser", {
-                      fill: getColor('blue_1').front
-                    })),
-                    trs("聊天/窗口/按钮", { cn: "窗口", en: "Window" })
-                  ]) : null,
+                  }, trs("聊天/窗口/按钮", { cn: "窗口", en: "Window" })) : null,
+
+                // agent 消息专用：保存为计划书并立即在编辑器中打开
+                (chat.group === "agent" && chat.content) ?
+                  m(IconTag, {
+                    iconName: "DocDetail",
+                    bgColor: getColor('green_1').back,
+                    fgColor: getColor('green_1').front,
+                    ext: {
+                      onclick: async () => {
+                        try {
+                          const res = await settingData.fnCall("savePlan", [{
+                            chatUuid: chat.uuid,
+                            content: chat.content,
+                            title: chat.ask?.title || "",
+                            listId: chat.chatListId
+                          }])
+                          if (!res.ok) {
+                            Notice.launch({ msg: res.msg })
+                            return
+                          }
+                          await settingData.fnCall("appLaunch", ["editor", {
+                            data: {
+                              filePath: res.data.filePath,
+                              singleInstance: true
+                            }
+                          }])
+                        } catch (err) {
+                          console.error("[ChatItem] 保存计划书出错:", err)
+                        }
+                      }
+                    }
+                  }, trs("聊天/保存计划书/按钮", { cn: "保存计划书", en: "Save Plan" })) : null,
 
                 attrs.isChildren ?
                   m(IconTag, {

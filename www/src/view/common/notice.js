@@ -37,7 +37,7 @@ export default {
   },
 
   // 启动/激活窗口
-  launch: function (rawObj = {}) {
+  launch: async function (rawObj = {}) {
     const _this = this
 
     // 💡 标准 Tab 默认配置表（对齐 aiDocs/Notice说明.md「完整参数字典」+ noticeBox.js 实际读取的全部字段）
@@ -53,11 +53,13 @@ export default {
       icon: undefined,            // 标题图标（优先于 appType）
       appType: undefined,         // App 类型，用于 getAppIconUrl 取图标
       isMini: false,              // 迷你模式：窄窗紧凑排版（标题栏上下两行）
+      useFloatBall: false,        // 悬浮球模式：标题栏收缩为包裹红绿灯的微型胶囊并支持弹出菜单
       titleBar: undefined,        // 标题栏中部的自定义菜单栏组件
       headerButtons: [],          // 标题栏自定义按钮数组 [{ icon, color, onclick }]
       // ---- 内容区 ----
       msg: undefined,             // 简易通知文本：未提供 content 时自动用 Box 渲染该文字
-      content: undefined,         // 窗口内容区主体 Mithril 组件
+      content: undefined,         // 窗口内容区主体 Mithril 组件（始终都是组件）
+      contentPath: undefined,     // 模块字符串路径（当需要动态加载或支持独立窗口打开时传入）
       contentAttrs: undefined,    // 透传给 content 组件的初始化属性
       transparentContent: false,  // 内容区是否透明（true 不铺 brown_2 底色）
       // ---- 窗口初始化（几何 / 窗口状态：优先取 win，其次取 x/y/width/height 兼容写法）----
@@ -137,6 +139,15 @@ export default {
         const win = tabData?._winConfig
         if (!win) return
         win.isPinned = !win.isPinned
+        if (tabData.isWindow) {
+          settingData.fnCall("sysWinControl", [win.isPinned ? "pin" : "unpin", tabData._winConfig.id])
+          /* if (window.opener?.__Notice) {
+            const parentItem = window.opener.__Notice.data.dataArr.find(i => i.sign === tabData.sign)
+            if (parentItem?._winConfig) {
+              parentItem._winConfig.isPinned = win.isPinned
+            }
+          } */
+        }
         _this.handleWindowUpdate(win)
         m.redraw()
       },
@@ -203,6 +214,26 @@ export default {
     // 用 Object.assign 原地写入，保持调用方传入对象引用不变
     const obj = Object.assign(rawObj, { ...defaultTabConfig, ...rawObj })
 
+    // 💡 支持 contentPath：当传入标准 ES 模块路径字符串时，动态加载组件并赋值给 obj.content
+    if (typeof obj.contentPath === 'string') {
+      const isEsPath = obj.contentPath.startsWith("/") ||
+        obj.contentPath.startsWith("./") ||
+        obj.contentPath.startsWith("../") ||
+        obj.contentPath.startsWith("http://") ||
+        obj.contentPath.startsWith("https://")
+      if (isEsPath) {
+        try {
+          const moduleObj = await import(obj.contentPath)
+          obj.content = moduleObj.default
+        } catch (err) {
+          console.error(`[Notice] 动态加载模块失败: ${obj.contentPath}`, err)
+          throw err
+        }
+      } else {
+        console.error(`[Notice] contentPath 必须符合标准 ES 模块路径格式 (/ 或 ./ 或 ../ 开头): ${obj.contentPath}`)
+      }
+    }
+
     if (obj.useWebWindowOpen) {
       obj.isWindow = true
     }
@@ -264,7 +295,7 @@ export default {
         isMaximized: false,
         minimized: obj.minimized || false,
         isPinned: win.isPinned !== undefined ? win.isPinned : (obj.isPinned || false),
-        zIndex: (obj.isPinned || win.isPinned ? 900000 : 0) + this.data.zIndexBase + 1, // 初始层级
+        zIndex: this.data.zIndexBase + 1, // 初始层级
         activeSign: obj.sign, // 默认激活当前新增的 tab
         isWindow: obj.isWindow || false,
         isMain: obj.isMain || false,
@@ -377,7 +408,7 @@ export default {
       }
 
       this.data.zIndexBase++
-      config.zIndex = (config.isPinned ? 900000 : 0) + this.data.zIndexBase
+      config.zIndex = this.data.zIndexBase
       this.data.activeWindowId = winId
 
       m.redraw()
@@ -703,6 +734,9 @@ export default {
     // 不过 NBox 是 fixed 的，DOM 顺序 + zIndex 决定显示。
     // 我们先收集所有有效的 config
     this.data.dataArr.forEach(item => {
+      // 💡 独立脱壳子窗口不在主窗口桌面渲染影子窗口（已由任务栏 Nav 遥控面板与悬浮球全面接管）
+      if (item.useWebWindowOpen && !window.opener) return
+
       if (!configSet.has(item._winConfig)) {
         configSet.add(item._winConfig)
         configs.push(item._winConfig)

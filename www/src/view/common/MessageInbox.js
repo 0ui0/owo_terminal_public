@@ -223,7 +223,7 @@ export default () => {
           justifyContent: "center",
           width: "2.4rem",
           height: "2.4rem",
-          borderRadius: "0.5rem",
+          borderRadius: "50%",
           cursor: "pointer",
           "-webkit-app-region": "no-drag",
           background: "rgba(0,0,0,0.05)"

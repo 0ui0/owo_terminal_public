@@ -33,6 +33,13 @@ class TempPathManager {
     return userAppsDir
   }
 
+  // 获取用户计划书目录 (userData/owo_data/plans，自动确保目录存在)
+  getUserPlansDir() {
+    const userPlansDir = pathLib.join(this.getUserDataDir(), "plans")
+    fs.ensureDirSync(userPlansDir)
+    return userPlansDir
+  }
+
   // 获取当前实例 temp/{pid} 下的物理路径（自动确保目录存在）
   get(subPath = "") {
     const userData = this.getUserDataDir()

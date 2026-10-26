@@ -32,7 +32,10 @@ export default () => {
             {
               color: "gray_4",
               styleExt: {
-                margin: 0
+                margin: 0,
+                height: "unset",
+                display: "inline-flex",
+                alignItems: "center"
               },
             },
             [
@@ -109,7 +112,10 @@ export default () => {
             {
               color: "gray_4",
               styleExt: {
-                margin: 0
+                margin: 0,
+                height: "unset",
+                display: "inline-flex",
+                alignItems: "center"
               },
             },
             [

@@ -100,7 +100,7 @@ export default {
       let resultStr = resultLines.join("\n")
 
       // 2. 字符硬截断保护（按行截断，避免截断在行中间）
-      const MAX_CHARS = 15000
+      const MAX_CHARS = 80000
       let isCharClipped = false
       if (resultStr.length > MAX_CHARS) {
         while (resultStr.length > MAX_CHARS && resultLines.length > 1) {

@@ -3,182 +3,247 @@ import commonData from "./commonData.js"
 import Notice from "./notice.js"
 import { trs } from "./i18n.js"
 import getAppIconUrl from "./getAppIconUrl.js"
+import openControlPanel from "./notice/openControlPanel.js"
 
-export default {
-  view: ({ attrs }) => {
-    const { item, index, urlList, barZoomRate } = attrs
-    const navWinMode = commonData.navWinMode // 默认不启用winMode
-    const tab = item.type === "program" ? Notice.data.dataArr.find(t => t.sign === item.sign) : null
+export default function () {
+  // 长按时空模型状态：闭包内独享，redraw 不丢失
+  let longPressTimer = null
+  let isLongPress = false
+  let startPoint = { x: 0, y: 0 }
 
-    return m(".animated.bounceIn", {
-      style: {
-        "user-select": "none",
-        "-webkit-user-select": "none",
-        display: "flex",
-        flexDirection: "column",
-        justifyContent: "center",
-        alignItems: "center",
-        position: "relative",
-        // 单个按钮背后的触控区域
-        width: "100%",
-        transition: "width 1s ease"
-      },
+  const clearLongPress = () => {
+    if (longPressTimer) {
+      clearTimeout(longPressTimer)
+      longPressTimer = null
+    }
+  }
 
-      /* onbeforeremove: (v) => {
-        v.dom.classList.add("bounceOut")
-        return new Promise((res, rej) => {
-          setTimeout(() => {
-            res()
-          }, 700)
-        })
+  return {
+    view: ({ attrs }) => {
+      const { item, index, urlList, barZoomRate } = attrs
+      const navWinMode = commonData.navWinMode // 默认不启用winMode
+      const tab = item.type === "program" ? Notice.data.dataArr.find(t => t.sign === item.sign) : null
+      const baseIconSize = attrs.isMini ? 1.5 : (Mob ? 3.5 : 3)
 
-      }, */
+      // 长按 300ms 唤起遥控面板；位移超过 10px 立即取消
+      const handlePointerDown = (e) => {
+        if (e.button === 2) return // 右键交给 contextmenu，避免与长按互杀
+        if (item.type !== "program" || !tab || !tab._winConfig) return
 
-      onmouseover: (e) => {
-        if (item.type === "program") {
-          return
-        }
-        urlList.forEach((item) => item.sizeRate = 0.8)
-        if (urlList[index - 1]) urlList[index - 1].sizeRate = 1
-        if (urlList[index + 1]) urlList[index + 1].sizeRate = 1
-        if (urlList[index - 2]) urlList[index - 2].sizeRate = 0.9
-        if (urlList[index + 2]) urlList[index + 2].sizeRate = 0.9
-        urlList[index].sizeRate = 1.15
-      },
+        isLongPress = false
+        startPoint = { x: e.clientX, y: e.clientY }
+        clearLongPress()
 
-      onmouseout: (e) => {
-        if (item.type === "program") {
-          return
-        }
-        urlList.forEach((item) => item.sizeRate = 1)
+        const anchorDom = e.currentTarget
+        const winId = tab._winConfig.id
+
+        longPressTimer = setTimeout(() => {
+          longPressTimer = null
+          isLongPress = true
+          openControlPanel({ anchorDom, winId })
+        }, 300)
       }
-    }, [
-      m("", {
+
+      const handlePointerMove = (e) => {
+        if (!longPressTimer) return
+        if (Math.hypot(e.clientX - startPoint.x, e.clientY - startPoint.y) > 10) {
+          clearLongPress()
+        }
+      }
+
+      const handlePointerUp = () => {
+        clearLongPress()
+      }
+
+      const handleContextMenu = (e) => {
+        if (item.type !== "program" || !tab || !tab._winConfig) return
+        e.preventDefault()
+        e.stopPropagation()
+        if (isLongPress) return
+        openControlPanel({
+          anchorDom: e.currentTarget,
+          winId: tab._winConfig.id
+        })
+      }
+
+      const handleClick = (e) => {
+        // 长按已经唤起遥控面板，松开时不再触发常规激活
+        if (isLongPress) {
+          isLongPress = false
+          return
+        }
+
+        // 优先使用传入的 onClick 回调 (支持自定义逻辑，如 minimize toggle)
+        if (item.onClick) {
+          item.onClick(e)
+          return
+        }
+
+        // 如果是程序类型项目，执行默认激活
+        if (item.type === "program") {
+          if (item.winId) {
+            Notice.activateWindow(item.winId)
+          }
+        } else {
+          ROUTE.set(item.url);
+        }
+      }
+
+      return m(".animated.bounceIn", {
         style: {
-          display: "inline-block",
-          position: "relative",
-          userSelect: "none",
           "user-select": "none",
           "-webkit-user-select": "none",
-          margin: !Mob ? `0 ${2 ** barZoomRate}rem` : ""
-        }
-      }, [
-        m("img", {
-          src: item.type === "program" ? getAppIconUrl(item.appType, item.icon) : `./statics/navbar/${item.icon}.svg`,
-          onerror: (e) => { e.target.src = "/statics/navbar/program.svg" },
-          title: item.name,
-          style: {
-            "user-select": "none",
-            "-webkit-user-select": "none",
-            display: "relative",
-            margin: "0 0.5rem",
-            borderRadius: item.type === "program" ? "0.6rem" : "0",
-            objectFit: item.type === "program" ? "cover" : "initial",
-            width: Mob
-              ? `${(3.5 * item.sizeRate * barZoomRate).toFixed(2)}rem`
-              : `${(3 * item.sizeRate * barZoomRate).toFixed(2)}rem`,
-            height: Mob
-              ? `${(3.5 * item.sizeRate * barZoomRate).toFixed(2)}rem`
-              : `${(3 * item.sizeRate * barZoomRate).toFixed(2)}rem`,
-            opacity: tab && tab._winConfig.minimized ? 0.55 : 1,
-            willChange: "width,height,transform",
-            transform: "translateZ(0)",
-            cursor: "pointer",
-            transition: "all 0.5s"
-          },
-          onclick: (e) => {
-            // 优先使用传入的 onClick 回调 (支持自定义逻辑，如 minimize toggle)
-            if (item.onClick) {
-              item.onClick(e)
-              return
-            }
-
-            // 如果是程序类型项目，执行默认激活
-            if (item.type === "program") {
-              if (item.winId) {
-                Notice.activateWindow(item.winId)
-              }
-            } else {
-              ROUTE.set(item.url);
-            }
-          }
-        }),
-        tab ? m(".nav-indicator", {
-          style: {
-            position: "absolute",
-            bottom: "-0.25rem",
-            left: "50%",
-            transform: "translateX(-50%)",
-            width: !tab._winConfig.minimized && Notice.data.activeWindowId === tab._winConfig.id ? "1.4rem" : "0.5rem",
-            height: !tab._winConfig.minimized && Notice.data.activeWindowId === tab._winConfig.id ? "0.3rem" : "0.5rem",
-            borderRadius: !tab._winConfig.minimized && Notice.data.activeWindowId === tab._winConfig.id ? "0.2rem" : "50%",
-            backgroundColor: tab._winConfig.minimized ? getColor('yellow_1').back : (Notice.data.activeWindowId === tab._winConfig.id ? getColor('green_1').back : getColor('gray_8').back),
-            boxShadow: !tab._winConfig.minimized && Notice.data.activeWindowId === tab._winConfig.id ? `0 0 6px ${getColor('green_1').back}` : (tab._winConfig.minimized ? `0 0 6px ${getColor('yellow_1').back}` : `0 0 3px ${getColor('gray_6').back}`),
-            border: tab._winConfig.minimized ? `1.5px solid ${getColor('gray_8').back}` : "none",
-            pointerEvents: "none",
-            transition: "all 0.3s ease"
-          }
-        }) : null
-      ]),
-
-      // 指示条
-      m("", {
-        style: {
-          position: "absolute",
-          top: 0,
-          left: 0,
-          width: "100%",
-          height: "100%",
-          //background: "red",
-          display: "inline-flex",
+          display: "flex",
+          flexDirection: "column",
           justifyContent: "center",
-          overflow: "visible",
-          pointerEvents: "none"
-        }
+          alignItems: "center",
+          position: "relative",
+          // 单个按钮背后的触控区域
+          width: "100%",
+          transition: "width 1s ease"
+        },
+
+        onmouseover: (e) => {
+          if (item.type === "program") {
+            return
+          }
+          urlList.forEach((item) => item.sizeRate = 0.8)
+          if (urlList[index - 1]) urlList[index - 1].sizeRate = 1
+          if (urlList[index + 1]) urlList[index + 1].sizeRate = 1
+          if (urlList[index - 2]) urlList[index - 2].sizeRate = 0.9
+          if (urlList[index + 2]) urlList[index + 2].sizeRate = 0.9
+          urlList[index].sizeRate = 1.15
+        },
+
+        onmouseout: (e) => {
+          if (item.type === "program") {
+            return
+          }
+          urlList.forEach((item) => item.sizeRate = 1)
+        },
+
+        onpointerdown: handlePointerDown,
+        onpointermove: handlePointerMove,
+        onpointerup: handlePointerUp,
+        onpointercancel: handlePointerUp,
+        oncontextmenu: handleContextMenu
       }, [
         m("", {
           style: {
+            display: "inline-block",
+            position: "relative",
+            userSelect: "none",
             "user-select": "none",
             "-webkit-user-select": "none",
-            position: "absolute",
-            minWidth: "max-content",
-            top: "-3.5rem",
-            height: item.type === "program" || m.route.get().match(item.url) ? "2rem" : "0",
-            width: item.type === "program" || m.route.get().match(item.url) ? (item.type === "program" ? "auto" : "4rem") : "0",
-            background: "rgba(0,0,0,0.5)",
-            borderRadius: "1rem",
-            transition: "all 0.8s",
-            textAlign: "center",
-            display: "flex",
-            justifyContent: "center",
-            alignItems: "center",
-            transform: "scale(0.8)",
-            "backdrop-filter": "blur(5px)",
-            "-webkit-backdrop-filter": "blur(5px)"
+            margin: !Mob ? `0 ${2 ** barZoomRate}rem` : ""
           }
         }, [
-          item.type === "program" || m.route.get().match(item.url) ?
-            m("span", {
-              oninit: (e) => {
-                setTimeout(() => {
-                  e.dom.style.opacity = 1
-                }, 200)
-              },
-              style: {
-                "user-select": "none",
-                "-webkit-user-select": "none",
-                opacity: 0,
-                transition: "all 0.8s",
-                fontSize: "1rem",
-                lineHeight: "2rem",
-                color: "#eee",
-                margin: "0 0.2rem"
-              }
-            }, [
-              item.type === "program" ? trs("导航栏/项目/" + (item.tip || "程序")) : trs("导航栏/项目/" + item.name)
-            ]) : null
+          m("img", {
+            src: item.type === "program" ? getAppIconUrl(item.appType, item.icon) : `./statics/navbar/${item.icon}.svg`,
+            onerror: (e) => { e.target.src = "/statics/navbar/program.svg" },
+            title: item.name,
+            style: {
+              "user-select": "none",
+              "-webkit-user-select": "none",
+              display: "relative",
+              margin: "0 0.5rem",
+              borderRadius: item.type === "program" ? "0.6rem" : "0",
+              objectFit: item.type === "program" ? "cover" : "initial",
+              width: `${(baseIconSize * item.sizeRate * barZoomRate).toFixed(2)}rem`,
+              height: `${(baseIconSize * item.sizeRate * barZoomRate).toFixed(2)}rem`,
+              opacity: tab && tab._winConfig.minimized ? 0.55 : 1,
+              willChange: "width,height,transform",
+              transform: "translateZ(0)",
+              cursor: "pointer",
+              transition: "all 0.5s"
+            },
+            onclick: handleClick
+          }),
+          tab ? m(".nav-indicator", {
+            style: {
+              position: "absolute",
+              bottom: "-0.25rem",
+              left: "50%",
+              transform: "translateX(-50%)",
+              width: !tab._winConfig.minimized && Notice.data.activeWindowId === tab._winConfig.id ? "1.4rem" : "0.5rem",
+              height: !tab._winConfig.minimized && Notice.data.activeWindowId === tab._winConfig.id ? "0.3rem" : "0.5rem",
+              borderRadius: !tab._winConfig.minimized && Notice.data.activeWindowId === tab._winConfig.id ? "0.2rem" : "50%",
+              backgroundColor: tab._winConfig.minimized ? getColor('yellow_1').back : (Notice.data.activeWindowId === tab._winConfig.id ? getColor('green_1').back : getColor('gray_8').back),
+              boxShadow: !tab._winConfig.minimized && Notice.data.activeWindowId === tab._winConfig.id ? `0 0 6px ${getColor('green_1').back}` : (tab._winConfig.minimized ? `0 0 6px ${getColor('yellow_1').back}` : `0 0 3px ${getColor('gray_6').back}`),
+              border: tab._winConfig.minimized ? `1.5px solid ${getColor('gray_8').back}` : "none",
+              pointerEvents: "none",
+              transition: "all 0.3s ease"
+            }
+          }) : null
+        ]),
+
+        // 指示条
+        m("", {
+          style: {
+            position: "absolute",
+            top: 0,
+            left: 0,
+            width: "100%",
+            height: "100%",
+            //background: "red",
+            display: "inline-flex",
+            justifyContent: "center",
+            overflow: "visible",
+            pointerEvents: "none"
+          }
+        }, [
+          m("", {
+            style: {
+              "user-select": "none",
+              "-webkit-user-select": "none",
+              position: "absolute",
+              minWidth: "max-content",
+              maxWidth: "8rem",
+              top: "-3.5rem",
+              height: item.type === "program" || m.route.get().match(item.url) ? "2rem" : "0",
+              width: item.type === "program" || m.route.get().match(item.url) ? (item.type === "program" ? "auto" : "4rem") : "0",
+              background: "rgba(0,0,0,0.5)",
+              borderRadius: "1rem",
+              padding: "0 0.4rem",
+              boxSizing: "border-box",
+              transition: "all 0.8s",
+              textAlign: "center",
+              display: "flex",
+              justifyContent: "center",
+              alignItems: "center",
+              transform: "scale(0.8)",
+              "backdrop-filter": "blur(5px)",
+              "-webkit-backdrop-filter": "blur(5px)"
+            }
+          }, [
+            item.type === "program" || m.route.get().match(item.url) ?
+              m("span", {
+                oninit: (e) => {
+                  setTimeout(() => {
+                    e.dom.style.opacity = 1
+                  }, 200)
+                },
+                style: {
+                  "user-select": "none",
+                  "-webkit-user-select": "none",
+                  opacity: 0,
+                  transition: "all 0.8s",
+                  fontSize: "1rem",
+                  lineHeight: "2rem",
+                  color: "#eee",
+                  margin: "0 0.2rem",
+                  whiteSpace: "nowrap",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis"
+                }
+              }, [
+                item.type === "program"
+                  ? trs("导航栏/项目/" + ((item.tip || "程序").replace(/^\[app_[^\]]+\]/, "")))
+                  : trs("导航栏/项目/" + item.name)
+              ]) : null
+          ])
         ])
       ])
-    ])
+    }
   }
 }

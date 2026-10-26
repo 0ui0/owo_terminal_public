@@ -4,24 +4,11 @@ import chatData from "../view/chat/chatData.js"
 import Notice from "../view/common/notice.js"
 import ChatTerm from "../view/chat/ChatTerm.js"
 import m from "/@npm/mithril.js"
-import Box from "../view/common/box.js"
-import Tag from "../view/common/tag.js"
-import AutoForm from "../view/common/autoForm.js"
-import FormItem from "../view/common/FormItem.js"
-import ChatToolSelect from "../view/chat/ChatToolSelect.js"
 import ChatFaceBubble from "../view/chat/ChatFaceBubble.js"
 import settingData from "../view/setting/settingData.js"
-import format from "../view/common/format.js"
 import { trs } from "../view/common/i18n.js"
-import getColor from "../view/common/getColor.js"
-import Menu from "../view/common/menu.js"
-import sysMenu from "../view/common/sysMenu.js"
-import Tip from "../view/common/tip.js"
 import jsonpatch from "/@npm/fast-json-patch.js"
 import _ from "/@npm/lodash.js"
-import { Terminal } from "/@npm/@xterm/xterm.js"
-import { FitAddon } from "/@npm/@xterm/addon-fit.js"
-import { v4 as uuidv4 } from "/@npm/uuid.js"
 import sound from "../help/sound.js"
 const { applyPatch } = jsonpatch
 
@@ -241,37 +228,14 @@ export default {
 
     this.socket.on("app:launch", async (msg) => {
       try {
-        const module = await import(msg.frontendUrl)
-        let component = module.default
-        if (typeof component === "function") {
-          // 参数注入模式
-          component = component({
-            appId: msg.appId,
-            m,
-            Notice,
-            ioSocket: this,
-            comData,
-            commonData,
-            chatData,
-            settingData,
-            format,
-            Box,
-            Tag,
-            iconPark: window.iconPark,
-            getColor,
-            trs,
-            Terminal,
-            FitAddon,
-            Menu,
-            sysMenu,
-            Tip,
-            uuid: uuidv4,
-            jsonpatch,
-            AutoForm,
-            FormItem,
-            ChatToolSelect
-          })
+        // 💡 子窗口定向守卫：若是独立子窗口，只响应属于当前窗口已有 App（响应 AI 遥控与就地激活），拦截一切新开无关 App
+        if (window.opener) {
+          const isSelf = Notice.data.dataArr && Notice.data.dataArr.some(tab => tab.sign === msg.appId)
+          if (!isSelf) {
+            return
+          }
         }
+
         // Window Management: Resolve Geometry
         const saved = msg.data && msg.data.window
         const def = msg.window || {}
@@ -295,55 +259,30 @@ export default {
         // Mark as launched in backend
         settingData.fnCall("appGuiLaunched", [msg.appId]).catch(e => console.warn("Failed to mark app active", e))
 
-        // 定义窗口配置对象
+        // 定义窗口配置对象（纯静态配置，所有动态钩子移入 AppHost 内部接管）
         const noticeObj = {
           sign: msg.appId,
           group: msg.type,
           appType: msg.type,
           icon: msg.icon,
           tip: `[${msg.appId}]${msg.name}`,
-          headerButtons: [
-            {
-              icon: window.iconPark ? window.iconPark.getIcon("Quote", { fill: "#eee", size: "12px" }) : '"',
-              color: "#5e6c79",
-              onclick: () => {
-                chatData.quoteAppId(msg.appId)
-                // 点击引用后，自动将弹窗最小化
-                if (noticeObj._winConfig && noticeObj._winConfig.id) {
-                  Notice.minimizeWindow(noticeObj._winConfig.id)
-                }
-              }
-            }
-          ],
           width: targetW,
           height: targetH,
           x: targetX,
           y: targetY,
           minimized: saved ? saved.minimized : false,
           win: saved ? { x: saved.x, y: saved.y, width: saved.width, height: saved.height } : undefined,
-          onWindowUpdate: (rect) => {
-            // Sync window state to backend
-            settingData.fnCall("appUpdateWindow", [msg.appId, rect])
-          },
-          cancel: async (dom, closeNative) => {
-            // 集中处理 App 关闭逻辑：通知后端销毁
-            await settingData.fnCall("appClose", [msg.appId])
-            closeNative()
-          },
-          confirm: async (dom, closeNative) => {
-            // 集中处理 App 关闭逻辑：通知后端销毁
-            await settingData.fnCall("appClose", [msg.appId])
-            closeNative()
-          },
           hideBtn: 2,
-          content: component,
+          contentPath: "/src/view/common/AppHost.js",
+          useWebWindowOpen: false,
           contentAttrs: {
+            msg: msg,
             appId: msg.appId,
             data: msg.data
           }
         }
 
-        Notice.launch(noticeObj)
+        await Notice.launch(noticeObj)
         if (saved && saved.minimized) {
           // 立即最小化，抵消 Notice.launch 默认强制激活的问题
           if (noticeObj._winConfig && noticeObj._winConfig.id) {

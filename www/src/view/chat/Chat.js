@@ -27,7 +27,7 @@ export default () => {
         style: {
           width: "100%",
           height: "100%",
-          padding: Mob ? "1rem 1rem 10rem 1rem" : "2rem 2rem 10rem 2rem",
+          padding: Mob ? "1rem" : "2rem",
           boxSizing: "border-box",
           display: "flex",
           position: "relative",
@@ -95,6 +95,7 @@ export default () => {
             position: "relative",
             height: "100%",
             width: "100%",
+            minWidth:0,
           }
         }, [
           chatList

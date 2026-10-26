@@ -709,6 +709,22 @@ export default () => {
             }
           },
         }, [
+          // 💡 顶部渐变淡出蒙层：严格遵循《样式设计指南》，使用与当前主题同源的 getColor('消息列表背景')
+          // 从实色底板平滑过渡到全透明，三个主题自动完美融合，彻底消除硬编码纯黑带来的突兀脏污感
+          m(".chatlist-top-mask", {
+            style: {
+              position: "sticky",
+              top: 0,
+              left: 0,
+              width: "100%",
+              height: "6.5rem",
+              marginBottom: "-6.5rem",
+              background: `linear-gradient(to bottom, ${getColor('消息列表背景')} 0%, ${getColor('消息列表背景')}cc 45%, ${getColor('消息列表背景')}00 100%)`,
+              pointerEvents: "none",
+              zIndex: 5,
+            }
+          }),
+
           m(ChatTasks, {
             chatList,
             oncreate(v) {

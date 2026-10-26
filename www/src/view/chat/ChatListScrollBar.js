@@ -611,7 +611,8 @@ export default () => {
             top: "0",
             bottom: "0",
             width: isLongPressed ? "1.6rem" : "1.1rem",
-            background: getColor('gray_3').back,
+            // background: getColor('gray_3').back,
+            background: "transparent",
             borderRadius: "3rem",
             transition: "width 0.22s cubic-bezier(0.34, 1.56, 0.64, 1), background 0.2s ease"
           }

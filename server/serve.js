@@ -34,6 +34,7 @@ const init = async (config) => {
   await fs.ensureDir(pathLib.join(userData, "usrCall"))
   await fs.ensureDir(pathLib.resolve("../aiWork"))
   tempPath.get("aiTmp") // 启动时自动初始化并确保实例专属的 temp/aiTmp 临时脚本目录存在
+  tempPath.getUserPlansDir() // 启动时自动初始化并确保 owo_data/plans 计划书目录存在
 
 
   const serverOpts = (usePort) => ({

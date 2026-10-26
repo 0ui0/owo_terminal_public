@@ -19,6 +19,7 @@ import Notice from "./notice.js";
 import Box from "./box.js";
 import Tag from "./tag.js";
 import admonition from '/@npm/marked-admonition-extension.js';
+import markedKatex from '/@npm/marked-katex-extension';
 
 
 mermaid.initialize({
@@ -209,6 +210,10 @@ window.miniBrowser = function () {
 };
 
 marked.use(admonition);
+marked.use(markedKatex({
+  throwOnError: false,
+  nonStandard: true,
+}));
 
 renderMD = new marked.Renderer();
 
@@ -495,12 +500,7 @@ const formatImpl = function (content, type, opt) {
     });
 
     try {
-      code = marked(content.replace(/\$\$[^\$\$]+\$\$/g, function (i) {
-        return katex.renderToString(i.replace(/\$\$/g, ""), {
-          throwOnError: false,
-          strict: false
-        });
-      }));
+      code = marked(content);
       code = code.replace(/\[bilibili\][a-zA-Z_\-0-9]+\[\/bilibili\]/g, (item) => {
         let info;
         item = item.replace("[bilibili]", "");

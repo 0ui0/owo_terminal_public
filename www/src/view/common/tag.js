@@ -12,7 +12,7 @@ export default function() {
           display: v.attrs.isBlock ? "block" : "inline-block",
           padding: v.attrs.isWide ? "0.2rem 1rem" : "0.2rem 0.5rem",
           fontSize: "1.3rem",
-          Height: "1.8rem",
+          height: "1.8rem",
           lineHeight: "1.8rem",
           margin: "0.2rem 0.5rem",
           borderRadius: "1rem",

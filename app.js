@@ -96,6 +96,10 @@ const createWindow = (port) => {
     titleBarStyle: 'hiddenInset',
     frame: false,
     transparent: true,
+    // macOS 原生窗口阴影只在 show 时渲染一次，透明窗口做尺寸动画时会留下旧阴影残影，故关闭（electron#8847）
+    hasShadow: false,
+    //vibrancy: 'fullscreen-ui',    // 模糊的材质类型
+    //visualEffectState: 'active',
     webPreferences: {
       webviewTag: true,
       nodeIntegration: false,

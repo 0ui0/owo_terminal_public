@@ -1,0 +1,9 @@
+{
+  "id": "desktopPet",
+  "name": "桌面角色",
+  "icon": "icon.svg",
+  "description": "透明桌面互动角色与桌宠视窗",
+  "autoLoadTools": true,
+  "backend": "backend.js",
+  "frontend": "frontend.js"
+}

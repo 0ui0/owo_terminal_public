@@ -40,7 +40,8 @@ export default function () {
         baseSize = 10;
         break;
     }
-    return root.style["font-size"] = (baseSize * commonData.zoomFactor) + "px";
+    root.style["font-size"] = (baseSize * commonData.zoomFactor) + "px";
+   
   };
 
   commonData.updateFontSize = fn;

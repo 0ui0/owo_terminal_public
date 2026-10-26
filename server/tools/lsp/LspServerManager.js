@@ -2,7 +2,9 @@ import LspClient from './LspClient.js';
 import path from 'path';
 import os from 'os';
 import fsSync from 'fs';
-import { pathToFileURL } from 'url';
+import { pathToFileURL, fileURLToPath } from 'url';
+
+const appRootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../');
 
 /**
  * LSP 服务器管理器 (对齐主流 IDE 架构)
@@ -40,6 +42,7 @@ class LspServerManager {
         searchPaths.push(path.join(mainDir, 'node_modules', '.bin', cmd));
       }
       searchPaths.push(path.join(userHome, '.owo-terminal', 'ext', 'node_modules', '.bin', cmd));
+      searchPaths.push(path.join(appRootDir, 'node_modules', '.bin', cmd));
     }
 
     for (const p of searchPaths) {
@@ -61,7 +64,7 @@ class LspServerManager {
       if (filePath && fsSync.existsSync(filePath) && fsSync.statSync(filePath).isDirectory()) {
         isDir = true;
       }
-    } catch (e) {}
+    } catch (e) { }
 
     let ext = isDir ? "" : path.extname(filePath || "").toLowerCase();
     // 若未提供具体文件扩展名，根据工作区主目录特征自动探测主语言

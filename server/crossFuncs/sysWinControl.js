@@ -50,6 +50,14 @@ export default {
           targetWin.focus()
         } else if (action === "devtools") {
           targetWin.webContents.openDevTools({ mode: "detach" })
+        } else if (action === "pin") {
+          targetWin.setAlwaysOnTop(true)
+        } else if (action === "unpin") {
+          targetWin.setAlwaysOnTop(false)
+        } else if (action === "ignoreMouse") {
+          targetWin.setIgnoreMouseEvents(true, { forward: true })
+        } else if (action === "unignoreMouse") {
+          targetWin.setIgnoreMouseEvents(false)
         }
       }
       return {

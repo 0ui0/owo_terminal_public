@@ -20,11 +20,17 @@ export default {
   oncreate: ({ dom }) => {
     commonData.navDom = dom
     // 导航栏占用高度（px），供全屏窗口底部避让；底部锚定 ⇒ 视口尺寸变化不影响它
-    commonData.navInset = Math.max(0, Math.ceil(window.innerHeight - dom.getBoundingClientRect().top))
+    // 💡 额外增加 2.5rem 缝隙，与系统 rem 规范严格对齐
+    const getNavGap = () => {
+      const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 10
+      return Math.round(2.5 * rem)
+    }
+    commonData.navInset = Math.max(0, Math.ceil(window.innerHeight - dom.getBoundingClientRect().top)) + getNavGap()
     if (window.ResizeObserver) {
       commonData.navInsetObserver?.disconnect?.()
       commonData.navInsetObserver = new ResizeObserver(() => {
-        commonData.navInset = Math.max(0, Math.ceil(window.innerHeight - dom.getBoundingClientRect().top))
+        commonData.navInset = Math.max(0, Math.ceil(window.innerHeight - dom.getBoundingClientRect().top)) + getNavGap()
+        m.redraw()
       })
       commonData.navInsetObserver.observe(dom)
     }
@@ -34,9 +40,13 @@ export default {
     //barWidth = calcWidth(dom)
   },
 
-  view: (v) => {
+  view: ({ attrs }) => {
+    // 💡 子窗口只展示当前窗口承载的程序项，不渲染全局路由跳转图标（防止误切回 /chat 冲毁子窗口）
+    const effectiveUrlList = window.opener ? [] : urlList
+    const isMini = Boolean(attrs?.isMini)
+    const useFloatBall = Boolean(attrs?.useFloatBall)
     const winCount = Notice.data.dataArr ? new Set(Notice.data.dataArr.map(i => i._winConfig)).size : 0
-    const fullLength = urlList.length + winCount
+    const fullLength = effectiveUrlList.length + winCount
     const barZoomRate = fullLength > 8 ? 8 / fullLength : 1
 
     return m(".owo-nav-bar", {
@@ -48,9 +58,8 @@ export default {
         position: "fixed",
         alignItems: "center",
         bottom: "0rem",
-        left: "50%",
-        transform: "translate(-50%,0)",
-        transition: "all 0.5s ease",
+        left: useFloatBall ? "0.5rem" : "50%",
+        transform: useFloatBall ? "none" : "translate(-50%,0)",
         // 必须高于 Notice 层容器（notice.js 中固定容器 zIndex:999999），否则智能体窗口会遮住导航栏
         zIndex: 1000000,
         ...(commonData.navWinMode ? {
@@ -82,18 +91,17 @@ export default {
           "-webkit-user-select": "none",
           display: "flex",
           alignItems: "center",
-          backgroundColor: getColor('gray_12').back + '80',
+          backgroundColor: getColor('gray_12').back,
           backgroundImage: "url(./statics/nav_bg.svg)",
           backgroundRepeat: "no-repeat",
           backgroundSize: "100% auto",
           backgroundPosition: "bottom",
           borderRadius: "5rem",
-          minWidth: Mob ? "85vw" : "auto",
+          minWidth: (isMini || !Mob) ? "auto" : "85vw",
           padding: "1rem 0",
           marginBottom: "1.2rem",
-          "backdrop-filter": "blur(5px)",
-          "-webkit-backdrop-filter": "blur(5px)",
-          transition: "all ease 1s",
+          "backdrop-filter": "blur(20px)",
+          "-webkit-backdrop-filter": "blur(20px)",
           boxShadow: "0 0 0.5rem rgba(100,100,100,0.3)",
           border: `0.1rem solid ${getColor('main').back}`,
           position: "relative",
@@ -128,7 +136,7 @@ export default {
               "-webkit-user-select": "none",
               marginLeft: "1rem",
               marginRight: "1rem",
-              width: `${2 * barZoomRate}rem`,
+              width: `${(isMini ? 1.0 : 2) * barZoomRate}rem`,
               height: "auto",
               cursor: "pointer",
               transition: "all 0.5s"
@@ -157,12 +165,12 @@ export default {
             zIndex: "1"
           }
         }, [
-          urlList.map((item, index) =>
+          effectiveUrlList.map((item, index) =>
             m(NavItem, {
               key: item.url || item.name,
               item: item,
               index: index,
-              urlList: urlList,
+              urlList: effectiveUrlList,
               barZoomRate: barZoomRate
             })
           ),
@@ -176,7 +184,7 @@ export default {
                 display: "inline-flex",
                 justifyContent: "space-evenly",
                 alignItems: "center",
-                borderLeft: "0.2rem solid rgba(0,0,0,0.2)"
+                borderLeft: effectiveUrlList.length > 0 ? "0.2rem solid rgba(0,0,0,0.2)" : "none"
               }
             }, [
               (() => {
@@ -236,7 +244,8 @@ export default {
                     item: programItem,
                     index: index,
                     urlList: urlList,
-                    barZoomRate: barZoomRate
+                    barZoomRate: barZoomRate,
+                    isMini: isMini
                   });
                 })
               })()

@@ -5,6 +5,7 @@ import commonData from "./commonData.js"
 import { trs } from "./i18n.js"
 import MessageInbox from "./MessageInbox.js"
 import getColor from "./getColor.js"
+import Tag from "./tag.js"
 
 export default () => {
   return {
@@ -45,15 +46,24 @@ export default () => {
             }
           }, m(MessageInbox)),
 
-          commonData.currentProject ? m("div", {
-            style: {
-              display: "flex", alignItems: "center", gap: "6px",
-              background: "rgba(0,0,0,0.1)", padding: "1px 6px", borderRadius: "4px",
-              fontSize: "11px", color: "#ddd"
+          commonData.currentProject ? m(Tag, {
+            isBtn: false,
+            styleExt: {
+              background: "rgba(0, 0, 0, 0.05)",
+              color: getColor("main").front,
             }
           }, [
-            m("div", { style: { width: "6px", height: "6px", borderRadius: "50%", background: "#4caf50", boxShadow: "0 0 5px #4caf50" } }),
-            m("span", typeof commonData.currentProject === 'string' ? commonData.currentProject.split(/[/\\]/).pop() : "")
+            m("", {
+              style: {
+                display: "inline-block",
+                width: "0.6rem",
+                height: "0.6rem",
+                borderRadius: "50%",
+                background: getColor("green_1").back,
+                marginRight: "0.4rem"
+              }
+            }),
+            typeof commonData.currentProject === "string" ? commonData.currentProject.split(/[/\\]/).pop() : ""
           ]) : null
         ])
       ])

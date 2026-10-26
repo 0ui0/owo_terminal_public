@@ -23,6 +23,7 @@ export default () => {
       }, [
         m.trust(window.iconPark.getIcon(attrs.iconName, {
           fill: attrs.fgColor ?? getColor("yellow_1").front,
+          size: "1.3rem",
           ...attrs.iconConfig
         })),
         ...children

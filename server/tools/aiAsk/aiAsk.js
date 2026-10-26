@@ -1877,6 +1877,10 @@ id为${fnCallCache.cacheid}
               maxLength: 100000
             },
             {
+              toolId: 'filePatcher',
+              maxLength: 500000
+            },
+            {
               toolId: 'findHistoryChats',
               maxLength: 100000
             }

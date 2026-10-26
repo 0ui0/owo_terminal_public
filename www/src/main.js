@@ -63,9 +63,7 @@ window.Notice = Notice
     iconPark_.init()
     //注意先后，ioSocket引入了comData，要先初始化
     await comData.init()
-    if (!window.opener) {
-      ioSocket.init()
-    }
+    ioSocket.init()
 
     // 初始化 i18n 并从后端加载字典
     const { init: i18nInit } = await import("./view/common/i18n.js")
@@ -127,10 +125,11 @@ window.Notice = Notice
 
 
     let Win = function () {
+      let tabs = []
       return {
         oncreate() {
           const winId = m.route.param("winId")
-          const tabs = window.opener.Notice.data.dataArr.filter((tab)=>{
+          tabs = window.opener.Notice.data.dataArr.filter((tab)=>{
             return tab._winConfig.id === winId
           })
 
@@ -153,9 +152,11 @@ window.Notice = Notice
           })
         },
         view({ attrs, children }) {
+          const isMini = tabs.some(t => t.isMini)
+          const useFloatBall = tabs.some(t => t.useFloatBall)
           return [
             m(Notice),
-            m(Nav)
+            m(Nav, { isMini, useFloatBall })
             // 导航栏必须与 Notice 层「平级」渲染：
             // Notice 容器固定为 zIndex:999999，而主窗口 .window-box 是 position:fixed + zIndex:0（自成层叠上下文），
             // 导航栏若留在窗口内部，无论 z-index 调多高都压不过 Notice。

@@ -1,40 +1,22 @@
 import Box from "./box.js";
-import Tag from "./tag.js";
 import getColor from "./getColor.js";
-import Notice from "./notice.js";
 import commonData from "./commonData.js";
-import getAppIconUrl from "./getAppIconUrl.js";
 import settingData from "../setting/settingData.js";
+import materialize from "./notice/materialize.js";
+import WindowHeader from "./notice/WindowHeader.js";
+import TabBar from "./notice/TabBar.js";
+import FloatBall from "./notice/FloatBall.js";
 
 export default function () {
   let isResizing = false
   let resizeDir = ""
   let startX, startY, startW, startH, startWinX, startWinY
-
-  let isMoving = false
-  let moveStartX, moveStartY, moveStartWinX, moveStartWinY
-
-  let preMaxState = null
   let domRect = null
-  let currentAttrs = null // Fix: Capture attrs in closure
-
-  // 固化尺寸函数
-  const materialize = (dom, win) => {
-    const isAuto = (win.width === 0 || win.height === 0)
-    if (isAuto && dom) {
-      const rect = dom.getBoundingClientRect()
-      if (rect.width === 0 && rect.height === 0) return
-      win.width = rect.width
-      win.height = rect.height
-      win.x = rect.left
-      win.y = rect.top
-    }
-  }
 
   // ---------------- 事件处理 ----------------
-
-  const handlePointerDown = (e, dir, win) => {
-    e.stopPropagation(); e.preventDefault()
+  const handlePointerDown = (e, dir, win, onWindowUpdate) => {
+    e.stopPropagation()
+    e.preventDefault()
 
     const target = e.currentTarget
     target.setPointerCapture(e.pointerId)
@@ -42,15 +24,21 @@ export default function () {
     const rootDom = e.target.closest(".window-box")
     materialize(rootDom, win)
 
-    isResizing = true; resizeDir = dir
-    startX = e.clientX; startY = e.clientY
-    startW = win.width; startH = win.height
-    startWinX = win.x; startWinY = win.y
+    isResizing = true
+    resizeDir = dir
+    startX = e.clientX
+    startY = e.clientY
+    startW = win.width
+    startH = win.height
+    startWinX = win.x
+    startWinY = win.y
 
-    const onMove = (e) => {
+    const onMove = (ev) => {
       if (!isResizing) return
-      const dx = e.clientX - startX; const dy = e.clientY - startY
-      const minW = 200; const minH = 150
+      const dx = ev.clientX - startX
+      const dy = ev.clientY - startY
+      const minW = 200
+      const minH = 150
 
       if (resizeDir.includes("e")) win.width = Math.max(minW, startW + dx)
       if (resizeDir.includes("s")) win.height = Math.max(minH, startH + dy)
@@ -66,244 +54,28 @@ export default function () {
       }
       m.redraw()
     }
-    const onUp = (e) => {
+
+    const onUp = (ev) => {
       isResizing = false
-      target.releasePointerCapture(e.pointerId)
+      target.releasePointerCapture(ev.pointerId)
       document.removeEventListener("pointermove", onMove)
       document.removeEventListener("pointerup", onUp)
-      if (currentAttrs && currentAttrs.onWindowUpdate) currentAttrs.onWindowUpdate(win)
+      if (onWindowUpdate) onWindowUpdate(win)
     }
+
     document.addEventListener("pointermove", onMove)
     document.addEventListener("pointerup", onUp)
-  }
-
-  const handleTitleDown = (e, win, onActivate) => {
-    if (e.target.closest(".win-btn") || e.target.closest(".tab-item")) return
-    e.preventDefault()
-    onActivate()
-
-    const target = e.currentTarget
-    const winDom = e.target.closest(".window-box")
-    const titleDom = target.getBoundingClientRect()
-
-    target.setPointerCapture(e.pointerId)
-    if (!win.isMaximized) materialize(winDom, win)
-
-    isMoving = true
-    moveStartX = e.clientX; moveStartY = e.clientY
-    moveStartWinX = win.x; moveStartWinY = win.y
-
-    // Win 模型：最大化窗口单击不还原，拖动超过阈值才还原成原尺寸并按抓取比例跟随光标
-    // maximized：本次拖动的待还原标记（还原后置 false）；ratio/top：指针在标题栏内的相对位置
-    const maxState = {
-      maximized: win.isMaximized,
-      ratio: (e.clientX - titleDom.left) / titleDom.width,
-      top: e.clientY - titleDom.top
-    }
-
-    const onMove = (e) => {
-      if (!isMoving) return
-      const dx = e.clientX - moveStartX; const dy = e.clientY - moveStartY
-
-      if (maxState.maximized) {
-        if (Math.abs(dx) < 4 && Math.abs(dy) < 4) return
-        const { ratio, top } = maxState
-        maxState.maximized = false
-        win.isMaximized = false
-        win.x = Math.round(e.clientX - win.width * ratio)
-        win.y = Math.round(e.clientY - top)
-        moveStartX = e.clientX; moveStartY = e.clientY
-        moveStartWinX = win.x; moveStartWinY = win.y
-        currentAttrs.onWindowUpdate(win)
-        m.redraw()
-        return
-      }
-
-      let newX = moveStartWinX + dx
-      let newY = moveStartWinY + dy
-
-      const screenW = window.innerWidth
-      const screenH = window.innerHeight
-      const winW = win.width || 200
-      const winH = win.height || 150
-
-      const minVisibleW = 100
-      const minVisibleH = 30
-
-      if (newX < minVisibleW - winW) {
-        newX = minVisibleW - winW
-      } else if (newX > screenW - minVisibleW) {
-        newX = screenW - minVisibleW
-      }
-
-      if (newY < 0) {
-        newY = 0
-      } else if (newY > screenH - minVisibleH) {
-        newY = screenH - minVisibleH
-      }
-
-      win.x = newX
-      win.y = newY
-      m.redraw()
-    }
-    const onUp = (e) => {
-      isMoving = false
-      target.releasePointerCapture(e.pointerId)
-      document.removeEventListener("pointermove", onMove)
-      document.removeEventListener("pointerup", onUp)
-      if (currentAttrs && currentAttrs.onWindowUpdate) currentAttrs.onWindowUpdate(win)
-    }
-    document.addEventListener("pointermove", onMove)
-    document.addEventListener("pointerup", onUp)
-  }
-
-  // ---------------- Tab 拖拽逻辑 ----------------
-  // 本地拖拽状态 (Closure for component instance)
-  let draggingState = {
-    isDragging: false,
-    dragTabSign: null,
-    visualTabs: [], // 拖拽时的临时列表
-    startX: 0,
-    dragTarget: null, // 被拖拽的 DOM 引用
-    offsetX: 0 // 手指相对于 DOM 左侧的偏移
   }
 
   let stablePhysicalTabs = [] // 物理 DOM 顺序列表，一旦确定就不再因排序而改变，除非 Tab 关闭
-  let physicalMidPoints = []  // 用于拖拽计算的稳定中点
-
-  const handleTabDown = (e, tab, tabs, onSetTabOrder) => {
-    e.preventDefault(); e.stopPropagation()
-    const target = e.currentTarget
-    target.setPointerCapture(e.pointerId)
-
-    // 初始化状态
-    draggingState.isDragging = true
-    draggingState.dragTabSign = tab.sign
-    draggingState.visualTabs = [...tabs]
-    draggingState.dragTarget = target
-
-    // 缓存当前的物理中点 (基于不带 transform 的位置)
-    const parent = target.parentElement
-    const children = Array.from(parent.children)
-    physicalMidPoints = children.map(child => {
-      const rect = child.getBoundingClientRect()
-      // 去除当前可能存在的 transform 影响
-      const style = window.getComputedStyle(child)
-      const matrix = new WebKitCSSMatrix(style.transform)
-      const currentTx = matrix.m41
-      return rect.left - currentTx + rect.width / 2
-    })
-
-    // 记录初始位置信息
-    const rect = target.getBoundingClientRect()
-    draggingState.startX = e.clientX
-    draggingState.offsetX = e.clientX - rect.left
-
-    // 视觉反馈：设置样式让元素看起来"浮起"
-    // 注意：这里的 target 是列表中的某一项。在重绘后，这个 DOM 可能会被 Mithril 回收或重用
-    // 但因为我们用了 key，所以应该能对应上。
-    // 不过，为了实现纯粹的 Ghost 效果，我们通常会创建一个 clone。
-    // 但这里为了方便，我们直接把被拖拽的那个 tab 设置为 position: fixed/absolute
-    // 而原位置放一个透明占位符。
-
-    // 简化方案：只做列表重排，不做脱离文档流。
-    // 用户提到的“右边往左边拖左边会交换，但是反过来却不会”是因为之前的逻辑不够对称。
-    // 现在改用基于索引的完全重排。
-
-    // 提升且透明一点点
-    target.style.zIndex = 1000
-    target.style.opacity = 0.9
-    target.style.position = "relative" // 保持 relative 以便 translate
-    target.style.transition = "none" // 拖拽时无过渡
-
-    const onMove = (e) => {
-      // 1. 被拖拽元素跟随手指 (物理 DOM 不动，改 transform)
-      const currentLayoutLeft = target.offsetLeft + target.offsetParent.getBoundingClientRect().left
-      const desiredLeft = e.clientX - draggingState.offsetX
-      let tx = desiredLeft - currentLayoutLeft
-      target.style.transform = `translate3d(${tx}px, 0, 0)`
-
-      // 2. 计算当前拖拽到的“槽位” (Slot)
-      const draggingCenter = e.clientX // 使用鼠标位置
-
-      // 基于缓存的物理中点判断 Slot
-      let newVisualIndex = -1
-      for (let i = 0; i < physicalMidPoints.length; i++) {
-        if (draggingCenter < physicalMidPoints[i]) {
-          newVisualIndex = i
-          break
-        }
-      }
-      if (newVisualIndex === -1) newVisualIndex = physicalMidPoints.length - 1
-
-      // 3. 构建当前的视觉顺序 (Visual Index Map)
-      const physicalIndex = tabs.findIndex(t => t.sign === draggingState.dragTabSign)
-
-      // 生成一个新的视觉索引数组，表示物理位置上的 Tab 应该映射到哪个视觉槽位
-      // 比如 physical tabs [A, B, C], 我们拖 B 到 0。 visualOrder = [1, 0, 2]
-      // A(0)->Slot1, B(1)->Slot0, C(2)->Slot2
-
-      const newOrderSign = []
-      for (let i = 0; i < tabs.length; i++) {
-        if (i === physicalIndex) continue
-        newOrderSign.push(tabs[i].sign)
-      }
-      newOrderSign.splice(newVisualIndex, 0, draggingState.dragTabSign)
-
-      // 如果顺序没变，不触发重绘
-      const currentOrderSigns = draggingState.visualTabs.map(t => t.sign)
-      if (JSON.stringify(newOrderSign) === JSON.stringify(currentOrderSigns)) {
-        return
-      }
-
-      // 更新视觉列表并重绘
-      draggingState.visualTabs = newOrderSign.map(sign => tabs.find(t => t.sign === sign))
-      m.redraw()
-    }
-
-    const onUp = (e) => {
-      target.releasePointerCapture(e.pointerId)
-      // target.removeEventListener("pointermove", onMove) // 注意: 这里的 target 必须是同一个 DOM
-      // 但实际上我们监听的是 document
-      document.removeEventListener("pointermove", onMove)
-      document.removeEventListener("pointerup", onUp)
-
-      // 恢复样式
-      target.style.zIndex = ""
-      target.style.opacity = ""
-      target.style.position = ""
-      target.style.transform = ""
-      target.style.transition = ""
-
-      // 提交最终结果
-      if (onSetTabOrder && draggingState.isDragging) {
-        const finalOrder = draggingState.visualTabs.map(t => t.sign)
-        // 检查是否有变动
-        const originalOrder = tabs.map(t => t.sign)
-        if (JSON.stringify(finalOrder) !== JSON.stringify(originalOrder)) {
-          onSetTabOrder(finalOrder)
-        }
-      }
-
-      // Reset State
-      draggingState.isDragging = false
-      draggingState.dragTabSign = null
-      draggingState.visualTabs = []
-      draggingState.dragTarget = null
-
-      m.redraw()
-    }
-
-    document.addEventListener("pointermove", onMove)
-    document.addEventListener("pointerup", onUp)
-  }
 
   return {
     oncreate: (vnode) => {
       domRect = vnode.dom
     },
     view: function ({ attrs }) {
-      currentAttrs = attrs; // Update current attrs
+      // 外层已经给窗口 vnode 指定了 key，不能随 {...attrs} 传给子组件（Mithril 要求同级 children 全 key 或全无 key）
+      const { key: _winVnodeKey, ...childAttrs } = attrs
       const win = attrs.windowData
       const isHostWindow = win.isMain || m.route.param("winId") === win.id
       const realTabs = attrs.tabs || []
@@ -320,26 +92,16 @@ export default function () {
       // 3. 更新引用（确保 data 始终是最新的）
       stablePhysicalTabs = stablePhysicalTabs.map(s => realTabs.find(r => r.sign === s.sign))
 
-      const tabs = (draggingState.isDragging && draggingState.visualTabs.length > 0)
-        ? draggingState.visualTabs
-        : realTabs
-
       // 根据 activeSign 查找当前激活的 tab
-      let activeTab = tabs.find(t => t.sign === win.activeSign)
+      let activeTab = realTabs.find(t => t.sign === win.activeSign)
       // 如果没找到（可能被删了？理论上 Notice.js handle 了），默认第一个
-      if (!activeTab && tabs.length > 0) {
-        activeTab = tabs[0]
-        // 回写（但在 view 里不建议直接修改 state，除非是 correction）
-        // win.activeSign = activeTab.sign
+      if (!activeTab && realTabs.length > 0) {
+        activeTab = realTabs[0]
       }
       if (!activeTab) return null
 
-      const ContentComp = activeTab.content
-      const hideBtn = activeTab.hideBtn || 0
-      const useMinus = activeTab.useMinus ?? true
-      const useMaximize = !!activeTab.useMaximize
       const isMini = !!activeTab.isMini
-
+      const useFloatBall = !!activeTab.useFloatBall
       const isAuto = (win.width === 0 || win.height === 0)
 
       const resizeHandles = (!win.isMaximized && !isHostWindow) ? ["n", "s", "w", "e", "nw", "ne", "sw", "se"].map(dir => {
@@ -359,7 +121,7 @@ export default function () {
             ...(dir === "sw" ? { bottom: "-8px", left: "-8px", width: "28px", height: "28px" } : {}),
             ...(dir === "se" ? { bottom: "-8px", right: "-8px", width: "28px", height: "28px" } : {}),
           },
-          onpointerdown: (e) => handlePointerDown(e, dir, win)
+          onpointerdown: (e) => handlePointerDown(e, dir, win, attrs.onWindowUpdate)
         })
       }) : []
 
@@ -367,25 +129,31 @@ export default function () {
         "data-win-id": win.id,
         style: {
           position: "fixed",
-          zIndex: win.zIndex,
+          zIndex: (win.isPinned && !win.isWindow ? 900000 : 0) + (win.zIndex || 0),
           display: (win.minimized && !isHostWindow) ? "none" : "flex",
           "-webkit-app-region": "no-drag",
           flexDirection: "column",
           background: getColor('gray_1').back,
           borderRadius: win.isMaximized ? "0" : "3rem",
-          boxShadow: isHostWindow ? "none" : "0 0 2rem rgba(0,0,0,0.3)",
+          boxShadow: isHostWindow ? "0 0 0.5rem rgba(0,0,0,0.5)" : "0 0 2rem rgba(0,0,0,0.3)",
           // 已移除 backdrop-filter: blur(10px)：窗口底色不透明，模糊根本看不见，纯粹是每帧重绘的额外开销
           //overflow: "hidden",
           border: win.isMaximized ? "none" : `0.1rem solid ${getColor('main').back}`,
           boxSizing: "border-box",
-          transition: isResizing || isMoving ? "none" : "display 0.3s, opacity 0.3s",
-          minWidth: isMini ? "8rem" : "20rem",
+          transition: isResizing ? "none" : "display 0.3s, opacity 0.3s",
+          minWidth: isMini ? "8rem" : "max(20rem, fit-content)",
 
           ...(isHostWindow ? {
-            left: "0.5rem", top: "0.5rem", width: "calc(100% - 1rem)", height: "calc(100% - 1rem)"
+            left: "0.5rem",
+            top: "0.5rem",
+            width: "calc(100% - 1rem)",
+            height: `calc(100% - 1rem - ${commonData.navInset || 0}px)`
           } : win.isMaximized ? {
             // 底部避让导航栏：Nav 已是独立于窗口层的高层级覆盖层，全屏窗口不能压住它
-            left: "0px", top: "2.5rem", width: "100%", height: `calc(100% - 2.5rem - ${commonData.navInset || 0}px)`
+            left: "0px",
+            top: "2.5rem",
+            width: "100%",
+            height: `calc(100% - 2.5rem - ${commonData.navInset || 0}px)`
           } : {
             // 位置统一交给 transform：改 x/y 只触发合成层位移，不再触发重排（left/top 恒为 0）
             left: (win.x === 0 && win.y === 0 && isAuto) ? "50%" : "0px",
@@ -408,462 +176,9 @@ export default function () {
         },
       }, [
         // ---------------- Header ----------------
-        m("", {
-          style: {
-            touchAction: "none",
-            background: getColor('main').back,
-            borderRadius: win.isMaximized ? "0" : "3rem",
-            opacity: attrs.isActiveWindow === false ? 0.6 : 1,
-            transition: "opacity 0.3s",
-            display: "flex",
-            flexDirection: "column",
-            flexShrink: 0,
-            userSelect: "none",
-            padding: isMini ? "0.2rem 0.5rem" : "0.4rem 1rem",
-            minHeight: isMini ? "1.7rem" : "3.3rem",
-            "-webkit-app-region": isHostWindow ? "drag" : "no-drag",
-            position: "relative",
-            zIndex: 5
-          },
-          onpointerdown: (e) => {
-            if (!isHostWindow) handleTitleDown(e, win, attrs.onActivate)
-          },
-          ondblclick: (e) => {
-            attrs.onMaximize(e)
-          }
-        }, [
-          // 第一行：标题 + Pin + (宽屏时 titleBar) + 右侧按钮组（右侧按钮绝对靠右）
-          m("", {
-            style: {
-              display: "flex",
-              alignItems: "center",
-              width: "100%",
-              height: "100%"
-            }
-          }, [
-            (isHostWindow && /macintosh|mac os x/i.test(navigator.userAgent)) ? m("", {
-              style: {
-                width: isMini ? "4.5rem" : "6.2rem",
-                height: isMini ? "1.4rem" : "1.9rem",
-                background: "#00000033",
-                borderRadius: "3rem",
-                marginRight: isMini ? "0.3rem" : "0.5rem",
-                flexShrink: 0,
-                pointerEvents: "none"
-              }
-            }) : null,
+        useFloatBall ? m(FloatBall, childAttrs) : m(WindowHeader, childAttrs),
 
-            // 标题
-            m(Box, {
-              style: {
-                background: "transparent",
-                fontWeight: "bold",
-                color: getColor('gray_6').front,
-                margin: "0",
-                userSelect: "none",
-                maxWidth: "50%",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                whiteSpace: "nowrap",
-                padding: "unset",
-                display: "flex",
-                alignItems: "center",
-                flexShrink: 0,
-                minWidth: isMini ? "2rem" : "4rem",
-                fontSize: isMini ? "1.1rem" : undefined,
-                cursor: "default",
-                "-webkit-app-region": isHostWindow ? "drag" : "no-drag"
-              },
-              ext: {
-                ondblclick: (e) => {
-                  e.stopPropagation()
-                  attrs.onMaximize(e)
-                }
-              }
-            }, [
-              (activeTab.icon || activeTab.appType) ? m("img", {
-                src: getAppIconUrl(activeTab.appType, activeTab.icon),
-                onerror: (e) => { e.target.src = "/statics/navbar/program.svg" },
-                style: {
-                  width: isMini ? "1.1rem" : "1.6rem",
-                  height: isMini ? "1.1rem" : "1.6rem",
-                  borderRadius: "0.35rem", // iOS rounded corner mask
-                  objectFit: "cover",
-                  marginRight: isMini ? "0.3rem" : "0.5rem",
-                  verticalAlign: "middle",
-                  pointerEvents: "none"
-                }
-              }) : null,
-              activeTab.tip || "提示"
-            ]),
-
-            // Pin / 置顶按钮 (跟随在 Tip 标题右侧)
-            m(Box, {
-              class: "win-btn",
-              isBtn: true,
-              title: win.isPinned ? "取消置顶" : "窗口置顶",
-              style: {
-                background: win.isPinned ? getColor('yellow_1').back : getColor('gray_2').back,
-                color: win.isPinned ? getColor('yellow_1').front : getColor('gray_2').front,
-                border: `0.1rem solid ${getColor('gray_1').back}`,
-                borderRadius: "50%",
-                display: "inline-flex",
-                justifyContent: "center",
-                alignItems: "center",
-                padding: "0",
-                width: isMini ? "1.3rem" : "2.2rem",
-                height: isMini ? "1.3rem" : "2.2rem",
-                marginLeft: isMini ? "0.2rem" : "0.5rem",
-                flexShrink: 0,
-                "-webkit-app-region": "no-drag"
-              },
-              ext: {
-                onpointerdown: (e) => e.stopPropagation(),
-                onclick: (e) => {
-                  e.stopPropagation()
-                  attrs.onPin(e)
-                }
-              }
-            }, [
-              m("", { style: { pointerEvents: "none", display: "inline-flex", alignItems: "center", justifyContent: "center" } }, [
-                m.trust(iconPark.getIcon("Pin", { fill: win.isPinned ? getColor('yellow_1').front : getColor('gray_6').front, size: isMini ? "8px" : "12px" }))
-              ])
-            ]),
-
-            // 独立窗口打开按钮 (在非主底座时始终显示，用于状态切换)
-            !win.isMain ? m(Box, {
-              class: "win-btn",
-              isBtn: true,
-              title: win.childWin && !win.childWin.closed ? "还原回虚拟窗口" : "独立窗口打开",
-              style: {
-                background: getColor('gray_2').back,
-                color: getColor('gray_2').front,
-                border: `0.1rem solid ${getColor('gray_1').back}`,
-                borderRadius: "50%",
-                display: "inline-flex",
-                justifyContent: "center",
-                alignItems: "center",
-                padding: "0",
-                width: isMini ? "1.3rem" : "2.2rem",
-                height: isMini ? "1.3rem" : "2.2rem",
-                marginLeft: isMini ? "0.2rem" : "0.5rem",
-                flexShrink: 0,
-                "-webkit-app-region": "no-drag"
-              },
-              ext: {
-                onpointerdown: (e) => e.stopPropagation(),
-                onclick: (e) => {
-                  e.stopPropagation()
-                  const rootDom = e.target.closest(".window-box")
-                  materialize(rootDom, win)
-                  attrs.onWebWindowOpen(e)
-                }
-              }
-            }, [
-              m("", { style: { pointerEvents: "none", display: "inline-flex", alignItems: "center", justifyContent: "center" } }, [
-                m.trust(iconPark.getIcon("OffScreenOne", { fill: getColor('gray_6').front, size: isMini ? "8px" : "12px" }))
-              ])
-            ]) : null,
-
-            // 宽屏时：标题栏内的菜单栏占位
-            m("", {
-              style: {
-                flex: 1,
-                display: "flex",
-                alignItems: "center",
-                minWidth: 0,
-                height: "100%"
-              }
-            }, [
-              (activeTab.titleBar && !isMini && (isHostWindow ? window.innerWidth >= 700 : (win.width === 0 || win.width >= 700)))
-                ? m(activeTab.titleBar)
-                : null
-            ]),
-
-            // 第三方自定义按钮
-            (activeTab.headerButtons || []).map(btn => m(Box, {
-              class: "win-btn",
-              isBtn: true,
-              style: {
-                background: btn.color || getColor('blue_1').back,
-                color: getColor('gray_8').front,
-                border: `0.1rem solid ${getColor('gray_1').back}`,
-                borderRadius: "50%",
-                display: "inline-flex",
-                justifyContent: "center",
-                alignItems: "center",
-                padding: "0",
-                width: isMini ? "1.4rem" : "2.5rem",
-                height: isMini ? "1.4rem" : "2.5rem",
-                marginRight: isMini ? "0.2rem" : "0.5rem",
-                flexShrink: 0,
-                "-webkit-app-region": "no-drag"
-              },
-              ext: {
-                onpointerdown: (e) => e.stopPropagation(),
-                onclick: (e) => {
-                  e.stopPropagation()
-                  btn.onclick(e)
-                }
-              }
-            }, [
-              m("", { style: { pointerEvents: "none", display: "inline-flex", alignItems: "center", justifyContent: "center" } }, [
-                typeof btn.icon === 'string' && btn.icon.startsWith("<")
-                  ? m.trust(btn.icon)
-                  : (btn.icon || "⚓")
-              ])
-            ])),
-
-            // Confirm Check
-            (hideBtn === 0 || hideBtn === 3) ? m(Box, {
-              class: "win-btn",
-              isBtn: true,
-              style: {
-                background: getColor('pink_1').back,
-                color: getColor('pink_1').front,
-                border: `0.1rem solid ${getColor('gray_1').back}`,
-                borderRadius: activeTab.confirmWords ? "3rem" : "50%",
-                display: "inline-flex",
-                justifyContent: "center",
-                alignItems: "center",
-                padding: activeTab.confirmWords ? (isMini ? "0 0.4rem" : "0 0.8rem") : "0",
-                minWidth: isMini ? "1.4rem" : "2.5rem",
-                width: activeTab.confirmWords ? "auto" : (isMini ? "1.4rem" : "2.5rem"),
-                height: isMini ? "1.4rem" : "2.5rem",
-                fontSize: isMini ? "0.9rem" : "1.2rem",
-                whiteSpace: "nowrap",
-                marginRight: isMini ? "0.2rem" : "0.5rem",
-                flexShrink: 0,
-                "-webkit-app-region": "no-drag"
-              },
-              ext: {
-                onpointerdown: (e) => e.stopPropagation(),
-                onclick: (e) => {
-                  e.stopPropagation()
-                  attrs.onConfirm(e)
-                }
-              }
-            }, [
-              m("", { style: { pointerEvents: "none", display: "inline-flex", alignItems: "center", justifyContent: "center" } }, [
-                activeTab.confirmWords ? activeTab.confirmWords : m.trust(iconPark.getIcon("Check", { fill: getColor('pink_1').front, size: isMini ? "8px" : "12px" }))
-              ])
-            ]) : null,
-
-            // Minimize
-            useMinus ? m(Box, {
-              class: "win-btn",
-              isBtn: true,
-              style: {
-                background: getColor('purple_1').back,
-                color: getColor('gray_6').front,
-                border: `0.1rem solid ${getColor('gray_1').back}`,
-                borderRadius: "50%",
-                display: "inline-flex",
-                justifyContent: "center",
-                alignItems: "center",
-                padding: "0",
-                width: isMini ? "1.4rem" : "2.5rem",
-                height: isMini ? "1.4rem" : "2.5rem",
-                marginRight: isMini ? "0.2rem" : "0.5rem",
-                flexShrink: 0,
-                "-webkit-app-region": "no-drag"
-              },
-              ext: {
-                onpointerdown: (e) => e.stopPropagation(),
-                onclick: (e) => {
-                  e.stopPropagation()
-                  attrs.onMinimize(e)
-                }
-              }
-            }, [
-              m("", { style: { pointerEvents: "none", display: "inline-flex", alignItems: "center", justifyContent: "center" } }, [
-                m.trust(iconPark.getIcon("Minus", { fill: getColor('gray_6').front, size: isMini ? "8px" : "12px" }))
-              ])
-            ]) : null,
-
-            // Maximize
-            useMaximize ? m(Box, {
-              class: "win-btn",
-              isBtn: true,
-              style: {
-                background: getColor('green_1').back,
-                color: getColor('gray_6').front,
-                border: `0.1rem solid ${getColor('gray_1').back}`,
-                borderRadius: "50%",
-                display: "inline-flex",
-                justifyContent: "center",
-                alignItems: "center",
-                padding: "0",
-                width: isMini ? "1.4rem" : "2.5rem",
-                height: isMini ? "1.4rem" : "2.5rem",
-                marginRight: isMini ? "0.2rem" : "0.5rem",
-                flexShrink: 0,
-                "-webkit-app-region": "no-drag"
-              },
-              ext: {
-                onpointerdown: (e) => e.stopPropagation(),
-                onclick: (e) => {
-                  e.stopPropagation()
-                  attrs.onMaximize(e)
-                }
-              }
-            }, [
-              m("", { style: { pointerEvents: "none", display: "inline-flex", alignItems: "center", justifyContent: "center" } }, [
-                m.trust(iconPark.getIcon("Square", { fill: getColor('gray_6').front, size: isMini ? "8px" : "12px" }))
-              ])
-            ]) : null,
-
-            // Close / Cancel
-            (hideBtn === 0 || hideBtn === 2) ? m(Box, {
-              class: "win-btn",
-              isBtn: true,
-              style: {
-                background: getColor('gray_2').back,
-                color: getColor('gray_6').front,
-                border: `0.1rem solid ${getColor('gray_1').back}`,
-                borderRadius: activeTab.cancelWords ? "3rem" : "50%",
-                display: "inline-flex",
-                justifyContent: "center",
-                alignItems: "center",
-                padding: activeTab.cancelWords ? (isMini ? "0 0.4rem" : "0 0.8rem") : "0",
-                minWidth: isMini ? "1.4rem" : "2.5rem",
-                width: activeTab.cancelWords ? "auto" : (isMini ? "1.4rem" : "2.5rem"),
-                height: isMini ? "1.4rem" : "2.5rem",
-                fontSize: isMini ? "0.9rem" : "1.2rem",
-                whiteSpace: "nowrap",
-                marginRight: isMini ? "0.2rem" : "0.5rem",
-                flexShrink: 0,
-                "-webkit-app-region": "no-drag"
-              },
-              ext: {
-                onpointerdown: (e) => e.stopPropagation(),
-                onclick: (e) => {
-                  e.stopPropagation()
-                  attrs.onCancel(e)
-                }
-              }
-            }, [
-              m("", { style: { pointerEvents: "none", display: "inline-flex", alignItems: "center", justifyContent: "center" } }, [
-                activeTab.cancelWords ? activeTab.cancelWords : m.trust(iconPark.getIcon("Close", { fill: getColor('gray_6').front, size: isMini ? "8px" : "12px" }))
-              ])
-            ]) : null
-          ]),
-
-          // 第二行（在标题栏胶囊内部）：窄窗时用有颜色的独立圆角胶囊容器包裹菜单栏
-          (activeTab.titleBar && (isMini || (isHostWindow ? window.innerWidth < 700 : (win.width > 0 && win.width < 700)))) ? m(Box, {
-            isBlock: true,
-            style: {
-              display: "block",
-              margin: "0.5rem",
-              borderRadius: "3rem",
-              boxSizing: "border-box",
-              background:"rgba(0,0,0,0.1)",
-            }
-          }, [
-            m(activeTab.titleBar)
-          ]) : null
-
-        ]),
-
-        tabs.length > 1 ? m("", {
-          style: {
-            height: "3.5rem",
-            background: getColor('brown_1').back,
-            display: "flex",
-            flexWrap: "nowrap",
-            alignItems: "center",
-            padding: "0 0.5rem",
-            overflowX: "auto",
-            scrollbarWidth: "thin", // 改为极细滚动条，或者完全依赖滚轮
-            flexShrink: 0,
-            borderBottom: `0.1rem solid ${getColor('main').back}`,
-            scrollBehavior: "smooth"
-          },
-          // 监听滚轮，将垂直滚动转换为水平滚动
-          onwheel: (e) => {
-            e.currentTarget.scrollLeft += e.deltaY;
-            e.preventDefault();
-          }
-        }, realTabs.map((tab, physicalIndex) => {
-          const isActive = tab.sign === win.activeSign
-          const isDraggingThis = draggingState.isDragging && tab.sign === draggingState.dragTabSign
-
-          // 计算视觉偏移
-          let translateX = 0
-          if (draggingState.isDragging && draggingState.visualTabs.length === realTabs.length) {
-            const visualIndex = draggingState.visualTabs.findIndex(t => t.sign === tab.sign)
-            if (visualIndex !== -1 && visualIndex !== physicalIndex && !isDraggingThis) {
-              // 计算每一项的宽度。由于 Tab 宽度可能不等，这比较复杂。
-              // 简单做法：假设所有 Tab 宽度相等，或者直接读取 DOM。
-              // 这里我们读取最近一次记录的 rect。
-              const parent = draggingState.dragTarget?.parentElement
-              if (parent) {
-                const children = Array.from(parent.children)
-                const targetChild = children[visualIndex]
-                const currentChild = children[physicalIndex]
-                if (targetChild && currentChild) {
-                  translateX = targetChild.offsetLeft - currentChild.offsetLeft
-                }
-              }
-            }
-          }
-
-
-          return m("", {
-            key: tab.sign, // 必须添加 key，否则重排后 DOM 状态丢失
-            class: "tab-item",
-            style: {
-              display: "flex", alignItems: "center",
-              padding: "0 12px",
-              height: "100%", cursor: "pointer",
-              fontSize: "12px", color: isActive ? getColor('gray_8').front : getColor('gray_7').front,
-              background: isActive ? getColor('blue_2').back : getColor('gray_1').back,
-              color: isActive ? getColor('blue_2').front : getColor('gray_1').front,
-              borderRight: `1px solid ${getColor('main').back}`,
-              userSelect: "none",
-              touchAction: "none",
-
-              flex: "0 1 180px",   // 允许压缩，最大 180px
-              minWidth: "60px",   // 最小宽度
-              maxWidth: "180px",
-              borderRadius: "1rem 1rem 0 0",
-
-              transform: isDraggingThis ? undefined : `translate3d(${translateX}px, 0, 0)`,
-              transition: isDraggingThis ? "none" : "transform 0.2s cubic-bezier(0.2, 0, 0, 1), background 0.2s",
-              zIndex: isDraggingThis ? 1000 : 1
-            },
-            onpointerdown: (e) => {
-              e.stopPropagation()
-              attrs.onSwitchTab(tab.sign)
-              handleTabDown(e, tab, realTabs, attrs.onSetTabOrder)
-            }
-          }, [
-            m("span", {
-              style: {
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-                whiteSpace: "nowrap",
-                flex: 1
-              }
-            }, tab.tip || "Tab"),
-            m("span", {
-              style: {
-                marginLeft: "0.8rem",
-                cursor: "pointer",
-                opacity: 0.7,
-                padding: "0.2rem 0.5rem",
-                fontSize: "1.3rem",
-                borderRadius: "50%",
-                transition: "background 0.2s"
-              },
-              onpointerdown: (e) => { e.stopPropagation() }, // 防止触发拖拽
-              onclick: (e) => {
-                e.stopPropagation()
-                attrs.onCloseTab(tab.sign, e)
-              }
-            }, "×")
-          ])
-        })) : null,
+        !useFloatBall ? m(TabBar, childAttrs) : null,
 
         // ---------------- 内容区 ----------------
         m("", {

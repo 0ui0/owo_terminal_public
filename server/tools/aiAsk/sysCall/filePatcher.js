@@ -636,6 +636,7 @@ export default {
     return `
       JSON版本文件补丁工具，提供增(add)、删(delete)、改(update)功能。
       基于局部字符串匹配(Search & Replace)的多文件编辑工具。
+      【注意】所有操作的reason字段必填
 
       【批量操作（重点）】
       - operations 是【数组】：一次调用可提交多个 operation，批量处理多个文件
