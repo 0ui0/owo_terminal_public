@@ -85,13 +85,30 @@ export default {
         } : {})
       }
     }, [
+      // 底部通栏草坪背景层（仅限主窗口显示，其它所有脱壳/独立子窗口与迷你悬浮球附属窗口均不显示）
+      (!window.opener && !useFloatBall && !isMini) ? m("object.owo-nav-lawn", {
+        type: "image/svg+xml",
+        data: "./statics/lawn.svg",
+        style: {
+          position: "absolute",
+          left: "50%",
+          transform: "translate(-50%, 0)",
+          width: "min(100vw, 200%)",
+          height: "auto",
+          bottom: "0rem",
+          pointerEvents: "none",
+          border: "none",
+          zIndex: -1
+        }
+      }) : null,
+
       m("", {
         style: {
           "user-select": "none",
           "-webkit-user-select": "none",
           display: "flex",
           alignItems: "center",
-          backgroundColor: getColor('gray_12').back,
+          backgroundColor: getColor('gray_12').back+"55",
           backgroundImage: "url(./statics/nav_bg.svg)",
           backgroundRepeat: "no-repeat",
           backgroundSize: "100% auto",

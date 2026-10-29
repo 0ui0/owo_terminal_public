@@ -1,0 +1,382 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 130" preserveAspectRatio="xMidYMax meet" width="100%">
+  <defs>
+    <!-- 泥土渐变底垫 -->
+    <linearGradient id="soilBedGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#4a301c"/>
+      <stop offset="35%" stop-color="#382212"/>
+      <stop offset="70%" stop-color="#26160b"/>
+      <stop offset="100%" stop-color="#180e07"/>
+    </linearGradient>
+    <!-- 草根部阴影渐变 -->
+    <linearGradient id="rootShadowGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#245c46" stop-opacity="0.95"/>
+      <stop offset="60%" stop-color="#1c4837" stop-opacity="0.98"/>
+      <stop offset="100%" stop-color="#26160b" stop-opacity="1"/>
+    </linearGradient>
+
+    <!-- 动态微风摆动关键帧 -->
+    <style>
+      @keyframes breeze1 {
+        0%, 100% { transform: skewX(-3.8deg); }
+        50% { transform: skewX(5.2deg); }
+      }
+      @keyframes breeze2 {
+        0%, 100% { transform: skewX(5.8deg); }
+        50% { transform: skewX(-4.6deg); }
+      }
+      @keyframes breeze3 {
+        0%, 100% { transform: skewX(-4.8deg); }
+        50% { transform: skewX(6.8deg); }
+      }
+      @keyframes breeze4 {
+        0%, 100% { transform: skewX(6.5deg); }
+        50% { transform: skewX(-5.5deg); }
+      }
+      @keyframes snailMove {
+        0% { transform: translate(160px, 114px) scaleX(1); }
+        48% { transform: translate(760px, 114px) scaleX(1); }
+        48.1% { transform: translate(760px, 114px) scaleX(-1); }
+        98% { transform: translate(160px, 114px) scaleX(-1); }
+        98.1% { transform: translate(160px, 114px) scaleX(1); }
+        100% { transform: translate(160px, 114px) scaleX(1); }
+      }
+      @keyframes snailSquish {
+        0%, 100% { transform: scale(1, 1); }
+        50% { transform: scale(1.08, 0.92); }
+      }
+      .sway-bg {
+        animation: breeze1 4.6s ease-in-out infinite;
+        transform-origin: 50% 100%;
+      }
+      .sway-mid1 {
+        animation: breeze3 3.8s ease-in-out infinite 0.4s;
+        transform-origin: 50% 100%;
+      }
+      .sway-mid2 {
+        animation: breeze2 4.2s ease-in-out infinite 0.9s;
+        transform-origin: 50% 100%;
+      }
+      .sway-fg {
+        animation: breeze4 3.0s ease-in-out infinite 1.2s;
+        transform-origin: 50% 100%;
+      }
+      .live-snail {
+        animation: snailMove 45s linear infinite;
+        cursor: pointer;
+      }
+      .snail-body {
+        animation: snailSquish 2.2s ease-in-out infinite;
+        transform-origin: 0px 0px;
+      }
+    </style>
+  </defs>
+
+  <!-- 动态运行时生成容器图层 -->
+  <g id="soilBgLayer"></g>
+  <g id="bgGrassLayer" class="sway-bg"></g>
+  <g id="midGrassLayer1" class="sway-mid1"></g>
+  <g id="midGrassLayer2" class="sway-mid2"></g>
+  <g id="flowerLayer"></g>
+  <g id="fgGrassLayer" class="sway-fg"></g>
+  <g id="soilFgLayer"></g>
+  <g id="particleLayer"></g>
+
+  <!-- 呆萌慢爬小蜗牛 -->
+  <g id="liveSnail" class="live-snail">
+    <g class="snail-body">
+      <!-- 蜗牛软体 -->
+      <path d="M -12,0 C -10,-4 0,-4 8,-2 C 12,-1 15,-3 17,-7 C 17.5,-8 19,-8 19,-6 C 19,-3 17,0 15,2 C 11,3 -6,3 -12,0 Z" fill="#d9a86c"/>
+      <!-- 触角与眼睛 -->
+      <line x1="16" y1="-6" x2="19" y2="-12" stroke="#d9a86c" stroke-width="1.2" stroke-linecap="round"/>
+      <circle cx="19" cy="-12" r="1.3" fill="#3a2512"/>
+      <line x1="14" y1="-5" x2="15" y2="-10" stroke="#d9a86c" stroke-width="1.0" stroke-linecap="round"/>
+      <circle cx="15" cy="-10" r="1.0" fill="#3a2512"/>
+      <!-- 螺旋小壳 -->
+      <circle cx="0" cy="-6" r="6.5" fill="#ab6e3a" stroke="#7d4b20" stroke-width="0.8"/>
+      <path d="M 0,-6 A 4 4 0 0 1 2,-3 A 2 2 0 0 1 0,-4" fill="none" stroke="#7d4b20" stroke-width="0.8" stroke-linecap="round"/>
+    </g>
+  </g>
+
+  <!-- 核心运行时生成引擎脚本 -->
+  <script type="text/javascript"><![CDATA[
+    (function() {
+      if (window.__owo_lawn_generated) return;
+      window.__owo_lawn_generated = true;
+
+      const svgNS = "http://www.w3.org/2000/svg";
+      const width = 1000;
+      const height = 130;
+
+      // 稳定伪随机数生成器 (LCG)
+      let seed = 1234567;
+      function rand() {
+        seed = (seed * 9301 + 49297) % 233280;
+        return seed / 233280;
+      }
+      function randRange(min, max) {
+        return min + rand() * (max - min);
+      }
+
+      // 两端 100px 幂次平缓收束入地
+      function getEdgeFactor(x) {
+        if (x < 100) return Math.pow(Math.max(0, x) / 100, 1.8);
+        if (x > 900) return Math.pow(Math.max(0, 1000 - x) / 100, 1.8);
+        return 1.0;
+      }
+
+      const soilBgLayer = document.getElementById("soilBgLayer");
+      const soilFgLayer = document.getElementById("soilFgLayer");
+      const bgGrassLayer = document.getElementById("bgGrassLayer");
+      const midGrassLayer1 = document.getElementById("midGrassLayer1");
+      const midGrassLayer2 = document.getElementById("midGrassLayer2");
+      const fgGrassLayer = document.getElementById("fgGrassLayer");
+      const flowerLayer = document.getElementById("flowerLayer");
+      const particleLayer = document.getElementById("particleLayer");
+
+      if (!soilBgLayer) return;
+
+      // 1. 生成深褐有机泥土底层底座
+      let soilBgPoints = [`M 0,${height}`, `L 0,${height - 4}`];
+      for (let x = 0; x <= width; x += 5) {
+        const ef = getEdgeFactor(x);
+        const wave = Math.sin(x * 0.04) * 4.5 + Math.cos(x * 0.015) * 3;
+        const soilH = (22 + wave + randRange(-1.5, 1.5)) * Math.max(0.15, ef);
+        soilBgPoints.push(`L ${x.toFixed(1)},${(height - soilH).toFixed(1)}`);
+      }
+      soilBgPoints.push(`L ${width},${height} Z`);
+
+      const soilBgPath = document.createElementNS(svgNS, "path");
+      soilBgPath.setAttribute("d", soilBgPoints.join(" "));
+      soilBgPath.setAttribute("fill", "url(#soilBedGrad)");
+      soilBgPath.setAttribute("opacity", "0.98");
+      soilBgLayer.appendChild(soilBgPath);
+
+      // 2. 生成前景泥土表层（覆在草叶根部上方，深褐色自然显露，草丛从泥土中真实生长）
+      let soilFgPoints = [`M 0,${height}`, `L 0,${height - 2}`];
+      for (let x = 0; x <= width; x += 5) {
+        const ef = getEdgeFactor(x);
+        const wave = Math.sin(x * 0.04 + 0.3) * 3.5 + Math.cos(x * 0.02) * 2.5;
+        const fgH = (14 + wave + randRange(-1.2, 1.2)) * Math.max(0.12, ef);
+        soilFgPoints.push(`L ${x.toFixed(1)},${(height - fgH).toFixed(1)}`);
+      }
+      soilFgPoints.push(`L ${width},${height} Z`);
+
+      const soilFgPath = document.createElementNS(svgNS, "path");
+      soilFgPath.setAttribute("d", soilFgPoints.join(" "));
+      soilFgPath.setAttribute("fill", "url(#soilBedGrad)");
+      soilFgPath.setAttribute("opacity", "0.98");
+      soilFgLayer.appendChild(soilFgPath);
+
+      // 泥土颗粒点缀（置于前景泥土表层）
+      for (let i = 0; i < 55; i++) {
+        const px = randRange(80, 920);
+        const py = randRange(height - 12, height - 2);
+        const pCircle = document.createElementNS(svgNS, "circle");
+        pCircle.setAttribute("cx", px.toFixed(1));
+        pCircle.setAttribute("cy", py.toFixed(1));
+        pCircle.setAttribute("r", randRange(0.6, 1.4).toFixed(1));
+        pCircle.setAttribute("fill", rand() > 0.5 ? "#2e1a0d" : "#5a3a22");
+        pCircle.setAttribute("opacity", "0.85");
+        soilFgLayer.appendChild(pCircle);
+      }
+
+      // 3. 水草青玉绿草叶生成函数（大幅提升草叶高度与层次错落感）
+      const bgColors = ["#1b4a39", "#1c4e3b", "#235c46", "#28664f"];
+      const midColors1 = ["#2c785b", "#328263", "#368c6a"];
+      const midColors2 = ["#328263", "#3a9675", "#3f9e78"];
+      const fgColors = ["#3f9e78", "#45ab83", "#4cb98d", "#53c396"];
+
+      function buildGrassLayer(layerElem, colors, step, heightMin, heightMax, widthMin, widthMax) {
+        const frag = document.createDocumentFragment();
+        for (let x = 8; x < width - 8; x += step) {
+          const ef = getEdgeFactor(x);
+          if (ef <= 0.05) continue;
+
+          const bladeH = randRange(heightMin, heightMax) * ef;
+          if (bladeH < 5) continue;
+
+          const bladeW = randRange(widthMin, widthMax);
+          const lean = Math.sin(x * 0.035) * 16 + randRange(-7, 7);
+          const tipX = x + lean * ef;
+          const tipY = height - bladeH;
+
+          // 贝塞尔曲线草叶
+          const cpX1 = x + lean * 0.3;
+          const cpY1 = height - bladeH * 0.5;
+          const cpX2 = x + bladeW + lean * 0.4;
+          const cpY2 = height - bladeH * 0.45;
+
+          const d = `M ${(x - bladeW/2).toFixed(1)},${height} Q ${cpX1.toFixed(1)},${cpY1.toFixed(1)} ${tipX.toFixed(1)},${tipY.toFixed(1)} Q ${cpX2.toFixed(1)},${cpY2.toFixed(1)} ${(x + bladeW/2).toFixed(1)},${height} Z`;
+
+          const path = document.createElementNS(svgNS, "path");
+          path.setAttribute("d", d);
+          path.setAttribute("fill", colors[Math.floor(rand() * colors.length)]);
+          path.setAttribute("opacity", randRange(0.92, 0.98).toFixed(2));
+          frag.appendChild(path);
+        }
+        layerElem.appendChild(frag);
+      }
+
+      // 生成4层草叶，高度全面充盈调优（最高达 102px，自然怀抱托起导航胶囊）
+      buildGrassLayer(bgGrassLayer, bgColors, 3.6, 52, 102, 2.4, 3.8);
+      buildGrassLayer(midGrassLayer1, midColors1, 4.0, 42, 88, 2.4, 4.0);
+      buildGrassLayer(midGrassLayer2, midColors2, 4.2, 35, 78, 2.6, 4.2);
+      buildGrassLayer(fgGrassLayer, fgColors, 4.8, 26, 62, 2.6, 4.4);
+
+      // 3. 蒲公英植株生成函数（全部统一为：淡黄色中心 + 四周蓬松白色绒毛）
+      function createDandelion(x, y, scale, swayClass) {
+        const gStem = document.createElementNS(svgNS, "g");
+        gStem.setAttribute("class", swayClass);
+        gStem.setAttribute("style", `transform-origin: ${x}px ${height}px;`);
+
+        // 花茎
+        const stem = document.createElementNS(svgNS, "path");
+        const curve = randRange(-6, 6);
+        stem.setAttribute("d", `M ${x},${height} Q ${x + curve},${((y + height)/2).toFixed(1)} ${x},${y}`);
+        stem.setAttribute("stroke", "#2d6f4b");
+        stem.setAttribute("stroke-width", (1.8 * scale).toFixed(1));
+        stem.setAttribute("fill", "none");
+        gStem.appendChild(stem);
+
+        // 花头群组
+        const gHead = document.createElementNS(svgNS, "g");
+        gHead.setAttribute("transform", `translate(${x}, ${y})`);
+
+        // 四周辐射蓬松白色绒毛
+        const rayCount = 28;
+        for (let i = 0; i < rayCount; i++) {
+          const angle = (i / rayCount) * Math.PI * 2 + randRange(-0.08, 0.08);
+          const len = (i % 2 === 0 ? randRange(11, 15) : randRange(7, 10)) * scale;
+          const rx = (Math.cos(angle) * len).toFixed(1);
+          const ry = (Math.sin(angle) * len).toFixed(1);
+
+          const line = document.createElementNS(svgNS, "line");
+          line.setAttribute("x1", "0");
+          line.setAttribute("y1", "0");
+          line.setAttribute("x2", rx);
+          line.setAttribute("y2", ry);
+          line.setAttribute("stroke", "rgba(255,255,255,0.85)");
+          line.setAttribute("stroke-width", "0.55");
+          gHead.appendChild(line);
+
+          const dot = document.createElementNS(svgNS, "circle");
+          dot.setAttribute("cx", rx);
+          dot.setAttribute("cy", ry);
+          dot.setAttribute("r", (randRange(1.0, 1.4) * scale).toFixed(1));
+          dot.setAttribute("fill", "rgba(255,255,255,0.96)");
+          gHead.appendChild(dot);
+        }
+
+        // 淡黄色花心（淡黄色 #ffeaa7 + 温暖描边 #ffd152）
+        const centerCircle = document.createElementNS(svgNS, "circle");
+        centerCircle.setAttribute("cx", "0");
+        centerCircle.setAttribute("cy", "0");
+        centerCircle.setAttribute("r", (3.2 * scale).toFixed(1));
+        centerCircle.setAttribute("fill", "#ffeaa7");
+        centerCircle.setAttribute("stroke", "#ffd152");
+        centerCircle.setAttribute("stroke-width", "0.8");
+        gHead.appendChild(centerCircle);
+
+        // 中心芝士小暖核
+        const coreDot = document.createElementNS(svgNS, "circle");
+        coreDot.setAttribute("cx", "0");
+        coreDot.setAttribute("cy", "0");
+        coreDot.setAttribute("r", (1.6 * scale).toFixed(1));
+        coreDot.setAttribute("fill", "#ffd152");
+        coreDot.setAttribute("opacity", "0.95");
+        gHead.appendChild(coreDot);
+
+        gStem.appendChild(gHead);
+        return gStem;
+      }
+
+      // 黄金点混栽 8 株蒲公英花球（全部统一淡黄中心+蓬松绒毛）
+      const dandelions = [
+        { x: 210, y: 52, s: 1.05, sway: "sway-mid1" },
+        { x: 280, y: 68, s: 0.95, sway: "sway-mid2" },
+        { x: 360, y: 42, s: 1.18, sway: "sway-mid1" },
+        { x: 440, y: 60, s: 1.00, sway: "sway-mid2" },
+        { x: 630, y: 38, s: 1.22, sway: "sway-mid1" },
+        { x: 710, y: 64, s: 0.98, sway: "sway-mid2" },
+        { x: 780, y: 48, s: 1.12, sway: "sway-mid1" },
+        { x: 860, y: 70, s: 0.90, sway: "sway-mid2" }
+      ];
+
+      dandelions.forEach(d => {
+        flowerLayer.appendChild(createDandelion(d.x, d.y, d.s, d.sway));
+      });
+
+      // 4. 随风漫天飘飞的蒲公英降落伞种子粒子 (18 枚)
+      const defsStyle = document.querySelector("svg style");
+      let particleStyles = "";
+
+      for (let i = 0; i < 18; i++) {
+        const startX = randRange(150, 850);
+        const startY = randRange(40, 95);
+        const endX = startX + randRange(160, 260);
+        const endY = randRange(-25, 10);
+        const dur = randRange(6.5, 9.5).toFixed(1);
+        const delay = randRange(0.2, 7.5).toFixed(1);
+        const rot = randRange(45, 95).toFixed(1);
+
+        const animName = `drift_${i}`;
+        particleStyles += `
+          @keyframes ${animName} {
+            0% { transform: translate(${startX.toFixed(1)}px, ${startY.toFixed(1)}px) rotate(0deg); opacity: 0; }
+            15% { opacity: 0.95; }
+            75% { opacity: 0.85; }
+            100% { transform: translate(${endX.toFixed(1)}px, ${endY.toFixed(1)}px) rotate(${rot}deg); opacity: 0; }
+          }
+          .${animName} {
+            animation: ${animName} ${dur}s cubic-bezier(0.25, 0.1, 0.25, 1) infinite ${delay}s;
+            will-change: transform, opacity;
+          }
+        `;
+
+        const pGroup = document.createElementNS(svgNS, "g");
+        pGroup.setAttribute("class", animName);
+
+        const stemLine = document.createElementNS(svgNS, "line");
+        stemLine.setAttribute("x1", "0");
+        stemLine.setAttribute("y1", "0");
+        stemLine.setAttribute("x2", "-2");
+        stemLine.setAttribute("y2", "-7");
+        stemLine.setAttribute("stroke", "rgba(255,255,255,0.85)");
+        stemLine.setAttribute("stroke-width", "0.6");
+        pGroup.appendChild(stemLine);
+
+        const crown = document.createElementNS(svgNS, "path");
+        crown.setAttribute("d", "M -2,-7 Q -6,-11 -8,-13 M -2,-7 Q -2,-12 -2,-14 M -2,-7 Q 2,-11 4,-13 M -2,-7 Q -4,-10 -5,-12");
+        crown.setAttribute("stroke", "rgba(255,255,255,0.85)");
+        crown.setAttribute("stroke-width", "0.5");
+        crown.setAttribute("fill", "none");
+        pGroup.appendChild(crown);
+
+        const seedEl = document.createElementNS(svgNS, "ellipse");
+        seedEl.setAttribute("cx", "0");
+        seedEl.setAttribute("cy", "0");
+        seedEl.setAttribute("rx", "0.75");
+        seedEl.setAttribute("ry", "1.5");
+        seedEl.setAttribute("fill", "#4d321d");
+        pGroup.appendChild(seedEl);
+
+        particleLayer.appendChild(pGroup);
+      }
+
+      if (defsStyle) {
+        defsStyle.textContent += particleStyles;
+      }
+
+      // 5. 趣味互动：点击小蜗牛加速爬行
+      const snail = document.getElementById("liveSnail");
+      if (snail) {
+        snail.addEventListener("click", function() {
+          snail.style.animationDuration = "12s";
+          setTimeout(function() {
+            snail.style.animationDuration = "45s";
+          }, 6000);
+        });
+      }
+    })();
+  ]]></script>
+</svg>

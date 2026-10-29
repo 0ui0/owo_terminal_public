@@ -120,6 +120,9 @@ const createWindow = (port) => {
         backgroundColor: '#00000000',
         hasShadow: false,
         webPreferences: {
+          webviewTag: true,
+          nodeIntegration: false,
+          contextIsolation: true,
           preload: pathLib.join(serveDir, "server/preload.js")
         }
       }
