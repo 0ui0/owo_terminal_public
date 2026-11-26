@@ -2,20 +2,21 @@
 
 const LEVELS = [
   { key: "all", cn: "全部", en: "All" },
+  { key: "info", cn: "信息", en: "Info" },
+  { key: "conn", cn: "连接", en: "Connection" },
   { key: "trigger", cn: "触发", en: "Trigger" },
   { key: "block", cn: "拦截", en: "Block" },
   { key: "energy", cn: "能量", en: "Energy" },
-  { key: "conn", cn: "连接", en: "Connection" },
   { key: "error", cn: "错误", en: "Error" }
 ];
 
 const LEVEL_COLOR = {
+  info: "gray_2",
+  conn: "gray_2",
   trigger: "green_1",
   block: "yellow_1",
   energy: "blue_1",
-  conn: "gray_2",
-  error: "pink_1",
-  info: "gray_4"
+  error: "pink_1"
 };
 
 const levelDict = (level) => {
@@ -48,18 +49,21 @@ export default {
             }
           },
           [
-            ...LEVELS.map(item => m(Tag,
-              {
-                isBtn: true,
-                color: filterLevel === item.key ? "main" : "gray_4",
-                styleExt: {
-                  margin: "0",
-                  cursor: "pointer"
+            ...LEVELS.map(item => {
+              const count = item.key === "all" ? logs.length : logs.filter(l => l.level === item.key).length;
+              return m(Tag,
+                {
+                  isBtn: true,
+                  color: filterLevel === item.key ? "main" : "gray_4",
+                  styleExt: {
+                    margin: "0",
+                    cursor: "pointer"
+                  },
+                  onclick: () => onFilter(item.key)
                 },
-                onclick: () => onFilter(item.key)
-              },
-              trs(`QQBot/日志级别/${item.key}`, { cn: item.cn, en: item.en })
-            )),
+                trs(`QQBot/日志级别/${item.key}`, { cn: item.cn, en: item.en }) + (count > 0 ? ` (${count})` : "")
+              );
+            }),
             m("div",
               {
                 style: {

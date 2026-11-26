@@ -26,13 +26,13 @@ export default {
       quotes: Joi.array().items(Joi.string()).description("选填 每个元素为历史会话id字符串。针对聊天情况，你也可引用一些历史会话"),
       mind: Joi.string().max(800).required().description("必填 你的思考大纲，用箭头（→）连接想法，尽量简短。"),
       mood: Joi.number().min(0).max(10).required().description("必填 你的心情值"),
-      at: Joi.string().description("选填 @用户的用户名"),
+      at: Joi.string().description("选填 @管理员名或群聊用户名"),
 
       //模式5不需要content
       ...(
         toolsMode !== 5 && {
           content: Joi.string().max(2000).required().description(`
-            必填 思考后决定回复给用户的正文，使用markdown（支持html+svg模式）。
+            必填 思考后决定回复给管理员的正文，使用markdown（支持html+svg模式）。
             【规则1】若本次对话包含工具函数调用（sysCalls），则这里只需简述意图（例如：我将查看xxx以确认xxx）。
             【规则2】若本次对话不再调用工具，或任务已取得阶段性结论，请在本字段提供详尽的markdown总结报告、代码分析或最终答案。
           `.trim()),
@@ -69,10 +69,10 @@ export default {
                     by: Joi.string().max(50).required().description("必填 【依据】公理或定理"),
                     comment: Joi.string().max(150).required().description("必填 备注"),
                   })
-                ).required().description("必填 数学证明式的逻辑推理，每条推理条件结论须对应唯一依据。严禁跳步、单条推理多个依据复合使用。每一步必须引用前置编号或外部事实。用户看不到本字段")
+                ).required().description("必填 数学证明式的逻辑推理，每条推理条件结论须对应唯一依据。严禁跳步、单条推理多个依据复合使用。每一步必须引用前置编号或外部事实。管理员看不到本字段")
               })
             ).required().description("必填 关注点")
-          }).required().description("必填 系统会裁剪你的记忆，本字段作为记忆被裁剪前的关键笔记【重要】。不会发送给用户。"),
+          }).required().description("必填 系统会裁剪你的记忆，本字段作为记忆被裁剪前的关键笔记【重要】。不会发送给管理员。"),
 
  */
           tasks: Joi.array().items(Joi.object({
@@ -94,7 +94,7 @@ export default {
       ...((toolsMode !== 2) && {
         note: Joi.string().max(1000).required().description(`
         必填 你的记忆笔记，markdown格式，用第一人称记叙文叙述
-        系统会定期截断上下文，笔记是你唯一的记忆依据，务必!!!认真填写!!! 笔记不会发送给用户，只给你自己看
+        系统会定期截断上下文，笔记是你唯一的记忆依据，务必!!!认真填写!!! 笔记不会发送给管理员，只给你自己看
         注意[时间][地点][人物][起因][经过][结果]、[关注点]、和[推理链条]
         其中推理链用**数学形式化证明**的方式
         每条推理”因为所以“须对应唯一”依据“的公理、定理（原子化）

@@ -1,6 +1,8 @@
 import ToolCallGroup from "./ToolCallGroup.js"
 import ChatItem from "./ChatItem.js"
 import getColor from "../common/getColor.js"
+import getSize from "../common/getSize.js"
+import IconTag from "../common/iconTag.js"
 import { trs } from "../common/i18n.js"
 
 export default () => {
@@ -73,7 +75,7 @@ export default () => {
           flexDirection: "column",
           width: "100%",
           boxSizing: "border-box",
-          margin: "0.6rem 0"
+          margin: `${getSize(2)}rem 0`
         }
       }, [
         // 居中折叠细线与胶囊文字
@@ -82,49 +84,47 @@ export default () => {
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
+            gap: `${getSize(3)}rem`,
             width: "100%",
-            margin: "0.8rem 0"
+            margin: `${getSize(2)}rem 0`
           }
         }, [
-          // 左侧渐隐线
+          // 左侧渐隐线（主色）
           m("", {
             style: {
               flex: 1,
-              height: "0.1rem",
-              background: `linear-gradient(90deg, transparent, ${getColor('gray_4').front}33)`
+              height: `${getSize(0.25)}rem`,
+              background: `linear-gradient(90deg, transparent, ${getColor("main").back})`
             }
           }),
-          // 中间纯文字胶囊
-          m("", {
-            style: {
-              margin: "0 1.2rem",
-              padding: "0.35rem 1.2rem",
-              borderRadius: "3rem",
-              background: getColor('gray_4').back,
-              color: getColor('gray_4').front,
-              fontSize: "1.2rem",
-              cursor: "pointer",
-              userSelect: "none",
-              transition: "opacity 0.2s, transform 0.15s",
-              whiteSpace: "nowrap"
+          // 中间状态胶囊（统一使用系统 Tag 组件）
+          m(IconTag, {
+            iconName: isReplying ? "Loading" : hasError ? "Attention" : "Success",
+            bgColor: getColor("gray_4").back,
+            fgColor: getColor("gray_4").front,
+            styleExt: {
+              margin: 0,
+              border: `${getSize(0.25)}rem solid ${getColor("main").back}`
             },
-            onmouseover(e) {
-              e.currentTarget.style.opacity = "0.75"
-            },
-            onmouseout(e) {
-              e.currentTarget.style.opacity = "1"
-            },
-            onclick() {
-              userToggled = true
-              userExpanded = !expanded
+            ext: {
+              onpointerenter(e) {
+                e.currentTarget.style.opacity = "0.75"
+              },
+              onpointerleave(e) {
+                e.currentTarget.style.opacity = "1"
+              },
+              onclick() {
+                userToggled = true
+                userExpanded = !expanded
+              }
             }
           }, statusText),
-          // 右侧渐隐线
+          // 右侧渐隐线（主色）
           m("", {
             style: {
               flex: 1,
-              height: "0.1rem",
-              background: `linear-gradient(90deg, ${getColor('gray_4').front}33, transparent)`
+              height: `${getSize(0.25)}rem`,
+              background: `linear-gradient(90deg, ${getColor("main").back}, transparent)`
             }
           })
         ]),
@@ -135,7 +135,7 @@ export default () => {
             display: "flex",
             flexDirection: "column",
             width: "100%",
-            padding: "0 0.5rem",
+            padding: `0 ${getSize(1)}rem`,
             boxSizing: "border-box"
           }
         }, groups.flatMap((group, gIdx) => {

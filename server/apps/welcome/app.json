@@ -1,0 +1,9 @@
+{
+  "id": "welcome",
+  "name": "欢迎使用",
+  "description": "启动欢迎页：快速新建/打开项目存档与配置 AI 模型",
+  "icon": "icon.svg",
+  "version": "1.0.0",
+  "backend": "backend.js",
+  "frontend": "frontend.js"
+}

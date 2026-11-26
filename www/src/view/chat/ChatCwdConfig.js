@@ -1,5 +1,6 @@
 import { trs } from "../common/i18n.js"
 import getColor from "../common/getColor.js"
+import getSize from "../common/getSize.js"
 import Notice from "../common/notice.js"
 import Box from "../common/box.js"
 import Tag from "../common/tag.js"
@@ -135,8 +136,8 @@ export default () => {
           style: {
             display: "flex",
             flexDirection: "column",
-            gap: "1.2rem",
-            margin: "1rem 1.5rem 1.5rem 1.5rem",
+            gap: `${getSize(3)}rem`,
+            margin: `${getSize(3)}rem ${getSize(4)}rem ${getSize(4)}rem ${getSize(4)}rem`,
             maxHeight: "60vh",
             overflowY: "auto",
             color: getColor("gray_1").front
@@ -148,12 +149,12 @@ export default () => {
             {
               color: "gray_4",
               style: {
-                borderRadius: "3rem",
+                borderRadius: `${getSize(8)}rem`,
                 margin: "0",
-                padding: "1.2rem 1.5rem",
+                padding: `${getSize(3)}rem ${getSize(4)}rem`,
                 display: "flex",
                 alignItems: "center",
-                gap: "1rem",
+                gap: `${getSize(3)}rem`,
                 cursor: "pointer"
               },
               onclick: () => setMainCwd(listId, cwdList)
@@ -167,7 +168,7 @@ export default () => {
                     alignItems: "center"
                   }
                 },
-                m.trust(window.iconPark.getIcon("FolderOpen", { size: "1.6rem", fill: "currentColor" }))
+                m.trust(window.iconPark.getIcon("FolderOpen", { size: `${getSize(4)}rem`, fill: "currentColor" }))
               ),
               m("",
                 {
@@ -176,14 +177,14 @@ export default () => {
                     minWidth: 0,
                     display: "flex",
                     flexDirection: "column",
-                    gap: "0.2rem"
+                    gap: `${getSize(0.5)}rem`
                   }
                 },
                 [
                   m("div",
                     {
                       style: {
-                        fontSize: "1.5rem"
+                        fontSize: `${getSize(4)}rem`
                       }
                     },
                     trs("工作目录/主标签", { cn: "主工作目录", en: "Main Working Directory" })
@@ -191,7 +192,7 @@ export default () => {
                   m("div",
                     {
                       style: {
-                        fontSize: "1.2rem",
+                        fontSize: `${getSize(3)}rem`,
                         opacity: 0.7,
                         wordBreak: "break-word"
                       }
@@ -215,7 +216,7 @@ export default () => {
                       onclick: (e) => clearMainCwd(listId, cwdList, e)
                     }
                   },
-                  m.trust(window.iconPark.getIcon("Delete", { size: "1.3rem", fill: "#ff6b6b" }))
+                  m.trust(window.iconPark.getIcon("Delete", { size: `${getSize(3)}rem`, fill: "#ff6b6b" }))
                 )
                 : null
             ]
@@ -228,14 +229,14 @@ export default () => {
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "space-between",
-                padding: "0 0.5rem"
+                padding: `0 ${getSize(1)}rem`
               }
             },
             [
               m("span",
                 {
                   style: {
-                    fontSize: "1.6rem"
+                    fontSize: `${getSize(4)}rem`
                   }
                 },
                 trs("工作目录/辅助标题", { cn: "辅助工作目录", en: "Auxiliary Working Directories" })
@@ -245,7 +246,7 @@ export default () => {
                   color: "gray_2",
                   styleExt: {
                     margin: 0,
-                    fontSize: "1.2rem"
+                    fontSize: `${getSize(3)}rem`
                   }
                 },
                 `${auxList.length}`
@@ -259,9 +260,9 @@ export default () => {
               {
                 color: "gray_4",
                 style: {
-                  borderRadius: "3rem",
+                  borderRadius: `${getSize(8)}rem`,
                   margin: "0",
-                  padding: "1.2rem 1rem",
+                  padding: `${getSize(3)}rem ${getSize(3)}rem`,
                   textAlign: "center",
                   opacity: 0.7
                 }
@@ -273,12 +274,12 @@ export default () => {
                   key: item.path,
                   color: "gray_4",
                   style: {
-                    borderRadius: "3rem",
+                    borderRadius: `${getSize(8)}rem`,
                     margin: "0",
-                    padding: "0.8rem 1.2rem",
+                    padding: `${getSize(2)}rem ${getSize(3)}rem`,
                     display: "flex",
                     alignItems: "center",
-                    gap: "0.6rem"
+                    gap: `${getSize(2)}rem`
                   }
                 },
                 [
@@ -288,7 +289,7 @@ export default () => {
                         flex: "1 1 auto",
                         minWidth: 0,
                         wordBreak: "break-word",
-                        fontSize: "1.4rem"
+                        fontSize: `${getSize(4)}rem`
                       }
                     },
                     item.path
@@ -305,7 +306,7 @@ export default () => {
                         onclick: () => moveAuxCwd(listId, cwdList, item, -1)
                       }
                     },
-                    m.trust(window.iconPark.getIcon("Up", { size: "1.1rem", fill: "currentColor" }))
+                    m.trust(window.iconPark.getIcon("Up", { size: `${getSize(3)}rem`, fill: "currentColor" }))
                   ),
                   m(Tag,
                     {
@@ -319,7 +320,7 @@ export default () => {
                         onclick: () => moveAuxCwd(listId, cwdList, item, 1)
                       }
                     },
-                    m.trust(window.iconPark.getIcon("Down", { size: "1.1rem", fill: "currentColor" }))
+                    m.trust(window.iconPark.getIcon("Down", { size: `${getSize(3)}rem`, fill: "currentColor" }))
                   ),
                   m(Tag,
                     {
@@ -334,7 +335,7 @@ export default () => {
                         onclick: () => removeAuxCwd(listId, cwdList, item)
                       }
                     },
-                    m.trust(window.iconPark.getIcon("Delete", { size: "1.2rem", fill: "#ff6b6b" }))
+                    m.trust(window.iconPark.getIcon("Delete", { size: `${getSize(3)}rem`, fill: "#ff6b6b" }))
                   )
                 ]
               ))
@@ -346,9 +347,9 @@ export default () => {
               isBtn: true,
               color: "gray_3",
               style: {
-                borderRadius: "3rem",
+                borderRadius: `${getSize(8)}rem`,
                 margin: "0",
-                padding: "1rem",
+                padding: `${getSize(3)}rem`,
                 textAlign: "center"
               },
               onclick: () => addAuxCwd(listId, cwdList)

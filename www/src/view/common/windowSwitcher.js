@@ -6,6 +6,7 @@
 // - 键盘监听：oncreate 注册（注册前先摘掉旧监听）/ onremove 清理，不会重复注册
 import Box from "./box.js"
 import getColor from "./getColor.js"
+import getSize from "./getSize.js"
 import Notice from "./notice.js"
 import getAppIconUrl from "./getAppIconUrl.js"
 import { trs } from "./i18n.js"
@@ -229,7 +230,7 @@ export default {
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
-          margin: "0.5rem"
+          margin: `${getSize(1)}rem`
         }
       },
       [
@@ -253,14 +254,14 @@ export default {
                   flexDirection: "column",
                   alignItems: "center",
                   justifyContent: "center",
-                  minWidth: "9rem",
-                  margin: "0.5rem",
-                  padding: "1rem 1.2rem",
-                  borderRadius: "2rem",
+                  minWidth: `${getSize(23)}rem`,
+                  margin: `${getSize(1)}rem`,
+                  padding: `${getSize(3)}rem ${getSize(3)}rem`,
+                  borderRadius: `${getSize(8)}rem`,
                   background: i === this.data.index ? getColor("main").back : getColor("gray_1").back + "80",
                   color: i === this.data.index ? getColor("main").front : getColor("gray_6").front,
-                  boxShadow: i === this.data.index ? "0 0 1rem rgba(0,0,0,0.12)" : "none",
-                  transform: i === this.data.index ? "translateY(-0.2rem)" : "none",
+                  boxShadow: i === this.data.index ? `0 0 ${getSize(3)}rem rgba(0,0,0,0.12)` : "none",
+                  transform: i === this.data.index ? `translateY(-${getSize(0.5)}rem)` : "none",
                   transition: "all 0.15s ease"
                 },
                 onclick: () => {
@@ -275,11 +276,11 @@ export default {
                     src: getAppIconUrl(item.appType, item.icon),
                     onerror: (e) => { e.target.src = "/statics/navbar/program.svg" },
                     style: {
-                      width: "4rem",
-                      height: "4rem",
-                      borderRadius: "1rem",
+                      width: `${getSize(10)}rem`,
+                      height: `${getSize(10)}rem`,
+                      borderRadius: `${getSize(3)}rem`,
                       objectFit: "cover",
-                      marginBottom: "0.5rem"
+                      marginBottom: `${getSize(1)}rem`
                     }
                   }
                 ),
@@ -288,7 +289,7 @@ export default {
                   ? m("span",
                     {
                       style: {
-                        fontSize: "1.2rem",
+                        fontSize: `${getSize(3)}rem`,
                         opacity: 0.7
                       }
                     },
@@ -319,9 +320,9 @@ export default {
                   style: {
                     display: "flex",
                     alignItems: "center",
-                    margin: "0.2rem 0.5rem",
-                    padding: "0.6rem 1rem",
-                    borderRadius: "1.5rem",
+                    margin: `${getSize(0.5)}rem ${getSize(1)}rem`,
+                    padding: `${getSize(2)}rem ${getSize(3)}rem`,
+                    borderRadius: `${getSize(4)}rem`,
                     background: ti === this.data.tabIndex ? getColor("main").back : getColor("gray_1").back + "66",
                     color: ti === this.data.tabIndex ? getColor("main").front : getColor("gray_6").front,
                     transition: "all 0.15s ease"
@@ -337,12 +338,12 @@ export default {
                       src: getAppIconUrl(tab.appType, tab.icon),
                       onerror: (e) => { e.target.src = "/statics/navbar/program.svg" },
                       style: {
-                        width: "2rem",
-                        height: "2rem",
-                        borderRadius: "0.5rem",
+                        width: `${getSize(5)}rem`,
+                        height: `${getSize(5)}rem`,
+                        borderRadius: `${getSize(2)}rem`,
                         objectFit: "cover",
                         flexShrink: 0,
-                        marginRight: "0.5rem"
+                        marginRight: `${getSize(1)}rem`
                       }
                     }
                   ),

@@ -9,6 +9,7 @@ export default (
     ioSocket,
     commonData,
     getColor,
+    getSize,
     Box,
     Tag,
     trs,
@@ -48,9 +49,44 @@ export default (
     translateY = 0
   }
 
+  const isWebImageUrl = (targetStr = "") => {
+    return /^(https?:\/\/|data:image\/|blob:)/i.test(String(targetStr).trim())
+  }
+
+  const extractUrlFileName = (urlStr = "") => {
+    try {
+      const cleanPath = String(urlStr).split("?")[0].split("#")[0]
+      const seg = cleanPath.split("/").filter(Boolean).pop() || "image"
+      return decodeURIComponent(seg)
+    } catch (e) {
+      return "image"
+    }
+  }
+
   const loadLocalImage = async (filePath) => {
     try {
       if (!filePath) return
+      if (isWebImageUrl(filePath)) {
+        currentImagePath = filePath
+        currentImageDataUri = filePath
+        fileName = filePath.startsWith("data:")
+          ? trs("图片查看器/名称/内嵌图片", { cn: "内嵌图片", en: "Inline Image" })
+          : extractUrlFileName(filePath)
+        mimeType = ""
+        fileSize = 0
+        mtime = null
+        sisterImages = []
+        resetView()
+
+        settingData.fnCall("appUpdateData", [
+          appId,
+          {
+            currentImagePath
+          }
+        ])
+        m.redraw()
+        return
+      }
       const res = await settingData.fnCall("appDispatch", [
         appId,
         "openImage",
@@ -147,12 +183,21 @@ export default (
         return
       }
 
+      const isUrlMode = isWebImageUrl(currentImagePath)
+      const sizeStr = fileSize > 0
+        ? `${(fileSize / 1024).toFixed(1)} KB`
+        : trs("图片查看器/属性/未知", { cn: "未知", en: "Unknown" })
+      const mimeStr = mimeType || trs("图片查看器/属性/网络图片", { cn: "网络 / 附件地址", en: "URL / Attachment" })
+      const pathLabel = isUrlMode
+        ? trs("图片查看器/属性/图片地址", { cn: "图片地址", en: "Image URL" })
+        : trs("图片查看器/属性/绝对路径", { cn: "绝对路径", en: "Absolute Path" })
+
       Notice.launch({
         tip: trs("图片查看器/面板/文件属性", { cn: "图片属性", en: "Image Details" }),
         msg: `${trs("图片查看器/属性/文件名", { cn: "文件名", en: "File Name" })}: ${fileName}\n` +
-          `${trs("图片查看器/属性/文件大小", { cn: "文件大小", en: "File Size" })}: ${(fileSize / 1024).toFixed(1)} KB\n` +
-          `${trs("图片查看器/属性/格式", { cn: "格式 (MIME)", en: "MIME Type" })}: ${mimeType}\n` +
-          `${trs("图片查看器/属性/绝对路径", { cn: "绝对路径", en: "Absolute Path" })}: ${currentImagePath}`,
+          `${trs("图片查看器/属性/文件大小", { cn: "文件大小", en: "File Size" })}: ${sizeStr}\n` +
+          `${trs("图片查看器/属性/格式", { cn: "格式 (MIME)", en: "MIME Type" })}: ${mimeStr}\n` +
+          `${pathLabel}: ${currentImagePath}`,
         confirm() {
           return undefined
         }
@@ -246,17 +291,17 @@ export default (
   }
   init()
 
-  // 统一的 Tag 胶囊按钮基础样式
+  // 统一的 Tag 胶囊按钮基础样式（高度不写死，靠内边距与行高字号自然配出）
   const btnTagStyle = {
-    height: "2.2rem",
-    minHeight: "2.2rem",
-    borderRadius: "1.1rem",
+    borderRadius: `${getSize(8)}rem`,
     boxSizing: "border-box",
     display: "inline-flex",
     alignItems: "center",
     justifyContent: "center",
-    gap: "0.4rem",
-    padding: "0 0.8rem",
+    gap: `${getSize(1)}rem`,
+    padding: `${getSize(1)}rem ${getSize(2)}rem`,
+    fontSize: `${getSize(3)}rem`,
+    lineHeight: `${getSize(4)}rem`,
     whiteSpace: "nowrap",
     flexShrink: 0
   }
@@ -338,16 +383,16 @@ export default (
               {
                 style: {
                   width: "100%",
-                  padding: "0.4rem 0.6rem",
+                  padding: `${getSize(1)}rem ${getSize(2)}rem`,
                   boxSizing: "border-box",
                   display: "flex",
                   flexDirection: "row",
                   flexWrap: "wrap",
                   alignItems: "center",
                   justifyContent: "flex-start",
-                  gap: "0.4rem",
+                  gap: `${getSize(1)}rem`,
                   background: primaryColor.back + "12",
-                  borderBottom: "0.1rem solid " + primaryColor.back + "22",
+                  borderBottom: `0.1rem solid ${primaryColor.back}22`,
                   backdropFilter: "blur(1rem)",
                   zIndex: 20
                 }
@@ -369,12 +414,12 @@ export default (
                     }
                   },
                   [
-                    m.trust(svgIcons.getSvg("FolderOpen", { size: "1.1rem", fill: primaryColor.front })),
+                    m.trust(svgIcons.getSvg("FolderOpen", { size: `${getSize(4)}rem`, fill: primaryColor.front })),
                     m("span",
                       {
                         style: {
                           fontWeight: "600",
-                          fontSize: "0.95rem"
+                          fontSize: `${getSize(3)}rem`
                         }
                       },
                       trs("图片查看器/按钮/打开图片", { cn: "打开图片", en: "Open Image" })
@@ -390,11 +435,11 @@ export default (
                         ...btnTagStyle,
                         background: neutralColor.back,
                         color: neutralColor.front,
-                        maxWidth: "11rem",
+                        maxWidth: `${getSize(35)}rem`,
                         overflow: "hidden",
                         textOverflow: "ellipsis",
                         flexShrink: 1,
-                        fontSize: "0.85rem",
+                        fontSize: `${getSize(3)}rem`,
                         fontWeight: "600"
                       }
                     },
@@ -419,12 +464,12 @@ export default (
                     }
                   },
                   [
-                    m.trust(svgIcons.getSvg("ZoomIn", { size: "1.1rem", fill: neutralColor.front })),
+                    m.trust(svgIcons.getSvg("ZoomIn", { size: `${getSize(4)}rem`, fill: neutralColor.front })),
                     m("span",
                       {
                         style: {
                           fontWeight: "500",
-                          fontSize: "0.9rem"
+                          fontSize: `${getSize(3)}rem`
                         }
                       },
                       trs("图片查看器/按钮/放大", { cn: "放大", en: "Zoom In" })
@@ -449,12 +494,12 @@ export default (
                     }
                   },
                   [
-                    m.trust(svgIcons.getSvg("ZoomOut", { size: "1.1rem", fill: neutralColor.front })),
+                    m.trust(svgIcons.getSvg("ZoomOut", { size: `${getSize(4)}rem`, fill: neutralColor.front })),
                     m("span",
                       {
                         style: {
                           fontWeight: "500",
-                          fontSize: "0.9rem"
+                          fontSize: `${getSize(3)}rem`
                         }
                       },
                       trs("图片查看器/按钮/缩小", { cn: "缩小", en: "Zoom Out" })
@@ -470,7 +515,7 @@ export default (
                       background: neutralColor.back,
                       color: neutralColor.front,
                       fontWeight: "600",
-                      fontSize: "0.9rem"
+                      fontSize: `${getSize(3)}rem`
                     },
                     isBtn: true,
                     ext: {
@@ -500,12 +545,12 @@ export default (
                     }
                   },
                   [
-                    m.trust(svgIcons.getSvg("RotateLeft", { size: "1.1rem", fill: neutralColor.front })),
+                    m.trust(svgIcons.getSvg("RotateLeft", { size: `${getSize(4)}rem`, fill: neutralColor.front })),
                     m("span",
                       {
                         style: {
                           fontWeight: "500",
-                          fontSize: "0.9rem"
+                          fontSize: `${getSize(3)}rem`
                         }
                       },
                       trs("图片查看器/按钮/左转", { cn: "左转 90°", en: "Left 90°" })
@@ -530,12 +575,12 @@ export default (
                     }
                   },
                   [
-                    m.trust(svgIcons.getSvg("RotateRight", { size: "1.1rem", fill: neutralColor.front })),
+                    m.trust(svgIcons.getSvg("RotateRight", { size: `${getSize(4)}rem`, fill: neutralColor.front })),
                     m("span",
                       {
                         style: {
                           fontWeight: "500",
-                          fontSize: "0.9rem"
+                          fontSize: `${getSize(3)}rem`
                         }
                       },
                       trs("图片查看器/按钮/右转", { cn: "右转 90°", en: "Right 90°" })
@@ -560,12 +605,12 @@ export default (
                     }
                   },
                   [
-                    m.trust(svgIcons.getSvg("FlipH", { size: "1.1rem", fill: neutralColor.front })),
+                    m.trust(svgIcons.getSvg("FlipH", { size: `${getSize(4)}rem`, fill: neutralColor.front })),
                     m("span",
                       {
                         style: {
                           fontWeight: "500",
-                          fontSize: "0.9rem"
+                          fontSize: `${getSize(3)}rem`
                         }
                       },
                       trs("图片查看器/按钮/水平镜像", { cn: "水平镜像", en: "Flip H" })
@@ -590,12 +635,12 @@ export default (
                     }
                   },
                   [
-                    m.trust(svgIcons.getSvg("FlipV", { size: "1.1rem", fill: neutralColor.front })),
+                    m.trust(svgIcons.getSvg("FlipV", { size: `${getSize(4)}rem`, fill: neutralColor.front })),
                     m("span",
                       {
                         style: {
                           fontWeight: "500",
-                          fontSize: "0.9rem"
+                          fontSize: `${getSize(3)}rem`
                         }
                       },
                       trs("图片查看器/按钮/垂直镜像", { cn: "垂直镜像", en: "Flip V" })
@@ -620,12 +665,12 @@ export default (
                     }
                   },
                   [
-                    m.trust(svgIcons.getSvg("Grid", { size: "1.1rem", fill: isCheckerboard ? primaryColor.front : neutralColor.front })),
+                    m.trust(svgIcons.getSvg("Grid", { size: `${getSize(4)}rem`, fill: isCheckerboard ? primaryColor.front : neutralColor.front })),
                     m("span",
                       {
                         style: {
                           fontWeight: "500",
-                          fontSize: "0.9rem"
+                          fontSize: `${getSize(3)}rem`
                         }
                       },
                       trs("图片查看器/按钮/棋盘格", { cn: "棋盘格", en: "Grid" })
@@ -649,12 +694,12 @@ export default (
                     }
                   },
                   [
-                    m.trust(svgIcons.getSvg("Info", { size: "1.1rem", fill: neutralColor.front })),
+                    m.trust(svgIcons.getSvg("Info", { size: `${getSize(4)}rem`, fill: neutralColor.front })),
                     m("span",
                       {
                         style: {
                           fontWeight: "500",
-                          fontSize: "0.9rem"
+                          fontSize: `${getSize(3)}rem`
                         }
                       },
                       trs("图片查看器/按钮/图片属性", { cn: "图片属性", en: "Details" })
@@ -669,7 +714,7 @@ export default (
               {
                 style: {
                   flex: "1",
-                  minHeight: "30rem",
+                  minHeight: `${getSize(50)}rem`,
                   position: "relative",
                   display: "flex",
                   alignItems: "center",
@@ -678,8 +723,8 @@ export default (
                   backgroundImage: isCheckerboard
                     ? "linear-gradient(45deg, #222 25%, transparent 25%), linear-gradient(-45deg, #222 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #222 75%), linear-gradient(-45deg, transparent 75%, #222 75%)"
                     : "none",
-                  backgroundSize: "2rem 2rem",
-                  backgroundPosition: "0 0, 0 1rem, 1rem -1rem, -1rem 0",
+                  backgroundSize: `${getSize(5)}rem ${getSize(5)}rem`,
+                  backgroundPosition: `0 0, 0 ${getSize(2.5)}rem, ${getSize(2.5)}rem -${getSize(2.5)}rem, -${getSize(2.5)}rem 0`,
                   backgroundColor: isCheckerboard ? "#111" : "#000",
                   cursor: isDragging ? "grabbing" : "grab"
                 },
@@ -700,18 +745,18 @@ export default (
                         flexDirection: "column",
                         alignItems: "center",
                         justifyContent: "center",
-                        gap: "1.2rem",
+                        gap: `${getSize(3)}rem`,
                         opacity: "0.6",
-                        padding: "1rem",
+                        padding: `${getSize(2)}rem`,
                         textAlign: "center"
                       }
                     },
                     [
-                      m.trust(svgIcons.getSvg("Pic", { size: "4.5rem", fill: primaryColor.back })),
+                      m.trust(svgIcons.getSvg("Pic", { size: `${getSize(12)}rem`, fill: primaryColor.back })),
                       m("span",
                         {
                           style: {
-                            fontSize: "1.2rem",
+                            fontSize: `${getSize(4)}rem`,
                             fontWeight: "500"
                           }
                         },
@@ -722,6 +767,10 @@ export default (
                   : m("img",
                     {
                       src: currentImageDataUri,
+                      onerror: (e) => {
+                        e.currentTarget.onerror = null
+                        e.currentTarget.src = "/statics/imgError.svg"
+                      },
                       style: {
                         transform: `translate(${translateX}px, ${translateY}px) scale(${scale}) rotate(${rotate}deg) scaleX(${flipH ? -1 : 1}) scaleY(${flipV ? -1 : 1})`,
                         transition: isDragging ? "none" : "transform 0.15s ease-out",
@@ -740,7 +789,7 @@ export default (
                       {
                         style: {
                           position: "absolute",
-                          left: "1.2rem",
+                          left: `${getSize(3)}rem`,
                           top: "50%",
                           transform: "translateY(-50%)",
                           zIndex: 10
@@ -750,12 +799,10 @@ export default (
                         {
                           styleExt: {
                             ...btnTagStyle,
-                            height: "2.8rem",
-                            minHeight: "2.8rem",
-                            borderRadius: "1.4rem",
+                            borderRadius: `${getSize(8)}rem`,
                             background: primaryColor.back + "ee",
                             color: primaryColor.front,
-                            padding: "0 0.8rem"
+                            padding: `${getSize(2)}rem`
                           },
                           isBtn: true,
                           ext: {
@@ -765,14 +812,14 @@ export default (
                             }
                           }
                         },
-                        m.trust(svgIcons.getSvg("Left", { size: "1.6rem", fill: primaryColor.front }))
+                        m.trust(svgIcons.getSvg("Left", { size: `${getSize(5)}rem`, fill: primaryColor.front }))
                       )
                     ),
                     m("",
                       {
                         style: {
                           position: "absolute",
-                          right: "1.2rem",
+                          right: `${getSize(3)}rem`,
                           top: "50%",
                           transform: "translateY(-50%)",
                           zIndex: 10
@@ -782,12 +829,10 @@ export default (
                         {
                           styleExt: {
                             ...btnTagStyle,
-                            height: "2.8rem",
-                            minHeight: "2.8rem",
-                            borderRadius: "1.4rem",
+                            borderRadius: `${getSize(8)}rem`,
                             background: primaryColor.back + "ee",
                             color: primaryColor.front,
-                            padding: "0 0.8rem"
+                            padding: `${getSize(2)}rem`
                           },
                           isBtn: true,
                           ext: {
@@ -797,7 +842,7 @@ export default (
                             }
                           }
                         },
-                        m.trust(svgIcons.getSvg("Right", { size: "1.6rem", fill: primaryColor.front }))
+                        m.trust(svgIcons.getSvg("Right", { size: `${getSize(5)}rem`, fill: primaryColor.front }))
                       )
                     )
                   ]

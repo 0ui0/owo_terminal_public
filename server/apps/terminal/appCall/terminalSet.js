@@ -1,9 +1,13 @@
 import Joi from "joi"
 import appManager from "../../appManager.js"
 import waitConfirm from "../../../tools/waitConfirm.js"
+// 【架构铁律】严禁通过 terminalBackend 触碰任何终端 session 或内部状态！
+// 工具内部禁止直接引用 backend（热更新 HMR 时会导致模块实例分叉，工具闭包锁死在旧实例导致版本异常）。
+// 此处仅暂时借用 cleanTerminalContent 这一无状态纯函数，通信与状态获取一律走 appManager.dispatch。
 import terminalBackend from "../backend.js"
 import pathLib from "path"
 import workDirTool from "../../../tools/workDirTool.js"
+import qemuManager from "../../../tools/vm/qemuManager.js"
 
 function decodeLsofPath(rawPath) {
   if (!rawPath || typeof rawPath !== "string" || !rawPath.includes("\\x")) return rawPath
@@ -143,14 +147,18 @@ export default {
 
     // 终端模式描述：供确认弹窗明示「新建终端」还是「使用指定终端(appid)」
     let termModeDesc = ""
+
     if (appId === "-1") {
-      // 必须明确传入 -1 来新建独立终端
       termModeDesc = "将新建终端"
     } else {
       // 显式指定 appId 模式
       const targetApp = appManager.get(appId)
       if (targetApp) {
-        const session = terminalBackend.getSession(targetApp.id)
+        const session = (await appManager.dispatch(targetApp.id, "getSession")).data
+        const isTargetVm = Boolean(session?.isVirtual || targetApp.data?.mode === "vm")
+        if (isTargetVm) {
+          return `执行被系统拦截：您指定的终端 (${appId}) 是虚拟系统终端，请改用微虚拟机专属工具 terminalVmSet 执行。`
+        }
         targetCwd = decodeLsofPath(session?.cwd || targetApp.data.cwd || defaultCwd)
         termModeDesc = `将使用指定终端 (${appId})`
       } else {
@@ -158,7 +166,7 @@ export default {
       }
     }
 
-    const userConfirm = await waitConfirm({
+    let userConfirm = await waitConfirm({
       type: "text",
       content: fullCommand,
       argsDesc: autoMarkdownTable,
@@ -170,26 +178,34 @@ export default {
       }
     })
 
-    const commentPrefix = userConfirm.comment ? `【用户留言】：${userConfirm.comment}\n\n` : ""
+    const commentPrefix = userConfirm.comment ? `【管理员留言】：${userConfirm.comment}\n\n` : ""
 
     if (!userConfirm.ok) {
-      return commentPrefix + `用户主动拒绝执行命令。`
+      return commentPrefix + `管理员主动拒绝执行命令。`
     }
 
     let termApp = null
 
     if (appId === "-1") {
       // 必须明确传入 -1 来新建全新的纯净终端
-      const launchRes = await appManager.launch("terminal", {
-        data: {
-          window: { minimized },
-          cwd: mainWorkDir,
-          listId: currentListId,
-          toolCallGroupId,
-          deferredFns
-        }
-      })
-      if (!launchRes?.ok) return commentPrefix + `启动终端失败: ${launchRes?.msg || "未知错误"}`
+      let launchRes
+      try {
+        launchRes = await appManager.launch("terminal", {
+          data: {
+            mode: "host",
+            window: { minimized },
+            cwd: mainWorkDir,
+            listId: currentListId,
+            toolCallGroupId,
+            deferredFns
+          }
+        })
+      } catch (err) {
+        return commentPrefix + `启动终端异常抛出: ${err.message}\n堆栈:\n${err.stack}`
+      }
+      if (!launchRes?.ok) {
+        return commentPrefix + `启动终端失败: ${launchRes?.msg || "未知错误"}\n原始返回:\n${JSON.stringify(launchRes, null, 2)}`
+      }
       termApp = launchRes.app
       await new Promise(res => setTimeout(res, 1000))
     } else {
@@ -201,7 +217,7 @@ export default {
         return commentPrefix + "权限不足：该终端不属于当前智能体会话列表。"
       }
 
-      const session = terminalBackend.getSession(termApp.id)
+      const session = (await appManager.dispatch(termApp.id, "getSession")).data
       if (!session || !session.shell) {
         return commentPrefix + `无法执行：终端 (appId="${termApp.id}") 的底层物理进程已断开（由于系统重启变为僵尸终端）。请留空 appId 让系统自动分配，或传入 appId="-1" 强制新建终端。`
       }
@@ -229,7 +245,7 @@ export default {
         appManager.io.emit("app:active", { appId: termApp.id })
       }
 
-      const session = terminalBackend.getSession(termApp.id)
+      const session = (await appManager.dispatch(termApp.id, "getSession")).data
       let startOffset = session?.content?.length || 0
 
       // 动态修正 startOffset，向前回溯寻找上一个真正的物理换行符 \n，以包含完整的提示符
@@ -354,13 +370,14 @@ ${tailOutput}`
 
   getDoc() {
     return `
-      向指定终端 App 写入并执行命令。
+      向指定终端 App 写入并执行命令，命令将执于管理员真实操作系统
+      该功能需要管理员审核，除非管理员单独配置了自动审核功能
+      使用terminalVmSet工具，可以在虚拟机的系统内执行命令，可以免审核
       系统会检测输出静默（产生输出后静默2.5秒）自动返回结果。输出不全可使用 terminalGet 工具翻页
       【警告】执行前务必确认当前系统(Mac/Win)，使用对应的系统终端命令和路径格式！
       【🚨 严重警告：目录丢失与跨盘符陷阱】
       因底层环境限制，系统可能无法实时感知终端当前路径的变化。为了确保命令执行在正确的目录，
       请务必在涉及到特定工作目录的命令流水线最前面，主动加上 cd 命令进行切换。
-      
       调用范例[Mac/Linux]：
       {
         commands: [

@@ -17,6 +17,19 @@ export default {
         }
       }
     },
+    {
+      name: "桌面",
+      url: "/desktop",
+      icon: "desktop",
+      sizeRate: 1,
+      power: 1,
+      onBar: true,
+      onClick: (e) => {
+        if (m.route.get() !== "/desktop") {
+          ROUTE.set("/desktop")
+        }
+      }
+    },
 
   ],
 

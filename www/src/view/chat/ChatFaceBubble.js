@@ -1,5 +1,6 @@
 import { trs } from "../common/i18n.js"
 import getColor from "../common/getColor.js"
+import getSize from "../common/getSize.js"
 
 export default () => {
   let timer = null
@@ -43,18 +44,18 @@ export default () => {
             vnode.attrs.delete?.()
           },
           style: {
-            width: "20rem",
-            height: "20rem",
-            margin: "0.5rem auto",
+            width: `${getSize(40)}rem`,
+            height: `${getSize(40)}rem`,
+            margin: `${getSize(1)}rem auto`,
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            padding: "0.6rem",
+            padding: `${getSize(1)}rem`,
             background: getColor("gray_4").back,
             borderRadius: "50%",
-            border: `0.15rem solid ${getColor('main').back}`,
+            border: `${getSize(0.25)}rem solid ${getColor('main').back}`,
             boxSizing: "border-box",
-            boxShadow: "0 0.8rem 2.4rem rgba(0, 0, 0, 0.25)",
+            boxShadow: `0 ${getSize(1.5)}rem ${getSize(5)}rem rgba(0, 0, 0, 0.25)`,
             cursor: "pointer",
             overflow: "hidden",
             transform: isHovered ? "scale(1.05)" : "scale(1)",
@@ -70,7 +71,7 @@ export default () => {
                 width: "100%",
                 height: "100%",
                 objectFit: "contain",
-                filter: "drop-shadow(0 0.6rem 1.2rem rgba(0, 0, 0, 0.35))"
+                filter: `drop-shadow(0 ${getSize(1)}rem ${getSize(2.5)}rem rgba(0, 0, 0, 0.35))`
               },
               onerror: () => {
                 console.warn(`[ChatFaceBubble] Failed to load expression image: ${url}`)

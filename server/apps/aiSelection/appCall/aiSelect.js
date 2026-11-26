@@ -37,10 +37,10 @@ export default {
           console.log("[aiSelect tool] resolve called with result:", result)
           let text = ""
           if (result && result.canceled) {
-            text = "用户取消了选择。"
+            text = "管理员取消了选择。"
           } else if (result && result.selected !== undefined) {
             const selStr = typeof result.selected === 'string' ? result.selected : JSON.stringify(result.selected)
-            text = `用户选择了：${selStr}。`
+            text = `管理员选择了：${selStr}。`
           } else {
             text = `选择异常：${JSON.stringify(result)}。`
           }
@@ -79,6 +79,6 @@ export default {
   },
 
   getDoc() {
-    return `弹出气泡交互，用户选择并返回结果`
+    return `弹出气泡交互，管理员选择并返回结果`
   }
 }

@@ -5,6 +5,8 @@ import SessionList from "./ChatSessionList.js"
 import data from "./chatData.js"
 import comData from "../../comData/comData.js"
 import ChatVideo from "./ChatVideo.js"
+import getSize from "../common/getSize.js"
+import getColor from "../common/getColor.js"
 import settingData from "../setting/settingData.js"
 
 export default () => {
@@ -27,10 +29,11 @@ export default () => {
         style: {
           width: "100%",
           height: "100%",
-          padding: Mob ? "1rem" : "2rem",
+          padding: `${getSize(3)}rem`,
           boxSizing: "border-box",
           display: "flex",
           position: "relative",
+          background: `linear-gradient(to top, ${getColor("gray_1").back} 0%, ${getColor("gray_1").back}00 35%), ${getColor("消息列表背景")}`,
           //alignItems:"center",
 
         }
@@ -41,16 +44,16 @@ export default () => {
         //left
         !window.Mob ? m("", {
           style: {
-            flex: "0 0 25.5rem",
+            flex: `0 0 ${getSize(64)}rem`,
             //width:"20rem",
             height: "100%",
             display: "flex",
             flexDirection: "column",
             alignItems: "stretch",
-            borderRadius: "3rem",
+            borderRadius: `${getSize(8)}rem`,
             //border:"0.1rem solid #755d5c",
-            marginRight: "2rem",
-            //background:"#4a443f"
+            marginRight: `${getSize(3)}rem`,
+            //border:"0.1rem solid #755d5c",
           }
         }, [
           settingData.options?.get("global_actorSwitch") !== 1 ? m("", {
@@ -60,11 +63,11 @@ export default () => {
               justifyContent: "center",
               alignItems: "center",
               borderRadius: "50%",
-              border: "0.1rem solid #755d5c",
-              background: "#47464f",
+              border: `${getSize(0.25)}rem solid #755d5c`,
+              background: getColor("gray_3").back,
               overflow: "hidden",
-              height: "25rem",
-              width: "25rem"
+              height: `${getSize(63)}rem`,
+              width: `${getSize(63)}rem`
             }
           }, [
             m("img", {

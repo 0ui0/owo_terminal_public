@@ -1,5 +1,6 @@
 import comData from '../../comData/comData.js'
 import getColor from "../common/getColor.js"
+import getSize from "../common/getSize.js"
 
 export default () => {
   return {
@@ -10,8 +11,8 @@ export default () => {
 
       return m("div", {
         style: {
-          width: window.Mob ? "3rem" : "6rem",
-          height: window.Mob ? "3rem" : "6rem",
+          width: window.Mob ? `${getSize(8)}rem` : `${getSize(15)}rem`,
+          height: window.Mob ? `${getSize(8)}rem` : `${getSize(15)}rem`,
           borderRadius: "50%",
           backgroundImage: chat.group == "user" 
             ? "url(./statics/avatar.svg)"
@@ -23,9 +24,9 @@ export default () => {
           backgroundPosition: "center",
           backgroundRepeat: "no-repeat",
           backgroundColor: `${chat.group === "user" ? getColor('我方气泡背景色') : getColor('对方气泡背景色')}33`,
-          border: `0.15rem solid ${chat.group === "user" ? getColor('我方气泡高亮边框色') : getColor('对方气泡高亮边框色')}`,
-          boxShadow: "0.1rem 0.1rem 0.6rem rgba(0,0,0,0.2)",
-          margin: chat.group === "user" ? "1rem 1rem 1rem 0" : "1rem 0 1rem 1rem",
+          border: `${getSize(0.25)}rem solid ${chat.group === "user" ? getColor('我方气泡高亮边框色') : getColor('对方气泡高亮边框色')}`,
+          boxShadow: `0 ${getSize(0.25)}rem ${getSize(1)}rem rgba(0,0,0,0.2)`,
+          margin: chat.group === "user" ? `${getSize(2)}rem ${getSize(2)}rem ${getSize(2)}rem 0` : `${getSize(2)}rem 0 ${getSize(2)}rem ${getSize(2)}rem`,
           flexShrink: 0,
           boxSizing: "border-box",
           display: "flex",

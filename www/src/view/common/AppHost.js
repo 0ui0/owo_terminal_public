@@ -1,4 +1,7 @@
 import Box from "./box.js"
+import iconTag from "./iconTag.js"
+import Setting from "../setting/setting.js"
+import { launchModelWizard } from "../setting/settingModelWizard.js"
 import Tag from "./tag.js"
 import AutoForm from "./autoForm.js"
 import FormItem from "./FormItem.js"
@@ -7,6 +10,7 @@ import settingData from "../setting/settingData.js"
 import format from "./format.js"
 import { trs } from "./i18n.js"
 import getColor from "./getColor.js"
+import getSize from "./getSize.js"
 import Menu from "./menu.js"
 import sysMenu from "./sysMenu.js"
 import Tip from "./tip.js"
@@ -54,7 +58,7 @@ export default function() {
         }
         noticeConfig.headerButtons = [
           {
-            icon: window.iconPark ? window.iconPark.getIcon("Quote", { fill: "#eee", size: "12px" }) : '"',
+            icon: window.iconPark ? window.iconPark.getIcon("Quote", { fill: "#eee", size: `${getSize(3)}rem` }) : '"',
             color: "#5e6c79",
             onclick: () => {
               chatData.quoteAppId(appId)
@@ -91,6 +95,7 @@ export default function() {
             Tag,
             iconPark: window.iconPark,
             getColor,
+            getSize,
             trs,
             Terminal,
             FitAddon,
@@ -101,7 +106,10 @@ export default function() {
             jsonpatch,
             AutoForm,
             FormItem,
-            ChatToolSelect
+            ChatToolSelect,
+            iconTag,
+            Setting,
+            launchModelWizard
           })
         }
         realComponent = comp
@@ -119,7 +127,7 @@ export default function() {
       if (errorStr) {
         return m(Box, {
           style: {
-            padding: "1rem",
+            padding: `${getSize(3)}rem`,
             color: getColor("red_1").front
           }
         }, `App 加载失败: ${errorStr}`)
@@ -132,12 +140,12 @@ export default function() {
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            padding: "2rem",
+            padding: `${getSize(5)}rem`,
             color: getColor("gray_4").front
           }
         }, [
-          window.iconPark ? m.trust(window.iconPark.getIcon("LoadingThree", { size: "20px", class: "rotate" })) : null,
-          m("span", { style: { marginLeft: "0.5rem" } }, "正在加载应用...")
+          window.iconPark ? m.trust(window.iconPark.getIcon("LoadingThree", { size: `${getSize(5)}rem`, class: "rotate" })) : null,
+          m("span", { style: { marginLeft: `${getSize(1)}rem` } }, "正在加载应用...")
         ])
       }
       return m(realComponent, v.attrs)

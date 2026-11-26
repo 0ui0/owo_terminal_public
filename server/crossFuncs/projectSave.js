@@ -3,6 +3,7 @@ import Joi from "joi"
 import projectManager from "../managers/projectManager.js"
 import { dialog } from "electron"
 import ioServer from "../ioServer/ioServer.js"
+import pathLib from "path"
 import { trs } from "../tools/i18n.js"
 
 export default {
@@ -12,9 +13,11 @@ export default {
     // 只有在完全没有路径、或者明确要求另存为时，才弹出对话框
     if ((!filePath && !projectManager.currentProjectPath) || saveAs) {
       try {
+        const lastDir = projectManager.getLastProjectDir()
+        const fallbackSavePath = lastDir ? pathLib.join(lastDir, "my_project.owo") : "my_project.owo"
         const { filePath: savePath, canceled } = await dialog.showSaveDialog({
           title: saveAs ? "另存为项目" : "保存项目",
-          defaultPath: projectManager.currentProjectPath || "my_project.owo",
+          defaultPath: projectManager.currentProjectPath || fallbackSavePath,
           filters: [{ name: "Owo Project", extensions: ["owo", "json"] }]
         })
 

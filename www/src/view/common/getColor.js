@@ -61,7 +61,8 @@ export default function (colorStr) {
       对方气泡高亮边框色: "#ffdb66",
       思考中气泡背景色: "#ffffff",
       思考中气泡高亮边框色: "#ffc83c",
-      消息列表背景: "#FBF6E9"
+      消息列表背景: "#FBF6E9",
+      消息列表前景: "#6f6354"
     }
     return themeOverrides[colorStr] || colorObj[colorStr] || themeOverrides.gray_4
   }
@@ -121,7 +122,8 @@ export default function (colorStr) {
       对方气泡高亮边框色: "#80adff",
       思考中气泡背景色: "#ffffff",
       思考中气泡高亮边框色: "#d59bd6",
-      消息列表背景: "#e4e9f0"
+      消息列表背景: "#e4e9f0",
+      消息列表前景: "#4c5c72"
     }
     return themeOverrides[colorStr] || colorObj[colorStr] || themeOverrides.gray_4
   }

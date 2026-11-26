@@ -1,6 +1,7 @@
 import m from "/@npm/mithril.js"
 import Box from "../common/box.js"
 import getColor from "../common/getColor.js"
+import getSize from "../common/getSize.js"
 import { trs } from "../common/i18n.js"
 import comData from "../../comData/comData.js"
 import chatData from "./chatData.js"
@@ -53,15 +54,15 @@ export default () => {
           style: {
             display: "flex",
             flexDirection: "column",
-            gap: "1.5rem",
-            padding: "1rem",
+            gap: `${getSize(4)}rem`,
+            padding: `${getSize(3)}rem`,
             color: getColor("gray_1").front
           }
         },
         [
           // 模式选择组
-          m("", { style: { display: "flex", flexDirection: "column", gap: "0.5rem" } }, [
-            m("span", { style: { fontSize: "1.6rem", color: getColor("gray_1").front, marginLeft: "0.5rem" } }, 
+          m("", { style: { display: "flex", flexDirection: "column", gap: `${getSize(1)}rem` } }, [
+            m("span", { style: { fontSize: `${getSize(4)}rem`, color: getColor("gray_1").front, marginLeft: `${getSize(1)}rem` } }, 
               trs("输入栏/标签/发送模式", { cn: "发送模式", en: "Send Mode" })
             ),
             modeOptions.map(opt => {
@@ -71,9 +72,9 @@ export default () => {
                 isBtn: true,
                 color: isSelected ? "main" : "gray_4",
                 style: {
-                  borderRadius: "3rem",
+                  borderRadius: `${getSize(8)}rem`,
                   margin: "0",
-                  padding: "1rem 1.5rem",
+                  padding: `${getSize(3)}rem ${getSize(4)}rem`,
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "space-between"
@@ -83,28 +84,28 @@ export default () => {
                   m.redraw()
                 }
               }, [
-                m("", { style: { display: "flex", flexDirection: "column", gap: "0.2rem", textAlign: "left" } }, [
+                m("", { style: { display: "flex", flexDirection: "column", gap: `${getSize(0.5)}rem`, textAlign: "left" } }, [
                   m("span", opt.label),
-                  m("span", { style: { fontSize: "1.2rem", opacity: 0.6 } }, opt.desc)
+                  m("span", { style: { fontSize: `${getSize(3)}rem`, opacity: 0.6 } }, opt.desc)
                 ]),
-                isSelected ? m.trust(window.iconPark.getIcon("CheckOne", { size: "1.8rem", fill: getColor("main").front })) : null
+                isSelected ? m.trust(window.iconPark.getIcon("CheckOne", { size: `${getSize(5)}rem`, fill: getColor("main").front })) : null
               ])
             })
           ]),
 
           // 分割线
-          m("hr", { style: { border: "none", borderTop: `1px solid ${getColor("gray_4").back}`, margin: "0" } }),
+          m("hr", { style: { border: "none", borderTop: `${getSize(0.25)}rem solid ${getColor("gray_4").back}`, margin: "0" } }),
 
           // 阶段选择组
-          m("", { style: { display: "flex", flexDirection: "column", gap: "0.5rem" } }, [
-            m("span", { style: { fontSize: "1.6rem", color: getColor("gray_1").front, marginLeft: "0.5rem" } }, 
+          m("", { style: { display: "flex", flexDirection: "column", gap: `${getSize(1)}rem` } }, [
+            m("span", { style: { fontSize: `${getSize(4)}rem`, color: getColor("gray_1").front, marginLeft: `${getSize(1)}rem` } }, 
               trs("输入栏/标签/附加阶段指令", { cn: "附加阶段指令", en: "Append Stage Command" })
             ),
             m("div", {
               style: {
                 display: "grid",
                 gridTemplateColumns: "1fr 1fr",
-                gap: "0.5rem"
+                gap: `${getSize(1)}rem`
               }
             }, stageOptions.map(opt => {
               const isSelected = selectedStage === opt.value
@@ -113,9 +114,9 @@ export default () => {
                 isBtn: true,
                 color: isSelected ? "pink_1" : "gray_4",
                 style: {
-                  borderRadius: "3rem",
+                  borderRadius: `${getSize(8)}rem`,
                   margin: "0",
-                  padding: "0.8rem 1rem",
+                  padding: `${getSize(2)}rem ${getSize(3)}rem`,
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",

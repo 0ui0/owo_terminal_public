@@ -1,4 +1,5 @@
 import getColor from "./getColor.js";
+import getSize from "./getSize.js";
 
 var RefinedText;
 
@@ -30,8 +31,8 @@ RefinedText = function () {
       // 辅助样式函数
       iconBtnStyle = function (color, isHovered = false) {
         return {
-          width: "22px",
-          height: "22px",
+          width: `${getSize(6)}rem`,
+          height: `${getSize(6)}rem`,
           borderRadius: "50%",
           background: color.back,
           color: color.front,
@@ -42,16 +43,16 @@ RefinedText = function () {
           transition: "all 0.2s",
           opacity: 1, // 默认不使用透明度，防止产生堆叠上下文
           transform: isHovered ? "scale(1.1)" : "none",
-          boxShadow: isHovered ? "0 4px 12px rgba(0,0,0,0.15)" : "none",
-          fontSize: "12px"
+          boxShadow: isHovered ? `0 ${getSize(1)}rem ${getSize(3)}rem rgba(0,0,0,0.15)` : "none",
+          fontSize: `${getSize(3)}rem`
         };
       };
       return m("div", {
         style: {
           display: "flex",
           flexDirection: "column",
-          margin: "0.5rem",
-          gap: "0.4rem"
+          margin: `${getSize(1)}rem`,
+          gap: `${getSize(1)}rem`
         }
       }, [
         // 标题层 (Title on top) - 可选
@@ -60,29 +61,29 @@ RefinedText = function () {
             style: {
               display: "flex",
               alignItems: "center",
-              gap: "0.6rem",
-              padding: "0 0.4rem",
-              marginBottom: "0.2rem"
+              gap: `${getSize(2)}rem`,
+              padding: `0 ${getSize(1)}rem`,
+              marginBottom: `${getSize(0.5)}rem`
             }
           },
           [
             m("div",
               {
                 style: {
-                  width: "5px",
-                  height: "1.2rem",
+                  width: `${getSize(1)}rem`,
+                  height: `${getSize(3)}rem`,
                   background: mainColor.back,
-                  borderRadius: "3px",
-                  boxShadow: `0 0 8px ${mainColor.back}66`
+                  borderRadius: `${getSize(1)}rem`,
+                  boxShadow: `0 0 ${getSize(2)}rem ${mainColor.back}66`
                 }
               }),
             m("span",
               {
                 style: {
                   fontWeight: "bold",
-                  fontSize: "1.05rem",
+                  fontSize: `${getSize(3)}rem`,
                   color: brownColor.front,
-                  letterSpacing: "0.05rem"
+                  letterSpacing: `${getSize(0.25)}rem`
                 }
               },
               attrs.label)
@@ -95,9 +96,9 @@ RefinedText = function () {
               display: "flex",
               flexDirection: "column",
               background: getColor("确认框输入背景"),
-              borderRadius: "1rem",
-              border: "1.5px solid " + getColor("确认框输入边框"),
-              boxShadow: "0 8px 32px rgba(0,0,0,0.03)",
+              borderRadius: `${getSize(3)}rem`,
+              border: `${getSize(0.5)}rem solid ` + getColor("确认框输入边框"),
+              boxShadow: `0 ${getSize(2)}rem ${getSize(8)}rem rgba(0,0,0,0.03)`,
               transition: "all 0.4s cubic-bezier(0.4, 0, 0.2, 1)",
               overflow: "hidden"
             }
@@ -108,13 +109,13 @@ RefinedText = function () {
               {
                 style: {
                   width: "100%",
-                  height: isExpanded ? "auto" : "40px", // 进一步压缩高度
-                  minHeight: isExpanded ? "10rem" : "40px",
+                  height: isExpanded ? "auto" : `${getSize(10)}rem`, // 进一步压缩高度
+                  minHeight: isExpanded ? `${getSize(25)}rem` : `${getSize(10)}rem`,
                   boxSizing: "border-box",
                   border: "none",
                   outline: "none",
                   background: "transparent",
-                  padding: "0.4rem 0.6rem", // 减小内边距
+                  padding: `${getSize(1)}rem ${getSize(2)}rem`, // 减小内边距
                   color: getColor("确认框输入文字"),
                   resize: "none",
                   fontFamily: "inherit",
@@ -134,7 +135,7 @@ RefinedText = function () {
                 },
                 onfocus: function (e) {
                   e.target.parentNode.style.background = getColor("确认框输入背景");
-                  e.target.parentNode.style.boxShadow = `0 8px 32px rgba(${mainColor.back}33)`;
+                  e.target.parentNode.style.boxShadow = `0 ${getSize(2)}rem ${getSize(8)}rem rgba(${mainColor.back}33)`;
                   return e.target.parentNode.style.borderColor = `${mainColor.back}aa`;
                 },
                 onblur: function (e) {
@@ -149,7 +150,7 @@ RefinedText = function () {
                     }
                   }
                   e.target.parentNode.style.background = getColor("确认框输入背景");
-                  e.target.parentNode.style.boxShadow = "0 8px 32px rgba(0,0,0,0.03)";
+                  e.target.parentNode.style.boxShadow = `0 ${getSize(2)}rem ${getSize(8)}rem rgba(0,0,0,0.03)`;
                   return e.target.parentNode.style.borderColor = getColor("确认框输入边框");
                 },
                 value: value
@@ -162,9 +163,9 @@ RefinedText = function () {
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "space-between",
-                  padding: "0.4rem 0.6rem",
+                  padding: `${getSize(1)}rem ${getSize(2)}rem`,
                   background: "rgba(255, 255, 255, 0.3)",
-                  borderTop: "1px solid rgba(255, 255, 255, 0.5)"
+                  borderTop: `${getSize(0.25)}rem solid rgba(255, 255, 255, 0.5)`
                 }
               },
               [
@@ -173,7 +174,7 @@ RefinedText = function () {
                   {
                     style: {
                       display: "flex",
-                      gap: "0.5rem"
+                      gap: `${getSize(1)}rem`
                     }
                   },
                   [
@@ -253,10 +254,10 @@ RefinedText = function () {
                     style: {
                       display: "flex",
                       alignItems: "center",
-                      gap: "0.4rem",
+                      gap: `${getSize(1)}rem`,
                       cursor: "pointer",
-                      padding: "0.2rem 0.4rem",
-                      borderRadius: "4px",
+                      padding: `${getSize(0.5)}rem ${getSize(1)}rem`,
+                      borderRadius: `${getSize(1)}rem`,
                       transition: "all 0.3s",
                       color: mainColor.back,
                       opacity: "0.6"
@@ -276,7 +277,7 @@ RefinedText = function () {
                         },
                           50);
                       } else {
-                        return textareaDom.style.height = '60px';
+                        return textareaDom.style.height = `${getSize(15)}rem`;
                       }
                     }
                   },

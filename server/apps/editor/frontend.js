@@ -3,7 +3,7 @@ import editorData from "./editorData.js"
 import { themes as noctisThemeList, defineAllThemes } from "./frontendModules/noctisThemes.js"
 
 // Editor App 前端组件 (Closure Version)
-export default ({ appId, m, Notice, ioSocket, comData, commonData, chatData, settingData, Box, Tag, getColor, trs, sysMenu }) => {
+export default ({ appId, m, Notice, ioSocket, comData, commonData, chatData, settingData, format, Box, Tag, getColor, getSize, trs, sysMenu }) => {
   const t = (key, dict) => (typeof trs === "function" ? trs(key, dict) : (dict?.cn || key))
 
   // 💡 跨窗口共享状态：在前端全局唯一的 commonData 上挂载并初始化
@@ -13,8 +13,11 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, chatData, set
   if (commonData.editorOpenFileAfterAccept === undefined) {
     commonData.editorOpenFileAfterAccept = false
   }
+  // 代码区字号：Monaco 只接受 px 数字，这里按 1.5rem 从根字号换算，等效跟随全局缩放
+  const editorBaseFontPxNum = Math.round(1.5 * (parseFloat(getComputedStyle(document.documentElement).fontSize) || 10))
+
   if (commonData.editorFontSize === undefined) {
-    commonData.editorFontSize = 16
+    commonData.editorFontSize = editorBaseFontPxNum
   }
   if (commonData.editorTheme === undefined) {
     commonData.editorTheme = "noctis-bordo"
@@ -38,13 +41,16 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, chatData, set
   let pendingLine = 0 // 打开文件后待定位的行号（0 表示无需定位）
   let localComment = ""
   let isConflictDiff = false
+  let showMarkdownPreview = false
   let annotations = []
   let diffChanges = []
   let currentDiffIndex = 0
   let reason = ""
+  let edits = []
+  let viewZoneIds = []
 
   let wordWrap = false
-  let currentFontSize = commonData.editorFontSize || 16
+  let currentFontSize = commonData.editorFontSize || editorBaseFontPxNum
   let currentTabSize = 2
   let showMinimap = true
 
@@ -173,7 +179,7 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, chatData, set
         style: {
           display: "flex",
           flexDirection: "column",
-          padding: "1.5rem"
+          padding: `${getSize(4)}rem`
         }
       },
       [
@@ -181,7 +187,7 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, chatData, set
           {
             isBlock: true,
             style: {
-              marginBottom: "1rem"
+              marginBottom: `${getSize(3)}rem`
             }
           },
           "该文件在外部已被修改，直接保存将覆盖外部的修改！是否强行覆盖，或重新加载最新内容？"
@@ -191,7 +197,7 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, chatData, set
             style: {
               display: "flex",
               justifyContent: "flex-end",
-              gap: "0.5rem"
+              gap: `${getSize(1)}rem`
             }
           },
           [
@@ -435,7 +441,11 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, chatData, set
   const updateEditor = () => {
     if (!window.monaco || !container) return
     if (editor) { editor.dispose(); editor = null }
-    if (diffEditor) { diffEditor.dispose(); diffEditor = null }
+    if (diffEditor) {
+      viewZoneIds = []
+      diffEditor.dispose()
+      diffEditor = null
+    }
     container.innerHTML = ""
     diffChanges = []
     currentDiffIndex = 0
@@ -454,8 +464,8 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, chatData, set
         readOnly: true,
         renderSideBySide: !!commonData.editorDiffSideBySide,
         useInlineViewWhenSmall: false,
-        fontSize: 16,
-        lineHeight: 24,
+        fontSize: editorBaseFontPxNum,
+        lineHeight: Math.round(editorBaseFontPxNum * 1.5),
         fontFamily: 'Menlo, Monaco, "Courier New", Consolas, monospace'
       })
       diffEditor.setModel({
@@ -469,6 +479,57 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, chatData, set
           diffChanges = changes
           const firstChange = changes[0]
           diffEditor.getModifiedEditor().revealLineInCenter(firstChange.modifiedStartLineNumber)
+
+          if (edits && edits.length > 0) {
+            const modifiedEd = diffEditor.getModifiedEditor()
+            modifiedEd.changeViewZones(accessor => {
+              viewZoneIds.forEach(id => accessor.removeZone(id))
+              viewZoneIds = []
+              edits.forEach(edit => {
+                if (edit && edit.reason) {
+                  const lineNum = edit.modifiedStartLine || 1
+                  const domNode = document.createElement("div")
+                  domNode.style.display = "flex"
+                  domNode.style.alignItems = "center"
+                  domNode.style.gap = `${getSize(2)}rem`
+                  domNode.style.padding = `${getSize(0.5)}rem ${getSize(2)}rem`
+                  domNode.style.background = getColor("blue_1").back
+                  domNode.style.color = getColor("blue_1").front
+                  domNode.style.borderRadius = `${getSize(8)}rem`
+                  domNode.style.margin = `${getSize(0.5)}rem ${getSize(1)}rem`
+                  domNode.style.fontSize = `${getSize(3)}rem`
+                  domNode.style.fontFamily = "sans-serif"
+
+                  const tagSpan = document.createElement("span")
+                  tagSpan.style.display = "inline-flex"
+                  tagSpan.style.alignItems = "center"
+                  tagSpan.style.justifyContent = "center"
+                  tagSpan.style.background = getColor("blue_1").front
+                  tagSpan.style.color = getColor("blue_1").back
+                  tagSpan.style.padding = `${getSize(0.25)}rem ${getSize(1)}rem`
+                  tagSpan.style.borderRadius = `${getSize(8)}rem`
+                  tagSpan.style.fontSize = `${getSize(3)}rem`
+                  tagSpan.style.fontWeight = "bold"
+                  tagSpan.style.flexShrink = "0"
+                  tagSpan.innerHTML = window.iconPark.getIcon("Edit", { size: `${getSize(3)}rem`, fill: getColor("blue_1").back })
+
+                  const textSpan = document.createElement("span")
+                  textSpan.style.wordBreak = "break-all"
+                  textSpan.textContent = edit.reason
+
+                  domNode.appendChild(tagSpan)
+                  domNode.appendChild(textSpan)
+
+                  const zoneId = accessor.addZone({
+                    afterLineNumber: Math.max(0, lineNum - 1),
+                    heightInLines: 1.8,
+                    domNode
+                  })
+                  viewZoneIds.push(zoneId)
+                }
+              })
+            })
+          }
           redraw()
         }
       })
@@ -565,8 +626,8 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, chatData, set
         language: language,
         theme: monacoTheme,
         automaticLayout: true,
-        fontSize: 16,
-        lineHeight: 24,
+        fontSize: editorBaseFontPxNum,
+        lineHeight: Math.round(editorBaseFontPxNum * 1.5),
         fontFamily: 'Menlo, Monaco, "Courier New", Consolas, monospace',
         wordWrap: wordWrap ? "on" : "off",
         readOnly: readOnly
@@ -779,7 +840,7 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, chatData, set
     revealInExplorer: async () => {
       if (!filePath) return
       const dir = filePath.substring(0, filePath.lastIndexOf("/")) || "/"
-      await settingData.fnCall("appLaunch", ["explorer", { dir }])
+      await settingData.fnCall("appLaunch", ["explorer", { data: { currentPath: dir } }])
     },
     toggleWordWrap: () => {
       wordWrap = !wordWrap
@@ -817,6 +878,14 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, chatData, set
       currentTabSize = currentTabSize === 2 ? 4 : 2
       applyEditorOptions()
       redraw()
+    },
+    toggleMarkdownPreview: () => {
+      showMarkdownPreview = !showMarkdownPreview
+      redraw()
+      setTimeout(() => {
+        if (editor) editor.layout()
+        if (diffEditor) diffEditor.layout()
+      }, 50)
     },
     toggleDiffSideBySide: () => {
       commonData.editorDiffSideBySide = !commonData.editorDiffSideBySide
@@ -916,6 +985,12 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, chatData, set
       view: {
         tip: t("编辑器/菜单/视图", { cn: "视图", en: "View" }),
         getItems: () => [
+          {
+            label: t("编辑器/菜单/Markdown预览", { cn: "Markdown 实时预览", en: "Markdown Preview" }),
+            shortcut: showMarkdownPreview ? t("系统/状态/开启", { cn: "开启", en: "ON" }) : t("系统/状态/关闭", { cn: "关闭", en: "OFF" }),
+            keepOpen: true,
+            action: actions.toggleMarkdownPreview
+          },
           {
             label: t("编辑器/菜单/Diff显示模式", { cn: "Diff双栏对比", en: "Diff Side by Side" }),
             shortcut: commonData.editorDiffSideBySide ? t("系统/状态/开启", { cn: "双栏", en: "Side by Side" }) : t("系统/状态/关闭", { cn: "单栏", en: "Inline" }),
@@ -1036,6 +1111,7 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, chatData, set
         isConflictDiff = false;
         annotations = [];
         reason = msg.args.reason || "";
+        edits = msg.args.edits || [];
         updateEditor()
         done({ ok: true })
       } else if (msg.action === "acceptDiff") {
@@ -1072,6 +1148,7 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, chatData, set
         isConflictDiff = d.isConflictDiff || false
         annotations = d.annotations || []
         reason = d.reason || ""
+        edits = d.edits || []
         pendingLine = d.line ? parseInt(d.line, 10) : 0
       }
 
@@ -1169,44 +1246,58 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, chatData, set
         // 💡 动态将编辑器菜单栏挂载到 Notice 窗口顶栏（按 Tab 独立显示）
         config.titleBar = {
           view: () => m("", {
-            onpointerdown: (e) => e.stopPropagation(),
             style: {
+              width: "100%",
+              height: "100%",
               display: "flex",
-              alignItems: "center",
-              gap: "0.4rem",
-              height: "100%"
+              alignItems: "center"
             }
           }, [
-            ["file", t("编辑器/菜单/文件", { cn: "文件", en: "File" })],
-            ["edit", t("编辑器/菜单/编辑", { cn: "编辑", en: "Edit" })],
-            ["view", t("编辑器/菜单/视图", { cn: "视图", en: "View" })]
-          ].map(([menuKey, label]) => m(Box, {
-            tagName: "div",
-            isBtn: true,
-            color: "main",
-            noValue: true,
-            style: {
-              padding: "0.4rem 1rem",
-              borderRadius: "3rem",
-              fontSize: "1.2rem",
-              display: "inline-flex",
-              alignItems: "center",
-              cursor: "pointer",
-              margin: "0 0.3rem",
-              boxShadow: "0 0.2rem 0.6rem rgba(0, 0, 0, 0.15)",
-              "-webkit-app-region": "no-drag",
-              transition: "opacity 0.2s ease, box-shadow 0.2s ease"
-            },
-            ext: {
-              onpointerenter: function () {
-                this.style.opacity = "0.5"
-              },
-              onpointerleave: function () {
-                this.style.opacity = "1"
+            // 内层：四边留白 k1，元素间距由 gap 提供，窄屏可换行
+            m("", {
+              style: {
+                flex: 1,
+                minWidth: 0,
+                display: "flex",
+                alignItems: "center",
+                gap: `${getSize(1)}rem`,
+                margin: `${getSize(1)}rem`,
+                flexWrap: "wrap"
               }
-            },
-            onclick: (dom, e) => openNoticeMenu(menuKey, e)
-          }, label)))
+            }, [
+              ["file", t("编辑器/菜单/文件", { cn: "文件", en: "File" })],
+              ["edit", t("编辑器/菜单/编辑", { cn: "编辑", en: "Edit" })],
+              ["view", t("编辑器/菜单/视图", { cn: "视图", en: "View" })]
+            ].map(([menuKey, label]) => m(Box, {
+              tagName: "div",
+              isBtn: true,
+              color: "main",
+              noValue: true,
+              style: {
+                padding: `${getSize(1)}rem ${getSize(3)}rem`,
+                borderRadius: `${getSize(8)}rem`,
+                fontSize: `${getSize(3)}rem`,
+                display: "inline-flex",
+                alignItems: "center",
+                cursor: "pointer",
+                margin: 0,
+                boxShadow: `0 ${getSize(0.5)}rem ${getSize(2)}rem rgba(0, 0, 0, 0.15)`,
+                "-webkit-app-region": "no-drag",
+                transition: "opacity 0.2s ease, box-shadow 0.2s ease"
+              },
+              ext: {
+                onpointerdown: (e) => e.stopPropagation(),
+                onpointerenter: function () {
+                  this.style.opacity = "0.5"
+                },
+                onpointerleave: function () {
+                  this.style.opacity = "1"
+                }
+              },
+              onclick: (dom, e) => openNoticeMenu(menuKey, e)
+            }, label))
+            )
+          ])
         }
       }
     },
@@ -1249,13 +1340,13 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, chatData, set
           style: {
             display: "flex",
             flexWrap: "wrap",
-            minHeight: "3.5rem",
-            padding: "0.5rem 1.0rem",
+            minHeight: `${getSize(9)}rem`,
+            padding: `${getSize(1)}rem ${getSize(2)}rem`,
             background: getColor('gray_12').back,
             color: getColor('gray_12').front,
             alignItems: "center",
-            gap: "0.8rem",
-            borderBottom: "1px solid " + getColor('gray_3').back,
+            gap: `${getSize(2)}rem`,
+            borderBottom: `${getSize(0.25)}rem solid ` + getColor('gray_3').back,
             flexShrink: 0
           }
         }, [
@@ -1340,9 +1431,9 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, chatData, set
                     styleExt: {
                       display: "inline-flex",
                       alignItems: "center",
-                      height: "2.5rem",
-                      padding: "0 0.8rem",
-                      borderRadius: "3.0rem"
+                      height: `${getSize(6)}rem`,
+                      padding: `0 ${getSize(2)}rem`,
+                      borderRadius: `${getSize(8)}rem`
                     }
                   },
                   [
@@ -1354,7 +1445,7 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, chatData, set
                         value: commonData.editorSendDiff,
                         style: {
                           margin: "0",
-                          marginRight: "0.5rem"
+                          marginRight: `${getSize(1)}rem`
                         },
                         onclick: (el, e, v, box_this) => {
                           commonData.editorSendDiff = box_this.data.value
@@ -1371,9 +1462,9 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, chatData, set
                     styleExt: {
                       display: "inline-flex",
                       alignItems: "center",
-                      height: "2.5rem",
-                      padding: "0 0.8rem",
-                      borderRadius: "3.0rem"
+                      height: `${getSize(6)}rem`,
+                      padding: `0 ${getSize(2)}rem`,
+                      borderRadius: `${getSize(8)}rem`
                     }
                   },
                   [
@@ -1385,7 +1476,7 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, chatData, set
                         value: commonData.editorOpenFileAfterAccept,
                         style: {
                           margin: "0",
-                          marginRight: "0.5rem",
+                          marginRight: `${getSize(1)}rem`,
                           flexShrink: "0"
                         },
                         onclick: (el, e, v, box_this) => {
@@ -1410,8 +1501,8 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, chatData, set
                     },
                     styleExt: {
                       flex: "1",
-                      minWidth: "12rem",
-                      maxWidth: "30rem"
+                      minWidth: `${getSize(30)}rem`,
+                      maxWidth: `${getSize(75)}rem`
                     }
                   }
                 ),
@@ -1453,9 +1544,9 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, chatData, set
                     styleExt: {
                       display: "inline-flex",
                       alignItems: "center",
-                      height: "2.5rem",
-                      padding: "0 0.8rem",
-                      borderRadius: "3.0rem"
+                      height: `${getSize(6)}rem`,
+                      padding: `0 ${getSize(2)}rem`,
+                      borderRadius: `${getSize(8)}rem`
                     }
                   },
                   "只读查看"
@@ -1481,13 +1572,13 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, chatData, set
             {
               style: {
                 display: "flex",
-                padding: "0.8rem 1.2rem",
+                padding: `${getSize(2)}rem ${getSize(3)}rem`,
                 background: getColor('gray_12').back,
-                borderBottom: "1px solid " + getColor('gray_3').back,
-                fontSize: "1.2rem",
+                borderBottom: `${getSize(0.25)}rem solid ` + getColor('gray_3').back,
+                fontSize: `${getSize(3)}rem`,
                 alignItems: "flex-start",
-                gap: "0.5rem",
-                maxHeight: "6.0rem",
+                gap: `${getSize(1)}rem`,
+                maxHeight: `${getSize(15)}rem`,
                 overflowY: "auto"
               }
             },
@@ -1498,8 +1589,8 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, chatData, set
           )
           : null,
         // Path（随操作面板一起折叠）
-        showToolbar ? m("", { style: { display: "flex", height: "2.2rem", padding: "0 1.0rem", background: getColor('gray_1').back, alignItems: "center", fontSize: "1.1rem", color: readOnly ? getColor('pink_1').front : getColor('gray_1').front, boxShadow: "inset 0 0.1rem 0.3rem rgba(0,0,0,0.2)" } }, [
-          readOnly ? m("span", { style: { fontWeight: "bold", marginRight: "0.8rem" } }, "[只读预览]") : null,
+        showToolbar ? m("", { style: { display: "flex", height: `${getSize(6)}rem`, padding: `0 ${getSize(3)}rem`, background: getColor('gray_1').back, alignItems: "center", fontSize: `${getSize(3)}rem`, color: readOnly ? getColor('pink_1').front : getColor('gray_1').front, boxShadow: `inset 0 ${getSize(0.25)}rem ${getSize(1)}rem rgba(0,0,0,0.2)` } }, [
+          readOnly ? m("span", { style: { fontWeight: "bold", marginRight: `${getSize(2)}rem` } }, "[只读预览]") : null,
           filePath || "未选择文件"
         ]) : null,
         // Editor
@@ -1520,16 +1611,16 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, chatData, set
                 color: "main",
                 style: {
                   position: "absolute",
-                  top: "-0.5rem",
-                  right: "10.5rem",
+                  top: `-${getSize(1)}rem`,
+                  right: `${getSize(26)}rem`,
                   zIndex: 100,
-                  margin: "0",
-                  padding: "0.25rem 0.8rem 0.35rem 0.8rem",
-                  borderRadius: "0 0 0.8rem 0.8rem",
+                  margin: 0,
+                  padding: `${getSize(0.5)}rem ${getSize(2)}rem ${getSize(1)}rem ${getSize(2)}rem`,
+                  borderRadius: `0 0 ${getSize(8)}rem ${getSize(8)}rem`,
                   display: "inline-flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  boxShadow: "0 0.3rem 0.8rem rgba(0,0,0,0.2)",
+                  boxShadow: `0 ${getSize(1)}rem ${getSize(4)}rem rgba(0,0,0,0.15)`,
                   cursor: "pointer",
                   userSelect: "none"
                 },
@@ -1542,13 +1633,13 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, chatData, set
               showToolbar
                 ? m("svg", {
                   viewBox: "0 0 24 24",
-                  style: { width: "1.2rem", height: "1.2rem", stroke: "currentColor", strokeWidth: "2.5", fill: "none", strokeLinecap: "round", strokeLinejoin: "round" }
+                  style: { width: `${getSize(3)}rem`, height: `${getSize(3)}rem`, stroke: "currentColor", strokeWidth: "2.5", fill: "none", strokeLinecap: "round", strokeLinejoin: "round" }
                 }, [
                   m("polyline", { points: "18 15 12 9 6 15" })
                 ])
                 : m("svg", {
                   viewBox: "0 0 24 24",
-                  style: { width: "1.2rem", height: "1.2rem", stroke: "currentColor", strokeWidth: "2.5", fill: "none", strokeLinecap: "round", strokeLinejoin: "round" }
+                  style: { width: `${getSize(3)}rem`, height: `${getSize(3)}rem`, stroke: "currentColor", strokeWidth: "2.5", fill: "none", strokeLinecap: "round", strokeLinejoin: "round" }
                 }, [
                   m("polyline", { points: "6 9 12 15 18 9" })
                 ])
@@ -1560,37 +1651,60 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, chatData, set
                   position: "absolute",
                   top: 0,
                   left: 0,
-                  right: 0,
+                  right: showMarkdownPreview ? "50%" : 0,
                   bottom: 0,
-                  width: "100%",
+                  width: showMarkdownPreview ? "50%" : "100%",
                   height: "100%"
                 }
               }
             ),
+            showMarkdownPreview ? m("",
+              {
+                class: "article",
+                style: {
+                  position: "absolute",
+                  top: 0,
+                  right: 0,
+                  bottom: 0,
+                  width: "50%",
+                  height: "100%",
+                  background: getColor("gray_12").back,
+                  color: getColor("gray_12").front,
+                  padding: `${getSize(4)}rem ${getSize(5)}rem`,
+                  boxSizing: "border-box", // 例外：宽度 50% + 内距，否则内容区会溢出压到左侧编辑器
+                  overflowY: "auto",
+                  borderLeft: `${getSize(0.25)}rem solid ` + getColor("gray_3").back,
+                  zIndex: 10
+                }
+              },
+              typeof format === "function"
+                ? m.trust(format((editor ? editor.getValue() : content) || "", "markdown"))
+                : "预览加载中..."
+            ) : null,
             (isDiff && diffChanges.length > 0)
               ? m("",
                 {
                   style: {
                     position: "absolute",
-                    bottom: "2.0rem",
-                    right: "2.0rem",
+                    bottom: `${getSize(5)}rem`,
+                    right: `${getSize(5)}rem`,
                     zIndex: 100,
                     display: "flex",
                     alignItems: "center",
-                    gap: "0.5rem",
+                    gap: `${getSize(1)}rem`,
                     background: getColor('gray_1').back,
                     color: getColor('gray_1').front,
-                    border: "1px solid " + getColor('gray_3').back,
-                    padding: "0.5rem 1.0rem",
-                    borderRadius: "2.0rem",
-                    boxShadow: "0 0.4rem 1.2rem rgba(0,0,0,0.3)"
+                    border: `${getSize(0.25)}rem solid ` + getColor('gray_3').back,
+                    padding: `${getSize(1)}rem ${getSize(2)}rem`,
+                    borderRadius: `${getSize(8)}rem`,
+                    boxShadow: `0 ${getSize(1)}rem ${getSize(4)}rem rgba(0,0,0,0.15)`
                   }
                 },
                 [
                   m("span",
                     {
                       style: {
-                        fontSize: "1.1rem",
+                        fontSize: `${getSize(3)}rem`,
                         opacity: 0.8,
                         userSelect: "none"
                       }
@@ -1602,10 +1716,10 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, chatData, set
                       isBtn: true,
                       color: "gray_3",
                       style: {
-                        margin: "0",
-                        padding: "0.3rem 0.6rem",
-                        borderRadius: "1.0rem",
-                        fontSize: "1.1rem",
+                        margin: 0,
+                        padding: `${getSize(1)}rem ${getSize(2)}rem`,
+                        borderRadius: `${getSize(8)}rem`,
+                        fontSize: `${getSize(3)}rem`,
                         display: "inline-flex",
                         alignItems: "center"
                       },
@@ -1628,10 +1742,10 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, chatData, set
                       isBtn: true,
                       color: "gray_3",
                       style: {
-                        margin: "0",
-                        padding: "0.3rem 0.6rem",
-                        borderRadius: "1.0rem",
-                        fontSize: "1.1rem",
+                        margin: 0,
+                        padding: `${getSize(1)}rem ${getSize(2)}rem`,
+                        borderRadius: `${getSize(8)}rem`,
+                        fontSize: `${getSize(3)}rem`,
                         display: "inline-flex",
                         alignItems: "center"
                       },
@@ -1661,11 +1775,11 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, chatData, set
               style: {
                 display: "flex",
                 flexWrap: "wrap",
-                gap: "0.5rem",
-                padding: "0.5rem 1.0rem",
+                gap: `${getSize(1)}rem`,
+                padding: `${getSize(1)}rem ${getSize(2)}rem`,
                 background: getColor('gray_2').back,
-                borderTop: "1px solid " + getColor('gray_3').back,
-                maxHeight: "8.0rem",
+                borderTop: `${getSize(0.25)}rem solid ` + getColor('gray_3').back,
+                maxHeight: `${getSize(20)}rem`,
                 overflowY: "auto",
                 alignItems: "center"
               }
@@ -1674,9 +1788,9 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, chatData, set
               m("span",
                 {
                   style: {
-                    fontSize: "1.1rem",
+                    fontSize: `${getSize(3)}rem`,
                     opacity: 0.6,
-                    marginRight: "0.5rem"
+                    marginRight: `${getSize(1)}rem`
                   }
                 },
                 "已添加批注:"
@@ -1684,14 +1798,14 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, chatData, set
               annotations.map((item, idx) => m(Tag,
                 {
                   styleExt: {
-                    padding: "0.2rem 0.6rem",
-                    fontSize: "1.1rem",
+                    padding: `${getSize(0.5)}rem ${getSize(2)}rem`,
+                    fontSize: `${getSize(3)}rem`,
                     display: "flex",
                     alignItems: "center",
-                    gap: "0.4rem",
+                    gap: `${getSize(1)}rem`,
                     background: getColor('gray_4').back,
                     color: getColor('gray_4').front,
-                    borderRadius: "0.3rem"
+                    borderRadius: `${getSize(8)}rem`
                   }
                 },
                 [
@@ -1709,7 +1823,7 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, chatData, set
                       style: {
                         cursor: "pointer",
                         fontWeight: "bold",
-                        marginLeft: "0.2rem",
+                        marginLeft: `${getSize(0.5)}rem`,
                         color: getColor('pink_1').back
                       },
                       onclick: (e) => {

@@ -40,8 +40,10 @@ export default {
 
     if (!filePath) {
       try {
+        const lastDir = projectManager.getLastProjectDir()
         const { filePaths, canceled } = await dialog.showOpenDialog({
           title: "打开项目",
+          defaultPath: lastDir || undefined,
           filters: [{ name: "Owo Project", extensions: ["owo"] }],
           properties: ["openFile"]
         })

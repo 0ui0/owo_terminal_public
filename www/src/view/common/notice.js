@@ -152,55 +152,50 @@ export default {
         m.redraw()
       },
       openWebWindow: async (dom, closeFn, tabData, event) => {
-        const win = tabData?._winConfig
-        if (!win) return
-
-        const isCurrentlyOuter = Boolean(win.childWin && !win.childWin.closed)
-        const promptMsg = isCurrentlyOuter
-          ? "确定要将此独立窗口还原收回至主界面吗？此操作可能会清除应用内部运行状态。"
-          : "确定要将此窗口以独立原生窗口打开吗？此操作可能会清除应用内部运行状态。"
+        const win = tabData._winConfig
+        const isOuterBool = Boolean((win.childWin && !win.childWin.closed) || m.route.param("winId") === win.id)
 
         _this.launch({
           tip: "窗口切换提示",
-          msg: promptMsg,
+          msg: isOuterBool
+            ? "确定要将此独立窗口还原收回至主界面吗？此操作可能会清除应用内部运行状态。"
+            : "确定要将此窗口以独立原生窗口打开吗？此操作可能会清除应用内部运行状态。",
           confirm: async () => {
-            if (isCurrentlyOuter) {
-              // 💡 还原回虚拟窗口
-              const outerWin = win.childWin
-              win.childWin = null
-              const siblings = _this.data.dataArr.filter(i => i._winConfig === win)
-              siblings.forEach(tab => {
+            if (isOuterBool) {
+              // 💡 还原回虚拟窗口：统一操作主窗口数据恢复显示，再关闭对应的独立物理窗口
+              const mainWin = window.opener || window
+              const tabsArr = mainWin.Notice.data.dataArr.filter(i => i._winConfig.id === win.id)
+              // 取出主窗口侧真实的窗口配置对象（子窗口内点击时，当前 win 只是克隆副本）
+              const mainWinConfig = tabsArr[0]._winConfig
+              // 先暂存独立子窗口句柄用于末尾关闭，再清空主窗口上的句柄引用并复位为普通虚拟窗口
+              const subWin = mainWinConfig.childWin
+              mainWinConfig.childWin = null
+              mainWinConfig.isWindow = false
+              tabsArr.forEach(tab => {
                 tab.useWebWindowOpen = false
                 tab.isWindow = false
               })
-              win.isWindow = false
-              if (outerWin && !outerWin.closed) {
-                outerWin.close()
+              mainWin.Notice.activateWindow(win.id)
+              mainWin.m.redraw()
+              if (subWin && !subWin.closed) {
+                subWin.close()
               }
-              _this.activateWindow(win.id)
             } else {
               // 💡 独立窗口打开
-              const siblings = _this.data.dataArr.filter(i => i._winConfig === win)
-              siblings.forEach(tab => {
-                tab.useWebWindowOpen = true
-                tab.isWindow = true
-              })
+              _this.data.dataArr
+                .filter(i => i._winConfig === win)
+                .forEach(tab => {
+                  tab.useWebWindowOpen = true
+                  tab.isWindow = true
+                })
               win.isWindow = true
-
-              const winW = Math.ceil(win.width || 800)
-              const winH = Math.ceil(win.height || 600)
-              const screenBaseX = window.screenX !== undefined ? window.screenX : (window.screenLeft || 0)
-              const screenBaseY = window.screenY !== undefined ? window.screenY : (window.screenTop || 0)
-              const winX = win.x !== undefined ? Math.ceil(screenBaseX + win.x) : 0
-              const winY = win.y !== undefined ? Math.ceil(screenBaseY + win.y) : 0
-              const features = `width=${winW},height=${winH},left=${winX},top=${winY}`
               win.childWin = window.open(
                 `${location.protocol}//${location.host}/#!/window?winId=${encodeURIComponent(win.id)}`,
                 '_blank',
-                features
+                `width=${Math.ceil(win.width || 800)},height=${Math.ceil(win.height || 600)},left=${Math.ceil(window.screenX + win.x)},top=${Math.ceil(window.screenY + win.y)}`
               )
+              m.redraw()
             }
-            m.redraw()
           }
         })
       },

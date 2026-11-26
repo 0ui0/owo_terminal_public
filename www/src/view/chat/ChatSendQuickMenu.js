@@ -3,6 +3,7 @@ import Tag from "../common/tag.js"
 import { trs } from "../common/i18n.js"
 import chatData from "./chatData.js"
 import getColor from "../common/getColor.js"
+import getSize from "../common/getSize.js"
 
 export default () => {
   return {
@@ -17,13 +18,10 @@ export default () => {
         {
           style: {
             display: "flex",
-            margin: "1rem 1rem 0 1rem",
             flexWrap: "wrap",
             alignItems: "center",
-            //justifyContent: "center",
-            gap: "0.5rem",
-            paddingBottom: "1rem",
-            borderBottom: `0.1rem solid ${getColor("main").back}`
+            gap: `${getSize(2)}rem`,
+            ...attrs.style
           }
         },
         [
@@ -33,6 +31,7 @@ export default () => {
               color: "gray_4",
               styleExt: {
                 margin: 0,
+                padding: `${getSize(1)}rem`,
                 height: "unset",
                 display: "inline-flex",
                 alignItems: "center"
@@ -113,6 +112,7 @@ export default () => {
               color: "gray_4",
               styleExt: {
                 margin: 0,
+                padding: `${getSize(1)}rem`,
                 height: "unset",
                 display: "inline-flex",
                 alignItems: "center"

@@ -1,6 +1,7 @@
 import Box from "../common/box.js"
 import comData from "../../comData/comData.js"
 import getColor from "../common/getColor.js"
+import getSize from "../common/getSize.js"
 import format from "../common/format.js"
 import settingData from "../setting/settingData.js"
 import ChatBatchReview from "./ChatBatchReview.js"
@@ -43,23 +44,23 @@ export default () => {
         style: {
           display: "flex",
           flexDirection: "column",
-          borderRadius: "0.5rem 2rem 2rem 0.5rem",
-          margin: "1rem",
-          padding: "1rem",
-          boxShadow: `0.1rem 0.1rem 1rem ${getColor("确认框背景") === "#ffffffee" ? "#ccc" : "#333"}`,
+          borderRadius: `${getSize(1)}rem ${getSize(8)}rem ${getSize(8)}rem ${getSize(1)}rem`,
+          margin: `${getSize(3)}rem`,
+          padding: `${getSize(3)}rem`,
+          boxShadow: `0 ${getSize(0.25)}rem ${getSize(1)}rem ${getColor("确认框背景") === "#ffffffee" ? "#ccc" : "#333"}`,
           background: getColor("确认框背景"),
           color: getColor("确认框文字"),
           //maxHeight: "40%",
           //maxWidth: "60rem",
           zIndex: "100",
           position: "relative",
-          borderLeft: `0.4rem solid ${getColor("确认框标题边框")}`
+          borderLeft: `${getSize(1)}rem solid ${getColor("确认框标题边框")}`
         }
       }, [
         m("span", {
           style: {
             fontWeight: "bold",
-            marginBottom: "1rem",
+            marginBottom: `${getSize(3)}rem`,
             color: getColor("确认框标题"),
             overflowWrap: "break-word",
             wordBreak: "break-all",
@@ -69,8 +70,8 @@ export default () => {
         }, confirmCmd.title || "是否执行操作？"),
         m(Box, {
           style: {
-            margin: "1rem 0",
-            borderRadius: "1rem",
+            margin: `${getSize(3)}rem 0`,
+            borderRadius: `${getSize(3)}rem`,
             background: getColor("确认框内容背景"),
             overflowWrap: "break-word",
             wordBreak: "break-all",
@@ -87,15 +88,15 @@ export default () => {
             ? m(Box, {
               isBlock: true,
               style: {
-                maxHeight: "30rem",
+                maxHeight: `${getSize(75)}rem`,
                 overflowY: "auto",
                 // 如果有说明，认为这是个带说明的命令，内容区域用等宽字体
                 ...(confirmCmd.argsDesc ? {
                   fontFamily: "monospace",
                   background: getColor("确认框内容背景"),
-                  padding: "1rem",
-                  borderRadius: "0.5rem",
-                  border: `1px solid ${getColor("确认框输入边框")}`
+                  padding: `${getSize(3)}rem`,
+                  borderRadius: `${getSize(2)}rem`,
+                  border: `${getSize(0.25)}rem solid ${getColor("确认框输入边框")}`
                 } : {})
               }
             }, confirmCmd.content)
@@ -104,13 +105,13 @@ export default () => {
             class: "article",
             isBlock: true,
             style: {
-              marginTop: "1rem",
-              padding: "1rem",
+              marginTop: `${getSize(3)}rem`,
+              padding: `${getSize(3)}rem`,
               background: getColor("确认框内容背景"),
-              borderRadius: "0.5rem",
-              border: `1px solid ${getColor("确认框输入边框")}`,
-              fontSize: "0.9rem",
-              maxHeight: "20rem",
+              borderRadius: `${getSize(2)}rem`,
+              border: `${getSize(0.25)}rem solid ${getColor("确认框输入边框")}`,
+              fontSize: `${getSize(2)}rem`,
+              maxHeight: `${getSize(50)}rem`,
               overflowY: "auto"
             }
           }, [
@@ -122,14 +123,14 @@ export default () => {
             oninput: (e) => localComment = e.target.value,
             style: {
               width: "100%",
-              padding: "0.5rem",
-              margin: "1rem 0.5rem 0.5rem",
+              padding: `${getSize(1)}rem`,
+              margin: `${getSize(3)}rem ${getSize(1)}rem ${getSize(1)}rem`,
               background: getColor("确认框输入背景"),
-              border: `1px solid ${getColor("确认框输入边框")}`,
-              borderRadius: "0.5rem",
+              border: `${getSize(0.25)}rem solid ${getColor("确认框输入边框")}`,
+              borderRadius: `${getSize(2)}rem`,
               color: getColor("确认框输入文字"),
               outline: "none",
-              minHeight: "6rem",
+              minHeight: `${getSize(15)}rem`,
               resize: "vertical",
               width: "auto"
             }
@@ -140,7 +141,7 @@ export default () => {
             display: "flex",
             justifyContent: "flex-end",
             alignItems: "center",
-            gap: "0.5rem"
+            gap: `${getSize(1)}rem`
           }
         }, [
           isEditorConfirm ? m(Box, {

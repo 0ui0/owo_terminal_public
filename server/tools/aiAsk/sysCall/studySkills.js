@@ -4,7 +4,7 @@ import pathLib from "path"
 
 /**
  * 批判与设计说明：
- * 1. 之前使用 process.cwd() 或 customCwd 在 Electron 环境下是不稳健的，因为工作目录可能被重置或指向用户数据区。
+ * 1. 之前使用 process.cwd() 或 customCwd 在 Electron 环境下是不稳健的，因为工作目录可能被重置或指向管理员数据区。
  * 2. 这里的 Skill 指的是“项目内置的专家规约”，应当物理锚定在源码对应的 skills/ 目录下。
  */
 

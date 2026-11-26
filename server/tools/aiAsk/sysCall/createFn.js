@@ -61,7 +61,7 @@ export default {
       })
 
       if (!userConfirm.ok) {
-        return `用户主动拒绝。备注：${userConfirm.comment || "无"}`
+        return `管理员主动拒绝。备注：${userConfirm.comment || "无"}`
       }
 
 
@@ -78,7 +78,7 @@ export default {
         return "函数已存在"
       }
       await fs.writeFile(filePath, fnStr)
-      let commentSuffix = userConfirm.comment ? `。用户备注：${userConfirm.comment}` : ""
+      let commentSuffix = userConfirm.comment ? `。管理员备注：${userConfirm.comment}` : ""
       return `自定义函数 ${value.name} 创建成功${commentSuffix}`
     }
     catch (err) {

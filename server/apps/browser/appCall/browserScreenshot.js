@@ -26,7 +26,7 @@ export default {
         try {
           const testRes = await ai.openAi.chat.completions.create({
             model: ai.aiConfig.model,
-            max_tokens: 1,
+            max_tokens: 16,
             messages: [
               {
                 role: "user",
@@ -35,7 +35,7 @@ export default {
                   {
                     type: "image_url",
                     image_url: {
-                      url: "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"
+                      url: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAIAAACQkWg2AAAAEElEQVR4nGNgGAWjYBTAAAADEAABPywr7AAAAABJRU5ErkJggg=="
                     }
                   }
                 ]
@@ -61,7 +61,7 @@ export default {
           }
         } catch (err) {
           ai.isVisionSupported = false;
-          console.warn(`[browserScreenshot] 检测到模型 [${ai.aiConfig.model}] 不支持多模态图片。`);
+          console.warn(`[browserScreenshot] 检测到模型 [${ai.aiConfig.model}] 不支持多模态图片:`, err?.message || err);
         }
       }
       isVisionSupported = ai.isVisionSupported;
@@ -151,6 +151,6 @@ export default {
   },
 
   getDoc() {
-    return `截取当前浏览器的屏幕快照，并自动保存为聊天附件。AI 可以利用此工具“看”到用户当前浏览的网页内容。调用过程中浏览器会被唤到前台`
+    return `截取当前浏览器的屏幕快照，并自动保存为聊天附件。AI 可以利用此工具“看”到管理员当前浏览的网页内容。调用过程中浏览器会被唤到前台`
   }
 }

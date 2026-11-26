@@ -16,11 +16,11 @@ export default {
   joi(useStdTools) {
     return Joi.object({
       id: Joi.string().description("会话id"),
-      user: Joi.string().description("用户名"),
+      user: Joi.string().description("管理员/用户名"),
       role: Joi.string().description("角色，保留字段，暂时没用"),
       content: Joi.string().description("消息主体"),
-      call: Joi.string().description("历史会话id，用户针对某个id的历史会话进行点评"),
-      quotes: Joi.array().items(Joi.string()).description("每个元素为历史会话id字符串。用户引用了一些历史对话"),
+      call: Joi.string().description("历史会话id，管理员针对某个id的历史会话进行点评"),
+      quotes: Joi.array().items(Joi.string()).description("每个元素为历史会话id字符串。管理员引用了一些历史对话"),
       isSystem: Joi.number().valid(0, 1).description("0或1 是否是系统消息"),
       timestamp: Joi.string().description("时间戳"),
       time: Joi.string().description("格式化后的时间字符串"),

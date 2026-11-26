@@ -1,63 +1,65 @@
 import { WebSocket } from "ws";
-import backend from "../backend.js";
 import msgCenter from "./botMsgCenter.js";
-import { qlog } from "./logger.js";
-
-
-const options = {
-  get: async (key) => {
-    return backend.app?.data?.config[key]
-  }
-};
 
 export default {
   ws: null,
-  wsUrl: null,
+  wsUrl: "",
   reconnectTimer: null,
+  app: null,
+  appManager: null,
 
   /**
    * 启动连接
    * @param {string} wsUrl - WebSocket 地址
+   * @param {object} app - 当前 App 实例
+   * @param {object} appManager - 系统 App 管理器
    */
-  start: async function (wsUrl) {
-    // 优先使用传入的地址，如果没有则使用上次保存的地址
-    this.wsUrl = wsUrl || this.wsUrl;
+  async start(wsUrl, app, appManager) {
+    this.app = app;
+    this.appManager = appManager;
+    this.wsUrl = wsUrl;
 
-    if (!this.wsUrl) {
-      throw new Error("丢失wsUrl")
+    if (this.ws) {
+      this.appManager.dispatch(this.app.id, "log", {
+        text: "[qqBot/WS] start: WS实例已存在",
+        level: "conn"
+      });
+      return;
     }
 
-    if(this.ws){
-      qlog(`[qqBot/WS] start:WS实例已存在`, "conn");
-      return
-    }
+    this.appManager.dispatch(this.app.id, "log", {
+      text: `[qqBot/WS] 连接本地 OneBot: ${this.wsUrl}`,
+      level: "conn"
+    });
 
-    qlog(`[qqBot/WS] 连接本地 OneBot: ${this.wsUrl}`, "conn");
     try {
       this.ws = new WebSocket(this.wsUrl);
       this.bindEvents();
     } catch (err) {
-      qlog(`[qqBot/WS] 连接失败: ${err.message} 10秒后尝试重连...`, "error");
+      console.error(`[qqBot/WS] 连接失败: ${err.message}`);
+      this.appManager.dispatch(this.app.id, "log", {
+        text: `[qqBot/WS] 连接失败: ${err.message} 10秒后尝试重连...`,
+        level: "error"
+      });
 
-      if(this.reconnectTimer){
-        return
+      if (!this.reconnectTimer) {
+        this.reconnectTimer = setTimeout(() => {
+          this.reconnectTimer = null;
+          this.start(this.wsUrl, this.app, this.appManager);
+        }, 10000);
       }
-
-      this.reconnectTimer = setTimeout(() => {
-        this.reconnectTimer = null;
-        this.start();
-      }, 10*1000);
     }
   },
 
   /**
-   * 绑定 WS 事件（仅在 start 之后调用，确保 msgCenter 已就绪）
+   * 绑定 WS 事件
    */
-  bindEvents: function () {
-    if (!this.ws) return;
-
+  bindEvents() {
     this.ws.on("open", () => {
-      qlog("[qqBot/WS] 连接已打开", "conn");
+      this.appManager.dispatch(this.app.id, "log", {
+        text: "[qqBot/WS] 连接已打开",
+        level: "conn"
+      });
       if (this.reconnectTimer) {
         clearTimeout(this.reconnectTimer);
         this.reconnectTimer = null;
@@ -66,8 +68,7 @@ export default {
 
     this.ws.on("message", async (rawData) => {
       try {
-        const localSwitch = await options.get("3rd_qqRobotLocal_switch");
-
+        const localSwitch = this.app.data.config["3rd_qqRobotLocal_switch"];
         if (!localSwitch) return;
 
         const payload = JSON.parse(String(rawData));
@@ -79,10 +80,9 @@ export default {
 
         //console.log("payload", JSON.stringify(payload, null, "\t"))
 
-
         if (payload.message_type === "group") {
           const msg = payload.raw_message;
-          if (msg && msgCenter) {
+          if (msg) {
             await msgCenter.send("qqLocal/group", payload.sender.nickname, msg, {
               meta: payload,
               source: "qqLocal/group"
@@ -90,41 +90,59 @@ export default {
           }
         } else if (payload.message_type === "private") {
           // 计划书：暂不处理私聊
-          qlog("[qqBot/WS] 收到私聊消息，已忽略", "info");
+          this.appManager.dispatch(this.app.id, "log", {
+            text: "[qqBot/WS] 收到私聊消息，已忽略",
+            level: "info"
+          });
         }
       } catch (err) {
-        qlog(`[qqBot/WS] 解析消息失败: ${err.message}`, "error");
+        console.error(`[qqBot/WS] 解析消息失败: ${err.message}`);
+        this.appManager.dispatch(this.app.id, "log", {
+          text: `[qqBot/WS] 解析消息失败: ${err.message}`,
+          level: "error"
+        });
       }
     });
 
     this.ws.on("close", () => {
-      qlog("[qqBot/WS] 连接已断开", "conn");
+      this.appManager.dispatch(this.app.id, "log", {
+        text: "[qqBot/WS] 连接已断开",
+        level: "conn"
+      });
     });
 
     this.ws.on("error", (err) => {
       const detail = Array.isArray(err.errors)
         ? err.errors.map(e => e.message || e.code).join("; ")
         : (err.code ? `${err.code}: ${err.message || ""}`.trim() : err.message);
-      qlog(`[qqBot/WS] WS 错误: ${detail}`, "error");
+      console.error(`[qqBot/WS] WS 错误: ${detail}`);
+      this.appManager.dispatch(this.app.id, "log", {
+        text: `[qqBot/WS] WS 错误: ${detail}`,
+        level: "error"
+      });
     });
   },
 
   /**
    * 停止连接
    */
-  stop: function () {
+  stop() {
     if (this.ws) {
-      try { 
+      try {
         this.ws.removeAllListeners();
-        this.ws.terminate(); 
+        this.ws.terminate();
       } catch (err) {
-        qlog(`[qqBot/WS] 停止WS失败 ${err.message}`, "conn");
+        console.error(`[qqBot/WS] 停止WS失败: ${err.message}`);
+        this.appManager.dispatch(this.app.id, "log", {
+          text: `[qqBot/WS] 停止WS失败: ${err.message}`,
+          level: "error"
+        });
       }
       this.ws = null;
     }
     if (this.reconnectTimer) {
-      this.reconnectTimer = clearTimeout(this.reconnectTimer);
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
     }
-  },
-
+  }
 };

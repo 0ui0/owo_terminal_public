@@ -5,6 +5,7 @@ import commonData from "./commonData.js"
 import { trs } from "./i18n.js"
 import aiContext from "../titleMenu/aiContext.js"
 import getColor from "./getColor.js"
+import getSize from "./getSize.js"
 import chatData from "../chat/chatData.js"
 import comData from "../../comData/comData.js"
 import Setting from "../setting/setting.js"
@@ -216,6 +217,13 @@ export default () => {
                   console.error("[FileMenu] 安装App 出错:", err)
                 }
               }
+            },
+            {
+              name: trs("菜单栏/操作/用户反馈", { cn: "用户反馈", en: "User Feedback" }),
+              onclick: async () => {
+                v.attrs.delete()
+                await settingData.fnCall("appLaunch", ["browser", { data: { url: "https://iw-i.com" } }])
+              }
             }
           ]
         })
@@ -231,18 +239,19 @@ export default () => {
         color: "main",
         noValue: true,
         style: {
-          padding: "0.4rem 1rem",
-          borderRadius: "3rem",
-          fontSize: "1.2rem",
+          padding: `${getSize(1)}rem ${getSize(3)}rem`,
+          borderRadius: `${getSize(8)}rem`,
+          fontSize: `${getSize(3)}rem`,
           display: "inline-flex",
           alignItems: "center",
           cursor: "pointer",
-          margin: "0 0.3rem",
-          boxShadow: "0 0.2rem 0.6rem rgba(0, 0, 0, 0.15)",
+          margin: 0,
+          boxShadow: `0 ${getSize(0.5)}rem ${getSize(2)}rem rgba(0, 0, 0, 0.15)`,
           "-webkit-app-region": "no-drag",
           transition: "opacity 0.2s ease, box-shadow 0.2s ease"
         },
         ext: {
+          onpointerdown: (e) => e.stopPropagation(),
           onpointerenter: function () {
             this.style.opacity = "0.5"
           },

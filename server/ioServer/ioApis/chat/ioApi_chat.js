@@ -20,8 +20,27 @@ disableErrorLogging()
 
 const socketOnChat = async (que, callback) => {
   let io = ioServer.io
-  // 在函数级声明 listId，确保 catch 错误处理也能访问到真实值（块内 let 在 catch 不可见）
+  // 在函数级声明 listId / 快照信息，确保 catch 错误处理也能访问到真实值
   let listId = que?.targetChatListId ?? que?.listId ?? 0;
+  let chatUuid = null;
+  let snapshotId = null;
+  let hasStartedTurn = false;
+  const emitTmDiff = async (targetListId) => {
+    if (!hasStartedTurn || !snapshotId || !chatUuid) return;
+    let tmDiffChat = {
+      uuid: idTool.get("sys"),
+      content: "",
+      name: trs("角色/系统"),
+      group: "tmDiff",
+      timestamp: Date.now(),
+      chatListId: targetListId,
+      snapshotId: snapshotId,
+      ext: { snapshotUuid: chatUuid }
+    };
+    await chats.add(tmDiffChat, targetListId);
+    ioServer.io.emit("chat", tmDiffChat);
+    ioServer.io.emit("chat:push", { listId: targetListId });
+  };
   try {
     // 前台选定终端窗口的时候（在 xterm 内直接敲击键盘）
     // 前端遗留的 ChatTerm.js 目前依然复用了 chat 事件通道来发送按键 chunk
@@ -45,8 +64,7 @@ const socketOnChat = async (que, callback) => {
     const mainWorkDir = workDirTool.getMainWorkDir(listId);
 
     // 预先生成消息 UUID 供时光机使用
-    const chatUuid = idTool.get("chat");
-    let snapshotId = null;
+    chatUuid = idTool.get("chat");
 
     // 3. 时光机自动快照拦截
     try {
@@ -172,6 +190,7 @@ const socketOnChat = async (que, callback) => {
     await comData.editChatList(listId, (list) => {
       list.procId = procId;
     });
+    hasStartedTurn = true;
 
     // 正式触发大模型
     await agent.sendAskByMsgProtocol(getMsgProtocalConfig({
@@ -183,6 +202,7 @@ const socketOnChat = async (que, callback) => {
     await comData.editChatList(listId, (list) => {
       list.procId = null;
     });
+    await emitTmDiff(listId);
 
     if (ioServer?.io) {
       ioServer.io.emit("sound:play", { type: "done", listId });
@@ -209,6 +229,7 @@ const socketOnChat = async (que, callback) => {
     // 双通道："chat" 推消息实体（前端事实收到消息），"chat:push" 触发列表刷新
     ioServer.io.emit("chat", chat)
     ioServer.io.emit("chat:push", { listId: errorListId })
+    await emitTmDiff(errorListId);
   }
 }
 

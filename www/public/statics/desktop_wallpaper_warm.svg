@@ -1,0 +1,97 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <!-- 主题 1：喵宅苑温润奶白与品牌金黄 (#FCF8ED / #ffdb66 / #ffc83c / #fab1a0 / #E8DFC8) -->
+    <radialGradient id="warmSun" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#ffdb66" stop-opacity="0.58"/>
+      <stop offset="50%" stop-color="#ffc83c" stop-opacity="0.24"/>
+      <stop offset="100%" stop-color="#ffc83c" stop-opacity="0"/>
+    </radialGradient>
+
+    <radialGradient id="warmPeach" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#fab1a0" stop-opacity="0.40"/>
+      <stop offset="55%" stop-color="#ffdb66" stop-opacity="0.14"/>
+      <stop offset="100%" stop-color="#ffdb66" stop-opacity="0"/>
+    </radialGradient>
+
+    <linearGradient id="warmRibbonA" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ffdb66" stop-opacity="0.34"/>
+      <stop offset="50%" stop-color="#fab1a0" stop-opacity="0.24"/>
+      <stop offset="100%" stop-color="#ffc83c" stop-opacity="0.30"/>
+    </linearGradient>
+
+    <linearGradient id="warmRibbonB" x1="100%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#ff7675" stop-opacity="0.16"/>
+      <stop offset="50%" stop-color="#ffdb66" stop-opacity="0.28"/>
+      <stop offset="100%" stop-color="#F7F0DD" stop-opacity="0.40"/>
+    </linearGradient>
+
+    <linearGradient id="warmHillFar" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#F5ECD5" stop-opacity="0.65"/>
+      <stop offset="100%" stop-color="#E8DFC8" stop-opacity="0.35"/>
+    </linearGradient>
+
+    <linearGradient id="warmHillMid" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#ffdb66" stop-opacity="0.26"/>
+      <stop offset="100%" stop-color="#E8DFC8" stop-opacity="0.48"/>
+    </linearGradient>
+
+    <linearGradient id="warmHillNear" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#fab1a0" stop-opacity="0.24"/>
+      <stop offset="100%" stop-color="#E8DFC8" stop-opacity="0.62"/>
+    </linearGradient>
+
+    <linearGradient id="warmCrest" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0"/>
+      <stop offset="50%" stop-color="#ffffff" stop-opacity="0.65"/>
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+
+  <!-- 1. 柔和晨曦光晕 -->
+  <ellipse cx="1540" cy="220" rx="560" ry="420" fill="url(#warmSun)"/>
+  <ellipse cx="360" cy="300" rx="520" ry="380" fill="url(#warmPeach)"/>
+
+  <!-- 2. 暖金丝绸飘带 -->
+  <path
+    d="M -120 430 C 260 230, 620 560, 1020 350 C 1380 160, 1660 360, 2040 210 L 2040 460 C 1680 610, 1340 380, 980 560 C 580 760, 240 440, -120 620 Z"
+    fill="url(#warmRibbonA)"
+  />
+  <path
+    d="M -120 590 C 320 420, 740 720, 1180 480 C 1540 290, 1780 520, 2040 400 L 2040 620 C 1720 740, 1460 520, 1120 680 C 700 880, 300 580, -120 760 Z"
+    fill="url(#warmRibbonB)"
+  />
+
+  <!-- 3. 奶白暖金层叠丘陵 -->
+  <path
+    d="M -80 820 C 260 680, 540 720, 880 810 C 1220 900, 1520 670, 2000 780 L 2000 1120 L -80 1120 Z"
+    fill="url(#warmHillFar)"
+  />
+  <path
+    d="M -80 820 C 260 680, 540 720, 880 810 C 1220 900, 1520 670, 2000 780"
+    fill="none"
+    stroke="url(#warmCrest)"
+    stroke-width="2.5"
+  />
+
+  <path
+    d="M -80 900 C 340 770, 720 960, 1140 840 C 1480 745, 1740 830, 2000 890 L 2000 1120 L -80 1120 Z"
+    fill="url(#warmHillMid)"
+  />
+  <path
+    d="M -80 900 C 340 770, 720 960, 1140 840 C 1480 745, 1740 830, 2000 890"
+    fill="none"
+    stroke="url(#warmCrest)"
+    stroke-width="2"
+  />
+
+  <path
+    d="M -80 980 C 380 890, 780 1030, 1280 930 C 1600 865, 1820 925, 2000 965 L 2000 1120 L -80 1120 Z"
+    fill="url(#warmHillNear)"
+  />
+
+  <!-- 4. 右上角柔和暖阳 -->
+  <g opacity="0.55">
+    <circle cx="1645" cy="185" r="44" fill="#ffc83c"/>
+    <circle cx="1645" cy="185" r="64" fill="#ffdb66" opacity="0.35"/>
+  </g>
+</svg>

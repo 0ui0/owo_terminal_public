@@ -1,4 +1,5 @@
 import getColor from "../getColor.js"
+import getSize from "../getSize.js"
 
 // ---------------- Tab 拖拽逻辑 ----------------
 export default function () {
@@ -126,19 +127,20 @@ export default function () {
       const win = attrs.windowData
       const realTabs = attrs.tabs || []
       if (!(realTabs.length > 1)) return null
+      // 刚才创建的主系统组默认隐藏标签栏，防止误触叉号并保持纯净单窗外观
+      if (realTabs.some(t => t.group === "main_system_group" || t.hideTabBar)) return null
 
       return m("", {
         style: {
-          height: "3.5rem",
+          height: `${getSize(9)}rem`,
           background: getColor('brown_1').back,
           display: "flex",
           flexWrap: "nowrap",
           alignItems: "center",
-          padding: "0 0.5rem",
+          padding: `0 ${getSize(1)}rem`,
           overflowX: "auto",
-          scrollbarWidth: "thin", // 改为极细滚动条，或者完全依赖滚轮
           flexShrink: 0,
-          borderBottom: `0.1rem solid ${getColor('main').back}`,
+          borderBottom: `${getSize(0.25)}rem solid ${getColor('main').back}`,
           scrollBehavior: "smooth"
         },
         // 监听滚轮，将垂直滚动转换为水平滚动
@@ -173,18 +175,18 @@ export default function () {
           style: {
             display: "flex",
             alignItems: "center",
-            padding: "0 12px",
+            padding: `0 ${getSize(3)}rem`,
             height: "100%",
             cursor: "pointer",
-            fontSize: "12px",
+            fontSize: `${getSize(3)}rem`,
             background: isActive ? getColor('blue_2').back : getColor('gray_1').back,
             color: isActive ? getColor('blue_2').front : getColor('gray_1').front,
-            borderRight: `1px solid ${getColor('main').back}`,
+            borderRight: `${getSize(0.25)}rem solid ${getColor('main').back}`,
             userSelect: "none",
             touchAction: "none",
-            flex: "0 1 180px", // 允许压缩，最大 180px
-            minWidth: "60px", // 最小宽度
-            maxWidth: "180px",
+            flex: `0 1 ${getSize(45)}rem`, // 允许压缩，最大档位
+            minWidth: `${getSize(15)}rem`, // 最小宽度
+            maxWidth: `${getSize(45)}rem`,
             transform: `translate3d(${translateX}px, 0, 0)`,
             transition: isDraggingThis ? "none" : "transform 0.2s cubic-bezier(0.2, 0, 0, 1)",
             zIndex: isDraggingThis ? 1000 : 1
@@ -210,8 +212,8 @@ export default function () {
           m("span", {
             class: "tab-close-btn",
             style: {
-              marginLeft: "8px",
-              padding: "2px",
+              marginLeft: `${getSize(2)}rem`,
+              padding: `${getSize(1 / 2)}rem`,
               borderRadius: "50%",
               display: "flex",
               alignItems: "center",

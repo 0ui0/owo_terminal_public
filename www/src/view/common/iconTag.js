@@ -1,5 +1,6 @@
 import Tag from "./tag.js"
 import getColor from "./getColor.js"
+import getSize from "./getSize.js"
 
 export default () => {
 
@@ -12,8 +13,9 @@ export default () => {
           color: attrs.fgColor ?? getColor("yellow_1").front,
           display: "inline-flex",
           alignItems: "center",
-          marginLeft: attrs.align == "right" ? "0.5rem" : "0",
-          marginRight: attrs.align == "right" ? "0" : "0.5rem",
+          gap: `${getSize(1)}rem`,
+          marginLeft: attrs.align == "right" ? `${getSize(1)}rem` : "0",
+          marginRight: attrs.align == "right" ? "0" : `${getSize(1)}rem`,
           ...attrs.styleExt,
         },
         isBtn: attrs.isBtn ?? true,
@@ -23,7 +25,7 @@ export default () => {
       }, [
         m.trust(window.iconPark.getIcon(attrs.iconName, {
           fill: attrs.fgColor ?? getColor("yellow_1").front,
-          size: "1.3rem",
+          size: `${getSize(4)}rem`,
           ...attrs.iconConfig
         })),
         ...children

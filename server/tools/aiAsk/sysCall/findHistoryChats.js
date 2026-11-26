@@ -107,7 +107,7 @@ export default {
 
 三、ask 字段
 - id (string)：消息编号
-- user (string)：用户或模型名称
+- user (string)：管理员/用户名或模型名称
 - title (string)：消息标题或摘要
 - role (string)：消息角色，取值 user / assistant / system / tool
 - content (string | object)：解析后的正文对象，结构随工具模式变化，见第四章

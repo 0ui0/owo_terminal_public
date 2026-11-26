@@ -10,13 +10,12 @@ const TABS = [
   { key: "set", cn: "设置", en: "Settings" }
 ];
 
-export default ({ appId, m, Notice, ioSocket, commonData, iconPark, getColor, trs, settingData, Box, Tag, sysMenu, ChatToolSelect }) => {
+export default ({ appId, m, Notice, ioSocket, commonData, iconPark, getColor, getSize, trs, settingData, Box, Tag, sysMenu, ChatToolSelect }) => {
 
   let config = {};
   let modelList = [];
-let toolList = [];
-  let pulseMeta = {};
-  let pulseGroups = [];
+  let toolList = [];
+  let discoveredGroups = [];
   let status = {};
   let logs = [];
   let lastLogId = 0;
@@ -37,6 +36,10 @@ let toolList = [];
           config = msg.args.config || {};
           m.redraw();
         }
+        if (msg.action === "discoveredGroups") {
+          discoveredGroups = Array.isArray(msg.args) ? msg.args : [];
+          m.redraw();
+        }
         if (msg.action === "log") {
           logs.push(msg.args);
           if (logs.length > 500) {
@@ -50,6 +53,77 @@ let toolList = [];
               m.redraw();
             }, 120);
           }
+        }
+        if (msg.action === "qrDisplayed") {
+          const { url, qrImg } = msg.args || {};
+          Notice.launch({
+            sign: "qqbot_qr_modal",
+            tip: trs("QQBot/扫码标题", { cn: "手机 QQ 扫码连接", en: "Scan QR with QQ" }),
+            cancel: async () => {
+              try {
+                await settingData.fnCall("appDispatch", [appId, "stopQrBind", {}]);
+              } catch (err) {
+                console.error("[qqBot] stopQrBind error:", err);
+              }
+            },
+            content: {
+              view: () => m("",
+                {
+                  style: {
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    padding: `${getSize(3)}rem`,
+                    gap: `${getSize(3)}rem`
+                  }
+                },
+                [
+                  qrImg ? m("img",
+                    {
+                      src: qrImg,
+                      alt: "QR Code",
+                      style: {
+                        width: `${getSize(55)}rem`,
+                        height: `${getSize(55)}rem`,
+                        borderRadius: `${getSize(8)}rem`
+                      }
+                    }
+                  ) : null,
+                  m("",
+                    {
+                      style: {
+                        fontSize: `${getSize(3)}rem`,
+                        opacity: 0.8,
+                        textAlign: "center"
+                      }
+                    },
+                    trs("QQBot/扫码说明", { cn: "请使用手机 QQ 扫描上方二维码进行授权", en: "Scan with QQ to authorize" })
+                  )
+                ]
+              )
+            }
+          });
+        }
+        if (msg.action === "qrBindSuccess") {
+          config["3rd_qqRobot_appid"] = msg.args.appId;
+          config["3rd_qqRobot_secret"] = msg.args.appSecret;
+          config["3rd_qqRobot_switch"] = true;
+          config["3rd_qqRobotLocal_switch"] = false;
+          draft = JSON.parse(JSON.stringify(config));
+          editKey++;
+          Notice.closeTab("qqbot_qr_modal");
+          m.redraw();
+          Notice.launch({
+            msg: trs("QQBot/扫码成功", { cn: "手机 QQ 扫码授权成功！已保存凭证并自动开启官方服务。", en: "QQ QR Auth Success! Credentials saved & service started." })
+          });
+        }
+        if (msg.action === "qrBindFailure") {
+          Notice.closeTab("qqbot_qr_modal");
+          Notice.launch({
+            tip: trs("QQBot/扫码失败标题", { cn: "扫码失败", en: "Scan Failed" }),
+            msg: msg.args.message || trs("QQBot/扫码已取消", { cn: "扫码流程已取消或超时", en: "Scan cancelled or timed out" })
+          });
         }
       } catch (err) {
         console.log(err);
@@ -78,8 +152,6 @@ let toolList = [];
         if (toolRes && toolRes.ok) {
           toolList = toolRes.data || [];
         }
-        pulseMeta = res.pulseMeta || {};
-        pulseGroups = res.pulseGroups || [];
         if (!dirty) {
           draft = JSON.parse(JSON.stringify(config));
         }
@@ -87,6 +159,10 @@ let toolList = [];
       const statusRes = await settingData.fnCall("appDispatch", [appId, "getStatus", {}]);
       if (statusRes && statusRes.ok) {
         status = statusRes.data || {};
+      }
+      const discoveredRes = await settingData.fnCall("appDispatch", [appId, "getDiscoveredGroups", {}]);
+      if (discoveredRes && discoveredRes.ok && Array.isArray(discoveredRes.data)) {
+        discoveredGroups = discoveredRes.data;
       }
       const logsRes = await settingData.fnCall("appDispatch", [appId, "getLogs", { sinceId: lastLogId }]);
       if (logsRes && logsRes.ok && Array.isArray(logsRes.data)) {
@@ -351,6 +427,13 @@ let toolList = [];
   };
 
   return {
+    onremove() {
+      qqBotData.unregisterInstances(appId, commonData);
+      if (redrawTimer) {
+        clearTimeout(redrawTimer);
+        redrawTimer = null;
+      }
+    },
     oninit(vnode) {
       if (vnode.attrs.data && vnode.attrs.data.config) {
         config = vnode.attrs.data.config;
@@ -362,43 +445,60 @@ let toolList = [];
         noticeConfig.titleBar = {
           view: () => m("",
             {
-              onpointerdown: (e) => e.stopPropagation(),
               style: {
+                width: "100%",
+                height: "100%",
                 display: "flex",
-                alignItems: "center",
-                height: "100%"
+                alignItems: "center"
               }
             },
             [
-              m(Box,
+              // 内层：四边留白 k1，元素间距由 gap 提供
+              m("",
                 {
-                  tagName: "div",
-                  isBtn: true,
-                  color: "main",
-                  noValue: true,
                   style: {
-                    padding: "0.4rem 1rem",
-                    borderRadius: "3rem",
-                    fontSize: "1.2rem",
-                    display: "inline-flex",
+                    flex: 1,
+                    minWidth: 0,
+                    display: "flex",
                     alignItems: "center",
-                    cursor: "pointer",
-                    margin: "0 0.3rem",
-                    boxShadow: "0 0.2rem 0.6rem rgba(0, 0, 0, 0.15)",
-                    "-webkit-app-region": "no-drag",
-                    transition: "opacity 0.2s ease"
-                  },
-                  ext: {
-                    onpointerenter: function () {
-                      this.style.opacity = "0.5";
-                    },
-                    onpointerleave: function () {
-                      this.style.opacity = "1";
-                    }
-                  },
-                  onclick: (dom, e) => openFileMenu(e)
+                    gap: `${getSize(1)}rem`,
+                    margin: `${getSize(1)}rem`,
+                    flexWrap: "wrap"
+                  }
                 },
-                trs("QQBot/菜单/文件", { cn: "文件", en: "File" })
+                [
+                  m(Box,
+                    {
+                      tagName: "div",
+                      isBtn: true,
+                      color: "main",
+                      noValue: true,
+                      style: {
+                        padding: `${getSize(1)}rem ${getSize(3)}rem`,
+                        borderRadius: `${getSize(8)}rem`,
+                        fontSize: `${getSize(3)}rem`,
+                        display: "inline-flex",
+                        alignItems: "center",
+                        cursor: "pointer",
+                        margin: 0,
+                        boxShadow: `0 ${getSize(0.5)}rem ${getSize(2)}rem rgba(0, 0, 0, 0.15)`,
+                        "-webkit-app-region": "no-drag",
+                        transition: "opacity 0.2s ease"
+                      },
+                      ext: {
+                        onpointerdown: (e) => e.stopPropagation(),
+                        onpointerenter: function () {
+                          this.style.opacity = "0.5";
+                        },
+                        onpointerleave: function () {
+                          this.style.opacity = "1";
+                        }
+                      },
+                      onclick: (dom, e) => openFileMenu(e)
+                    },
+                    trs("QQBot/菜单/文件", { cn: "文件", en: "File" })
+                  )
+                ]
               )
             ]
           )
@@ -418,7 +518,7 @@ let toolList = [];
     view() {
       const running = !!(status.localSwitch || status.officialSwitch);
 
-      return m("div",
+      return m("",
         {
           style: {
             height: "100%",
@@ -430,79 +530,105 @@ let toolList = [];
           }
         },
         [
-          m("div",
+          m("",
             {
               style: {
                 display: "flex",
-                alignItems: "center",
-                justifyContent: "flex-end",
-                padding: "0.5rem 1.2rem",
+                flexDirection: "column",
+                gap: `${getSize(2)}rem`,
+                padding: `${getSize(2)}rem ${getSize(3)}rem`,
                 background: getColor("gray_12").back,
-                color: getColor("gray_12").front
+                color: getColor("gray_12").front,
+                borderBottom: `${getSize(0.25)}rem solid rgba(0, 0, 0, 0.15)`,
+                flex: "none"
               }
             },
             [
+              m("",
+                {
+                  style: {
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "flex-end"
+                  }
+                },
+                [
+                  m(Box,
+                    {
+                      isBtn: true,
+                      color: running ? "green_1" : "gray_2",
+                      style: {
+                        margin: "0",
+                        flex: "none",
+                        padding: `${getSize(1)}rem ${getSize(3)}rem`,
+                        borderRadius: `${getSize(8)}rem`,
+                        fontSize: `${getSize(3)}rem`,
+                        lineHeight: `${getSize(4)}rem`
+                      },
+                      onclick: () => togglePower()
+                    },
+                    running
+                      ? trs("QQBot/运行中", { cn: "● 运行中（点击停止）", en: "● Running (click to stop)" })
+                      : trs("QQBot/已停止", { cn: "○ 已停止（点击启动）", en: "○ Stopped (click to start)" })
+                  )
+                ]
+              ),
+
+              /* iOS 顶部分段控制器 */
               m(Box,
                 {
-                  isBtn: true,
-                  color: running ? "green_1" : "gray_2",
+                  color: "gray_4",
                   style: {
+                    display: "flex",
+                    alignItems: "center",
+                    gap: `${getSize(1)}rem`,
+                    padding: `${getSize(1)}rem`,
                     margin: "0",
-                    flex: "none",
-                    padding: "0.4rem 1.2rem",
-                    fontSize: "1.2rem"
-                  },
-                  onclick: () => togglePower()
+                    borderRadius: `${getSize(8)}rem`
+                  }
                 },
-                running
-                  ? trs("QQBot/运行中", { cn: "● 运行中（点击停止）", en: "● Running (click to stop)" })
-                  : trs("QQBot/已停止", { cn: "○ 已停止（点击启动）", en: "○ Stopped (click to start)" })
+                TABS.map(item => {
+                  const active = tab === item.key;
+                  return m(Box,
+                    {
+                      isBtn: true,
+                      color: active ? "main" : "gray_4",
+                      style: {
+                        flex: "1",
+                        margin: "0",
+                        padding: `${getSize(1.5)}rem ${getSize(2)}rem`,
+                        borderRadius: `${getSize(8)}rem`,
+                        fontSize: `${getSize(3)}rem`,
+                        lineHeight: `${getSize(4)}rem`,
+                        textAlign: "center",
+                        background: active ? getColor("main").back : "transparent",
+                        color: active ? getColor("main").front : getColor("gray_4").front
+                      },
+                      onclick: () => {
+                        tab = item.key;
+                        if (tab === "set" && !draft) {
+                          draft = JSON.parse(JSON.stringify(config));
+                        }
+                        if (tab !== "set") {
+                          fetchAll();
+                        }
+                        m.redraw();
+                      }
+                    },
+                    trs(`QQBot/页签/${item.key}`, { cn: item.cn, en: item.en })
+                  );
+                })
               )
             ]
           ),
 
-          m("div",
-            {
-              style: {
-                display: "flex",
-                gap: "0.5rem",
-                padding: "0.5rem 1.2rem",
-                background: getColor("gray_12").back
-              }
-            },
-            TABS.map(item => m(Box,
-              {
-                isBtn: true,
-                color: tab === item.key ? "main" : "gray_4",
-                style: {
-                  flex: "1",
-                  margin: "0",
-                  padding: "0.7rem 1rem",
-                  textAlign: "center",
-                  fontSize: "1.4rem"
-                },
-                onclick: () => {
-                  tab = item.key;
-                  if (tab === "set" && !draft) {
-                    draft = JSON.parse(JSON.stringify(config));
-                  }
-                  if (tab !== "set") {
-                    fetchAll();
-                  }
-                  m.redraw();
-                }
-              },
-              trs(`QQBot/页签/${item.key}`, { cn: item.cn, en: item.en })
-            ))
-          ),
-
-          m("div",
+          m("",
             {
               style: {
                 flex: "1",
                 minHeight: "0",
                 overflowY: "auto",
-                padding: "1.2rem"
+                padding: `${getSize(3)}rem`
               }
             },
             [
@@ -546,14 +672,14 @@ let toolList = [];
                   Notice,
                   ChatToolSelect,
                   getColor,
+                  getSize,
                   trs,
                   draft: draft || config,
                   editKey,
                   subTab,
                   modelList,
                   toolList,
-                  pulseMeta,
-                  pulseGroups,
+                  discoveredGroups,
                   onSubTab: (key) => {
                     subTab = key;
                     m.redraw();
@@ -565,40 +691,52 @@ let toolList = [];
                   onImport: openConfig,
                   onExport: saveConfigAs,
                   onResetPulse: resetPulse,
-                  onResetAll: resetAll
+                  onResetAll: resetAll,
+                  onStartQrBind: async () => {
+                    try {
+                      const res = await settingData.fnCall("appDispatch", [appId, "startQrBind", {}]);
+                      if (!res || !res.ok) {
+                        Notice.launch({ msg: res?.msg || trs("QQBot/发起扫码失败", { cn: "发起扫码失败", en: "Failed to start QR scan" }) });
+                      }
+                    } catch (err) {
+                      console.error("[qqBot] startQrBind error:", err);
+                      Notice.launch({ msg: "调起扫码异常: " + (err.message || err) });
+                    }
+                  }
                 }
               ) : null
             ]
           ),
 
-          m("div",
+          m("",
             {
               style: {
                 display: "flex",
                 flexDirection: "column",
-                gap: "0.2rem",
-                padding: "0.5rem 1.2rem",
+                gap: `${getSize(1 / 2)}rem`,
+                padding: `${getSize(2)}rem ${getSize(3)}rem`,
                 background: getColor("gray_12").back,
                 color: getColor("gray_12").front,
-                fontSize: "1.1rem",
+                borderTop: `${getSize(0.25)}rem solid rgba(0, 0, 0, 0.15)`,
+                fontSize: `${getSize(3)}rem`,
+                lineHeight: `${getSize(4)}rem`,
                 flex: "none"
               }
             },
             [
-              m("div",
+              m("",
                 {
                   style: {
                     display: "flex",
                     alignItems: "center",
-                    gap: "0.6rem"
+                    gap: `${getSize(2)}rem`
                   }
                 },
                 [
                   m("span",
                     {
                       style: {
-                        opacity: "0.7",
-                        fontWeight: "600"
+                        opacity: 0.6
                       }
                     },
                     trs("QQBot/状态栏/标签", { cn: "配置文件", en: "Config File" })
@@ -606,7 +744,7 @@ let toolList = [];
                   m("span",
                     {
                       style: {
-                        opacity: "0.9"
+                        opacity: 0.9
                       }
                     },
                     cfgFilePath
@@ -615,13 +753,13 @@ let toolList = [];
                   )
                 ]
               ),
-              m("div",
+              m("",
                 {
                   style: {
-                    opacity: "0.5",
-                    fontSize: "1.0rem",
-                    wordBreak: "break-all",
-                    lineHeight: "1.4"
+                    opacity: 0.55,
+                    fontSize: `${getSize(3)}rem`,
+                    lineHeight: `${getSize(4)}rem`,
+                    wordBreak: "break-all"
                   }
                 },
                 cfgFilePath
@@ -631,23 +769,27 @@ let toolList = [];
             ]
           ),
 
-          tab === "set" ? m("div",
+          tab === "set" ? m("",
             {
               style: {
                 display: "flex",
                 alignItems: "center",
-                gap: "1rem",
-                padding: "0.8rem 1.2rem",
-                background: getColor("gray_12").back
+                gap: `${getSize(2)}rem`,
+                padding: `${getSize(2)}rem ${getSize(3)}rem`,
+                background: getColor("gray_12").back,
+                color: getColor("gray_12").front,
+                borderTop: `${getSize(0.25)}rem solid rgba(0, 0, 0, 0.15)`,
+                flex: "none"
               }
             },
             [
-              m("div",
+              m("",
                 {
                   style: {
                     flex: "1",
-                    fontSize: "1.2rem",
-                    opacity: "0.6",
+                    fontSize: `${getSize(3)}rem`,
+                    lineHeight: `${getSize(4)}rem`,
+                    opacity: 0.6,
                     minWidth: "0"
                   }
                 },
@@ -662,7 +804,10 @@ let toolList = [];
                   style: {
                     margin: "0",
                     flex: "none",
-                    padding: "0.6rem 1.6rem"
+                    padding: `${getSize(1.5)}rem ${getSize(3)}rem`,
+                    borderRadius: `${getSize(8)}rem`,
+                    fontSize: `${getSize(3)}rem`,
+                    lineHeight: `${getSize(4)}rem`
                   },
                   onclick: () => discardDraft()
                 },
@@ -675,7 +820,10 @@ let toolList = [];
                   style: {
                     margin: "0",
                     flex: "none",
-                    padding: "0.6rem 1.6rem"
+                    padding: `${getSize(1.5)}rem ${getSize(3)}rem`,
+                    borderRadius: `${getSize(8)}rem`,
+                    fontSize: `${getSize(3)}rem`,
+                    lineHeight: `${getSize(4)}rem`
                   },
                   onclick: () => saveDraft()
                 },

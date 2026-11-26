@@ -1,6 +1,7 @@
 import Box from "../common/box.js"
 import Tag from "../common/tag.js"
 import getColor from "../common/getColor.js"
+import getSize from "../common/getSize.js"
 import Notice from "../common/notice.js"
 import settingData from "../setting/settingData.js"
 import { trs } from "../common/i18n.js"
@@ -17,7 +18,7 @@ const statusIcon = { A: "＋", D: "－", M: "～" }
 export default {
   oninit(vnode) {
     this.attrs = vnode.attrs
-    this.selected = new Set(vnode.attrs.diffList.map(item => item.path))
+    this.selected = new Set()
 
     // 动态补丁劫持：接管原生确认/取消按钮
     const config = vnode.attrs.noticeConfig
@@ -60,7 +61,7 @@ export default {
               display: "flex",
               alignItems: "center",
               justifyContent: "space-between",
-              margin: "1rem"
+              margin: `${getSize(3)}rem`
             },
             onclick: () => {
               if (allChecked && !allCheckedDisabled) this.selected.clear()
@@ -73,8 +74,8 @@ export default {
         m(Box,
           {
             style: {
-              margin: "0 1rem 1rem 1rem",
-              padding: "0.5rem 1rem",
+              margin: `0 ${getSize(3)}rem ${getSize(3)}rem ${getSize(3)}rem`,
+              padding: `${getSize(1)}rem ${getSize(3)}rem`,
               background: getColor('gray_3').back,
               color: getColor('gray_3').front
             }
@@ -84,13 +85,13 @@ export default {
         m("",
           {
             style: {
-              margin: "0 1rem 1rem 1rem",
-              border: `0.1rem solid ${getColor('gray_4').back}`,
-              borderRadius: "0.8rem"
+              margin: `0 ${getSize(3)}rem ${getSize(3)}rem ${getSize(3)}rem`,
+              border: `${getSize(0.25)}rem solid ${getColor('gray_4').back}`,
+              borderRadius: `${getSize(2)}rem`
             }
           },
           diffList.length === 0
-            ? m(Box, { style: { margin: "0", padding: "1rem", color: getColor('gray_4').front } },
+            ? m(Box, { style: { margin: "0", padding: `${getSize(3)}rem`, color: getColor('gray_4').front } },
               trs("时光机/无变化", { cn: "该快照与当前工作区没有差异", en: "No difference between this snapshot and the working directory" }))
             : diffList.map(item => {
               const checked = this.selected.has(item.path)
@@ -101,9 +102,9 @@ export default {
                   style: {
                     display: "flex",
                     alignItems: "center",
-                    gap: "0.6rem",
-                    padding: "0.5rem 0.8rem",
-                    borderBottom: `0.1rem solid ${getColor('gray_5').back}`,
+                    gap: `${getSize(2)}rem`,
+                    padding: `${getSize(1)}rem ${getSize(2)}rem`,
+                    borderBottom: `${getSize(0.25)}rem solid ${getColor('gray_5').back}`,
                     background: checked ? getColor(statusColor[item.status]).back + "33" : "transparent"
                   }
                 },
@@ -141,7 +142,7 @@ export default {
                       styleExt: { flexShrink: 0 },
                       ext: {
                         onclick: async () => {
-                          await settingData.fnCall("appLaunch", ["editor", { data: { isDiff: true, isCheckoutMode: false, filePath: item.path, originalContent: item.originalContent, proposedContent: item.proposedContent } }])
+                          await settingData.fnCall("appLaunch", ["editor", { data: { group: "editor_tm_diff", isDiff: true, isCheckoutMode: false, filePath: item.path, originalContent: item.originalContent, proposedContent: item.proposedContent } }])
                         }
                       }
                     },

@@ -2,7 +2,7 @@ import HistorySidebar from "./frontendModules/HistorySidebar.js";
 import ContentArea from "./frontendModules/ContentArea.js";
 import Toolbar from "./frontendModules/Toolbar.js";
 
-export default ({ appId, m, Notice, ioSocket, comData, commonData, settingData, Box, iconPark, getColor, trs }) => {
+export default ({ appId, m, Notice, ioSocket, comData, commonData, settingData, Box, Tag, iconPark, iconTag, getColor, getSize, trs }) => {
   console.log(comData)
   // === 私有状态 (统一命名：hash, relPath, repoPath) ===
   let history = [];
@@ -30,7 +30,7 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, settingData, 
             return m("",
               {
                 style: {
-                  padding: "1.5rem",
+                  padding: `${getSize(4)}rem`,
                   display: "flex",
                   flexDirection: "column"
                 }
@@ -44,11 +44,11 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, settingData, 
                     },
                     value: value,
                     style: {
-                      borderRadius: "1.5rem",
-                      padding: "1rem 1.5rem",
-                      background: "rgba(0,0,0,0.2)",
-                      border: "0.1rem solid rgba(255,255,255,0.1)",
-                      color: "#fff"
+                      borderRadius: `${getSize(8)}rem`,
+                      padding: `${getSize(2.5)}rem ${getSize(4)}rem`,
+                      background: getColor("gray_4").back,
+                      border: `${getSize(0.25)}rem solid rgba(255,255,255,0.15)`,
+                      color: getColor("gray_4").front
                     },
                     oninput: (d, e) => {
                       return value = e.target.value;
@@ -133,7 +133,7 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, settingData, 
     view: (vnode) => {
       // 综合判定：系统变量 Mob 为真，或者当前容器宽度小于 600
       const isMob = window.Mob || (containerWidth < 600);
-      const commonAttrs = { m, Box, getColor, Notice, iconPark, trs };
+      const commonAttrs = { m, Box, Tag, getColor, getSize, iconTag, Notice, iconPark, trs };
       const isValidPath = !!(repoPath && repoPath !== "/" && repoPath !== ".");
       const rootName = repoPath ? repoPath.split(/[/\\]/).filter(Boolean).pop() : trs("时光机/主体/未指定", { cn: "未指定", en: "Unspecified" });
 
@@ -175,10 +175,10 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, settingData, 
               isValidPath,
               style: isMob ? {
                 position: "absolute",
-                top: "4rem", // 避开 Toolbar
+                top: `${getSize(10)}rem`, // 避开 Toolbar
                 left: 0,
                 width: "100%",
-                height: "calc(100% - 4rem)",
+                height: `calc(100% - ${getSize(10)}rem)`,
                 zIndex: 100,
                 background: getColor('gray_4').back
               } : {},
@@ -209,15 +209,52 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, settingData, 
                 Notice.launch({
                   tip: "打开项目备份",
                   content: {
-                    view: (vn) => m("", { style: { padding: "1rem", display: "flex", flexDirection: "column", gap: "0.5rem" } },
-                      mainDirs.map(dir => m(Box, {
-                        isBtn: true,
-                        color: "gray_3",
-                        onclick: async () => {
-                          await openRepo(dir);
-                          vn.attrs.delete();
+                    view: (vn) => m("", {
+                      style: {
+                        padding: `${getSize(3)}rem`,
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: `${getSize(2)}rem`
+                      }
+                    },
+                      mainDirs.map(dir => m("", {
+                        style: {
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          gap: `${getSize(2)}rem`,
+                          padding: `${getSize(1.5)}rem ${getSize(2)}rem`,
+                          borderRadius: `${getSize(8)}rem`,
+                          background: getColor("gray_3").back,
+                          color: getColor("gray_3").front
                         }
-                      }, dir.split(/[/\\]/).filter(Boolean).pop() || dir))
+                      }, [
+                        m("span", {
+                          style: {
+                            fontSize: `${getSize(3)}rem`,
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            whiteSpace: "nowrap"
+                          }
+                        }, dir.split(/[/\\]/).filter(Boolean).pop() || dir),
+                        m(iconTag, {
+                          iconName: "FolderOpen",
+                          isBtn: true,
+                          bgColor: getColor("main").back,
+                          fgColor: getColor("main").front,
+                          styleExt: {
+                            margin: 0,
+                            flexShrink: 0,
+                            padding: `${getSize(1.5)}rem ${getSize(3)}rem`
+                          },
+                          ext: {
+                            onclick: async () => {
+                              await openRepo(dir);
+                              vn.attrs.delete();
+                            }
+                          }
+                        }, trs("时光机/弹窗/点击加载", { cn: "点击加载", en: "Load" }))
+                      ]))
                     )
                   }
                 });
@@ -324,16 +361,16 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, settingData, 
                               style: {
                                 display: "flex",
                                 flexDirection: "column",
-                                padding: "0.5rem"
+                                padding: `${getSize(1)}rem`
                               }
                             },
                             [
                               m("",
                                 {
                                   style: {
-                                    padding: "0.8rem 1.2rem",
+                                    padding: `${getSize(2)}rem ${getSize(3)}rem`,
                                     opacity: 0.5,
-                                    fontSize: "0.8rem"
+                                    fontSize: `${getSize(2)}rem`
                                   }
                                 },
                                 "💡 请拖拽项目进行还原"),
@@ -341,7 +378,7 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, settingData, 
                                 {
                                   isBtn: true,
                                   style: {
-                                    padding: "0.8rem 1.2rem",
+                                    padding: `${getSize(2)}rem ${getSize(3)}rem`,
                                     textAlign: "left"
                                   },
                                   onclick: () => {

@@ -187,7 +187,9 @@
       const fgColors = ["#3f9e78", "#45ab83", "#4cb98d", "#53c396"];
 
       function buildGrassLayer(layerElem, colors, step, heightMin, heightMax, widthMin, widthMax) {
-        const frag = document.createDocumentFragment();
+        const pathDMap = {};
+        colors.forEach(c => { pathDMap[c] = []; });
+
         for (let x = 8; x < width - 8; x += step) {
           const ef = getEdgeFactor(x);
           if (ef <= 0.05) continue;
@@ -208,12 +210,19 @@
 
           const d = `M ${(x - bladeW/2).toFixed(1)},${height} Q ${cpX1.toFixed(1)},${cpY1.toFixed(1)} ${tipX.toFixed(1)},${tipY.toFixed(1)} Q ${cpX2.toFixed(1)},${cpY2.toFixed(1)} ${(x + bladeW/2).toFixed(1)},${height} Z`;
 
-          const path = document.createElementNS(svgNS, "path");
-          path.setAttribute("d", d);
-          path.setAttribute("fill", colors[Math.floor(rand() * colors.length)]);
-          path.setAttribute("opacity", randRange(0.92, 0.98).toFixed(2));
-          frag.appendChild(path);
+          const color = colors[Math.floor(rand() * colors.length)];
+          pathDMap[color].push(d);
         }
+
+        const frag = document.createDocumentFragment();
+        colors.forEach(color => {
+          if (!pathDMap[color].length) return;
+          const path = document.createElementNS(svgNS, "path");
+          path.setAttribute("d", pathDMap[color].join(" "));
+          path.setAttribute("fill", color);
+          path.setAttribute("opacity", "0.95");
+          frag.appendChild(path);
+        });
         layerElem.appendChild(frag);
       }
 
@@ -242,22 +251,16 @@
         const gHead = document.createElementNS(svgNS, "g");
         gHead.setAttribute("transform", `translate(${x}, ${y})`);
 
-        // 四周辐射蓬松白色绒毛
+        // 四周辐射蓬松白色绒毛 (合并所有射线为单一复合 path，大幅削减 DOM)
         const rayCount = 28;
+        const raysD = [];
         for (let i = 0; i < rayCount; i++) {
           const angle = (i / rayCount) * Math.PI * 2 + randRange(-0.08, 0.08);
           const len = (i % 2 === 0 ? randRange(11, 15) : randRange(7, 10)) * scale;
           const rx = (Math.cos(angle) * len).toFixed(1);
           const ry = (Math.sin(angle) * len).toFixed(1);
 
-          const line = document.createElementNS(svgNS, "line");
-          line.setAttribute("x1", "0");
-          line.setAttribute("y1", "0");
-          line.setAttribute("x2", rx);
-          line.setAttribute("y2", ry);
-          line.setAttribute("stroke", "rgba(255,255,255,0.85)");
-          line.setAttribute("stroke-width", "0.55");
-          gHead.appendChild(line);
+          raysD.push(`M 0,0 L ${rx},${ry}`);
 
           const dot = document.createElementNS(svgNS, "circle");
           dot.setAttribute("cx", rx);
@@ -266,6 +269,12 @@
           dot.setAttribute("fill", "rgba(255,255,255,0.96)");
           gHead.appendChild(dot);
         }
+
+        const raysPath = document.createElementNS(svgNS, "path");
+        raysPath.setAttribute("d", raysD.join(" "));
+        raysPath.setAttribute("stroke", "rgba(255,255,255,0.85)");
+        raysPath.setAttribute("stroke-width", "0.55");
+        gHead.insertBefore(raysPath, gHead.firstChild);
 
         // 淡黄色花心（淡黄色 #ffeaa7 + 温暖描边 #ffd152）
         const centerCircle = document.createElementNS(svgNS, "circle");

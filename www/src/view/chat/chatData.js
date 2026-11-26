@@ -243,52 +243,5 @@ export default {
       }
     }
     this.quoteToChatInputText("system", [{ key: "msg", value: payload }])
-  },
-  // 将纯文本中的 [xxx:yyy] 标签转为 Chip HTML 片段（输入框唯一实现，编辑器与插入流程共用）
-  // renderMode=false 时保持源码形态（仅转义与换行），对应输入框的“源码模式”
-  textToChipHtml(text, renderMode = true) {
-    if (!text) return "";
-    let html = text
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")
-      .replace(/\n/g, "<br>");
-
-    if (!renderMode) return html;
-
-    html = html.replace(/\[attachid:([^\]]+)\]/g, (_, id) =>
-      `<span contenteditable="false" class="editor-tag tag-attach" data-id="${id}">📎 ${id}</span>&nbsp;`);
-    html = html.replace(/\[filePath:([^\]]+)\]/g, (_, path) => {
-      const fileName = path.split(/[/\\]/).pop();
-      return `<span contenteditable="false" class="editor-tag tag-file" data-id="${path}" title="${path}">📄 ${fileName}</span>&nbsp;`;
-    });
-    html = html.replace(/\[(?:refAppid|appid):([^\]]+)\]/gi, (_, id) =>
-      `<span contenteditable="false" class="editor-tag tag-app" data-id="${id}">🚀 ${id}</span>&nbsp;`);
-    html = html.replace(/\[codeQuote:([^:\]]+)(?::([^\]]+))?\]/g, (_, path, range) => {
-      const fileName = path.split(/[/\\]/).pop();
-      const display = range ? `${fileName} (${range})` : fileName;
-      return `<span contenteditable="false" class="editor-tag tag-code" data-id="${path}${range ? ':' + range : ''}" title="${path}${range ? ' @ ' + range : ''}">📝 ${display}</span>&nbsp;`;
-    });
-    html = html.replace(/\[elementId:([^\]]+)\]/gi, (_, id) => {
-      const displayId = id.length > 10 ? (id.includes('-') ? id.split('-')[0] : id.slice(0, 8) + '…') : id;
-      return `<span contenteditable="false" class="editor-tag tag-element" data-id="${id}" title="${id}">🎨 ${displayId}</span>&nbsp;`;
-    });
-    html = html.replace(/\[msg:([^\]]+)\]/gi, (_, val) => {
-      const parts = val.split(":");
-      const id = parts[0] || "";
-      const display = id.slice(0, 7);
-      // 第 3 段是 encodeURIComponent 编码的批注原文，解出来用内嵌彩色方块展示
-      let comment = "";
-      if (parts.length > 2 && parts[2]) {
-        try { comment = decodeURIComponent(parts[2]); } catch (e) { comment = ""; }
-      }
-      // 转义一次，属性与节点文本复用（不另建函数）
-      if (comment) comment = comment.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-      const commentHtml = comment ? `<span class="tag-msg-comment" title="${comment}">${comment}</span>` : "";
-      const titleAttr = comment || val;
-      return `<span contenteditable="false" class="editor-tag tag-msg" data-id="${val}" title="${titleAttr}">💬 ${display}${commentHtml}</span>&nbsp;`;
-    });
-
-    return html;
-  },
+  }
 }

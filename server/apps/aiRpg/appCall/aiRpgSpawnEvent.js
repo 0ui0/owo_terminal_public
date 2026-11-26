@@ -43,7 +43,7 @@ export default {
             appId: Joi.string().required().description("运行中的 aiRpg 实例 ID"),
             x: Joi.number().integer().min(0).required().description("X 坐标（请根据实时情报，避开玩家当前位置坐标，否则会卡死玩家）"),
             y: Joi.number().integer().min(0).required().description("Y 坐标（严禁与玩家当前坐标完全重叠）"),
-            name: Joi.string().required().description("实体的显示名称（如：神秘宝箱、村长，用户点击时你会收到此名称）"),
+            name: Joi.string().required().description("实体的显示名称（如：神秘宝箱、村长，管理员点击时你会收到此名称）"),
             imageName: Joi.string().allow("").default("").description("图像文件名（留空则为隐形触发器）。人物: 'Actor1'~'Actor3', 'People1'~'People4'。物件: '!Chest', '!Door1', '!Switch1' 等。"),
             imageIndex: Joi.number().integer().min(0).max(7).default(0).description("图像索引（0-7），指在图片网格中的具体角色位置")
         });

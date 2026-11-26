@@ -25,7 +25,7 @@ export default {
         for (const cmd of list.confirmCmds) { //处理掉审查窗口，拒绝
           if (cmd.confirm === "pending") {
             cmd.confirm = "no"
-            cmd.comment = (cmd.comment ? cmd.comment + "\n" : "") + "用户点击暂停按钮取消了此确认"
+            cmd.comment = (cmd.comment ? cmd.comment + "\n" : "") + "管理员点击暂停按钮取消了此确认"
             cancelledCount++
           }
         }

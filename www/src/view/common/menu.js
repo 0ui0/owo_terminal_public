@@ -1,4 +1,5 @@
 import Box from "./box.js"
+import getSize from "./getSize.js"
 
 export default (dontClose) => {
   let fnClick = null
@@ -23,11 +24,11 @@ export default (dontClose) => {
               color: "white",
               style: {
                 display: "grid",
-                width: "20rem",
+                width: `${getSize(50)}rem`,
                 gridTemplateColumns: "1fr 1fr",
                 flexDirection: "column",
                 padding: 0,
-                boxShadow: "0 0 1rem rgba(3,3,3,0.3)",
+                boxShadow: `0 0 ${getSize(3)}rem rgba(3,3,3,0.3)`,
                 ...attrs.style,
                 padding: "0"
               },

@@ -30,7 +30,7 @@ export default function getDefaultComData(appManager) {
             title: "标题",
             content: "内容",
             confirm: "pending", // yes, no
-            comment: "", // 用户备注回传
+            comment: "", // 管理员备注回传
             listId: 0
           } */
         ],
@@ -55,6 +55,7 @@ export default function getDefaultComData(appManager) {
     thinkControl: false, //思考控制
     thinkStrength: "medium",
     defaultPet: "zCatBlue",
-    tokenCompressSwitch: true
+    tokenCompressSwitch: true,
+    desktopLayout: []
   }
 }

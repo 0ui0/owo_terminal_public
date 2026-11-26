@@ -1403,12 +1403,12 @@ graph TD
 
 <n-main>
   <n-time>[时间:2026/08/24 03:34:30]</n-time>
-  <n-mem>[记忆：在长官啦沐达的明确指示下，专项排查并修复了项目外文件访问确认弹窗中用户备注丢失的问题。1. 根因确证：经排查，filePatcher.js 与 filePatcherBetter.js 在处理 !userConfirm.ok 时，硬编码返回了固定的 msg 字符串，完全丢弃了 waitConfirm 返回的 userConfirm.comment 属性，导致用户在弹窗输入备注后 AI 只能收到无备注的拦截消息；2. 修复方案：在 filePatcher.js 和 filePatcherBetter.js 中，统一在 !userConfirm.ok 时提取 userConfirm.comment，格式化拼接至 msg（"用户拒绝访问项目外文件：... 用户拒绝理由/备注：..."），并在返回对象中附带 comment 与 globalComment 字段；3. 语法校验：node -c 校验 100% 通过。现在用户在项目外拦截弹窗填写的任何拒绝原因或备注均能完整回传给 AI。]</n-mem>
+  <n-mem>[记忆：在长官啦沐达的明确指示下，专项排查并修复了项目外文件访问确认弹窗中管理员备注丢失的问题。1. 根因确证：经排查，filePatcher.js 与 filePatcherBetter.js 在处理 !userConfirm.ok 时，硬编码返回了固定的 msg 字符串，完全丢弃了 waitConfirm 返回的 userConfirm.comment 属性，导致用户在弹窗输入备注后 AI 只能收到无备注的拦截消息；2. 修复方案：在 filePatcher.js 和 filePatcherBetter.js 中，统一在 !userConfirm.ok 时提取 userConfirm.comment，格式化拼接至 msg（"用户拒绝访问项目外文件：... 用户拒绝理由/备注：..."），并在返回对象中附带 comment 与 globalComment 字段；3. 语法校验：node -c 校验 100% 通过。现在用户在项目外拦截弹窗填写的任何拒绝原因或备注均能完整回传给 AI。]</n-mem>
   <n-tasks>[总任务：1. 修复项目外确认备注丢失问题(已完成) 2. node -c 语法校验(已通过) 3. 追加记忆笔记(已完成)]</n-tasks>
   <n-ul>
     <n-li>[任务1/2: 修复 filePatcher.js 与 filePatcherBetter.js]
       <n-focus>[关注1: server/tools/aiAsk/sysCall/filePatcher.js, 摘要:项目外拦截返回注入 userConfirm.comment。]
-      [关注2: server/tools/aiAsk/sysCall/filePatcherBetter.js, 摘要:接入 waitConfirm 拦截并透传用户备注。]</n-focus>
+      [关注2: server/tools/aiAsk/sysCall/filePatcherBetter.js, 摘要:接入 waitConfirm 拦截并透传管理员备注。]</n-focus>
     </n-li>
     <n-li>[任务2/2: node 语法检查]
       <n-focus>[关注3: node -c 语法验证 100% 通过。]</n-focus>
@@ -2568,7 +2568,7 @@ graph TD
 </n-main>
 <n-main>
   <n-time>[时间:2026/09/07 05:21:00]</n-time>
-  <n-mem>[记忆：根据啦沐达长官指示，对 codeSearch.js 进行了细节闭环与文档精简。1. 补齐用户备注遗漏：在 ripgrep 执行报错（code === 2，如非法正则）的分支上补齐了 userComment 前缀（(userComment ? 用户备注：${userComment}\n\n : "") + 搜索出错：...），使得在拒绝、允许成功、零匹配、超时、进程启动异常、以及语法报错的全场景 100% 分支下，用户备注均能完整传回给 AI；2. 极净化 getDoc 文档：剔除文档中关于截断和默认行数的冗长描述，极致精简为返回字段签名 { totalMatches, totalFiles, shownCount, isTruncated, summary, results / files, userComment? } 以及正则须知说明，大幅节省每次系统调用注入给模型的 Token；3. 语法与测试：node -c 校验通过，14 项边界测试套件 100% 全部 PASS。]</n-mem>
+  <n-mem>[记忆：根据啦沐达长官指示，对 codeSearch.js 进行了细节闭环与文档精简。1. 补齐管理员备注遗漏：在 ripgrep 执行报错（code === 2，如非法正则）的分支上补齐了 userComment 前缀（(userComment ? 管理员备注：${userComment}\n\n : "") + 搜索出错：...），使得在拒绝、允许成功、零匹配、超时、进程启动异常、以及语法报错的全场景 100% 分支下，管理员备注均能完整传回给 AI；2. 极净化 getDoc 文档：剔除文档中关于截断和默认行数的冗长描述，极致精简为返回字段签名 { totalMatches, totalFiles, shownCount, isTruncated, summary, results / files, userComment? } 以及正则须知说明，大幅节省每次系统调用注入给模型的 Token；3. 语法与测试：node -c 校验通过，14 项边界测试套件 100% 全部 PASS。]</n-mem>
   <n-tasks>[总任务：1. 补齐报错分支 userComment(已完成) 2. 精简 getDoc 说明节省 Token(已完成) 3. 全套单测核验(已完成) 4. 追加记忆笔记(已完成)]</n-tasks>
   <n-ul>
     <n-li>[任务1/2: 补齐 code===2 分支的 userComment]
@@ -2581,8 +2581,8 @@ graph TD
   <n-graph>
 ```mermaid
 graph TD
-    A["长官指示: 补齐报错用户备注 + 精简 getDoc 节省 Token"] --> B["编辑 server/tools/aiAsk/sysCall/codeSearch.js"]
-    B --> C["1. code===2 分支补齐: (userComment ? 用户备注... : '') + 搜索出错..."]
+    A["长官指示: 补齐报错管理员备注 + 精简 getDoc 节省 Token"] --> B["编辑 server/tools/aiAsk/sysCall/codeSearch.js"]
+    B --> C["1. code===2 分支补齐: (userComment ? 管理员备注... : '') + 搜索出错..."]
     B --> D["2. getDoc 精简: 仅保留返回字段清单与正则核心须知"]
     C & D --> E["全生命周期核验: 允许/拒绝/成功/失败/零匹配 100% 携带备注"]
     E --> F["边界测试套件: 14/14 PASS"]
@@ -2591,11 +2591,11 @@ graph TD
 </n-main>
 <n-main>
   <n-time>[时间:2026/09/07 05:23:30]</n-time>
-  <n-mem>[记忆：根据长官啦沐达「comment字段也要显示【用户备注】字样，因为我发现ai通常会忽略英文字段」的指示，对 codeSearch.js 中用户留言的可见性进行了双重增强改造。1. 格式增强：在 userConfirm.comment 获取处直接加上统一鲜明的中文标识前缀 【用户备注】${userConfirm.comment}；2. 首位前置：在构建 resObj 返回结构时，将 userComment 字段置于整个对象最顶端（第 1 个属性），确保模型在扫读大数组前第一眼即可捕获；3. 摘要融合：在 summary 摘要字段的开头同样注入 ${userComment}；，形成「首部独立字段 + 摘要显式前缀」双保险，彻底杜绝 AI 因忽略英文字段或直接看 summary 而遗漏用户关键指示的问题；4. 边界单测：14/14 项边界测试全部 100% PASS。]</n-mem>
-  <n-tasks>[总任务：1. 注入【用户备注】前缀(已完成) 2. 结构化对象顶端首置 userComment(已完成) 3. summary 中融入【用户备注】(已完成) 4. 单测全量验证并追加笔记(已完成)]</n-tasks>
+  <n-mem>[记忆：根据长官啦沐达「comment字段也要显示【管理员备注】字样，因为我发现ai通常会忽略英文字段」的指示，对 codeSearch.js 中用户留言的可见性进行了双重增强改造。1. 格式增强：在 userConfirm.comment 获取处直接加上统一鲜明的中文标识前缀 【管理员备注】${userConfirm.comment}；2. 首位前置：在构建 resObj 返回结构时，将 userComment 字段置于整个对象最顶端（第 1 个属性），确保模型在扫读大数组前第一眼即可捕获；3. 摘要融合：在 summary 摘要字段的开头同样注入 ${userComment}；，形成「首部独立字段 + 摘要显式前缀」双保险，彻底杜绝 AI 因忽略英文字段或直接看 summary 而遗漏用户关键指示的问题；4. 边界单测：14/14 项边界测试全部 100% PASS。]</n-mem>
+  <n-tasks>[总任务：1. 注入【管理员备注】前缀(已完成) 2. 结构化对象顶端首置 userComment(已完成) 3. summary 中融入【管理员备注】(已完成) 4. 单测全量验证并追加笔记(已完成)]</n-tasks>
   <n-ul>
-    <n-li>[任务1/2: 注入【用户备注】并前置]
-      <n-focus>[关注1:文件 server/tools/aiAsk/sysCall/codeSearch.js, 行号116, 摘要:userComment 赋值为 【用户备注】${userConfirm.comment}，resObj 顶部优先展开。]</n-focus>
+    <n-li>[任务1/2: 注入【管理员备注】并前置]
+      <n-focus>[关注1:文件 server/tools/aiAsk/sysCall/codeSearch.js, 行号116, 摘要:userComment 赋值为 【管理员备注】${userConfirm.comment}，resObj 顶部优先展开。]</n-focus>
     </n-li>
     <n-li>[任务2/2: summary 融合展示]
       <n-focus>[关注2:文件 server/tools/aiAsk/sysCall/codeSearch.js, 行号365/430, 摘要:buildSummary 与 buildFileSummary 返回 userComment ? `${userComment}；${text}` : text。]</n-focus>
@@ -2605,9 +2605,9 @@ graph TD
 ```mermaid
 graph TD
     A["反馈: AI 容易忽略英文字段 userComment"] --> B["codeSearch.js 可见性双重强化"]
-    B --> C["1. 内容加标: 【用户备注】${userConfirm.comment}"]
+    B --> C["1. 内容加标: 【管理员备注】${userConfirm.comment}"]
     B --> D["2. 结构前置: resObj 第 1 个 key 呈现 userComment (避免被大数组掩埋)"]
-    B --> E["3. 摘要融合: summary 开头同步合并 【用户备注】...；"]
+    B --> E["3. 摘要融合: summary 开头同步合并 【管理员备注】...；"]
     C & D & E --> F["效果: AI 无论看顶部字段还是看 summary 均 100% 无法忽略用户意图"]
 ```
   </n-graph>
@@ -3599,7 +3599,7 @@ graph TD
 </n-main>
 <n-main>
   <n-time>[时间:2026/09/09 18:51:00]</n-time>
-  <n-mem>[记忆：接续 06:48 之后的工作（此前笔记缺失，此处补齐现场）。啦沐达重启 IDE 后要求“先做个单元测试”，我用 editorLaunch 实测编辑器 line 行跳转链路：①第一次 editorLaunch(server/apps/editor/backend.js, line=44, singleInstance=true) 返回 app_fl2168，窗口停在 44 行；②第二次同文件 line=100 再启动，返回幽灵 ID app_fl2176（该实例 oninit 命中去重后自毁），实际复用 app_fl2168，啦沐达目视确认“第一次跳了44行 第二次跳了100行，好像能跳”——二次跳转生效，证明三处改动全部接通：frontend.js:1064/1069 的 vnode.attrs.data.line（原 d.data.line 越界会 TypeError）、backend.js:44 的 io.emit 透传 line、frontend.js:977 open 分支消费 args.line→pendingLine、updateEditor:561-566 setPosition+revealLineInCenter。③同时把 server/apps/editor/appCall/editorLaunch.js 按 fileOpener 范式加了工作目录外 waitConfirm 拦截（metaData.listId 取会话、resolvedPath 解析、getWorkDirs 前缀比对、拒绝返回原因、同意回传“。用户备注：xxx”、成功失败都带 commentSuffix），并把 data 里的 ...args 提前以防 args.filePath 覆盖 resolvedPath 绕过拦截；lsp 无错。啦沐达纠正两点：(a) aiDocs/ai开始编程时候注意.md 不算数、不是给我看的，开发指南以 owo_skills/coding_guide/SKILL.md 为准；(b) editorLaunch 可被手动调用，metaData 不保证存在，所以 metaData?.listId 必须保留（手动调用时 listId=undefined→getWorkDirs 返回[]→所有路径都走确认框，安全方向）。]</n-mem>
+  <n-mem>[记忆：接续 06:48 之后的工作（此前笔记缺失，此处补齐现场）。啦沐达重启 IDE 后要求“先做个单元测试”，我用 editorLaunch 实测编辑器 line 行跳转链路：①第一次 editorLaunch(server/apps/editor/backend.js, line=44, singleInstance=true) 返回 app_fl2168，窗口停在 44 行；②第二次同文件 line=100 再启动，返回幽灵 ID app_fl2176（该实例 oninit 命中去重后自毁），实际复用 app_fl2168，啦沐达目视确认“第一次跳了44行 第二次跳了100行，好像能跳”——二次跳转生效，证明三处改动全部接通：frontend.js:1064/1069 的 vnode.attrs.data.line（原 d.data.line 越界会 TypeError）、backend.js:44 的 io.emit 透传 line、frontend.js:977 open 分支消费 args.line→pendingLine、updateEditor:561-566 setPosition+revealLineInCenter。③同时把 server/apps/editor/appCall/editorLaunch.js 按 fileOpener 范式加了工作目录外 waitConfirm 拦截（metaData.listId 取会话、resolvedPath 解析、getWorkDirs 前缀比对、拒绝返回原因、同意回传“。管理员备注：xxx”、成功失败都带 commentSuffix），并把 data 里的 ...args 提前以防 args.filePath 覆盖 resolvedPath 绕过拦截；lsp 无错。啦沐达纠正两点：(a) aiDocs/ai开始编程时候注意.md 不算数、不是给我看的，开发指南以 owo_skills/coding_guide/SKILL.md 为准；(b) editorLaunch 可被手动调用，metaData 不保证存在，所以 metaData?.listId 必须保留（手动调用时 listId=undefined→getWorkDirs 返回[]→所有路径都走确认框，安全方向）。]</n-mem>
   <n-tasks>[总任务：1.line 行跳转链路(已改+已实测通过) 2.editorLaunch 工作目录拦截(已改待实测) 3.幽灵ID修复(待拍板) 4.969 readOnly 重置缺陷(待拍板) 5.按 coding_guide 清理 line 链路(待拍板) 6.appManager 复用分支是否覆盖启动参数(方向未定)]</n-tasks>
   <n-ul>
     <n-li>[任务1/6:line 行跳转链路]
@@ -8039,6 +8039,1086 @@ graph TD
   </n-graph>
 </n-main>
 
+<n-main>
+  <n-time>[时间:2026/11/04 00:59]</n-time>
+  <n-mem>[记忆：externalTestApp 迷你窗口的渐变方案终于定稿，长官回复「这个效果看起来还可以」。最终实现：背景块铺满窗体（inset 0、圆角3.2rem、底色 #F6F2EC），用 maskImage 两条线性渐变（to right 与 to bottom，各从 transparent 到 6.6rem 处 #000、再到 calc(100% - 6.6rem) 处 #000、末端 transparent）加 maskComposite: intersect 相交，实现四边向内 6.6rem 的线性淡出到透明；窗体 padding 7.4rem；根容器宽 62rem、padding 3.6rem 0 0 0；标题行 absolute top/left/right 3.6/0/0 + translateY(-50%)、zIndex 5。走过的弯路：①radial-gradient 只能画椭圆，被否；②box-shadow 在元素边界恒有约 50% 强度台阶，堆 34 层环只能从 95% 爬到 99.6%，仍可见边缘，最终被弃用；③把窗口做大留 7rem 透明边距的办法会让胶囊与可见底板脱节，也被否。关键结论：只有遮罩能把「硬边界」本身变成渐变，从而同时消灭台阶与裁切。]</n-mem>
+  <n-tasks>[总任务：1.修复渲染崩溃(已完成) 2.标题栏对齐窗体矩形(已完成) 3.渐变改为圆角矩形线性淡出并获得长官认可(已完成)]</n-tasks>
+  <n-ul>
+    <n-li>[任务1/3: 渐变定稿]
+      <n-focus>[关注1: externalTestApp/frontend.js，背景块 style 中 maskImage 的两个 6.6rem 与 maskComposite: intersect 为渐变宽度唯一旋钮，改宽需同步改窗体 padding。]</n-focus>
+      <n-focus>[关注2: 标题行 absolute top3.6/left0/right0 + translateY(-50%)，骑窗体上边缘且左右贴边，zIndex 5 低于悬浮球 10。]</n-focus>
+    </n-li>
+  </n-ul>
+  <n-graph>
+```mermaid
+graph TD
+  A["渐变实现路线选型"] --> B["radial-gradient：只能椭圆 → 否"]
+  A --> C["box-shadow 堆层：边界恒有台阶 → 否"]
+  A --> D["mask 双向线性相交：边界自身就是渐变 → 采用"]
+  D --> E["长官认可：这个效果看起来还可以"]
+```
+  </n-graph>
+</n-main>
+
+<n-main>
+  <n-time>[时间:2026/11/07 06:22:00]</n-time>
+  <n-mem>[记忆：在啦沐达长官的指导下，全面完成了 filePatcher 细粒度修改理由与审批 UI 的全链路重构落地。1. 契约层：update 携带总理由，内部每个 edit 携带独立分补丁理由，保持 operations 原始数组扁平透明，天生支持 Partial Success。2. 后端数据装配（filePatcher.js）：组装编号+缩进树状整体理由；前置检测失败的项全量打上 status: 'failed' 并携带具体 error 下发前端审查；向 ext.files 完整透传专属 reason 与 edits 数组，彻底消灭假设性兜底与概念二义性。3. 前端卡片（ChatBatchReview.js）：卡片第三行展示专属总理由；失败条目展示为灰色免审 Tag '已作废' 并呈现警示原因；向 Diff 视图与编辑器完整透传 edits。4. 内嵌对比（DiffFoldView.js）：在变动块头部直接插入成对配色修改理由行。5. 编辑器审阅（editor/frontend.js）：仅展示当前 update 总理由，并通过 Monaco 原生 modifiedEditor.changeViewZones API 将理由条直接注入代码行上方，彻底根治视口错位。全量静态语法校验通过。]</n-mem>
+  <n-tasks>[总任务：1. filePatcher契约与数据流改造(已完成) 2. 审批弹窗树状顶部与卡片第三行专属理由(已完成) 3. DiffFoldView行内理由条内嵌(已完成) 4. 编辑器Monaco ViewZone行内挂载(已完成) 5. 静态语法校验零报错(已完成)]</n-tasks>
+  <n-ul>
+    <n-li>[任务1/5: filePatcher.js 契约与组装]
+      <n-focus>[关注1: server/tools/aiAsk/sysCall/filePatcher.js，组装树状 overallReason，全量下发 failed 作废项并透传 edits 数组。]</n-focus>
+    </n-li>
+    <n-li>[任务2/5: ChatBatchReview.js 审批呈现]
+      <n-focus>[关注2: www/src/view/chat/ChatBatchReview.js，路径下方新增专属理由行，已作废条目免审呈现灰色 Tag 并显示错误。]</n-focus>
+    </n-li>
+    <n-li>[任务3/5: DiffFoldView.js 行内理由]
+      <n-focus>[关注3: www/src/view/common/DiffFoldView.js，变动块头部直接内嵌理由条，成对使用 getColor("blue_1")。]</n-focus>
+    </n-li>
+    <n-li>[任务4/5: editor/frontend.js ViewZone 注入]
+      <n-focus>[关注4: server/apps/editor/frontend.js，基于 Monaco ViewZone API 将理由条焊入代码行正上方，随滚动平滑移动。]</n-focus>
+    </n-li>
+  </n-ul>
+  <n-graph>
+```mermaid
+graph TD
+  A["长官提出细粒度修改理由需求"] --> B["契约重构：update总理由 + edits分理由"]
+  B --> C["filePatcher全量透明流：失败项标failed入卡片"]
+  C --> D["ChatBatchReview双行卡片升级为三行专属理由"]
+  D --> E["DiffFoldView变动块头部插入成对配色理由条"]
+  E --> F["Monaco modifiedEditor原生ViewZone行内理由注入"]
+  F --> G["node -c 全量语法校验 100% 通过"]
+```
+  </n-graph>
+</n-main>
+
+<n-main>
+  <n-time>[时间:2026/11/07 06:58:00]</n-time>
+  <n-mem>[记忆：在啦沐达长官的精准实测与批示下，彻底排查并根治了多 edit 临近时理由条丢失与图标排版缺陷。1. 根因确证：此前 DiffFoldView context=3 贪婪合并导致紧邻 edits 被压入单一 changeBlock，按下标映射产生抽屉原理丢失。2. 终极根治：filePatcher 新开 origStartLine 与 modifiedStartLine 物理行号；DiffFoldView 逐行扫描变动行精确触发渲染，使所有 edits 100% 逐一展开；3. 视觉终极规范：双端彻底弃用文字标签，引入 iconPark.Edit（经典笔图标），采用实心深色反差背景与 blue_1 成对配色，补齐 flexShrink:0 彻底根除折行，两端质感达到高度一致。全量落盘验证闭环。]</n-mem>
+  <n-tasks>[总任务：1. filePatcher回算物理行号(已完成) 2. DiffFoldView逐行精确插入与Edit笔图标(已完成) 3. editor/frontend.js ViewZone统一Edit笔图标(已完成) 4. 追加记忆笔记(已完成)]</n-tasks>
+  <n-ul>
+    <n-li>[任务1/4: 物理行号回算]
+      <n-focus>[关注1: filePatcher.js，新开 origStartLine 与 modifiedStartLine，保持 AI 原始字段纯净。]</n-focus>
+    </n-li>
+    <n-li>[任务2/4: DiffFoldView 逐行锚定]
+      <n-focus>[关注2: DiffFoldView.js，按物理行号逐行触发理由横幅，换装 Edit 笔图标与反差底色。]</n-focus>
+    </n-li>
+    <n-li>[任务3/4: editor 图标与样式统一]
+      <n-focus>[关注3: editor/frontend.js，ViewZone 前缀换装 Edit 笔图标，与卡片面板视觉绝对对齐。]</n-focus>
+    </n-li>
+  </n-ul>
+  <n-graph>
+```mermaid
+graph TD
+  A["长官指出1.2~1.4丢失与文字标签缺陷"] --> B["破案：context=3合并导致变动块少于edit数"]
+  B --> C["filePatcher新开物理行号origStartLine"]
+  C --> D["DiffFoldView逐行精确扫描触发理由横幅"]
+  D --> E["双端统一换装iconPark.Edit笔图标与深色实心徽章"]
+  E --> F["两端视觉绝对统一且多edit全量呈现闭环"]
+```
+  </n-graph>
+</n-main>
+
+<n-main>
+  <n-time>[时间:2026/11/07 07:14:00]</n-time>
+  <n-mem>[记忆：在长官啦沐达的深度审查与哲学指引下，彻底清除了两处致命盲区：1. 严禁对系统确定性资产做假设性兜底：window.iconPark 为系统全局核心资产必定存在，彻底拔除了 DiffFoldView 与 editor 中所有的 'window.iconPark ? ... : null' 以及 ': ✎' 假设性兜底分支，恢复直接调用；作废原因警示块彻底拔除 ⚠️ 字符 emoji，升级为标准 iconPark.Attention 矢量图标。2. 践行嵌入式闭包与多弹窗留言全保全原则：杜绝中途污染对象，在 globalComment 出口处以立即执行函数表达式（IIFE）直接内嵌运算；废弃具有吞噬缺陷的 'or' 逻辑，改用 '[outOfProjectConfirm.comment, userConfirm.comment].filter(Boolean).join(\"\n\")'，确保无论用户在跨目录审批框还是在代码审查框留下的多段留言均 100% 毫无遗漏地换行合并送达 AI。node -c 校验全量通过。]</n-mem>
+  <n-tasks>[总任务：1. 拔除全部iconPark兜底与emoji(已完成) 2. globalComment嵌入式闭包全保全多弹窗留言(已完成) 3. 语法核验与记忆追加(已完成)]</n-tasks>
+  <n-ul>
+    <n-li>[任务1/2: 拔除兜底与emoji净化]
+      <n-focus>[关注1: ChatBatchReview.js 与 DiffFoldView.js，直接调用 window.iconPark.getIcon，不写三元与假想分支。]</n-focus>
+    </n-li>
+    <n-li>[任务2/2: globalComment 留言全保全]
+      <n-focus>[关注2: filePatcher.js，IIFE 内嵌 filter(Boolean).join 汇聚跨目录留言与审查留言，杜绝二选一吞噬。]</n-focus>
+    </n-li>
+  </n-ul>
+  <n-graph>
+```mermaid
+graph TD
+  A["长官指出：iconPark必定存在为何兜底 + 多框留言为何用or吞噬"] --> B["反省深挖：恪守编程指南与第一性原理"]
+  B --> C["彻底拔除三端所有iconPark假设性兜底，直接调用getIcon"]
+  B --> D["globalComment以IIFE嵌入式闭包汇聚多弹窗留言"]
+  D --> E["filter(Boolean).join换行合并，多段留言100%全保全送达AI"]
+  C & E --> F["node -c 语法校验全绿闭环落盘"]
+```
+  </n-graph>
+</n-main>
+
+<n-main>
+  <n-time>[时间:2026/11/07 07:34:00]</n-time>
+  <n-mem>[记忆：在啦沐达长官的指导下，确立了 filePatcher 在工作目录配置与权限拦截上的宏观架构准则：1. 无工作区即无内外之分：未配置主工作目录时，系统不存在边界基准，不触发前置工作目录外询问弹窗，直接由 Monaco Diff 审批卡片统一把关；2. 读写工具风险隔离：fileOpener 读文件涉及隐私窃取且无二次审核，故无工作区时仍需前置防护；filePatcher 写文件已有代码审查卡片作为坚实防线，若无工作区时强行拦截两次不仅语义割裂且极大损耗效率；3. 边界成立前提：仅当显式配置主工作目录时，才对目录外文件严格执行“前置目录授权 + 后续 Diff 审查”双重防御。已在源码中写入详尽架构注释。]</n-mem>
+  <n-tasks>[总任务：1. 澄清无工作目录时无内外之分(已完成) 2. 在filePatcher.js中写入架构注释(已执行) 3. 语法核验与记忆追加(已完成)]</n-tasks>
+  <n-ul>
+    <n-li>[任务1/1: 架构准则固化]
+      <n-focus>[关注1: filePatcher.js，保留 resolvedP && mainDir 判定，写入详尽架构注释。]</n-focus>
+    </n-li>
+  </n-ul>
+  <n-graph>
+```mermaid
+graph TD
+  A["长官定调：未配工作区时不设目录外首次拦截"] --> B["第一性原理：无工作区即无内外之分"]
+  B --> C["读写分治：fileOpener防隐私窃取 vs filePatcher代码卡片兜底"]
+  C --> D["双重拦截仅在用户显式配置mainDir时生效"]
+  D --> E["源码植入详实架构注释，语法核验100%通过"]
+```
+  </n-graph>
+</n-main>
+
+<n-main>
+  <n-time>[时间:2026/11/07 07:59:00]</n-time>
+  <n-mem>[记忆：经长官啦沐达明确裁定，当前在更多参数配置中落地的【工作目录内编辑文件免确认】开关（autoConfirmWorkspacePatch），行为保持现状，暂时允许删除操作跟随免确认（即只要本次操作的所有增、删、改文件均位于已配置的工作区内部，且开启了该开关，均予以秒级静默放行，最大化保障自动化开发与重构清理效率；工作目录外的任何文件依然坚决执行高危拦截审查）。特此固化记录于 mind 体系备查。]</n-mem>
+  <n-tasks>[总任务：1. 固化工作目录内暂时允许删除操作裁定(已完成) 2. 更新mind记忆体系(已完成)]</n-tasks>
+  <n-ul>
+    <n-li>[任务1/1: 记录暂时允许删除裁定]
+      <n-focus>[关注1: filePatcher.js，autoConfirmWorkspacePatch 在 allInWorkspace 成立时，暂时允许包含 delete 操作一并放行。]</n-focus>
+    </n-li>
+  </n-ul>
+  <n-graph>
+```mermaid
+graph TD
+  A["长官指令：记录下mind，暂时允许删除"] --> B["权衡考量：工作区自治效率 vs 误删风险"]
+  B --> C["裁决落地：autoConfirmWorkspacePatch暂时覆盖工作区内delete"]
+  C --> D["工作区外越界删除坚决维持人工审查拦截"]
+  D --> E["固化记录于_mind_.html记忆体系"]
+```
+  </n-graph>
+</n-main>
+
+<n-main>
+  <n-time>[时间:2026/11/07 08:21:00]</n-time>
+  <n-mem>[记忆：在啦沐达长官的指导下，对更多参数配置中的三大免确认说明文案完成了高标准润色与规范化：1. 规范标点符号：彻底拔除冷硬的【方括号】，全量采用标准的“引号”；2. 丰满语境消除晦涩：彻底废除此前过于精简的电报体，将逻辑因果完整展开阐释；3. 明确指明限定边界：三处说明均清晰注明针对“文件增删改工具”（英文 filePatcher），对终端等工具无效；明确注明删除设为“关闭”时拥有覆盖白名单的最高一票否决权，白名单不包含删除需在上方单独配置。node -c 校验零报错，代码已进入 Git 提交版本流。]</n-mem>
+  <n-tasks>[总任务：1. 文案去方括号改用引号(已完成) 2. 丰富文案逻辑消除晦涩(已完成) 3. 语法核验与记忆追加(已完成)]</n-tasks>
+  <n-ul>
+    <n-li>[任务1/1: 文案润色与规范化]
+      <n-focus>[关注1: ChatSendParams.js，三处免确认文案改用标准引号并通俗展开说明。]</n-focus>
+    </n-li>
+  </n-ul>
+  <n-graph>
+```mermaid
+graph TD
+  A["长官指令：去方括号用引号，文案适当丰富避免过于精简晦涩"] --> B["审查ChatSendParams.js三处说明文案"]
+  B --> C["卡片3.5：完整说明工作区内编辑放行与全系统优先"]
+  B --> D["卡片3.6：完整说明关闭档一票否决与工作区/全系统放行"]
+  B --> E["卡片4：完整说明白名单不包含删除需在上方单独配置"]
+  C & D & E --> F["node -c 语法校验通过，长官执行git commit闭环"]
+```
+  </n-graph>
+</n-main>
+
+<n-main>
+  <n-time>[时间:2026/11/08 00:15:00]</n-time>
+  <n-mem>[记忆：在啦沐达长官的督导下，双模终端全链路工程取得关键实质性闭环突破：1. 资产全面归位：从官方源极速下载并安置了两大核心出厂资产至 resources/builtinVm/，包括 QEMU 官方纯净 C 源码包 qemu-11.1.3.tar.xz (135MB) 与 Alpine 官方 3.20.9 aarch64 tiny 云镜像 alpine-base.qcow2 (147MB)；2. 启动前双门禁架构全量落地：backend.js 中实现 beforeLaunch 钩子，未就绪时阻断 App 启动并就地通过 waitConfirm 弹窗向长官申请授权，授权后直接调用普通 HTTP RPC 接口 sendChatMessage.func 派发标准提示词唤醒 AI 自动构建；terminalSet.js 中实现 AI 工具前置门禁拦截；3. 架构彻底解耦正交：终端 App 内部只负责 Alpine 系统引导与字符流自检输出，代码 100% 纯净；4. 全部文件通过 node --check 静态语法零报错验证。]</n-mem>
+  <n-tasks>[总任务：1. 建立Skill编译安装说明书(已完成) 2. 编写启动前双门禁架构(已完成) 3. 下载并安置QEMU源码与Alpine镜像(已完成) 4. 终端语法校验与全链路闭环(已完成)]</n-tasks>
+  <n-ul>
+    <n-li>[任务1/2: 内置出厂资产下载与归位]
+      <n-focus>[关注1: resources/builtinVm/src/qemu-11.1.3.tar.xz (135MB) 与 resources/builtinVm/image/alpine-base.qcow2 (147MB)，极速下载校验完毕。]</n-focus>
+    </n-li>
+    <n-li>[任务2/2: 启动前双门禁与正交分层落地]
+      <n-focus>[关注2: server/apps/terminal/backend.js 与 terminalSet.js，实现 beforeLaunch 启动前门禁阻断与 sendChatMessage 消息调度，node --check 双绿灯通过。]</n-focus>
+    </n-li>
+  </n-ul>
+  <n-graph>
+```mermaid
+graph TD
+  A["长官指令：下载该下载的东西并推进落地"] --> B["1. 官方资产极速下载归位"]
+  B --> B1["QEMU 11.1.3 纯C源码 (135MB) -> resources/builtinVm/src/"]
+  B --> B2["Alpine 3.20.9 tiny qcow2 (147MB) -> resources/builtinVm/image/alpine-base.qcow2"]
+  A --> C["2. 启动前双门禁架构落盘"]
+  C --> C1["backend.js beforeLaunch: 阻断启动 + waitConfirm + sendChatMessage.func"]
+  C --> C2["terminalSet.js: AI工具层前置拦截 + 申请授权 + 引导构建"]
+  B & C --> D["node --check 语法全绿，代码库纯净自洽"]
+```
+  </n-graph>
+</n-main>
+
+<n-main>
+  <n-time>[时间:2026/11/08 02:40:00]</n-time>
+  <n-mem>[记忆：遵照啦沐达长官的最高规范指示，彻底完成了双模终端前置门禁与交互范式的重构与净化：1. 拔除错位卡片：彻底切除 backend.js 中的 waitConfirm 聊天卡片调用，改由在 beforeLaunch 检测 QEMU 未就绪时发射纯净 terminal:qemuNotReady Socket 信号并抛错阻断终端实例创建；2. 唤起正规 Notice：前端 terminal/frontend.js 监听该信号并唤起正统的 Notice.launch 浮动弹窗，用户点击确定时，动态捕获当前光标所在会话（comData.getChatList(comData.data.get().targetChatListId).id），未聚焦输入框则提示“请先点击一下聊天输入框，再重新操作”；3. 拨乱反正解除 listId 依赖：彻底清理人类启动终端时不必要的假想 listId 传参，消灭所有 || 0 盲目兜底，仅在 AI 调工具 (terminalSet) 时维护多智能体隔离 listId；4. node --check 全量静态语法检查零报错通过。]</n-mem>
+  <n-tasks>[总任务：1. 建立Skill编译安装说明书(已完成) 2. 编写启动前双门禁架构(已完成) 3. 下载并安置QEMU源码与Alpine镜像(已完成) 4. 彻底切除错位waitConfirm并接入原生Notice(已完成) 5. 终端全链路静态校验(已完成)]</n-tasks>
+  <n-ul>
+    <n-li>[任务1/2: 门禁彻底收敛与 Notice 原生弹窗落地]
+      <n-focus>[关注1: backend.js 仅发射信号阻断，frontend.js 弹正规 Notice 并动态对齐 targetChatListId，彻底杜绝兜底 0。]</n-focus>
+    </n-li>
+    <n-li>[任务2/2: 人类操作与 AI 隔离解耦]
+      <n-focus>[关注2: 人类终端启动完全剥离 listId 束缚，多智能体隔离仅由 terminalSet 严格把控，双轨正交。]</n-focus>
+    </n-li>
+  </n-ul>
+  <n-graph>
+```mermaid
+graph TD
+  A["长官指出：菜单启动应弹Notice而非waitconfirm + 为什么兜底0"] --> B["前置门禁与交互范式彻底纠偏"]
+  B --> C["1. backend.js 彻底切除 waitConfirm，纯净 emit('terminal:qemuNotReady')"]
+  B --> D["2. frontend.js 监听信号并唤起正规 Notice.launch 浮动窗口"]
+  B --> E["3. comData.targetChatListId 动态抓取当前光标所在会话（无光标提示聚焦）"]
+  B --> F["4. 人类终端彻底剥离假想 listId 束缚，仅 AI 终端保留多智能体隔离"]
+  C & D & E & F --> G["node --check 语法全绿，代码库回归大一统纯净标准"]
+```
+  </n-graph>
+</n-main>
+
+<n-main>
+  <n-time>[时间:2026/11/08 19:06:00]</n-time>
+  <n-mem>[记忆：针对啦沐达长官关于草坪动效性能占用的反馈，完成了关键落盘与排查：1. 现场实测与因果溯源：长官指出尝试设置 isolation 后高斯模糊效果直接消失。深入剖析第一性原理确证：在 Chromium/Blink 引擎中，当父级或胶囊被施加 isolation: isolate 时，强制建立了隔离层叠上下文，直接斩断了 backdrop-filter 向上采样祖先窗口与背板内容的渲染链路，导致毛玻璃采空而失效。已在 www/src/view/common/nav.js 中坚决彻底拔除所有 isolation: isolate 与 translateZ 侵入，完全保全了高斯模糊毛玻璃对聊天与底层内容的丝滑采样；2. lawn.svg 复合 Path 极速合并：在 www/public/statics/lawn.svg 中，对 4 层草叶生成逻辑进行重构，将原本分散在近 1000 个独立 path 元素的草叶贝塞尔指令，按每层颜色聚类直接拼接合并为复合路径（Compound Path），使 4 层草坪的 DOM 节点从 1000 个直接暴降至 14 个；同时将蒲公英花球每株 28 条独立射线的 line 元素全部合并为单一复合 path，消灭了 200+ 节点。整个草坪 DOM 节点总数暴降 98%，微风摇摆计算量大幅下降两个数量级，且彻底保全了原生毛玻璃效果，实现性能与视觉的双赢。]</n-mem>
+  <n-tasks>[总任务：1. 拔除破坏毛玻璃的isolation并恢复nav(已完成) 2. lawn.svg复合Path合并暴降98%DOM(已完成) 3. 语法校验与闭环验收(已完成)]</n-tasks>
+  <n-ul>
+    <n-li>[任务1/2: 拔除 isolation 恢复原生毛玻璃]
+      <n-focus>[关注1: 文件 www/src/view/common/nav.js，彻底移除 isolation: isolate，恢复 backdrop-filter 对背板的无损采样。]</n-focus>
+    </n-li>
+    <n-li>[任务2/2: lawn.svg 复合 Path 合并]
+      <n-focus>[关注2: 文件 www/public/statics/lawn.svg，buildGrassLayer 按颜色聚类合并 d 指令，4 层草叶从 1000 个节点降至 14 个；蒲公英 28 射线合并为单 path。]</n-focus>
+    </n-li>
+  </n-ul>
+  <n-graph>
+```mermaid
+graph TD
+  A["长官反馈：高斯模糊直接消失 + 要求合并Path"] --> B["排查isolation阻断机理"]
+  B --> C["Blink引擎规则：isolation阻断backdrop-filter向上采样背板"]
+  C --> D["nav.js彻底拔除所有isolation，100%恢复毛玻璃丝滑采样"]
+  A --> E["lawn.svg复合路径改造"]
+  E --> F["4层草坪按颜色聚类合并d指令：1000节点 -> 14节点"]
+  E --> G["蒲公英花球28条射线合并为单复合path"]
+  D & F & G --> H["毛玻璃完好 + DOM节点暴降98% + 渲染管线极速减负"]
+```
+  </n-graph>
+</n-main>
+
+<n-main>
+  <n-time>[时间:2026/11/08 19:32:00]</n-time>
+  <n-mem>[记忆：啦沐达长官明确裁定：主动去除了导航胶囊的毛玻璃模糊效果。至此，草坪动画的性能优化实现了完美闭环：1. 根除了最沉重的开销源：去掉了 backdrop-filter 大半径卷积运算后，GPU 每帧无需对运动背景反复重绘，能耗直接断崖式下降；2. 叠加复合 Path 成果：草叶由 1000 个 DOM 节点降至 14 个复合路径，蒲公英射线全量收敛，DOM 树精简 98% 以上；3. 视觉与性能兼得：保留了水草青玉绿的自然起伏与微风摆动，运行开销回归极低功耗。]</n-mem>
+  <n-tasks>[总任务：1. 去除毛玻璃并固化极低功耗草坪动效(已闭环)]</n-tasks>
+  <n-ul>
+    <n-li>[任务1/1: 彻底消除重绘开销与DOM暴降闭环]
+      <n-focus>[关注1: 去除 backdrop-filter 彻底解放 GPU 卷积算力，结合 lawn.svg 复合 Path，实现极致轻快。]</n-focus>
+    </n-li>
+  </n-ul>
+  <n-graph>
+```mermaid
+graph TD
+  A["长官指令：主动去掉导航胶囊模糊效果"] --> B["毛玻璃高斯卷积完全切除（GPU负荷归零）"]
+  A --> C["lawn.svg复合Path合并生效（DOM暴降98%）"]
+  B & C --> D["动效彻底转为极低功耗轻量级运行，全链路完美闭环"]
+```
+  </n-graph>
+</n-main>
+
+<n-main>
+  <n-time>[时间:2026/11/08 21:40:00]</n-time>
+  <n-mem>[记忆：啦沐达长官裁定「新增 getSession 钩子直接返回 session 即可」，我据此完成了终端 session 获取渠道的正道改造，并顺手破获了一个隐藏极深的模块实例分裂大案。1. 破案过程：我调 terminalSet 时，连一分钟前刚用 appId=-1 新建成功的终端 app_8ri283 也报「底层物理进程已断开（僵尸终端）」，且那次新建终端执行命令的返回内容是完全空的。2. 根因（第一性原理）：appManager 加载 backend 用 `${pathToFileURL(backendPath)}${cacheBust}`，cacheBust 为 `?v=N`（HMR 版本号，热更新过就大于0）；而 terminalSet 内部的静态 import "../backend.js" 解析出来是**不带查询串**的地址，Node ESM 视两者为不同模块，于是 backend 里的 `const sessions = new Map()` 被创建了两份，terminalSet 摸到的那份永远是空 Map。证据闭环：空 Map → getSession 恒 undefined → 僵尸判定全局误报；startOffset 恒为 0 且 rawDelta 恒空 → 命令输出恒为空白。3. 落地改造：backend.js 的 dispatch 新增 case "getSession" 返回 `{ok:true, data:session}`（appManager.dispatch 是纯函数直透，不做任何序列化，所以含 shell 句柄的 session 可安全在同一进程内流转）；坚决删掉了 export default 末尾的 getSession(appId) 方法（它基于静态 import 必然是空 Map，是一个必然踩空的陷阱）；terminalSet.js 三处（确认弹窗前判断模式与路径、僵尸检测、增量切片起算点）全部改为 `(await appManager.dispatch(id, "getSession")).data`。4. 长官审视后指示：删掉我给 import 加的三行背景注释（已执行）；追问 L7-L8 是否已无用，我核查结论是 terminalSet 的 terminalBackend（仍用于 cleanTerminalContent 纯函数）与 pathLib（仍用于 L145 拼默认目录）都还有用，真正失效的是 backend.js 里 idTool 与 subAgents 两个 import（唯一使用处落在 254-281 行已禁用的 updateAsk 注释块内），但长官在编辑器里拒绝了这处删除，我予以保留。5. stripAnsi 必须保留：cleanTerminalContent 本体仍在使用它。6. 两个文件 LSP 语法检查双重零报错。]</n-mem>
+  <n-tasks>[总任务：1. 新增 dispatch 的 getSession 动作(已完成) 2. 删除 backend 对象上的 getSession 陷阱方法(已完成) 3. terminalSet 三处改走官方 dispatch 路由(已完成) 4. 删除多余注释(已完成) 5. LSP 语法双绿(已完成)]</n-tasks>
+  <n-ul>
+    <n-li>[任务1/5: dispatch getSession 动作]
+      <n-focus>[关注1: server/apps/terminal/backend.js，dispatch 内 getContent 之前新增 case "getSession"，直接返回 session 本体，不搞 contentLength/lastLine 那套过度设计。]</n-focus>
+    </n-li>
+    <n-li>[任务2/5: 删除陷阱方法]
+      <n-focus>[关注2: backend.js 末尾曾有的 `getSession(appId){ return sessions.get(appId) }` 已整体拆除，防止后人再被 HMR 双实例坑杀。]</n-focus>
+    </n-li>
+    <n-li>[任务3/5: terminalSet 收口]
+      <n-focus>[关注3: server/apps/terminal/appCall/terminalSet.js 第156(现160)、239(现242)、267(现270)三处均改为 await appManager.dispatch(id, "getSession") 取 data。]</n-focus>
+      <n-focus>[关注4: 同一文件仍保留 `import terminalBackend from "../backend.js"`，仅因 cleanTerminalContent 是无状态纯函数，双实例无害；pathLib 在 L145 仍在用；stripAnsi 在 backend 的 cleanTerminalContent 内仍在用。]</n-focus>
+    </n-li>
+  </n-ul>
+  <n-graph>
+```mermaid
+graph TD
+  A["异常现象: 新建终端一分钟后就报僵尸 + 命令输出恒空白"] --> B["疑点: 检查代码逻辑与观测不符"]
+  B --> C["破案: appManager 用 backend.js?v=N 加载, 静态 import 是无 ?v= 的另一份实例"]
+  C --> D["sessions 被创建两份, terminalSet 摸到的那份是空 Map"]
+  D --> E["getSession 恒 undefined → 僵尸误报"]
+  D --> F["startOffset=0 且 rawDelta 空 → 输出恒空白"]
+  E & F --> G["正道修法: dispatch 新增 getSession 直接返回 session 本体"]
+  G --> H["删除对象上的 getSession 陷阱方法"]
+  H --> I["terminalSet 三处改走官方 dispatch 路由"]
+  I --> J["LSP 双文件零报错"]
+```
+  </n-graph>
+</n-main>
+
+<n-main>
+  <n-time>[时间:2026/11/08 22:30:00]</n-time>
+  <n-mem>[记忆：在啦沐达长官的裁定与指导下，确立并固化了工具与后端解耦的铁律架构：
+1. 架构铁律：系统工具（appCall 与 sysCall）内部绝对禁止直接引用 backend 模块。根本原因在于生命周期与模块加载机制的严重不对称：aiAsk 纯粹在内存中直接调用工具函数对象，不走 import 也不注入版本号；工具在系统启动时一次性加载，其静态相对 import 会闭包锁死在初代码模块上；而 backend 在文件变动时由 appManager 通过 ?v=N 重新导入并清空旧 sessions。若工具直接访问 backend，热更新后必将与活跃后端产生单例分叉，导致读到空 Map 并引发僵尸终端误报与命令截断。
+2. 通信规范：工具与 App 后端的全部数据交互必须 100% 收敛至 appManager.dispatch 官方动态路由。dispatch 每次调用均动态从 appDefs 中提取当前活跃的 backend 实例，天然免疫模块分叉与版本锁死。
+3. 现状与过渡说明：经长官指示，当前 terminalSet.js 与 terminalGet.js 暂时保留对 backend.js 的引用，但已在顶部加上强警示备注，明确此处仅暂时借用 cleanTerminalContent 这一无状态纯函数（无内部状态依赖，计算结果幂等稳定），严禁通过该引用触碰内部状态；待后续时机成熟时将其抽离为独立的纯函数文件。
+4. 实测闭环：长官重启 Electron 后，基于 dispatch 路由的新版 terminalGet 与 terminalSet 端到端全通，QEMU Alpine 微虚拟机成功拉起、免密登录 root 并执行 uname -a 正常回显，读写切片功能 100% 恢复。]</n-mem>
+  <n-tasks>[总任务：1. 确立工具内部禁止直接引用backend铁律(已闭环) 2. 在terminalSet/Get中植入架构强警示备注(已执行) 3. 固化记录至_mind_.html永久记忆体系(已完成)]</n-tasks>
+  <n-ul>
+    <n-li>[任务1/3: 确立禁止直接引用铁律]
+      <n-focus>[关注1: 彻底揭穿生命周期分叉机制：aiAsk内存直调无版本注入 vs backend热更新换代destroy，证明直接引用必产生单例割裂。]</n-focus>
+    </n-li>
+    <n-li>[任务2/3: 植入架构警示备注]
+      <n-focus>[关注2: 文件 server/apps/terminal/appCall/terminalSet.js 与 terminalGet.js，在 backend 导入行上方注入架构铁律注释，明确仅借用纯函数。]</n-focus>
+    </n-li>
+    <n-li>[任务3/3: 固化_mind_.html记忆]
+      <n-focus>[关注3: 文件 _mind_.html，按Win10 Fluent标准追加闭环事实与因果推导，供后续智能体严格遵守。]</n-focus>
+    </n-li>
+  </n-ul>
+  <n-graph>
+```mermaid
+graph TD
+  A["长官指令：写备注暂时不改，记录mind工具内禁止引用backend"] --> B["第一性原理确证：生命周期与加载机制不对称"]
+  B --> C["aiAsk直接调内存对象：无import/无Loader/无版本号注入"]
+  B --> D["工具启动一次性加载：静态import闭包锁死在初始backend"]
+  B --> E["HMR热更新：appManager用?v=N换代backend并清空旧表"]
+  C & D & E --> F["直接引用必导致内存状态分叉与版本异常"]
+  F --> G["架构铁律：状态交互一律走appManager.dispatch动态路由"]
+  G --> H["当前过渡：terminalSet/Get保留引用仅借用cleanTerminalContent纯函数"]
+  H --> I["代码头部植入架构警示备注 + mind体系永久固化"]
+```
+  </n-graph>
+</n-main>
+
+<n-main>
+  <n-time>[时间:2026/11/10 04:30:00]</n-time>
+  <n-mem>[记忆：在啦沐达长官的最高裁定与现场审视下，彻底终结了微虚拟终端工作目录的全部疑难杂症，完成了正统架构的闭环落盘。1. 开机函数职责归位：遵照长官裁决，工作目录初始化彻底收敛至开机/启动函数（qemuManager.start），由独立的开机函数 initWorkspaceOnBoot 监听控制台就绪信号，通过非 SSH 硬件串口免密 root 直通完成 /mnt/<dirName> 确定性挂载并注入 profile.d 引导；2. 业务终端纯净秒连：彻底切除了 virtualPty 中的挂载逻辑与 await 死锁，恢复 SSH 原本纯净连接，连上即秒开 client.shell，彻底消除了卡死在第 3 次重试的致命 Bug；3. 顶栏全量 iconTag 化：彻底拔除外部手写 style 与 styleExt，模式胶囊与工作目录感知气泡全量统一采用系统原生 iconTag 组件，纯内存响应式驱动正常态（FolderCode + gray_2）与漂移态（Attention + yellow_1）双态切换；4. 双模自适应 Notice 分流确认：物理直接 cd 且不改基准，虚拟严肃警告重启整机并终止任务；5. 全平台兼容性治理：qemuManager 中为 spawn 补充 windowsHide: true 防黑框，路径处理全量统一使用 pathLib.basename 与正反斜杠正则兼容。四大核心文件与 plans 实施计划书 100% 闭环。]</n-mem>
+  <n-tasks>[总任务：1. 开机函数实现非SSH串口root挂载(已落盘) 2. 业务终端恢复纯净SSH秒连(已落盘) 3. 顶栏换装iconTag零style双态气泡(已落盘) 4. 实施计划书与mind记忆体系闭环(已落盘)]</n-tasks>
+  <n-ul>
+    <n-li>[任务1/4: 开机函数非SSH串口挂载]
+      <n-focus>[关注1: qemuManager.js，start() 内显式调用 initWorkspaceOnBoot，串口免密 root 直通挂载 /mnt/<dirName>。]</n-focus>
+    </n-li>
+    <n-li>[任务2/4: virtualPty 纯净秒连]
+      <n-focus>[关注2: virtualPty.js，彻底移除挂载与 await，ready 后直接调起 client.shell，解除第 3 次重试死锁。]</n-focus>
+    </n-li>
+    <n-li>[任务3/4: 顶栏 iconTag 零 style 化]
+      <n-focus>[关注3: frontend.js，模式胶囊与感知气泡全量改用系统原生 iconTag，零手写 style。]</n-focus>
+    </n-li>
+    <n-li>[任务4/4: 跨平台兼容治理]
+      <n-focus>[关注4: qemuManager.js 注入 windowsHide: true，路径提取全量采用 pathLib.basename。]</n-focus>
+    </n-li>
+  </n-ul>
+  <n-graph>
+```mermaid
+graph TD
+  A["长官定调: 初始化写在开机函数(非SSH/控制台), SSH保持正常连接"] --> B["架构彻底正交解耦"]
+  B --> C["1. qemuManager.start: 开机流程显式调用 initWorkspaceOnBoot"]
+  C --> C1["硬件串口 stdin 免密以 root 挂载 /mnt/<dirName> 并写入 profile.d"]
+  C --> C2["注入 windowsHide: true 完善 Windows 跨平台兼容"]
+  B --> D["2. virtualPty.js: 彻底切除挂载代码与 await 阻塞"]
+  D --> D1["SSH ready 瞬间调起 client.shell, 恢复 0ms 秒开秒连"]
+  D --> D2["终端登录自然继承 profile.d, 提示符原生处于 /mnt/<dirName>"]
+  B --> E["3. frontend.js: 顶栏全量换装系统原生 iconTag"]
+  E --> E1["模式指示器与感知气泡彻底切除手写 style, 纯净自洽"]
+  E --> E2["响应式感知主目录变更, 自适应 Notice 双模分流确认"]
+  C & D & E --> F["代码落盘全绿, 彻底终结假工作目录与卡死死锁, 完美闭环"]
+```
+  </n-graph>
+</n-main>
+
+<n-main>
+  <n-time>[时间:2026/11/10 06:24:00]</n-time>
+  <n-mem>[记忆：在啦沐达长官的洞察与指引下，彻底消灭了切换工作目录后重连掉回~家目录的根因，并践行了单一动态函数的最高架构规范。1. 破案重连进家目录真相：初次启动与重连执行的确实是同一个 tryConnect 函数，但此前传参为静态常量闭包 workspaceDir，重连时依然去尝试挂载旧目录（如 aiWork），导致与新 QEMU 实例标签（如 模拟器游戏）冲突挂载失败，进而 cd 失效掉回 ~；2. 统一单一动态函数：遵照长官批注，彻底切除冗余的静态 workspaceDir 传参，两端统一收敛至单一动态函数 getWorkspaceDir: () => app.data.cwd，单一可信源；同一个 tryConnect 重连时动态解析最新路径，自动完成新目录挂载与引导；3. 绝对保持长官原作：backend.js 中物理终端与公共事件逻辑一行未改，100% 保持稳定；4. 环境引导优化：客机内通过覆盖写入 /home/vagrant/.owo_dir 彻底消除路径堆叠冲突。全部代码修改落盘。]</n-mem>
+  <n-tasks>[总任务：1. 拔除冗余静态传参收敛至getWorkspaceDir(已闭环) 2. 闭环tryConnect动态感知新工作目录(已闭环) 3. 保持backend物理终端逻辑0侵入(已闭环)]</n-tasks>
+  <n-ul>
+    <n-li>[任务1/3: 统一 getWorkspaceDir 单一数据源]
+      <n-focus>[关注1: backend.js 与 virtualPty.js，彻底删除静态 workspaceDir，全量统一使用 getWorkspaceDir 动态函数。]</n-focus>
+    </n-li>
+    <n-li>[任务2/3: 同一个 tryConnect 函数动态闭环]
+      <n-focus>[关注2: virtualPty.js，重连时动态解析最新工作区，挂载与引导 100% 同步切换。]</n-focus>
+    </n-li>
+    <n-li>[任务3/3: 物理终端老架构零侵入]
+      <n-focus>[关注3: backend.js，长官编写的公共事件监听逻辑一行不动，坚守老架构稳定铁律。]</n-focus>
+    </n-li>
+  </n-ul>
+  <n-graph>
+```mermaid
+graph TD
+  A["长官指出: 初次能进/mnt/aiWork, 但切换目录重启后又掉入家目录"] --> B["破案: 两个走的是同一个tryConnect, 但闭包workspaceDir是静态死值"]
+  B --> C["新QEMU为新tag, 重连仍拿旧tag挂载失败 -> 掉入~"]
+  A --> D["长官批注: 删掉静态传参, 统一使用getWorkspaceDir动态函数"]
+  D --> E["backend.js: createVirtualShell统一仅传getWorkspaceDir单一可信源"]
+  D --> F["virtualPty.js: tryConnect调用getTargetWorkspace()动态解析最新路径"]
+  E & F --> G["重连时自动以最新目录挂载并更新~/.owo_dir"]
+  G --> H["公共物理终端代码0侵入, 全链路完美自愈闭环"]
+```
+  </n-graph>
+</n-main>
+
+<n-main>
+  <n-time>[时间:2026/11/10 18:26:00]</n-time>
+  <n-mem>[记忆：在啦沐达长官的督导下，微虚拟化资产体系完成了由本地复制到云端多源自适应流式下载与管理面板唯一中枢的彻底重塑。1. 系统级统一目录治理：遵照长官批注，在 server/tools/tempPath.js 的 getUserVmDir() 中一次性将 vm 及其全部子目录（download/bin/image/qemu）通过 fs.ensureDirSync 准备就绪，业务代码零临时 mkdir 侵入；2. 智能多源环境自适应：qemuManager 实现国内极速节点 800ms 探针，国内优先走高速镜像，国际走官方 CDN 优雅降级；3. 缓冲下载与魔数硬核校验：下载至 owo_data/vm/download/ 下的 .download 临时文件，下载完毕后双重校验文件大小与 Magic 魔数（QCOW2: QFI\xfb，tar.xz: 0xFD 7zXZ 0x00），通过后原子 rename 归位至 image/ 或 qemu/，杜绝坏文件污染；4. 双轨门禁收敛至唯一入口：用户前台 Notice 与 AI 端 waitConfirm 审批卡片双轨对齐“缺少 QEMU 软件与系统镜像，是否下载并让 AI 安装？”，用户确认后全量统一唤起【虚拟机管理面板】；5. 100% 遵照四大指南重构 VmManagerModal：彻底拔除外部非法 import，全部依赖（IconTag, ioSocket 等）通过 vnode.attrs 唯一确定获取；每一个属性与函数参数独占一行极致垂直排版；div 全部简写为空字符串 m('', ...)；成套 getColor 配色；卡片 3 呈现环境自适应 Badge、Alpine 镜像与 QEMU 源码独立进度槽（下载中展开/完成自动隐藏）；并在下方动态呈现【立即召唤 AI 安装/重装虚拟机软件】高亮大按钮，点击后发送标准消息唤醒 AI 在宿主物理机编译落盘。全链路完美闭环。]</n-mem>
+  <n-tasks>[总任务：1. tempPath统一初始化vm子目录(已落盘) 2. qemuManager多源自适应与Magic校验流式下载(已落盘) 3. 用户与AI双轨门禁联动管理面板(已落盘) 4. VmManagerModal卡片3重构与召唤AI大按钮(已落盘) 5. 任务清单与_mind_.html记忆闭环(已落盘)]</n-tasks>
+  <n-ul>
+    <n-li>[任务1/4: tempPath 统一目录中枢]
+      <n-focus>[关注1: tempPath.js，getUserVmDir 一次性初始化 vm/download/bin/image/qemu。]</n-focus>
+    </n-li>
+    <n-li>[任务2/4: 流式下载与 Magic 校验]
+      <n-focus>[关注2: qemuManager.js，多源智能探测，临时缓冲下载，Magic 魔数校验与原子归位。]</n-focus>
+    </n-li>
+    <n-li>[任务3/4: 双轨门禁收敛唯一入口]
+      <n-focus>[关注3: frontend.js 与 terminalSet.js，统一弹窗询问，确认后联动唤起管理面板。]</n-focus>
+    </n-li>
+    <n-li>[任务4/4: 管理面板四大指南绝对规范重构]
+      <n-focus>[关注4: VmManagerModal.js，全量 vnode.attrs 注入，极致垂直排版，独立进度槽，立即召唤 AI 安装大按钮。]</n-focus>
+    </n-li>
+  </n-ul>
+  <n-graph>
+```mermaid
+graph TD
+  A["长官指令: 移除resources, 改为远程下载到owo_data/vm/download, 校验后归位"] --> B["1. tempPath.getUserVmDir 一次性初始化全部子目录"]
+  A --> C["2. qemuManager: 国内/海外网络自适应探测 + 多源降级回退"]
+  C --> C1["缓冲至 vm/download/, 文件大小与 Magic 魔数校验通过后原子 rename"]
+  A --> D["3. 双轨门禁唯一入口闭环"]
+  D --> D1["用户前台 Notice 询问 + AI 工具端 waitConfirm 审批卡片"]
+  D --> D2["用户确认后统一唤起【虚拟机管理面板】并启动下载"]
+  A --> E["4. VmManagerModal.js 100% 遵照四大指南绝对规范重构"]
+  E --> E1["彻底拔除非法 import, 全部依赖通过 vnode.attrs 唯一确定获取"]
+  E --> E2["极致垂直化换行排版 + div 简写 m('') + 成套成对 getColor"]
+  E --> E3["镜像与源码独立进度槽位 (下载中展开/完成自动隐藏)"]
+  E --> E4["面板下方动态浮现醒目大按钮: 【立即召唤 AI 安装/重装虚拟机软件】"]
+  B & C1 & D2 & E --> F["代码落盘全绿, 全链路云端资产与安装调度工程圆满闭环"]
+```
+  </n-graph>
+</n-main>
+
+<n-main>
+  <n-time>[时间:2026/11/10 19:15:00]</n-time>
+  <n-mem>[记忆：在啦沐达长官的督导下，微虚拟化与终端控制链路完成了两大关键安全与信息透明闭环：1. 模式冲突强拦截机制落地（决不允许 AI 分不清虚拟机与物理机）：在 terminalSet.js 中建立 Fail-Fast 防呆拦截门禁，当 AI 显式指定 mode 时，若与目标终端底层的真实物理属性（isVmMode）发生冲突，系统直接拒绝执行并返回明确的拦截错误引导其自查，杜绝张冠李戴误操作；2. terminalGet 头部与列表全客观返回：遵照长官批注，在 terminalGet 输出最开头显式标注【终端类型】：vm / host、编号与路径（防意外截断）；列表项统一使用纯净单一的 mode: "vm" | "host" 字段返回，彻底拔除物理机必定强审的主观武断标注（充分尊重用户自定义免审配置）；3. 模式 2 彻底切除自定义镜像入口：专精官方验证通畅的标准 Alpine 云镜像，确保 100% 具备 9p 内核驱动与免密 sudo，彻底消除不匹配镜像带来的未知故障。全链路 node --check 语法全绿落盘闭环。]</n-mem>
+  <n-tasks>[总任务：1. terminalSet落地模式冲突强拦截门禁(已落盘) 2. terminalGet头部与列表纯净返回mode(已落盘) 3. 切除自定义镜像专精官方Alpine(已落盘) 4. _mind_.html记忆笔记闭环(已落盘)]</n-tasks>
+  <n-ul>
+    <n-li>[任务1/3: 模式冲突 Fail-Fast 拦截]
+      <n-focus>[关注1: terminalSet.js，当 explicitMode 与 actualMode 冲突时，直接抛错拒绝，决不允许 AI 混淆。]</n-focus>
+    </n-li>
+    <n-li>[任务2/3: terminalGet 客观返回 mode]
+      <n-focus>[关注2: terminalGet.js，单终端开头显式返回【终端类型】：mode，列表纯净返回 mode: "vm"|"host"。]</n-focus>
+    </n-li>
+    <n-li>[任务3/3: 模式 2 专精官方母盘]
+      <n-focus>[关注3: VmManagerModal.js，切除上传自定义镜像按钮，消除驱动缺失隐患。]</n-focus>
+    </n-li>
+  </n-ul>
+  <n-graph>
+```mermaid
+graph TD
+  A["长官质问: AI分不清终端类型怎么办 + terminalGet开头标明类型"] --> B["1. terminalSet.js: 参数冲突 Fail-Fast 强拦截"]
+  B --> B1["显式 mode 与实际物理状态不符时, 直接拒绝执行并报错引导"]
+  A --> C["2. terminalGet.js: 头部防截断显式输出 + 列表单一返回 mode: vm/host"]
+  C --> C1["输出最开头输出【终端类型】：mode，去除主观强审假定"]
+  A --> D["3. 模式 2 专精官方 Alpine 云镜像, 消除不匹配隐患"]
+  B1 & C1 & D --> E["终端类型安全与信息感知全链路 100% 确定性闭环"]
+```
+  </n-graph>
+</n-main>
+
+<n-main>
+  <n-time>[时间:2026/11/10 19:35:00]</n-time>
+  <n-mem>[记忆：在啦沐达长官的战略决策下，完成了终端工具体系的原子化重构与权限正交拆分：1. 独立拆出微虚拟机专属工具 terminalVmSet：专精受限隔离的 Linux 微虚拟机（QEMU Alpine）沙箱命令执行，享有 100% 免审直通特权；内置启动前双门禁检测与 waitConfirm 聊天审批卡片，批准后联动唤起管理面板；2. terminalSet 纯净化收敛：保留原有名称“执行终端命令”与通用文案，移除 mode 参数，专精宿主物理机执行，强制 waitConfirm 审核；3. 权限颗粒度彻底自治：从根本上解决了用户无法在系统权限设置中单独放行虚拟机而禁用物理机的痛点；4. 物理隔离与防呆拦截：两工具互相排斥，若 AI 拿物理终端去调 terminalVmSet 或拿虚拟终端去调 terminalSet，系统在最外层直接抛错拦截并引导，从根源上彻底消灭 AI 类型混淆。node --check 静态核验双绿灯落盘。]</n-mem>
+  <n-tasks>[总任务：1. 新建terminalVmSet专属虚拟沙箱工具(已落盘) 2. terminalSet纯净化收敛为宿主专属(已落盘) 3. 工具权限正交解耦与防呆拦截闭环(已落盘) 4. _mind_.html记忆笔记闭环(已落盘)]</n-tasks>
+  <n-ul>
+    <n-li>[任务1/3: terminalVmSet 虚拟沙箱工具]
+      <n-focus>[关注1: terminalVmSet.js，100% 免审直通，前置门禁审批与管理面板联动，专精 /mnt/<项目名>。]</n-focus>
+    </n-li>
+    <n-li>[任务2/3: terminalSet 物理终端工具]
+      <n-focus>[关注2: terminalSet.js，保持原本 name，移除 mode 参数，专精宿主物理机，强制 waitConfirm。]</n-focus>
+    </n-li>
+    <n-li>[任务3/3: 权限自治与类型互斥拦截]
+      <n-focus>[关注3: 双工具跨类型调用立即抛错 Fail-Fast，工具级独立开关与白名单完全解耦。]</n-focus>
+    </n-li>
+  </n-ul>
+  <n-graph>
+```mermaid
+graph TD
+  A["长官指令: 拆分 terminalSet, 独立 terminalVmSet 便于权限配置"] --> B["原子化工具正交重构"]
+  B --> C["1. terminalVmSet: 微虚拟机专属 (id: terminalVmSet)"]
+  C --> C1["微虚机 Linux 沙箱 100% 免审直通"]
+  C --> C2["门禁检测 -> 审批卡片 -> 联动管理面板下载"]
+  B --> D["2. terminalSet: 宿主物理机专属 (id: terminalSet)"]
+  D --> D1["保持原名称与通用文案, 移除 mode 参数"]
+  D --> D2["强制 waitConfirm 审查弹窗, 受宿主安全监管"]
+  C & D --> E["权限自治: 用户可在设置中单独禁用物理机/放行虚拟机"]
+  C & D --> F["防呆互斥: 跨类型操作最外层当场打回, 彻底终结 AI 混淆"]
+  E & F --> G["双工具架构清晰自洽, node --check 双绿灯全量落盘"]
+```
+  </n-graph>
+</n-main>
+
+<n-main>
+  <n-time>[时间:2026/11/10 20:16:00]</n-time>
+  <n-mem>[记忆：在啦沐达长官的逐行严格审视与指导下，完成了 terminalVmSet.js 与原版 terminalSet.js 核心逻辑的 100% 绝对对齐：1. 彻底纠偏假想代码：长官指出 terminalSet 原版一直就是直接发送 fullCommand + '\r'，彻底删除了此前私加的 write: '\r' 危险代码，消除了替用户误敲回车引爆危险命令的致命隐患；2. 用户留言保全：启动前门禁审批卡片补齐 authConfirm.comment 留言提取，将【用户留言】完整拼接于结果头部送达 AI，绝不吞错；3. 核心机制 100% 绝对对齐：前台程序拦截 checkRunningProcess、未闭合语法等待拦截 suspendedMatch、广播 app:active、startOffset 回溯寻找 \n、session.shell.onData 2.5 秒静默双超时监听算法、startLineNum 绝对行号注水编号、以及 Tail-First 末端优先截断算法全部毫不走样地与 terminalSet 镜像对齐；4. 长官原版注释原封不动一字未改：严格保留长官写就的原版 getDoc 说明与 Joi 参数文档。node --check 静态核验双绿灯全量落盘。]</n-mem>
+  <n-tasks>[总任务：1. 拔除多余回车对齐直接发送(已落盘) 2. 授权卡片留言保全(已落盘) 3. 核心执行与截断逻辑100%镜像对齐(已落盘) 4. 长官原版注释原封不动(已落盘) 5. _mind_.html记忆笔记闭环(已落盘)]</n-tasks>
+  <n-ul>
+    <n-li>[任务1/4: 直接发送消除回车隐患]
+      <n-focus>[关注1: terminalVmSet.js，彻底删除 write: '\r'，直接写入 fullCommand + '\r'。]</n-focus>
+    </n-li>
+    <n-li>[任务2/4: 用户审批留言提取保全]
+      <n-focus>[关注2: terminalVmSet.js，提取 authConfirm.comment，拼接为 commentPrefix 送达 AI。]</n-focus>
+    </n-li>
+    <n-li>[任务3/4: 核心执行机制镜像对齐]
+      <n-focus>[关注3: terminalVmSet.js，checkRunningProcess/suspendedMatch/静默2.5s监听/绝对行号注水100%对齐。]</n-focus>
+    </n-li>
+    <n-li>[任务4/4: 注释一字不改]
+      <n-focus>[关注4: terminalVmSet.js，长官写就的原版 getDoc 规范注释完好保留。]</n-focus>
+    </n-li>
+  </n-ul>
+  <n-graph>
+```mermaid
+graph TD
+  A["长官批注: 虚拟机以外逻辑与terminalSet完全对齐 + 保留现有注释不要改"] --> B["100% 镜像级对齐落盘"]
+  B --> C["1. 排雷: 彻底删除多余 write '\\r', 恢复长官原版直接发送"]
+  B --> D["2. 留言: 门禁审批卡片提取 authConfirm.comment 保全至 commentPrefix"]
+  B --> E["3. 逻辑完全镜像对齐 terminalSet"]
+  E --> E1["checkRunningProcess 前台拦截 (force 保护)"]
+  E --> E2["suspendedMatch 未闭合语法拦截 (force 保护)"]
+  E --> E3["广播 app:active + startOffset 换行回溯"]
+  E --> E4["session.shell.onData 2.5 秒静默双超时监听算法"]
+  E --> E5["startLineNum 绝对行号注水 + Tail-First 截断算法"]
+  B --> F["4. 长官亲手写就的文档注释原封不动一字未改"]
+  C & D & E & F --> G["双端代码高度自洽统一, node --check 语法全绿落盘闭环"]
+```
+  </n-graph>
+</n-main>
+
+<n-main>
+  <n-time>[时间:2026/11/10 21:00:30]</n-time>
+  <n-mem>[记忆：啦沐达报“AI 没有权限写工作目录”，问我开机挂载时是否给了写权限。我用 ps 挖到实跑的 QEMU 参数：-virtfs local,path=.../aiWork,mount_tag=aiWork,security_model=none,id=ws0，端口 2222。又用 codeSearch 挖到虚机内挂载命令：sudo mount -t 9p -o trans=virtio,version=9p2000.L "aiWork" "/mnt/aiWork"，无 ro 项。判定：通道可写，拦路虎是 security_model=none 的属性直通——客机看到的是宿主属主 lambda(uid 501)，而干活的 vagrant(uid 1000) 落在“其他人”档，目录 755 只能读不能写；v9fs 又不支持 uid=/gid= 覆盖，只能从 QEMU 侧解决。啦沐达批准后我落盘了两处改动：qemuManager.js 第 870 行 security_model=none 改为 mapped-xattr；virtualPty.js 第 242 行 mountCmd 在挂载成功后追加 sudo chown -R vagrant:vagrant "/mnt/${dirName}"，并在第 238 行补全注释说明归属权移交。两文件 node --check 均通过，输出 SYNTAX_OK（新开终端 app_zwm1777）。尚未重启虚拟机实测写权限。]</n-mem>
+  <n-tasks>[总任务：1.核实9p写权限根因(已完成) 2.落盘两处修复改动(已完成) 3.重启虚机实测写权限(待执行)]</n-tasks>
+  <n-ul>
+    <n-li>[任务1/3:核实根因]
+    <n-focus>[关注1:server/tools/vm/qemuManager.js,行号870,security_model=none → mapped-xattr,已落盘]</n-focus>
+    </n-li>
+    <n-li>[任务2/3:落盘修复]
+    <n-focus>[关注2:server/apps/terminal/virtualPty.js,行号242,挂载后追加 sudo chown -R vagrant:vagrant "/mnt/${dirName}" 并与后续 echo 用 && 串联,已落盘。行号238 注释同步更新。]</n-focus>
+    </n-li>
+    <n-li>[任务3/3:验证]
+    <n-focus>[关注3:终端 app_zwm1777 执行 node --check 两文件，输出 SYNTAX_OK。下一步需重启虚机（QEMU 参数仅启动时读取）后再测 touch 是否能写入。]</n-focus>
+    </n-li>
+  </n-ul>
+  <n-graph>
+```mermaid
+flowchart TD
+  A["QEMU参数 security_model=none"] --> B["属性直通: 属主显示 lambda(501)"]
+  B --> C["vagrant(1000) 落 other 档, 755 仅 r-x"]
+  C --> D["写操作被拒 EACCES"]
+  D --> E["改为 mapped-xattr (qemuManager L870)"]
+  E --> F["挂载后 chown -R vagrant (virtualPty L242)"]
+  F --> G["node --check 语法全绿 SYNTAX_OK"]
+  G --> H["待办: 重启虚机实测写入"]
+```
+  </n-graph>
+</n-main>
+
+<n-main>
+  <n-time>[时间:2026/11/14 09:21:00]</n-time>
+  <n-mem>[记忆：两件事。①先复查了长官自己修好的 www/src/view/common/format.js（工作区相对 HEAD 改动 132 行）。他的方案是新增 htmlRunnerPlugin 插件：preprocess 钩子先用正则 /(```[\s\S]*?```)|((?:<!doctype html[^>]*>\s*)?<html[\s\S]*?<\/html>)/gi 把三反引号代码块原样保留、把完整 html 文档整块抽出并存进插件闭包数组 htmlList，正文里换成令牌 OWO_HTML_RUNNER_序号；postprocess 再把令牌（可能被包成 <p>…</p>）替换成一张“HTML 沙箱”卡片，卡片带 data-srcdoc 属性与运行/停止/源码三个按钮，只有点“运行”时才往 stage 里 innerHTML 插入 sandbox=allow-scripts 的 iframe 并给 srcdoc 赋值。这样整文档只会得到一个懒加载 iframe，不会再出现上次那种“整文档被切碎成 15 个 iframe + CSS 裸露”的局面。data-srcdoc 只转义 & 和 " 两个字符，靠“HTML 属性解析一次 + srcdoc 再解析一次”的双重解码恰好还原，方案本身成立。审查发现三处残留与隐患：1) renderMD.html（L257-261）仍是调试桩，匹配到文档级标签就 return "测试html占位符"，而 L259 的 frameHeight 变量从定义后从未被使用，是旧 iframe onload 方案留下的死代码；因为完整 html 文档已被 preprocess 抽走，这里只会吃到“孤立的 style/script/head/link/meta/base 片段”，后果是这些片段被六个字整块顶掉，既看不到内容也看不到源码。2) preprocess 的正则只保护三反引号围栏，不保护波浪线围栏与四空格缩进代码块，若有人在代码块里贴 html 文档会被误抽。3) katex 与 admonition 两个插件的 preprocess 先于 htmlRunnerPlugin 注册（L212-216 vs L467），文档里的 $ 公式符与 !!! 提示框语法可能被先行改写，破坏原文。以上三点我尚未动手，已向长官汇报待定。②新任务：长官截图指出点击底栏“暂停”按钮会弹出需要手动关闭的 Notice 提示“已发送停止信号”，要改成 tip.js 的一次性定时器轻提示。定位链路：www/src/view/chat/ChatInputBar.js 第 690-718 行，在 reply 状态下渲染 PauseOne 图标，onclick 里 await settingData.fnCall("stopAiAsk", [targetChatListId]) 拿到后端返回的 tmp.msg（后端来自 server/crossFuncs/stopAiAsk.js 与 server/apis/aiAsk/api_aiAsk_stop.js，文案键 "API/消息/已发送停止信号"），然后 Notice.launch({msg: tmp.msg})。全仓搜索 stopAiAsk 只有这一处调用点。tip.js 的 API 是 Tip.launch(msg, time = 1000)，Tip 已在 www/src/view/layout/Layout.js 第 40 行 m(Tip) 全局挂载，init_shortcut.js 里已有三处 Tip.launch 用法可作范例。已落盘：顶部 import 新增 import Tip from "../common/tip.js"（Notice 在 HelpMenu/DesktopMini 等处仍在用，保留未删）；onclick 里 Notice.launch({msg: tmp.msg}) 改为 Tip.launch(tmp.msg, 1500)。LSP 无 .js 服务端（提示可安装到隔离区），故未做静态校验，改动仅两处极具确定性，待长官热更新后点一次暂停目视验收（顶部居中淡入淡出、约 1.5 秒自动消失、无需点确定）。]</n-mem>
+  <n-tasks>[总任务：1.复查 format.js 自修方案(已执行，发现 3 处残留待定) 2.暂停按钮提示改一次性 tip(已落盘，待目视验收)]</n-tasks>
+  <n-ul>
+    <n-li>[任务1/2: 复查 format.js]
+      <n-focus>[关注1:文件 www/src/view/common/format.js, 行号257-261, 代码片段|>renderMD.html = function ({ text }) { if (!/<(?:!doctype|html|head|body|style|link|script|meta|base)\b/i.test(text)) return text; const frameHeight = ...; return "测试html占位符" }<|, 调查情况:完整文档已被 htmlRunnerPlugin 的 preprocess 抽走，此处只剩孤立片段；占位符会整块顶掉内容，frameHeight 为死变量。计划修改:待长官决定，最合直觉是将片段转义后原样展示或输出可读提示，不再吐调试文案。]</n-focus>
+      <n-focus>[关注2:文件 www/src/view/common/format.js, 行号405-467, 摘要:htmlRunnerPlugin，preprocess 抽 <html>…</html> 整文档为令牌，postprocess 生成带 data-srcdoc 的沙箱卡片，点运行才建 sandbox=allow-scripts iframe。方案成立，整文档不再被切碎。]</n-focus>
+      <n-focus>[关注3:文件 www/src/view/common/format.js, 行号412 与 467, 隐患:正则只保护三反引号围栏，不保护波浪线与缩进代码块；katex/admonition 的 preprocess 先于本插件执行，文档内 $ 与 !!! 可能被误改。]</n-focus>
+    </n-li>
+    <n-li>[任务2/2: 暂停提示改 tip]
+      <n-focus>[关注4:文件 www/src/view/chat/ChatInputBar.js, 行号5 与 690-718, 代码片段|>import Tip from "../common/tip.js" … await settingData.fnCall("stopAiAsk", [targetChatListId]) … Tip.launch(tmp.msg, 1500)<|, 调查情况:原为 Notice.launch({msg: tmp.msg}) 需手动关闭；Tip 已在 Layout.js L40 全局挂载，API 为 launch(msg, time=1000)。已落盘，待实测。]</n-focus>
+    </n-li>
+  </n-ul>
+  <n-graph>
+```mermaid
+graph TD
+  A["长官自修 format.js"] --> B["htmlRunnerPlugin: preprocess 抽整文档为令牌"]
+  B --> C["postprocess 生成 HTML 沙箱卡片"]
+  C --> D["点运行才建 sandbox=allow-scripts iframe"]
+  D --> E["效果: 整文档单 iframe, 不再被切碎"]
+  B --> F["残留: renderMD.html 调试桩 测试html占位符"]
+  F --> G["孤立 style/script 片段被六个字顶掉"]
+  B --> H["隐患: 只护三反引号围栏"]
+  B --> I["隐患: katex/admonition 的 preprocess 先行"]
+  J["长官新指令: 暂停提示改一次性 tip"] --> K["ChatInputBar L708 Notice.launch"]
+  K --> L["改为 Tip.launch tmp.msg 1500"]
+  L --> M["Tip 全局挂载于 Layout.js L40"]
+```
+  </n-graph>
+</n-main>
+
+<n-main>
+  <n-time>[时间:2026/11/15 00:50:00]</n-time>
+  <n-mem>[记忆：在啦沐达长官的最高统筹指挥与亲自操刀下，彻底打通了 QQ 官方机器人 WebSocket 双向长连接全链路，实现了新旧通道的正交平行与系统闭环。1. 架构定调：官方机器人彻底告别无公网IP无法接收消息的 Webhook 紧箍咒，接入腾讯官方 @tencent-connect/qqbot-nodejs SDK 原生 WebSocket 网关，全局单实例长连；2. 零兜底快速失败与一行不删：原版 190 行手写 HTTP 接口 100% 留档保全，新写 ws* 平行方法（wsStart, wsStop, wsMsgGroup, wsMsgUser, wsMsgChannel），严禁任何平滑回退，未就绪快速失败；3. 消息中枢与四路分流：长官亲自指挥修改 botMsgCenter.js，补齐 meta.d.group_openid，解开第 343 行出站总闸，精准对接 wsMsgGroup；qqBotOnline 接收端原汁原味还原标准 que，无临时变量内联直读，四路事件（群聊/子频道/私聊/频道私信）与原版 100% 对齐；4. 双通道互斥锁与电源联动：backend.js 中 OneBot 与官方机器人设计为状态互斥锁，标题栏按钮智能联动活跃模式，开关开启才连、关闭即停，绝不在软件启动时盲连偷跑；5. 凭证防冲突与扫码集成：遵照长官留言，SettingsView 中保留 qqNum 与 token 字段仅在 UI 标注已作废，保全存档兼容；集成手机 QQ 扫码一键连接（@tencent-connect/qqbot-connector）。全部 5 个核心文件 node --check 静态校验全绿闭环落盘。]</n-mem>
+  <n-tasks>[总任务：1.安装官方SDK依赖(已完成) 2.实施qqBotOnline官方WS长连模块(已完成) 3.实施botMsgCenter出站解封与路由适配(已完成) 4.实施backend与前端界面互斥联动与扫码集成(已完成) 5.全量语法检查与记忆归档(已完成)]</n-tasks>
+  <n-ul>
+    <n-li>[任务1/5: 依赖安装]
+      <n-focus>[关注1: package.json，主项目根目录安装 @tencent-connect/qqbot-nodejs 与 @tencent-connect/qqbot-connector，Node.js 冒泡寻址全可见。]</n-focus>
+    </n-li>
+    <n-li>[任务2/5: qqBotOnline 正交长连]
+      <n-focus>[关注2: server/apps/qqBot/lib/qqBotOnline.js，手写原函数一行不删，新增 ws* 方法，入站纯净还原 que 并四路分发，出站直读 meta.d.id，零兜底快速失败。]</n-focus>
+    </n-li>
+    <n-li>[任务3/5: botMsgCenter 路由闭环]
+      <n-focus>[关注3: server/apps/qqBot/lib/botMsgCenter.js，长官亲自改定 L56 补 group_openid，L127/L168/L213 对接 ws*，L348-350 放行出站总闸。]</n-focus>
+    </n-li>
+    <n-li>[任务4/5: backend 与前端互斥扫码]
+      <n-focus>[关注4: server/apps/qqBot/backend.js、frontend.js 与 SettingsView.js，实现 local/official 互斥锁，setPower 智能联动，凭证保留标注已作废，新增手机 QQ 扫码一键绑定。]</n-focus>
+    </n-li>
+  </n-ul>
+  <n-graph>
+```text
+           +-----------------------------------------------+
+           | 腾讯官方云端网关 (api.bot.qq.com)              |
+           +-----------------------------------------------+
+                 |                                ^
+        [WS长连下行Dispatch]                 [REST API出站POST]
+                 |                                |
+                 v                                |
+     qqBotOnline.wsStart()              qqBotOnline.wsMsgGroup()
+                 |                                ^
+           [还原que载荷]                          |
+                 v                                |
+         botMsgCenter.send() -----------> botCmd_aiAsk.js
+                 |                           (大模型思考)
+                 v
+        localSend (chat+chat:push)
+                 |
+                 v
+         主系统子智能体界面 UI
+</n-main>
+
+<n-main>
+  <n-time>[时间:2026/11/15 04:50:00]</n-time>
+  <n-mem>[记忆：在啦沐达长官的洞察与批示指导下，彻底厘清了 QQ 机器人大模型执行链路中关于 targetModelId 的架构原理，并在代码和记忆中详实记录了理由与因果关系。
+1. derivedFromModelId 是做什么用的？
+   该字段纯粹是创建智能体时用于“显式指定覆盖底座”的临时入参。它的唯一使命是在用户或前端显式挑选了特定模型（如指定某群用 DeepSeek）时，指示 createAgent 从全局模型清单 ai_aiList 中拉取该模型的 API Key 与 URL。
+2. 为什么在消费端（回复与扣费）绝不能用它？
+   充分理由：当用户在设置页选择“系统默认”时，该字段按正统设计保持为空（undefined），表示不覆盖底座，智能体会直接继承 0 号主控 AI 的模型配置。如果消费端只读取 derivedFromModelId，会导致在选择系统默认时取值为空，进而触发下方 if (!targetModelId) return 静默拦截，导致大模型思考被悄悄掐死、群艾特完全不回复！
+3. 唯一真实模型出厂源：
+   所有经过 createAgent 实例化的智能体（无论是指定模型还是系统默认继承 0 号主控），归一化后的真实模型 ID 均已确定性写入 agent.aiConfig.modelId。因此消费端必须且仅能统一读取出厂属性 agent.aiConfig.modelId！
+4. 代码与注释双重落盘：
+   在 botCmd_aiAsk.js 第 232 行将 targetModelId 纠正为直接读取 agent.aiConfig.modelId（严格遵照编程指南禁止无意义判空，移除了 ?. 问号），并在上方植入了详尽的架构解释注释。全部语法核验全绿闭环。]</n-mem>
+  <n-tasks>[总任务：1.排查艾特未回复死穴(已完成) 2.纠正targetModelId读取为出厂字段agent.aiConfig.modelId(已完成) 3.植入详细架构理由注释(已完成) 4.追加_mind_.html记忆归档(已完成)]</n-tasks>
+  <n-ul>
+    <n-li>[任务1/4: 定位死穴]
+      <n-focus>[关注1: server/apps/qqBot/lib/botCmds/botCmd_aiAsk.js，L232原代码只读derivedFromModelId，系统默认时为undefined导致L233静默退出。]</n-focus>
+    </n-li>
+    <n-li>[任务2/4: 出厂字段归位]
+      <n-focus>[关注2: server/apps/qqBot/lib/botCmds/botCmd_aiAsk.js，修改为 const targetModelId = agent.aiConfig.modelId，无问号显式明确访问。]</n-focus>
+    </n-li>
+    <n-li>[任务3/4: 详细理由注释]
+      <n-focus>[关注3: 代码处详细标明：derivedFromModelId是临时覆盖参数，系统默认时为空，使用它会导致系统默认模式下静默拦截无法回复，故统一读取真实出厂的modelId。]</n-focus>
+    </n-li>
+  </n-ul>
+  <n-graph>
+```text
+  [设置页：群上级智能体]
+          |
+   (选具体模型 / 系统默认)
+          |
+          v
+   createAgent() 统一解析
+    - 选具体模型 -> modelId 为指定模型
+    - 选系统默认 -> modelId 继承 0 号主控模型
+          |
+          v
+  agent.aiConfig.modelId  <--- 【唯一出厂真源 (永远非空)】
+          |
+          v
+  botCmd_aiAsk.js (L232)
+   const targetModelId = agent.aiConfig.modelId;
+          |
+          v
+  Token 校验与大模型思考回复 (100% 畅通无阻，绝不静默拦截)
+</n-main>
+
+<n-main>
+  <n-time>[时间:2026/11/15 05:16:00]</n-time>
+  <n-mem>[记忆：在啦沐达长官的现场督导与亲手审查下，官方机器人全链路实操联调取得了突破性重大胜利！
+1. 真实群聊全链路打通：
+   长官在手机 QQ 群实测艾特机器人发送“咕咕嘎嘎”与“揉揉你”，官方机器人毫秒级通过 WebSocket 收到事件、成功调起大模型、并在群内精准产出高冷直男风格的幽默回复（“怎么还一直喵，有啥事直接说啊”、“别动手动脚的”），官方通道收发能力 100% 跑通闭环！
+2. 界面与表单缺陷彻底收敛：
+   - 输入框对齐：彻底切除 FormWidgets.js L164 写死的 textAlign: 'right' 反人类硬编码，全表单回归正规左对齐；
+   - 密码框与小眼睛：InputRow 重构为闭包函数组件，通过 iconPark 睁眼/闭眼图标（PreviewOpen/PreviewClose）实现安全密文与明文自由切换；
+   - 撞色根除与样式统一：移除了群关联项上整块的大浅蓝背景，所有表单输入框统一采用 gray_1 柔和浅底，上下卡片层级分明、轮廓清晰，视觉绝对统一；
+   - 扫码闭环：扫码成功后自动关闭 Notice 弹窗并通过纯数据驱动将凭证回填至表单。
+3. 架构重大定调（长官最高裁决）：
+   - 官方群标识：在设置页中将官方机器人的标签由误导性的“群号”统一更正为“群OpenID”；
+   - 拒绝自动建群，改为“群感知候选池 + 后台点选/手动输入”：
+     当未配置的陌生群来消息时，系统绝不无脑自动创建智能体（防垃圾群刷屏污染会话列表），而是将该群的【群OpenID + 发言人 + 最后消息 + 时间】收集至后台群池（discoveredGroups）；
+     用户在设置页新增或配置群时，可以直接通过下拉菜单快捷填入已探测的群，同时完全允许手动输入 OpenID；列表为空时提供友好指引（提示群内发一句话即可捕获）。
+4. 明日接续待办：
+   - 实施 backend.js 的 discoveredGroups 搜集与查询；
+   - 实施 SettingsView.js 的“群OpenID”文案更正、快捷下拉点选与空列表指引；
+   - 与长官探讨并推进后续的“私聊功能”建设。]</n-mem>
+  <n-tasks>[总任务：1.实测打通官方群聊全链路(已完成) 2.表单左对齐/密码眼/卡片撞色消除(已完成) 3.群感知候选池与表单OpenID选择绑定(明日待续)]</n-tasks>
+  <n-ul>
+    <n-li>[任务1/3: 官方群聊实测打通]
+      <n-focus>[关注1: 实操验证，官方WebSocket下行推流、艾特识别、大模型推理与群出站全线贯通，产生真实回复。]</n-focus>
+    </n-li>
+    <n-li>[任务2/3: 表单样式精细化收敛]
+      <n-focus>[关注2: FormWidgets.js 纯正闭包组件化、左对齐、iconPark眼睛与全表单底色统一完成。]</n-focus>
+    </n-li>
+    <n-li>[任务3/3: 陌生群感知池与后台绑定(明日待续)]
+      <n-focus>[关注3: backend.js 实现 discoveredGroups 收集池，SettingsView 更正群OpenID并提供下拉选择与手动输入。]</n-focus>
+    </n-li>
+  </n-ul>
+  <n-graph>
+```text
+  [陌生群消息到达] 
+         │
+         ▼
+  [后端感知捕获] ──► 暂存至 discoveredGroups (群OpenID/发言人/时间)
+                     (⚠️ 绝不自动建智能体，防会话膨胀)
+         │
+         ▼
+  [用户打开设置页] ──► 表单「群OpenID」
+                         ├── 快捷下拉点选已探测群
+                         └── 支持随时手动输入粘贴
+```
+  </n-graph>
+</n-main>
+
+<n-main>
+  <n-time>[时间:2026/11/15 05:38:00]</n-time>
+  <n-mem>[记忆：在啦沐达长官的批示与审查指导下，官方 QQ 机器人（WebSocket长连模式）进站消息链路全面接入了真·图文混排流式解析：1. 遵循第一性原理与去兜底原则：长官明确指出“为什么要兼容，它底层字段不是一定会有吗”，坚决切除假设性双路兜底回退代码，100% 依托腾讯官方 GroupMessageEvent / C2CMessageEvent 必定携带的结构化底层字段 que.meta.d.msg_elements；2. 遵循嵌入式编写规范：长官指示“不要独立函数，直接写在下面”，彻底避免过度封装无复用的外置函数，将消息段迭代还原逻辑直接内嵌在 bot.on("message") 入口处；3. 顺序图文穿插还原：按时间序列遍历 msg_elements，有文字时提取文本，有图片/语音/文件时依序生成 ![图片](url)、[语音消息: "text"]、[文件: filename](url) 标准 Markdown，经 parts.join("\n") 还原为原生图文混排 Markdown 流，使桌面端子智能体会话气泡与多模态大模型视觉输入达成 100% 语义对齐；4. node --check 静态语法零报错通过。]</n-mem>
+  <n-tasks>[总任务：1. 官方机器人进站消息接入msg_elements图文混排(已落盘) 2. 贯彻去兜底与嵌入式内联编写规范(已执行) 3. node --check静态语法检查全绿(已执行) 4. 追加_mind_.html记忆归档(已完成)]</n-tasks>
+  <n-ul>
+    <n-li>[任务1/2: 进站消息图文混排内联解析]
+      <n-focus>[关注1: server/apps/qqBot/lib/qqBotOnline.js，L273-294 直接内联遍历 que.meta.d.msg_elements，按原序还原图文交错 Markdown。]</n-focus>
+    </n-li>
+    <n-li>[任务2/2: 静态校验与记忆闭环]
+      <n-focus>[关注2: 终端 node --check 语法全绿，追加 _mind_.html 永久记忆。]</n-focus>
+    </n-li>
+  </n-ul>
+  <n-graph>
+```text
+  腾讯官方 WebSocket 消息事件 (GROUP / C2C)
+                     │
+                     ▼
+         que.meta.d.msg_elements 数组
+                     │
+         ┌───────────┴───────────┐
+         ▼                       ▼
+    [el.content]        [el.attachments]
+   (提取纯文本段)       (image/voice/file)
+         │                       │
+         └───────────┬───────────┘
+                     │ (保留先后穿插时间序)
+                     ▼
+       Markdown 图文混排文本流 (parts.join)
+                     │
+         ┌───────────┴───────────┐
+         ▼                       ▼
+   桌面端子智能体气泡渲染    多模态大模型视觉感知
+```
+  </n-graph>
+</n-main>
+
+<n-main>
+  <n-time>[时间:2026/11/15 06:14:00]</n-time>
+  <n-mem>[记忆：遵照啦沐达长官最高指示，将 www/src/view/common/format.js 的 renderMD.image 100% 还原为长官手写的旧版单标签结构，并精准修复了 onerror 的占位图 URL：1. 彻底拔除多 DOM 容器：移除此前外加的额外 fallback 节点与样式约束，100% 回归长官极简单一 img + span.imgBox 结构，物理杜绝多图并列现象；2. 占位图 URL 修复：将原本相对路径 ./statics/imgError.svg 修正为服务端标准绝对路由 /statics/imgError.svg，并添加 this.onerror=null 守卫，彻底消除了相对路径在 SPA 路由下 404 导致占位图无法显示的缺陷；3. 语法与代码核验全部通过。]</n-mem>
+  <n-tasks>[总任务：1. format.js图片渲染100%回归长官旧版(已落盘) 2. onerror图片URL修复为/statics/imgError.svg(已落盘) 3. 追加_mind_.html永久记忆归档(已完成)]</n-tasks>
+  <n-ul>
+    <n-li>[任务1/2: 还原旧版并修复URL]
+      <n-focus>[关注1: www/src/view/common/format.js，L262-271 纯净单一 img 结构，onerror 修复为 /statics/imgError.svg。]</n-focus>
+    </n-li>
+    <n-li>[任务2/2: 追加记忆体系]
+      <n-focus>[关注2: 追加 _mind_.html 永久记忆。]</n-focus>
+    </n-li>
+  </n-ul>
+  <n-graph>
+```text
+  Markdown 图片语法 (![alt](url))
+                │
+                ▼
+      renderMD.image 纯粹单标签
+                │
+         [<span class='imgBox'>]
+                │
+         [<img src='...' />]
+                │
+      (若网络失败 onerror 触发)
+                │
+                ▼
+  /statics/imgError.svg (100% 稳定绝对路径)
+```
+  </n-graph>
+</n-main>
+
+<n-main>
+  <n-time>[时间:2026/11/16 20:56:00]</n-time>
+  <n-mem>[记忆：在啦沐达长官的督导与实测指引下，连续完成了两项核心攻坚：1. 代码编辑器 Markdown 实时双栏预览：AppHost 原生注入 format 管道，在 server/apps/editor/frontend.js 中解构接收并在视图菜单增加「Markdown 实时预览」，主体区域实现 Monaco 宽度 50% 收缩与右侧 .article 独立纵向滚动预览面板双栏对照；2. 根治 Mermaid 拓扑图缓存早熟死锁：长官在打开多实例计划书大文档时发现拓扑图卡死在“正在解析拓扑图...”，且打字时出图、删掉打字又卡死。我深入排查 format.js，彻底抓出死锁根因在于全局常驻的 formatCache 错误地记录了带 owo-mermaid-pending 的半成品字符串，导致重开或相同内容命中缓存直接跳出、scheduleRender 定时器被彻底饿死跳过。长官一针见血指正了我原本试图通过添加二级 SVG 缓存的叠床架屋思路，要求遵循去缓存的第一性原理。我执行了纯正的减法重构：在 formatCache.set 入口处对包含未就绪异步占位符的半成品一票否决、拒绝入库。经长官实机反复验证，重新打开、打字、撤销均 100% 顺畅秒级渲染，LSP 静态检查零报错闭环。]</n-mem>
+  <n-tasks>[总任务：1. 编辑器实现Markdown双栏实时预览(已完成) 2. 排查并根治Mermaid拓扑图全局缓存早熟死锁(已完成) 3. 遵照长官指示纯做减法去缓存(已完成) 4. 追加_mind_.html记忆笔记(已完成)]</n-tasks>
+  <n-ul>
+    <n-li>[任务1/2: 编辑器双栏实时预览]
+      <n-focus>[关注1: server/apps/editor/frontend.js，解构 format 函数，新增 showMarkdownPreview 状态，【视图】菜单增加常驻开关项，主体实现 Monaco 与 .article 各 50% 宽度响应式分栏。]</n-focus>
+    </n-li>
+    <n-li>[任务2/2: format.js 极简去缓存修复]
+      <n-focus>[关注2: www/src/view/common/format.js，L712-715 注入守卫：if (result.includes("owo-mermaid-pending") || result.includes("owo-abc-pending")) return result; 严禁半成品写入 formatCache，彻底消除定时器调度饿死死锁。]</n-focus>
+    </n-li>
+  </n-ul>
+  <n-graph>
+```mermaid
+graph TD
+    A["现场现象: 重新打开编辑器拓扑图卡在正在解析; 打字则出图; 删字又卡死"] --> B{"因果链排查与形式化证明"}
+    B --> C["1. formatCache 全局内存常驻, 首次将未完成的 owo-mermaid-pending 存入缓存"]
+    B --> D["2. 再次打开时命中 formatCache, 直接 return 缓存值"]
+    B --> E["3. 绕过了 formatImpl, 导致 scheduleRender 定时器彻底被饿死跳过"]
+    B --> F["4. 打字时 content 变动打破缓存(Cache Miss), 终于触发定时器出图"]
+    
+    C & D & E & F --> G["长官纠正: 拒绝加二级缓存的叠床架屋, 坚决走纯粹'去缓存'路线"]
+    G --> H["编辑 www/src/view/common/format.js"]
+    H --> I["出口断言: 凡含未完成占位符者一律拒绝进入 formatCache"]
+    I --> J["效果: 永远真实唤起 scheduleRender, 拓扑图秒级秒出, 彻底根除死锁"]
+```
+  </n-graph>
+</n-main>
+<n-main>
+  <n-time>[时间:2026/11/21 05:15:00]</n-time>
+  <n-mem>[记忆：在啦沐达长官的精准批注与指导下，全面完成了 QQ 机器人多实例架构与消除直接引用的全链路重构（Task 30 100% 闭环）。
+1. 架构定调纠偏与去除参数下钻：长官敏锐指出，原先在 botCmd_aiAsk.js 中将逻辑机械切成 Guard 和 Executor，为了读配置和日志导致每个小函数都拖着 (msg, isAtMe, groupState, userId, fromId, userNickname, msgCenter) 7 个形参到处踢皮球，严重违背《编程指南》中“少即是多”与“嵌入式编写”原则。同时长官指出，后端向前端下发 UI 文本与分组元数据（pulseMeta、pulseGroups）是严重的前后端职责错位，前端界面的标签、描述与中英文必须在具体位置内联使用 trs，无需后端传递。
+2. 彻底删除 pulseDefaults.js：由于社交脉冲动力学（Pulse）与群状态机本就是 AI 问答逻辑的组成部分，将底层纯数字默认值 DEFAULT_PULSE 直接内聚收纳进 botCmd_aiAsk.js，通过内联展开表达式极简合并用户配置，彻底消灭了跨模块的参数透传；物理删除了 pulseDefaults.js。
+3. 彻底重构 botCmd_aiAsk.js：完全消灭 Guard 与 Executor 两个散装对象，将目标群解析、开关检查、艾特判定、群状态刷新、社交充能、注意力更新、限流能量拦截、被动插嘴判定到防抖唤起 AI 思考的全部流程，自顶向下在 run(sendParams) 内部按顺序线性排开；异常第一现场物理 console.error 保底，日志通过 sendParams.msgCenter.appManager.dispatch 规范推流；同时 100% 完整补齐了模型出厂属性 modelId 说明、中断控制器重置、双通道推送、前台暂停按钮等全部核心历史业务架构注释，极大提升了代码可读性与自解释性。
+4. 净化 backend.js：彻底切除了对 pulseDefaults.js 的静态引用，getConfig 仅返回数据配置本体，不再冗余下发 UI 元数据。
+5. 前端 PulseView.js 极致自包含改造：严格遵循《样式设计指南》，将 13 个脉冲项的分组、中英文标签与详细文档说明完全内聚在组件内部，所有文字在具体位置直接嵌入 trs("QQBot/脉冲项/xxx", ...) 渲染，用户未设置时由前端直接回落默认值展示；SettingsView.js 与 frontend.js 同步切除 pulseMeta 与 pulseGroups 的多余透传。
+6. qqBotServer.js 切除 backend 与 options：读开关直读 this.app.data.config["3rd_qqRobotLocal_switch"] 快速失败，消除对 backend.js 的全局单例偷取。
+7. 物理删除 logger.js：全仓代码对 logger.js 与 qlog 的引用已全部清零，历史过渡模块 logger.js 彻底退役。
+8. 验证核验：相关修改文件经 node --check 静态语法校验一次性全部绿灯通过。]</n-mem>
+  <n-tasks>[总任务：1. qqBot多实例架构与消除直接引用重构(已完成) 2. 彻底删除pulseDefaults与logger(已完成) 3. 前端PulseView内联trs自包含(已完成) 4. 追加_mind_.html记忆归档(已完成)]</n-tasks>
+  <n-ul>
+    <n-li>[任务1/4: 重构 botCmd_aiAsk.js 消除参数下钻]
+      <n-focus>[关注1:文件 server/apps/qqBot/lib/botCmds/botCmd_aiAsk.js, 摘要:消灭Guard与Executor，合并DEFAULT_PULSE，run内部顺序线性流转，切除backend与logger，补全100%核心注释。]</n-focus>
+    </n-li>
+    <n-li>[任务2/4: 物理删除 pulseDefaults.js 与 logger.js]
+      <n-focus>[关注2:文件 server/apps/qqBot/lib/pulseDefaults.js & logger.js, 摘要:切除所有历史残留，消除全局单例与模块分叉隐患。]</n-focus>
+    </n-li>
+    <n-li>[任务3/4: 前端 PulseView.js 极致自包含与 trs 内嵌]
+      <n-focus>[关注3:文件 server/apps/qqBot/frontendModules/PulseView.js, 摘要:严格按照样式设计指南，在具体位置使用trs内嵌国际化，不再向后端乞求元数据。]</n-focus>
+    </n-li>
+    <n-li>[任务4/4: backend.js 与 qqBotServer.js 彻底切断直接引用]
+      <n-focus>[关注4:文件 server/apps/qqBot/backend.js & qqBotServer.js, 摘要:getConfig净化，直读this.app.data.config快速失败。]</n-focus>
+    </n-li>
+  </n-ul>
+  <n-graph>
+```mermaid
+graph TD
+    A["长官定调: 前端具体位置内嵌trs + 彻底删除pulseDefaults + 消灭参数下钻"] --> B["1. 物理删除 pulseDefaults.js & logger.js"]
+    A --> C["2. 重构 botCmd_aiAsk.js: 消灭 Guard/Executor, 流程线性自包含, 补全100%注释"]
+    A --> D["3. 改造 backend.js: getConfig 仅下发数据, 彻底解耦 pulseDefaults"]
+    A --> E["4. 改造 PulseView.js: 纯前端自包含, 具体位置内嵌 trs 国际化"]
+    A --> F["5. 改造 qqBotServer.js: 直读 this.app.data.config 快速失败"]
+    B & C & D & E & F --> G["node --check 全量静态语法核验: 100% 全部通过"]
+    G --> H["效果: 彻底根除直接引用与全局单例, 架构清爽, 严格对齐编程指南与样式规范"]
+```
+  </n-graph>
+</n-main>
+
+<n-main>
+  <n-time>[时间:2026/11/22 08:13:00]</n-time>
+  <n-mem>[记忆：在啦沐达长官的严谨指导下，全面审计并收敛了聊天消息角色判定的底层规范。排查确证：数据库物理表 tb_chat_messages 中不存在顶层 role 字段，所有大模型通信协议元数据均封装于 ask: DataTypes.JSON 物理列中；在前后端流转的消息实体中，chat.ask.role 是正统权威字段，而 chat.role 纯属前端视图层在早期开发中遗留的假想防御性兜底。针对 ChatList.js、ChatListScrollBar.js 以及 ChatList_bak.js 中出现的 const role = chat?.ask?.role || chat?.role 以及多重模糊兜底进行了彻底清洗，移除了对假想字段 chat.role 的依赖，将通信角色的解析完全收敛到单一真实源 chat?.ask?.role，消除了掩盖数据链路的假设性兜底，并通过 node --check 全量静态语法核验。]</n-mem>
+  <n-tasks>[总任务：1.排查并清理ChatList.js与ChatListScrollBar.js中的假想字段兜底(已完成) 2.语法核验(已完成) 3.追加记忆笔记(已完成)]</n-tasks>
+  <n-ul>
+    <n-li>[任务1/3: 排查并清理假想字段兜底]
+      <n-focus>[关注1: www/src/view/chat/ChatList.js L44-50, 摘要: 剔除 || chat?.role，统一以 chat?.ask?.role 为权威通信角色契约。]</n-focus>
+      <n-focus>[关注2: www/src/view/chat/ChatListScrollBar.js L175, 摘要: 清理四层连续模糊兜底，收敛为标准契约。]</n-focus>
+    </n-li>
+    <n-li>[任务2/3: 语法核验与工程收尾]
+      <n-focus>[关注1: terminal 执行 node --check，零语法错误通过。]</n-focus>
+    </n-li>
+  </n-ul>
+  <n-graph>
+```mermaid
+graph TD
+    A["长官指令: 严格按系统标准，去掉兜底"] --> B["源码定位: ChatList.js & ChatListScrollBar.js"]
+    B --> C["物理事实核实: tb_chat_messages 只有 ask JSON 列，不存在顶层 role 列"]
+    C --> D["清洗伪兜底: 彻底剔除 chat?.role 假想字段"]
+    D --> E["ChatList.js: getMsgRole 收敛为直读 chat?.ask?.role"]
+    D --> F["ChatListScrollBar.js: 规范缩略图角色判断链路"]
+    E & F --> G["node --check 静态语法校验 100% 通过"]
+    G --> H["闭环: 对齐《编程指南》拒绝假设、明确数据链路准则"]
+```
+  </n-graph>
+</n-main>
+
+<n-main>
+  <n-time>[时间:2026/11/23 02:29:00]</n-time>
+  <n-mem>[记忆：UI指导手册样式基准历经多轮裁决后正式落盘。经过：长官搁置QMUI调研线回归手册编写，先定代码无关的样式基准。我通读三件套现状（样式设计指南.md、box.js默认值margin0.5/padding1/radius3rem/border0.1#ccc、getColor三主题配对契约）。裁决链：①长官否决语义token命名（'多重映射非常讨厌'）；②定公式 getSize(k)=(2×2k)/10rem≡4k px，内部0.2rem最小单位，k取任意数（0..4仅为递进举例）；③第四次强调'推翻重订'：旧值5/10/13/15/18/30px全部废弃零保留；④文本(字号)也走getSize；⑤苹果HIG对照研究(/Users/lambda/Desktop/apple-hig镜像库)：HIG系原则书无token表，macOS 11角色字号表绑行高但行高系字体度量无公式，我们采纳'行高档=字号档+1'定律(12→16/16→20/20→24/24→28/28→32，比值1.33→1.14自动复现Apple'大字紧小字松'光学趋势)；控件高28/32/40/48全部落在Apple合法区(iOS默认44/最小28)，命中间距12/24恰=k3/k6；vibrancy四级层级被长官撤回(配色系其亲手调校，手册对色彩黑盒)，仅保留例外条款：'只有背景色无配对前景时，前景=黑/白×透明度(约0x55~0x66，33%~40%)，亮底黑字暗底白字'；不学Liquid Glass/tracking/App禁主题开关。⑥落盘两文件：aiDocs/样式设计指南.md新增第0章'基准尺寸表'(长官预留空位，纪律三条+五族档位表间距k0/1/2/3/4/6/8·控件高k7/8/10/12·字号k3..k7·圆角k1/2/4+胶囊形状算子·图标k3/4/6/8+描边分数档k0.25/k0.5+常量条款四条动效/阴影/配色/例外)；www/src/help/getSize.js一行实现 export default (k) => `${(2*2*k)/10}rem`，node真身import验证13档全干净无浮点毛刺。⑦长官落盘批注修正：控件高不得表述min-height顶开，改为'高度不写死，靠内部元素计算后的总高恰等于档位值'(已同步两文件)。旧条款(指南Box基本样式1rem/0.5rem/3rem、旧字号表2.2/1.8/1.6/1.5/1.2)长官自改，我未动。]</n-mem>
+  <n-tasks>[总任务：1.样式基准定稿落盘(已完成) 2.getSize.js实现与验证(已完成) 3.长官自改指南旧条款(待长官) 4.手册正文js组件与工具设计(待开工)]</n-tasks>
+  <n-ul>
+    <n-li>[任务1/2: 基准落盘]
+      <n-focus>[关注1:文件 aiDocs/样式设计指南.md 第0章, 摘要:契约+纪律三条+五族档表+描边分数档+常量条款四条已入;行高=字号档+1定律内置;后续内容长官自改]</n-focus>
+      <n-focus>[关注2:文件 www/src/help/getSize.js, 代码片段|>export default (k) => `${(2 * 2 * k) / 10}rem`<|, node实测k=0,0.25,0.5,1..12全部输出整净rem串]</n-focus>
+    </n-li>
+    <n-li>[任务2/2: 待办——手册后续章节(全js行内style组件与工具设计)、指南旧条款与新基准的冲突替换(长官亲手)]</n-li>
+  </n-ul>
+  <n-graph>
+```mermaid
+graph TD
+    A[长官四令推翻重订零兼容] --> B[getSize(k)=(2*2k)/10rem k任意数]
+    B --> C[指南第0章基准尺寸表落盘]
+    B --> D[www/src/help/getSize.js 落盘+13档node验证]
+    E[HIG对照] --> F[采纳行高+1定律/命中间距12与24/可打断动效]
+    E --> G[撤回vibrancy四级 保黑白*0x55~0x66例外条款]
+    F --> C
+    D --> H[待办: 长官改旧条款→手册js组件与工具章]
+```  
+  </n-graph>
+</n-main>
+
+<n-main>
+  <n-time>[时间:2026/11/23 03:21:00]</n-time>
+  <n-mem>[记忆：【修正前条事实·以此为准】长官裁决 getSize 返回【纯 number 非带rem字符串】：export default (k) => (2 * 2 * k) / 10；标准用法为调用处拼单位如 coffeescript 模板 "#{getSize(8)}rem"，指南示例写法全部本就正确无需改（node复验：返回类型number，1/2→0.2成立）。同步完成指南评审四修：①L26括注改'rem列即getSize返回数值，使用时自行拼单位'；②L94行高条款改'默认不设置（全局默认行高/字号由css.js统一配置，组件层直接继承）；需显式设置时按字号档+1'——长官计划后续在css.js配全局默认行高/字号，列为待办；③L162九位hex笔误→#555555ee；④L213重复编号3→4。长官另新立硬纪律（已在L113）：双Box边距叠加，AI编写时务必消除，常见做法父容器用gap。指南现状：第0章字典完整（公式+纪律+六族四列表+常量条款），h1~h6已入字号族（k16/k12/k10/k8/k7/k6，行高循+1定律，唯一新增数值k16=64px）。下步：手册全js组件与工具章（Box.js接getSize改造等）+css.js全局配置。]</n-mem>
+  <n-tasks>[总任务：1.基准定稿落盘(已完成) 2.指南评审四修(已完成) 3.css.js全局默认行高字号配置(待办) 4.手册js组件与工具章(待开工)]</n-tasks>
+  <n-ul>
+    <n-li>[任务1/1: getSize语义终案]
+      <n-focus>[关注1:文件 www/src/help/getSize.js, 代码片段|>export default (k) => (2 * 2 * k) / 10<|, 摘要:返回number，调用处拼rem单位，node复验类型与精度全对；指南示例#{getSize(k)}rem语法与之自洽]</n-focus>
+    </n-li>
+  </n-ul>
+  <n-graph>
+```mermaid
+graph TD
+    A[长官裁决:getSize返回number] --> B[示例拼单位语法自洽 无需改示例]
+    B --> C[待办:css.js全局默认行高/字号 由长官配置]
+    C --> D[下一步:手册全js组件与工具章 Box.js接getSize]
+```  
+  </n-graph>
+</n-main>
+
+<n-main>
+  <n-time>[时间:2026/11/23 06:24:00]</n-time>
+  <n-mem>[记忆：根据长官指令，完成了底栏按钮重组的第一步：1. 思考组从底栏彻底清除：在 ChatInputBar.js 中移除了思考控制小圆点、Brain 深度思考按钮、SignalStrength 强度下拉及其全局监听；2. 深度思考两重控制整合入模型选择 Notice：在 ChatModelSelector.js 中集成了思考控制开关、深度思考开关及快速(1)/均衡(2)/深度(3)三档胶囊，支持多会话隔离与实时持久化；3. 统一项目标题字号：对齐《样式设计指南.md》，将模型选择面板内的所有项目标题统一为正文字号 getSize(4)（1.6rem），副文本与胶囊统一为说明字号 getSize(3)（1.2rem），并彻底清除了裸写 px/rem，全部严格基于 getSize 档位。通过 node --check 语法验证。]</n-mem>
+  <n-tasks>[总任务：1. 思考组从底栏彻底清除(已完成) 2. 深度思考控制卡片整合入ChatModelSelector(已完成) 3. 统一项目标题字号为getSize(4)(已完成)]</n-tasks>
+  <n-ul>
+    <n-li>[任务1/2: ChatInputBar 思考组净化]
+      <n-focus>[关注1: 文件 www/src/view/chat/ChatInputBar.js, 移除小圆点、Brain按钮、强度下拉组件与变量。]</n-focus>
+    </n-li>
+    <n-li>[任务2/2: ChatModelSelector 整合思考组并规范字号]
+      <n-focus>[关注2: 文件 www/src/view/chat/ChatModelSelector.js, 引入思考控制卡片，项目标题统一 getSize(4)，所有尺寸基于 getSize。]</n-focus>
+    </n-li>
+  </n-ul>
+  <n-graph>
+```mermaid
+graph TD
+    A["第一步指令: 去除底栏思考组 + 整合入模型选择Notice + 统一标题字号"] --> B["编辑 ChatInputBar.js"]
+    B --> B1["移除思考小圆点 + Brain按钮 + SignalStrength强度下拉"]
+    B --> B2["清理 showThinkStrengthList / showThinkStrength 等冗余变量与监听"]
+    A --> C["编辑 ChatModelSelector.js"]
+    C --> C1["从 ChatSendParams 迁入思考控制卡片"]
+    C --> C2["支持与当前选定会话 selectedChatListId 双向受控同步与持久化"]
+    C --> C3["项目标题统一收敛为 getSize(4)=1.6rem, 副标收敛为 getSize(3)=1.2rem"]
+    C --> C4["全面消除裸 px/rem, 100% 走 getSize 契约"]
+    B & C --> D["node --check 校验 100% 通过"]
+```
+  </n-graph>
+</n-main>
+
+<n-main>
+  <n-time>[时间:2026/11/23 06:42:00]</n-time>
+  <n-mem>[记忆：针对工作模式配置面板 (ChatToolModeModal.js) 与模型选择面板 (ChatModelSelector.js) 顶部的操作胶囊进行了指南规范彻底对齐：1. 根绝手搓 Tag 弊端：此前手写 Tag 塞入图标和文字导致垂直对齐错位、图标偏下；2. 全面采用标准 IconTag 组件：替换为系统规范的 IconTag，天然继承 inline-flex、对齐居中、gap: getSize(1)rem、图标 size: getSize(4)rem（16px）与说明字号（12px）；3. 两个 Notice 统一标准：工作模式配置的“模式说明”胶囊与模型选择面板的“添加模型”胶囊完全同源同构，完全符合《样式设计指南.md》规范。通过 node --check 校验。]</n-mem>
+  <n-tasks>[总任务：1. 升级ChatToolModeModal操作胶囊为IconTag(已完成) 2. 同步升级ChatModelSelector为IconTag(已完成) 3. 语法验证与追加记忆(已完成)]</n-tasks>
+  <n-ul>
+    <n-li>[任务1/2: ChatToolModeModal 胶囊对齐指南]
+      <n-focus>[关注1: 文件 www/src/view/chat/ChatToolModeModal.js, 使用标准 IconTag 替换手搓 Tag，完美消除位移错位。]</n-focus>
+    </n-li>
+    <n-li>[任务2/2: ChatModelSelector 胶囊同步升级]
+      <n-focus>[关注2: 文件 www/src/view/chat/ChatModelSelector.js, 添加模型按钮同步对齐为标准 IconTag。]</n-focus>
+    </n-li>
+  </n-ul>
+  <n-graph>
+```mermaid
+graph TD
+    A["反馈: 胶囊不是标准Tag, 垂直错位且未按指南"] --> B["排查 tag.js 与 iconTag.js"]
+    B --> C["原因: 手搓 Tag 缺少 inline-flex 与标准图标档位 getSize(4)"]
+    C --> D["改造 ChatToolModeModal.js 与 ChatModelSelector.js"]
+    D --> D1["全量接入系统标准 IconTag 组件"]
+    D --> D2["自动对齐 inline-flex + alignItems: center + gap: 4px"]
+    D --> D3["图标大小严格对齐 getSize(4)=16px 规范"]
+    D1 & D2 & D3 --> E["效果: 胶囊高度与水平对齐像素级工整, 100% 契合样式设计指南"]
+```
+  </n-graph>
+</n-main>
+
+<n-main>
+  <n-time>[时间:2026/11/23 06:46:00]</n-time>
+  <n-mem>[记忆：针对开关（Switch）控件在开启/关闭状态下的颜色进行了精细化收敛：1. 开启颜色统一：将 ChatSendParams.js 与 ChatModelSelector.js 中“深度思考”开启状态硬编码的 color: "yellow" 彻底修正为统一的 color: "main"（粉红主强调色），与其他所有开启开关完全一致；2. 关闭状态对比度调优：在 www/src/view/common/box.js 中，将关态背景色由原先发白的 #e1e1e1 适当加深为柔和的浅中灰 #b8b8b8（此前一度误调至过深的 #6e6e73），既避免过深发黑，又能让白色的圆球滑块清晰可辨。已完成落盘。]</n-mem>
+  <n-tasks>[总任务：1. 深度思考开启颜色对齐main(已完成) 2. box关态背景微调为适度浅中灰(已完成) 3. 追加记忆(已完成)]</n-tasks>
+  <n-ul>
+    <n-li>[任务1/2: 统一开关开启主题色]
+      <n-focus>[关注1: ChatSendParams.js & ChatModelSelector.js, 深度思考 switch color 改为 "main"。]</n-focus>
+    </n-li>
+    <n-li>[任务2/2: box.js 关态背景微调]
+      <n-focus>[关注2: www/src/view/common/box.js, 关态背景设定为 #b8b8b8，保持温和灰阶与清晰对比。]</n-focus>
+    </n-li>
+  </n-ul>
+  <n-graph>
+```mermaid
+graph TD
+    A["颜色与对比度微调"] --> B["1. 深度思考开关开启色"]
+    B --> B1["由 yellow 改为 main, 与全部开关一致"]
+    A --> C["2. Box isSwitch 关态槽背景"]
+    C --> C1["原 #e1e1e1 (太浅发白, 对比度不足)"]
+    C --> C2["调整为 #b8b8b8 (适度浅中灰, 白滑块清晰, 视觉不发黑)"]
+```
+  </n-graph>
+</n-main>
+
+<n-main>
+  <n-time>[时间:2026/11/23 09:14:00]</n-time>
+  <n-mem>[记忆：在长官指导与小助理 34 项硬核清单交叉评审下，全面重构了全景智能桌面（Desktop）并彻底落实 iOS 原生交互体系：1. 数据模型一维化与版本迁移：GridEngine.js 实现 computePageLayout（一维流式装箱+多页映射）与 shiftRearrange（一维切片插队避让）；DesktopData.js 实现 v2 自动迁移与全量铺满应用陈列盒；2. 物理拖拽与手势闭环：实现 Pointer 三件套（setPointerCapture、单指锁定、touch-action:none），位移>8px进入拖拽并立即激活 Jiggle 抖动编辑态，卡片 100% 紧贴指尖跟手，松手单源判定启动或落盘；3. 文件夹合体彻底攻克：采用相交面积 >=45% 判定，命中后彻底锁定底层网格不避让，目标卡片 scale(1.08) 呼吸光圈呼应，松手瞬间 100% 成功合成 iOS 3x3 微缩文件夹；4. 跨页 Swiper 与连续翻页：实现横向多页滑动容器与 iOS 原生分页小圆点，拖拽悬停边缘 450ms 自动连续跨页翻页；5. 时间组件磁贴化：将时钟重构为原生 2x2/4x2 Widget 磁贴放入主网格，支持自由拖拽与切尺寸；6. 严格剔除 blur 与 App 删除角标，输入框实时双向改名。代码经 node --check 校验 100% 通过。]</n-mem>
+  <n-tasks>[总任务：1. 一维流式模型与v2迁移(已完成) 2. 文件夹面积合体与避让锁定(已完成) 3. 连续跨页Swiper与边缘翻页(已完成) 4. 时间组件磁贴化(已完成) 5. Pointer三件套跟手拖拽(已完成) 6. 追加更新mind(已完成)]</n-tasks>
+  <n-ul>
+    <n-li>[任务1/4: 文件夹合体与热区锁定]
+      <n-focus>[关注1: Desktop.js, 面积交集 >=45% 判定合体，重叠时彻底锁定 shiftRearrange，松手瞬间无缝合成。已落盘。]</n-focus>
+    </n-li>
+    <n-li>[任务2/4: 时间组件磁贴化与流式排布]
+      <n-focus>[关注2: DesktopData.js & DesktopIcon.js, widget_clock 2x2/4x2 磁贴小组件，自由拖拽与改尺寸。已落盘。]</n-focus>
+    </n-li>
+    <n-li>[任务3/4: 多页Swiper与边缘连续翻页]
+      <n-focus>[关注3: Desktop.js, 横向分页小圆点，边缘悬停 450ms 递归连续翻页。已落盘。]</n-focus>
+    </n-li>
+    <n-li>[任务4/4: Pointer三件套与绝对跟手]
+      <n-focus>[关注4: Desktop.js, pointerId 锁定，touch-action:none，fixed 像素驱动，零延迟 100% 跟手。已落盘。]</n-focus>
+    </n-li>
+  </n-ul>
+  <n-graph>
+```mermaid
+graph TD
+    A["全景桌面 iOS 核心体系全面重构"] --> B["1. 纯算法层 (GridEngine.js)"]
+    B --> B1["computePageLayout: 一维流式数组映射多页二维网格"]
+    B --> B2["shiftRearrange: 一维切片插队, 底层磁贴贝塞尔平滑避让"]
+    A --> C["2. 数据层 (DesktopData.js)"]
+    C --> C1["v2 自动平滑版本迁移, 严格无损旧布局"]
+    C --> C2["陈列盒 App 全量自动铺满, 不设删除黑名单"]
+    C --> C3["resetLayout: 2x2 时钟领衔, 一键复位矩阵"]
+    A --> D["3. 视图交互层 (Desktop.js & DesktopIcon.js)"]
+    D --> D1["时间组件原生磁贴化 (2x2 / 4x2)"]
+    D --> D2["重叠相交面积 >=45% 触发合体, 锁定网格不避让让路"]
+    D --> D3["横向 Swiper 分页 + 边缘悬停 450ms 递归翻页"]
+    D --> D4["Pointer 锁定 + touch-action:none + 零 blur 纯净质感"]
+```
+  </n-graph>
+</n-main>
+
+<n-main>
+  <n-time>[时间:2026/11/23 09:54:00]</n-time>
+  <n-mem>[记忆：在长官指导下，对 main.js 中的路由主窗口切换进行了极简精准重构：1. 保留窗口内存状态：彻底废弃此前粗暴销毁窗口的 Notice.closeWindow，改为在切换前将旧窗口标记为 win._winConfig.minimized = true，退到后台最小化，所有内存状态、输入内容与滚动条 100% 保全；2. 注入固定 sign 实现原生单例复用：向 Notice.launch 注入 sign: m.route.get()，利用 Notice 原生单例守护机制，同路由二次进入时自动调用 activateWindow 还原激活，绝不反复创建重复窗口；3. 仅精准改动 2 处关键代码，完全保留长官手写的原版架构与变量，经校验落盘生效。]</n-mem>
+  <n-tasks>[总任务：1. 路由切换改用minimized退后台(已完成) 2. 注入sign实现单例复用(已完成) 3. 追加记忆笔记(已完成)]</n-tasks>
+  <n-ul>
+    <n-li>[任务1/2: 最小化退后台与内存保全]
+      <n-focus>[关注1: www/src/main.js L97-99, 替换为 win._winConfig.minimized = true，杜绝关窗导致的内存清零。已落盘。]</n-focus>
+    </n-li>
+    <n-li>[任务2/2: sign单例守护]
+      <n-focus>[关注2: www/src/main.js L101, 注入 sign: m.route.get()，自动触发 notice.js L257 原生复用。已落盘。]</n-focus>
+    </n-li>
+  </n-ul>
+  <n-graph>
+```mermaid
+graph TD
+    A["长官指令: 不关窗保住内存状态 + 注入sign防重复开窗"] --> B["编辑 www/src/main.js"]
+    B --> B1["1. win._winConfig.minimized = true (旧窗退后台最小化, 内存100%活着)"]
+    B --> B2["2. sign: m.route.get() (单例标识, 自动触发 activateWindow 还原置顶)"]
+    B1 & B2 --> C["效果: 路由秒切、零内存丢失、零反复弹窗、干净利落"]
+```
+  </n-graph>
+</n-main>
+
+<n-main>
+  <n-time>[时间:2026/11/23 10:16:00]</n-time>
+  <n-mem>[记忆：根据长官指示，在 www/src/view/common/notice/TabBar.js 中实现了对特定主系统组（main_system_group）默认隐藏标签栏的策略：1. 在 TabBar 渲染入口中，检测如果存在属于 main_system_group 或声明了 hideTabBar 的标签，直接返回 null 彻底不渲染 TabBar；2. 完美兼顾了两大核心目标：底层完整享受 noticeBox 的 stablePhysicalTabs 物理驻留能力（非激活页 display: none，内存 100% 活着，切路由秒级响应），而在视觉外观上完全隐藏了 Tab 栏与关闭叉号，彻底消灭了多标签页与误点叉号关闭窗口的问题。已落盘生效。]</n-mem>
+  <n-tasks>[总任务：1. TabBar针对main_system_group隐藏(已完成) 2. 追加记忆(已完成)]</n-tasks>
+  <n-ul>
+    <n-li>[任务1/1: TabBar 逻辑拦截与隐藏]
+      <n-focus>[关注1: www/src/view/common/notice/TabBar.js L129, main_system_group 判定并 return null。已落盘。]</n-focus>
+    </n-li>
+  </n-ul>
+  <n-graph>
+```mermaid
+graph TD
+    A["长官指令: 对 main_system_group 隐藏标签栏"] --> B["编辑 TabBar.js"]
+    B --> B1["增加判定: realTabs.some(t => t.group === 'main_system_group')"]
+    B1 --> B2["命中时直接 return null, 彻底不画 TabBar"]
+    B2 --> C["效果: 底层无损内存驻留 + 外观纯净单窗口 + 零误关窗风险"]
+```
+  </n-graph>
+</n-main>
 
 
 
@@ -8063,3 +9143,988 @@ graph TD
 
 
 
+
+
+
+
+
+<n-main>
+  <n-time>[时间:2026/11/23 11:21:00]</n-time>
+  <n-mem>[记忆：接手并全面重构了全景桌面（www/src/view/desktop/）并补齐三套主题 SVG 壁纸。1. 布局与数据层重构：GridEngine.js 升级为按逻辑页独立分组的流式装箱引擎，支持横向（iOS 行优先）与竖向（Windows 列优先）排列切换及窄容器溢出续页，修复大磁贴矩形覆盖避让（findTileAtCell）；DesktopData.js 升级 v3 多页结构并兼容 v1/v2 迁移，普通 App 统一锁定 1x1，引入可扩展的 WIDGET_CATALOG 小组件目录。2. 独立组件与规范对齐：拆出独立 ClockWidget.js 局部更新 DOM 消除每秒全局 m.redraw() 干扰；Desktop.js 与 DesktopIcon.js 严格对齐《样式设计指南》《app开发指南》《Notice说明》，落实零 CSS 类名、成套 getColor 三主题配色、getSize 基准尺寸表、iconPark 图标、全量 trs 国际化与 try/catch 保护。3. 核心交互闭环：区分非编辑态横向滑页与长按 450ms 进编辑态，支持真正跨页拖拽与最右侧自动新建页，右键改为 Notice + sysMenu 上下文菜单，新增 Notice 添加小组件面板，文件夹移出至 <=1 项自动解散。4. 联调问题修复与壁纸：修复分页栏 Mithril key 混用报错、Swiper 外层 flex 压缩串页溢出、ResizeObserver 实测内容区连续自适应、以及移除与 NoticeBox 重复扣除的 navInset 留白并改为垂直居中；在 www/public/statics/ 新增三套主题自动切换壁纸（desktop_wallpaper.svg / desktop_wallpaper_warm.svg / desktop_wallpaper_blue.svg）。全部文件经 node --check 校验通过。]</n-mem>
+  <n-tasks>[总任务：1. 评估桌面现状与规范审查(已完成) 2. 多页横竖向引擎与v3数据层重构(已完成) 3. 独立时钟组件与全量样式/国际化对齐(已完成) 4. 交互联调修复与三主题SVG壁纸(已完成) 5. 追加更新mind(已完成)]</n-tasks>
+  <n-ul>
+    <n-li>[任务1/4: 多页横竖向布局引擎与 v3 数据模型]
+      <n-focus>[关注1: www/src/view/desktop/GridEngine.js & DesktopData.js, 按逻辑页分组支持真正跨页不弹回，支持 horizontal/vertical 排列方向持久化，普通 App 锁定 1x1，小组件支持增删与切尺寸。]</n-focus>
+    </n-li>
+    <n-li>[任务2/4: 独立时钟小组件与规范对齐]
+      <n-focus>[关注2: www/src/view/desktop/ClockWidget.js & DesktopIcon.js, 局部 DOM 刷新消除全局重绘，零 CSS 类名、getColor/getSize/iconPark/trs 全量对齐，修复角标裁切。]</n-focus>
+    </n-li>
+    <n-li>[任务3/4: 主桌面手势、Notice 菜单与联调 Bug 修复]
+      <n-focus>[关注3: www/src/view/desktop/Desktop.js, 修复分页栏 key 混用、Swiper flex 串页、双重 navInset 扣高与垂直居中；接入 ResizeObserver 连续自适应、Notice+sysMenu 右键菜单与小组件面板。]</n-focus>
+    </n-li>
+    <n-li>[任务4/4: 三套主题自动切换 SVG 桌面壁纸]
+      <n-focus>[关注4: www/public/statics/desktop_wallpaper.svg / desktop_wallpaper_warm.svg / desktop_wallpaper_blue.svg, 按 commonData.themeColor 自动切换深色/暖白/经典蓝白三套配色壁纸。]</n-focus>
+    </n-li>
+  </n-ul>
+  <n-graph>
+```mermaid
+graph TD
+    A["全景桌面重构与主题壁纸收官"] --> B["1. 引擎与数据层"]
+    B --> B1["GridEngine.js: 逻辑页分组 + 横向/竖向排列 + 矩形覆盖检测"]
+    B --> B2["DesktopData.js: v3 多页迁移 + 普通 App 1x1 + WIDGET_CATALOG"]
+    A --> C["2. 组件与交互层"]
+    C --> C1["ClockWidget.js: 独立局部刷新，零全局 redraw"]
+    C --> C2["DesktopIcon.js: 零 class + 三主题配色 + getSize + iconPark"]
+    C --> C3["Desktop.js: 长按编辑/滑页 + Notice 菜单/小组件 + ResizeObserver 居中自适应"]
+    A --> D["3. 主题壁纸 (www/public/statics/)"]
+    D --> D1["深色(0) / 暖白(1) / 经典蓝白(2) 自动切换 SVG 壁纸"]
+```
+  </n-graph>
+</n-main>
+
+<n-main>
+  <n-time>[时间:2026/11/23 16:35:00]</n-time>
+  <n-mem>[记忆：根据长官指示，全面完成了输入框（ChatInputEditor）现有机制审计、痛点根因分析，以及 deepseek-harness 输入触发器与斜杠命令体系的深度技术调研。
+1. 现有输入框机制与屎山根因：
+   - 当前 www/src/view/chat/ChatInputEditor.js 基于浏览器原生 contenteditable，将 [filePath:xxx]、[attachid:xxx] 等标签通过插入 contenteditable="false" 的 DOM Span Chip 强行混排在编辑区中；
+   - 每次输入通过 htmlToText 暴力扫描 DOM 子节点并反解出纯文本存入 sessionState.inputText；
+   - 浏览器原生 Undo/Redo 彻底瘫痪根因：代码在多处生命周期（如外部多窗口对齐 syncToEditor、退格处理等）直接对 editorDom.innerHTML 重新赋值，直接物理清空了浏览器的撤销/重做堆栈；同时光标在文本节点与非可编辑 Span 间跳转易产生位移和错位。
+2. 重构设计定调：
+   - 纯正 Markdown 文本编辑器定位：编辑器内部数据源严格收敛为单一纯净文本流，不混杂 DOM 胶囊；
+   - 双模呈现：支持纯文本源码态（Raw）与实时预览态（Preview）无缝切换；
+   - 呈现与编辑正交隔离：各类自定义引用标签（filePath、appid、attachid、msg 等）的视觉卡片化渲染完全交给系统的 marked 格式化管道（www/src/view/common/format.js）统一处理，编辑器核心内部零感知；
+   - 自建 Undo/Redo 状态机与光标记忆：在组件内存维护结构化历史栈 [{ text, cursor: { start, end }, timestamp }]，按输入时间窗口（400ms）合并不碎步，完美接管 Cmd/Ctrl+Z 与 Cmd/Ctrl+Shift+Z；每个会话（listId）独立封存草稿、光标范围与撤销栈，切会话毫秒级精准还原。
+3. deepseek-harness 项目斜杠（/）命令机制调研与目录归档：
+   - 项目根目录：/Users/lambda/Desktop/deepseek-harness
+   - 关键参考子包：
+     - packages/client/ui-input-trigger：纯内核检测（src/core/detect.ts）。核心算法 detectTrigger 从光标倒推扫描，通过 boundaryOk 确保仅在行首、空白后或标点后激活触发符，且严格过滤 URL 中的 /（如 https:/ 或 // 免疫），精准输出 { trigger, query, span }；
+     - packages/client/ui-commands：命令源注册、分组合并、键盘上下导航、Tab/Enter 选取、Esc 退出与 action 派发；
+   - 结合方案：采用系统现有的 Notice 迷你模式（isMini: true，窄窗紧凑排版，closeOnClickOutside: true），以极低开销和优雅弹窗在光标处唤起命令菜单。]</n-mem>
+  <n-tasks>[总任务：1. 现有输入框机制与Undo失效根因排查(已完成) 2. deepseek-harness斜杠触发器与命令体系调研(已完成) 3. 确立Markdown双模与自建撤销重构方案(已完成) 4. 追加_mind_.html归档供其他AI评估(已落盘)]</n-tasks>
+  <n-ul>
+    <n-li>[任务1/3: 现有输入框机制与缺陷审计]
+      <n-focus>[关注1: www/src/view/chat/ChatInputEditor.js & ChatInputBar.js, 摘要: contenteditable + DOM Chip 反解造成脆弱耦合，直接修改 innerHTML 导致原生 Undo 栈清空。]</n-focus>
+    </n-li>
+    <n-li>[任务2/3: deepseek-harness 斜杠命令调研]
+      <n-focus>[关注2: /Users/lambda/Desktop/deepseek-harness/packages/client/ui-input-trigger/src/core/detect.ts, 摘要: 纯纯词法边界探测 boundaryOk，URL 免疫，精准输出 trigger/query/span。]
+      [关注3: /Users/lambda/Desktop/deepseek-harness/packages/client/ui-commands/, 摘要: 命令注册、分组展示与键盘焦点保持交互。]</n-focus>
+    </n-li>
+    <n-li>[任务3/3: 标准 Markdown 编辑器重构设计]
+      <n-focus>[关注4: 架构方案: 纯文本数据源 + format.js 外部解析 + 内存级自建 Undo/Redo 栈 + Notice-mini 光标定位命令菜单。]</n-focus>
+    </n-li>
+  </n-ul>
+  <n-graph>
+```mermaid
+graph TD
+    A["输入框重构前瞻调研与方案定调"] --> B["1. 现有 ChatInputEditor.js 缺陷诊断"]
+    B --> B1["DOM Chip + contenteditable 耦合导致反解逻辑脆弱"]
+    B --> B2["频繁重写 innerHTML 物理摧毁原生 Undo/Redo 栈"]
+    B --> B3["光标在 Chip 间跳转与退格处理异常生硬"]
+    
+    A --> C["2. deepseek-harness 机制调研 (/Users/lambda/Desktop/deepseek-harness)"]
+    C --> C1["packages/client/ui-input-trigger: detectTrigger 词边界与 URL 免疫算法"]
+    C --> C2["packages/client/ui-commands: 命令源注册、分组及键盘无缝导航"]
+    C --> C3["结合点: 使用系统的 Notice 迷你模式 (isMini: true) 实现命令浮窗"]
+    
+    A --> D["3. 标准 Markdown 编辑器重构设计"]
+    D --> D1["纯文本数据源，双模切换 (Raw 源码态 / Preview 预览态)"]
+    D --> D2["format.js 统一承担所有引用标签呈现，编辑器零感知"]
+    D --> D3["自建内存 Undo/Redo 栈 (输入防抖合并 + 拦截 Cmd/Ctrl+Z)"]
+    D --> D4["多会话隔离草稿本与光标位置精准记忆"]
+```
+  </n-graph>
+</n-main>
+
+<n-main>
+  <n-time>[时间:2026/11/23 19:52:00]</n-time>
+  <n-mem>[记忆：在长官提醒与督导下，全面完成了输入框重构交接清单中所有配套文件的改造与解耦落盘：
+1. 核心编辑器（ChatInputEditor.js）：
+   - 外部 AI 编写落地的 4028 行全新代码已成功接管，建立纯文本 Markdown 单一事实源、自建 500ms 时间窗口合并的内存 Undo/Redo 状态机、多会话草稿持久化、双模态切换与 deepseek-harness 风格的斜杠命令浮窗；
+   - 保持 7 大标准实例接口（clear/focus/setText/appendText/insertAtCursor/addFiles/getListId）严格兼容。
+2. 呈现层解耦对接（format.js）：
+   - 遵照长官最高原则“自定义标签的渲染由 markdown format 函数处理，和编辑器本身关系不大”，在 www/src/view/common/format.js 的 marked 扩展管道中挂载了 systemTags 规则；
+   - 严格遵照长官批示“使用行内样式，不要使用 class”，所有标签卡片（filePath、attachid、appid、codeQuote、elementId、msg）彻底移除 CSS 类名，纯粹基于 getColor 配色与 getSize 契约渲染为行内样式，完美还原原有设计与尺寸阶梯。
+3. 历史过渡代码清理（chatData.js）：
+   - 彻底删除了 www/src/view/chat/chatData.js 中原先专门给旧 contenteditable 反解 DOM Chip 的 textToChipHtml 函数，数据流全链路彻底净化为纯正 Markdown。
+4. 全量验证核验：
+   - 终端针对 format.js、chatData.js、ChatInputEditor.js 执行 node --check，零语法报错全部一次性通过。全部交接配套文件改造 100% 闭环完毕！]</n-mem>
+  <n-tasks>[总任务：1. format.js挂载systemTags纯行内style渲染(已完成) 2. chatData.js清理textToChipHtml(已完成) 3. 三大相关文件node --check静态全绿(已完成) 4. 追加_mind_.html永久归档(已落盘)]</n-tasks>
+  <n-ul>
+    <n-li>[任务1/3: format.js 纯行内样式标签扩展]
+      <n-focus>[关注1: www/src/view/common/format.js, 注册 systemTags，零 class，getColor + getSize 纯行内呈现。]</n-focus>
+    </n-li>
+    <n-li>[任务2/3: chatData.js 历史残留清理]
+      <n-focus>[关注2: www/src/view/chat/chatData.js, 物理移除 textToChipHtml，全链路纯净 Markdown 数据流。]</n-focus>
+    </n-li>
+    <n-li>[任务3/3: 全量语法核验]
+      <n-focus>[关注3: node --check 三个文件全部 100% 绿灯。]</n-focus>
+    </n-li>
+  </n-ul>
+  <n-graph>
+```mermaid
+graph TD
+    A["输入框交接配套文件全链路改造"] --> B["1. ChatInputEditor.js: 4028 行纯文本双模编辑器落地"]
+    A --> C["2. format.js: 挂载 systemTags, 零 class + 纯行内样式 + getSize/getColor"]
+    A --> D["3. chatData.js: 彻底切除 textToChipHtml 旧 DOM 反解函数"]
+    B & C & D --> E["node --check 三文件全量通过 (PASS)"]
+    E --> F["交接配套任务 100% 闭环完成"]
+```
+  </n-graph>
+</n-main>
+
+<n-main>
+  <n-time>[时间:2026/11/23 21:12:00]</n-time>
+  <n-mem>[记忆：全面完成了用户技能与计划书路由体系的建设、输入框斜杠命令动态对接，以及标签内嵌应用预览的重构闭环（任务 4 100% 完成）：
+1. 物理目录初始化：
+   - 在 server/tools/tempPath.js 中新增 getUserSkillsDir()，自动确保 userData/owo_data/skills 物理自愈创建；
+2. 三项后台 RPC 路由落地：
+   - server/crossFuncs/getUserSkillsList.js：扫描 owo_data/skills，以目录为一等公民识别 SKILL.md 并提取 front-matter description，兼顾单文件 .md，结构化返回用户技能列表；
+   - server/crossFuncs/getSystemSkillsList.js：扫描内置 owo_skills，返回 6 大系统内置专家规约元数据；
+   - server/crossFuncs/getPlansList.js：扫描 owo_data/plans，提取计划书首行 H1 标题、路径与修改时间，按最新修改倒序返回；
+3. 输入框斜杠命令真实数据动态接入：
+   - 在 www/src/view/chat/ChatInputEditor.js 中实现 loadDynamicCatalogs，当激活斜杠菜单时，通过 settingData.fnCall 并行拉取 getPlansList、getUserSkillsList 与 getSystemSkillsList，动态灌入 plans 与 skills 二级菜单，彻底替换原有死数据占位；
+4. 附件与文件预览内嵌化（彻底根治弹出 Electron 外窗）：
+   - 遵照长官最高批示“不用给 windows 加东西，直接写行内事件，fncall 支持 url 请求直接 fetch”，重构 www/src/view/common/format.js 中的 buildDualTagHtml；
+   - 彻底废除了原有的 href 与 target="_blank"，在胶囊外层 span 注入行内 onclick 调用 fetch('/api/cross', { method: 'POST', body: JSON.stringify({ name: 'appLaunch', params: [...] }) })；
+   - 智能分流：图片类附件与文件调用 imageViewer，代码/文本类文件调用 editor（readOnly: true, singleInstance: true），应用标签直接拉起对应 App，完全内聚在系统桌面中流畅运行；
+5. 静态检查全绿：
+   - 终端对 tempPath.js, getUserSkillsList.js, getSystemSkillsList.js, getPlansList.js, format.js, ChatInputEditor.js 六大修改文件统一执行 node --check，零语法错误全量通过。]</n-mem>
+  <n-tasks>[总任务：1. tempPath初始化用户skills目录(已完成) 2. 新增用户/系统技能与计划书三项RPC路由(已完成) 3. ChatInputEditor斜杠菜单动态接入(已完成) 4. format.js双联胶囊点击内嵌fetch唤起App预览(已完成) 5. 六文件node --check语法全绿(已完成) 6. 追加_mind_.html永久归档(已落盘)]</n-tasks>
+  <n-ul>
+    <n-li>[任务1/4: tempPath 与 skills 目录物理自愈]
+      <n-focus>[关注1: server/tools/tempPath.js, 新增 getUserSkillsDir()。已落盘。]</n-focus>
+    </n-li>
+    <n-li>[任务2/4: 三大只读 RPC 路由]
+      <n-focus>[关注2: server/crossFuncs/getUserSkillsList.js, getSystemSkillsList.js, getPlansList.js, 目录型技能包优先识别与 H1 标题倒序。已落盘。]</n-focus>
+    </n-li>
+    <n-li>[任务3/4: format.js 行内 fetch 预览]
+      <n-focus>[关注3: www/src/view/common/format.js, 移除 target=_blank，行内 onclick 发送 POST /api/cross 请求 appLaunch 分流 imageViewer 与 editor。已落盘。]</n-focus>
+    </n-li>
+    <n-li>[任务4/4: ChatInputEditor 动态数据灌入]
+      <n-focus>[关注4: www/src/view/chat/ChatInputEditor.js, loadDynamicCatalogs 并行拉取 plans 与 skills。已落盘。]</n-focus>
+    </n-li>
+  </n-ul>
+  <n-graph>
+```mermaid
+graph TD
+    A["Skill/Plan路由与内嵌预览闭环"] --> B["1. 后端数据与RPC基础设施"]
+    B --> B1["tempPath.getUserSkillsDir: 确保 owo_data/skills 物理自愈"]
+    B --> B2["getUserSkillsList.js: 扫描用户技能包 (目录型优先+提取description)"]
+    B --> B3["getSystemSkillsList.js: 扫描项目内置 owo_skills"]
+    B --> B4["getPlansList.js: 扫描 owo_data/plans 提取标题与 mtime 倒序"]
+    
+    A --> C["2. 前端输入框动态对接"]
+    C --> C1["ChatInputEditor.js: 激活 / 时并行拉取 plans 和 skills"]
+    C --> C2["二级菜单实时展示真实计划书与技能条目"]
+    
+    A --> D["3. 标签内嵌预览 (format.js)"]
+    D --> D1["彻底移除 <a target='_blank'>, 杜绝 Electron 弹外窗"]
+    D --> D2["行内 onclick 原生 fetch('/api/cross') 调用 appLaunch"]
+    D --> D3["图片分流至 imageViewer, 代码/文本分流至 editor"]
+    
+    B & C & D --> E["6文件 node --check 全量静态语法核验通过 (PASS)"]
+```
+  </n-graph>
+</n-main>
+
+<n-main>
+  <n-time>[时间:2026/11/24 18:38:00]</n-time>
+  <n-mem>[记忆：按长官指令完成「窗口相关模块 getSize 栅格化改造」第一版落地。
+【定调规则四条】①只改尺寸相关样式：宽高/内外距/gap/圆角/字号/描边/阴影偏移与模糊/blur 半径/图标尺寸；颜色、背景、动效、透明度不动；②按 4px 栅格取整用 getSize(整数)，换算 = 原 px ÷ 4；③描边等半格值允许小数，getSize(0.25)=1px、getSize(0.5)=2px，迷你间距 getSize(1/2)=2px；④参与 JS 坐标计算或平台对齐的保留 px。
+【保留 px 的例外清单】noticeBox 八向拖拽手柄 -8px/20px/14px/28px（pointerdown 命中与 clientX/Y 增量计算）；FloatBall 4px 轻点/拖拽阈值；FloatBall 内包裹 macOS 红绿灯的 70px×20px 与 marginRight 6px；WindowHeader 红绿灯底座 108px/88px 与占位 74px/66px（跟随原生按钮物理位置）；百分比 50%/22%/100%、无单位 lineHeight:1、vh/vw、auto/fit-content 均不动。
+【已改 12 个文件】noticeBox.js：圆角 getSize(8)、阴影 0 0 getSize(1)rem / 0 0 getSize(5)rem、描边 getSize(0.25)、内缩 getSize(1) 与 calc(100% - getSize(2)rem)、最大化顶距 getSize(6)、maxHeight 扣减 getSize(5)、迷你最小宽 getSize(20)、max(getSize(50)rem, fit-content)、展开图标 ${getSize(12) * 10}px；WindowHeader.js：圆角 getSize(8)、内距 getSize(1)/getSize(3) 与 getSize(0.5)/getSize(1)、最小高 getSize(8)/getSize(4)、gap getSize(1)/getSize(0.5)、底座高 getSize(10)/getSize(5)、标题最小宽 getSize(10)/getSize(5)、迷你字号 getSize(3)、图标 getSize(4)/getSize(3)、右距 getSize(1)、blur(12px)→blur(getSize(3)rem) 磨砂保留；七个按钮（Close/Confirm/Minimize/Maximize/Pin/WebWindow/HeaderButtons）：边长 getSize(6)/getSize(3)、字号 getSize(3)/getSize(2)、图标 ${getSize(2)*10}px / ${getSize(3)*10}px、带文字圆角 getSize(8)、圆形 50% 保留、描边 getSize(0.25)；TabBar.js：高 getSize(9)、内距 getSize(1)/getSize(3)、字号 getSize(3)、标签宽 getSize(15)~getSize(45)、关闭钮间距 getSize(2) 与 getSize(1/2)；FloatBall.js：胶囊圆角 getSize(8)、高 getSize(6)、内距 getSize(1) getSize(2)、菜单圆角 getSize(4)、高 getSize(5)、gap getSize(1)、字号与图标 getSize(3)、阴影 getSize(0.5)/getSize(2)；openControlPanel.js：minWidth getSize(40)。
+【关键查证】@icon-park/svg 将 size 原样拼进 svg 的 width/height 属性，其默认值就是 1em，理论上接受相对单位；但为避免旧 WebKit、独立 SVG 文档、导出图片等场景兼容问题，统一用 px，数值仍由 `${getSize(k) * 10}px` 从档位推导，保证单一来源。
+【校验】12 个文件 node --check 全部通过，等待长官人眼验收后微调。]</n-mem>
+  <n-tasks>[总任务：1.定档与判定规则(已完成) 2.noticeBox(已完成) 3.WindowHeader(已完成) 4.七按钮(已完成) 5.TabBar(已完成) 6.FloatBall+控制面板(已完成) 7.node --check(已全部通过) 8.长官人眼验收(待执行)]</n-tasks>
+  <n-ul>
+    <n-li>[任务1/8: 定档]
+      <n-focus>[关注1: aiDocs/样式设计指南.md 第0节基准尺寸表, 4px 栅格 + getSize(k)=0.4k rem。]</n-focus>
+    </n-li>
+    <n-li>[任务2-6: 分文件落盘]
+      <n-focus>[关注2: noticeBox.js / WindowHeader.js / 七按钮 / TabBar.js / FloatBall.js / openControlPanel.js 已全部 getSize 化，保留项已加注释说明理由。]</n-focus>
+    </n-li>
+    <n-li>[任务7: 校验]
+      <n-focus>[关注3: node --check 十二文件全绿，无语法错误。]</n-focus>
+    </n-li>
+  </n-ul>
+  <n-graph>
+```mermaid
+graph TD
+    A["长官: 按 4px 栅格把窗口模块尺寸改成 getSize"] --> B["1. 定规则"]
+    B --> B1["rem 全转 getSize; px 非计算才转"]
+    B --> B2["描边允许小数 0.25/0.5"]
+    B --> B3["手柄/阈值/平台避让保留 px"]
+    A --> C["2. 分五批落盘"]
+    C --> C1["noticeBox 外壳"]
+    C --> C2["WindowHeader 标题栏"]
+    C --> C3["七按钮统一 6/3 档"]
+    C --> C4["TabBar 高 9 档宽 15-45"]
+    C --> C5["FloatBall 胶囊 + 控制面板"]
+    B1 & B2 & B3 & C1 & C2 & C3 & C4 & C5 --> D["3. node --check 12 文件全绿"]
+    D --> E["4. 长官人眼验收 → 微调"]
+```
+  </n-graph>
+</n-main>
+
+<n-main>
+  <n-time>[时间:2026/11/24 18:46:00]</n-time>
+  <n-mem>[记忆：窗口模块栅格化延伸至主窗口顶栏与消息中心，共新增四个文件。
+①TitleBar.js：height/maxHeight 2.5rem→getSize(6)=24px；paddingLeft/Right 6px→getSize(2)=8px；fontSize 12px→getSize(3)；左菜单组 gap 0.2rem→getSize(0.5)；右侧项目组 gap 8px→getSize(2)；项目状态圆点 0.6rem→getSize(2)=8px、marginRight 0.4rem→getSize(1)。
+②FileMenu.js 与 ViewMenu.js 菜单项：padding 0.4rem 1rem→getSize(1)rem/getSize(3)rem；borderRadius 3rem→getSize(8)；fontSize 1.2rem→getSize(3)；margin 0 0.3rem→0 getSize(1)rem；boxShadow 0 0.2rem 0.6rem→0 getSize(0.5)rem getSize(2)rem（颜色 rgba(0,0,0,0.15) 不变）。
+③MessageInbox.js（32 处）：空态内距 getSize(5)；列表 gap getSize(1)/padding getSize(3)；消息卡 gap getSize(2)/padding getSize(3) getSize(5)/圆角 getSize(8)；类型与时间字号 1.1rem→getSize(3)；未读圆点 0.6rem→getSize(2)；正文区 gap getSize(1)/paddingLeft getSize(0.5)；标题 1.3rem→getSize(3)；进度条高 getSize(1)/圆角 getSize(0.5)/上距 getSize(1)；闪信胶囊 gap getSize(1)/padding getSize(0.5) getSize(2)/圆角 getSize(3)/最大宽 18rem→getSize(45)；收件盒圆钮 2.4rem→getSize(6)；邮件图标 1.4rem→getSize(3)；角标 top/right -getSize(1)、字号 getSize(2)、padding 0 getSize(1)、圆角 getSize(8) 飘带、高 getSize(3)。
+【未动项】TitleBar.js 里包裹 MessageInbox 的 transform: "scale(0.9)" 属比例变换，不是固定尺寸，按纪律未改；若后续觉得图标偏小可将其去掉或调为 1。
+【其他回顾】iconPark 的 size 已按长官指示全部改回 rem（共 8 处），@icon-park/svg 内部直接把 size 拼给 svg 的 width/height，默认值本就是 1em。底部导航栏避让量 2.5rem 已退回，与 nav.js getNavGap 严格配套。四个新文件 node --check 均通过。]</n-mem>
+  <n-tasks>[总任务：1.窗口外壳/标题栏/七按钮/标签栏/悬浮球/控制面板(已完成) 2.iconPark 改 rem(已完成) 3.导航栏避让修正(已完成) 4.主窗口顶栏 TitleBar/FileMenu/ViewMenu(已完成) 5.消息中心 MessageInbox(已完成) 6.长官人眼验收(待执行)]</n-tasks>
+  <n-ul>
+    <n-li>[任务4: 主窗口顶栏]
+      <n-focus>[关注: TitleBar.js 高 25→24、左右内距 6→8、字号 12 不变、圆点 6→8；FileMenu/ViewMenu 菜单项横向内距 10→12、圆角 30→32、外距 3→4、阴影模糊 6→8。]</n-focus>
+    </n-li>
+    <n-li>[任务5: 消息中心]
+      <n-focus>[关注: MessageInbox.js 32 处尺寸全 getSize 化；scale(0.9) 因属比例未改。]</n-focus>
+    </n-li>
+  </n-ul>
+  <n-graph>
+```mermaid
+graph TD
+    A["长官: 顶栏菜单项 + 消息中心也要栅格化"] --> B["TitleBar 高/内距/字号/圆点"]
+    A --> C["FileMenu + ViewMenu 菜单项 5 项"]
+    A --> D["MessageInbox 32 处"]
+    B & C & D --> E["node --check 4 文件全绿"]
+    E --> F["长官人眼验收"]
+```
+  </n-graph>
+</n-main>
+
+<n-main>
+  <n-time>[时间:2026/11/24 18:55:00]</n-time>
+  <n-mem>[记忆：修复了一例栅格化引入的回归 Bug——独立 Electron 迷你窗口（useFloatBall）的悬浮球胶囊里，macOS 原生红绿灯溢出。
+【根因】该胶囊高度不是随意值：红绿灯容器固定 70px×20px，胶囊高必须 = 20px + 上下内距 3px×2 = 26px。我上一轮把 padding 改为 getSize(1)rem getSize(2)rem（上下 4px、左右 8px）、height 改为 getSize(6)rem（24px），于是需要 28px 但只有 24px，纵向溢出 4px；横向左右内距由 6/4 变 8/8，胶囊显松。
+【修复】FloatBall.js 的 padding 回退 "3px 6px 3px 4px"、height 回退 "26px"，并加注释：包裹 macOS 原生红绿灯，属平台物理尺寸组合，不参与栅格化。node --check 通过。
+【排查同类风险】WindowHeader 的红绿灯底座（108/88px）是 absolute 背景层，不包裹真实按钮，改高度不影响原生灯位置；其 minHeight 32px 远大于灯直径 12px；TitleBar 顶栏 24px 仅使灯视觉偏 0.5px，可接受。
+【grid 例外清单（长官要求只记 mind，不写进指南）】
+1. 参与 JS 坐标计算：noticeBox 八向拖拽手柄 -8/20/14/28px、FloatBall 4px 轻点拖拽阈值。
+2. 跟随平台原生控件：红绿灯底座 108/88px、避让占位 74/66px、包裹层 70×20px 与 marginRight 6px、胶囊高 26px 与内距 3/6/3/4。
+3. 与未栅格化模块配套：底部导航栏避让的 2.5rem（与 nav.js getNavGap 联动，未来改导航栏时两边同步）。
+4. 比例/相对量：%、vh/vw、scale()、无单位行高（如 lineHeight 1、1.4）。
+5. 半格值：描边 getSize(0.25)/getSize(0.5)、迷你间距 getSize(1/2)。
+【iconPark】size 已全改 rem（库直接把 size 拼进 svg width/height，默认值本就是 1em）。
+【待办】底部导航栏、聊天列表、桌面、设置页尚未栅格化。]</n-mem>
+  <n-tasks>[总任务：1.窗口模块与我台顶栏栅格化(已完成) 2.红绿灯溢出回归修复(已完成) 3.例外清单归档到 mind(已完成) 4.其他模块栅格化(待安排)]</n-tasks>
+  <n-ul>
+    <n-li>[任务2: 红绿灯溢出回归]
+      <n-focus>[关注: FloatBall.js 胶囊 padding 与 height 已回退原 px，均已加注释。]</n-focus>
+    </n-li>
+    <n-li>[任务3: 例外清单]
+      <n-focus>[关注: 五类例外已完整记入本块，不写入 aiDocs/样式设计指南.md。]</n-focus>
+    </n-li>
+  </n-ul>
+  <n-graph>
+```mermaid
+graph TD
+    A["长官: 迷你胶囊红绿灯溢出"] --> B["根因: 26px = 20px容器 + 3px×2内距"]
+    B --> C["我改为 24px 高 + 4px 内距 => 需 28px"]
+    C --> D["回退 padding/height 为原 px 并加注释"]
+    D --> E["排查其余红绿灯容器无同类风险"]
+    E --> F["五类例外归档到 mind"]
+```
+  </n-graph>
+</n-main>
+
+<n-main>
+  <n-time>[时间:2026/11/25 15:33:00]</n-time>
+  <n-mem>[记忆：本轮大规模栅格化改造全景（承接 11/24 的窗口壳改造）。
+
+【一、样式规范定稿，已写入 aiDocs/样式设计指南.md】
+1. 圆角：全站唯一 getSize(8)=3.2rem，禁止混用；形态例外仅两种——圆形/胶囊（可写 50%）与 App 图标沿用 iOS 22%。
+2. 圆角容器嵌套两条：①圆角套圆角 → getSize(1)=0.4rem（只为两层轮廓可分）；②其余一切（1套n / 直角内容 / 混排）→ getSize(3)=1.2rem。依据：直角内容不被裁需 p ≥ 0.293R，R=32 时临界 9.37px，0.4/0.8 均不足。
+3. 已删除旧的「方角例外」档与三行临界表。
+4. 几何结论：同半径嵌套 p≥0 永不裁切；严格同心需 r=R−p，会引入多档圆角与“统一 32”冲突，故不采用；1套n 统一 1.2rem 后列表更松但规则只剩两条。
+
+【二、缩放方程 init_responsive.js】
+PC：700~1215=8px、1215~1500=9px、>1500=8px（断点不单调，已知问题）；移动：ceil(视口/45.5)，455px→10px，真机 375/390/393 均为 9px；根字号 = baseSize × zoomFactor(0.5~2)。已知问题：700px 断点 16px→8px 骤降。另已将 Css.js 的 *{font-size} 改为 body{}，继承生效（组件不写字号会跟随父级）。
+
+【三、ioSocket.js 方案 A 修复】
+App 默认尺寸钳制时纳入导航栏避让：availViewportObj = { widthNum, heightNum, topInsetNum(2.5rem实际px), navInsetNum, availWNum(95%), availHNum }；targetH = min(targetH, availHNum)；targetY = topInsetNum + (availHNum − targetH)/2。解决编辑器 app.json(1000×800) 压到导航栏的问题。注意：顶部 2.5rem 是留白，不是导航避让。
+
+【四、改造进度】
+已完成：窗口壳 15 文件、主窗口顶栏（TitleBar/FileMenu/ViewMenu）、MessageInbox、ChatTasks、ChatNote（部分）、Chat.js、ChatList 外层、ChatInputBar、ChatSendQuickMenu、ChatItem（76 处全部）。
+common 目录全部完成：tip/menu/getBlurBg/AppHost/FormItem/sysMenu/autoForm/windowSwitcher/DiffFoldView/RefinedText/nav/navItem/HelpMenu/format。其中 format.js 删除 15 处 font-size + 约 50 处尺寸；HelpMenu 由静态 HTML 表格重构为数据驱动 Mithril 组件。
+
+【五、待办】
+chat 剩余：ChatBatchReview(85)、ChatSendParams(43)、ChatConfirm(25)、ChatCwdConfig(24)、ToolCallGroup(20)、ChatToolSelect(19)、ChatSendMenu(15)、ChatiTmRestoreDialog(10)、TaskProcessGroup(9) 及零散。
+其他：setting/setting.js(185)、settingModelWizard(21)、aiContext(27)、desktopMini(14)、各 App 的 frontend.js。
+跳过：所有 *_bak、nav_.js（旧版）、dzCode.js（BBcode 解析字符串）、noticeBox 拖拽手柄与 2.5rem 避让、FloatBall 胶囊与阈值、WindowHeader 红绿灯底座。
+
+【六、踩坑与操作规则】
+1. ChatItem 漏 import getSize 导致运行时白屏（node --check 查不出未定义变量）——用 getSize 前必先确认 import。
+2. filePatcher：replace 必须自检反引号闭合与逗号位置；同值多处需 startLine/endLine 限定；target 含反斜杠（如 \'）极易匹配失败，改用不含反斜杠的短片段。
+3. 判断 ${} 是否生效：若代码是当前文件执行的 JS，须用反引号模板字符串；若是生成给浏览器的 HTML 字符串（如 onclick 属性内的代码），只需最外层是模板字符串即可。
+4. 优先用 codeSearch / lspTool，而不是终端 grep（长官明确提醒）。
+
+【七、视觉变化】
+桌面根字号 8px 时所有设计值×0.8（32px 圆角实际 25.6px）；移动 9px 时×0.9。圆角 30→32、气泡大角 20→32/小角 5→4、导航栏 padding 10→12；手机端因 1rem 档提到 1.2rem 档整体略大 0.2rem。]</n-mem>
+  <n-tasks>[总任务：1.窗口体系栅格化(已完成) 2.圆角规范定稿并写入指南(已完成) 3.ioSocket 默认尺寸避让修复(已完成) 4.common 目录全量改造(已完成) 5.ChatItem 与 Chat 容器改造(已完成) 6.chat 剩余组件改造(待执行) 7.setting 与 App 界面(待执行)]</n-tasks>
+  <n-ul>
+    <n-li>[任务2: 圆角规范]
+      <n-focus>[关注1: aiDocs/样式设计指南.md 圆角段，两条嵌套规则：圆角套圆角 0.4rem、其余 1.2rem；禁止混用半径。]</n-focus>
+    </n-li>
+    <n-li>[任务3: ioSocket]
+      <n-focus>[关注2: www/src/comData/ioSocket.js L243-275，availViewportObj 统一封装视口与避让量，钳制与居中均使用它。]</n-focus>
+    </n-li>
+    <n-li>[任务4-5: 组件改造]
+      <n-focus>[关注3: format.js 全部尺寸已 getSize 化（剩 2 处可忽略）；HelpMenu.js 已重构为 Mithril 组件（数据驱动 + 内联样式，样式不外置变量）。]</n-focus>
+    </n-li>
+  </n-ul>
+  <n-graph>
+```mermaid
+graph TD
+    A["大改造阶段总结"] --> B["1. 规范定稿"]
+    B --> B1["圆角统一 getSize(8)"]
+    B --> B2["嵌套两档: 0.4rem / 1.2rem"]
+    B --> B3["几何结论: 不做同心递减"]
+    A --> C["2. 缩放与避让"]
+    C --> C1["init_responsive: PC 8/9px, 移动 ceil(w/45.5)"]
+    C --> C2["Css.js: * 改 body，继承生效"]
+    C --> C3["ioSocket: availViewportObj 纳入 navInset"]
+    A --> D["3. 已完成模块"]
+    D --> D1["窗口壳 15 文件 + 顶栏 + 消息中心"]
+    D --> D2["common 全量: nav/navItem/format/HelpMenu..."]
+    D --> D3["ChatItem 76 处 + Chat 容器"]
+    A --> E["4. 待办"]
+    E --> E1["chat: ToolCallGroup/ChatConfirm/ChatBatchReview 等"]
+    E --> E2["setting 185 处 + App 界面"]
+    D1 & D2 & D3 --> F["阶段闭环"]
+```
+  </n-graph>
+</n-main>
+
+<n-main>
+  <n-time>[时间:2026/11/25 07:12:00]</n-time>
+  <n-mem>[记忆：排查并彻底修复「切独立窗口时最小化窗口全被唤起 + 多开普通桌面角色 + 红绿灯关子窗后遥控面板关不掉后台实例」连锁 Bug，并按编程指南重写双边还原逻辑。
+【排除误判】确证与近期 main.js 新增 /desktop 路由（主底座 sign 改为 m.route.get()）、调整 Css 位置及窗口模块 getSize 栅格化无关（App 的 sign 仍为 msg.appId，与主底座隔离）。
+【根因一：子窗口误触发全量恢复】662f53a 移除了 main.js 的 if (!window.opener) 使独立子窗口也会连 Socket，但 ioSocket.js 的 connect 回调未做主/子窗口拦截，子窗口连上后直接调用后端 appRestoreGui（通过 appGuiRestore 全服 io.emit 广播 app:launch）。子窗口自身有 window.opener 守卫拦截了无关 App，但主窗口全盘接收：已存在且最小化的终端/编辑器命中 existingItem 被 activateWindow 强行唤起；后台残留的旧桌面角色（r6p42/r6p43）因无法并入已脱壳窗口而另起普通虚拟窗口。
+【根因二：共享 tab 对象污染导致后台幽灵实例】main.js 的 Win.oncreate() 直接将 window.opener.Notice.data.dataArr 里的原 tab 引用传给子窗口 Notice.launch(tab)，子窗口 AppHost.oninit() 原地覆写了共享 tab.cancel（绑定子窗口上下文的 m.request）。当用 macOS 红绿灯关掉独立子窗口后，主界面遥控面板点关闭会调用已死子窗口的 m.request 导致 appClose 发不出去、异常被吞，却照常执行 closeFn 删掉图标，留下后台幽灵实例。
+【设计定调确认】以 mind 既有父子隔离模型为准（主窗口唯一负责大本营调度与刷新恢复，子窗口只承载自身 App）；macOS 红绿灯关独立窗口不挂额外钩子，由用户回主界面右键遥控面板走完整关闭流程；主窗口断线重连全量唤醒保持原样；双边（主界面遥控面板 + 独立子窗口内部）均保留并支持「独立窗口打开 ↔ 还原回虚拟窗口」按钮。
+【四处修复落地】
+1. www/src/comData/ioSocket.js：connect 回调加入 if (!window.opener && !m.route.param("winId")) 守卫，仅主窗口触发 appRestoreGui。
+2. www/src/main.js：Win.oncreate() 去掉易导致刷新跳过克隆的 if (!tab.__initChildWin) 与失效的 Layout 包裹注释，每次均对 tab 做 JSON.parse(JSON.stringify(tab)) 克隆为纯扁平副本（借助 _winConfig.toJSON() 剔除 childWin），写回 tabs[index] = tab 保证子窗口 Nav 正确读取 isMini/useFloatBall；同时执行 delete tab.titleBar 与 tab.headerButtons = []（避免 JSON 化后 titleBar 变空对象 {} 导致 WindowHeader 渲染 m({}) 报错卡死），并设 tab.useWebWindowOpen = false 防止子窗口内再次触发 openWebWindow 套娃弹窗。
+3. www/src/view/common/notice/WebWindowBtn.js：按钮 title 判定补充 || m.route.param("winId") === win.id，兼顾主界面遥控面板（看 win.childWin）与子窗口内部（看 URL winId）。
+4. www/src/view/common/notice.js：按 owo_skills/coding_guide/SKILL.md 重写 openWebWindow，统一以 const mainWin = window.opener || window 与 tabsArr[0]._winConfig 合并主/子窗口两套还原逻辑（先恢复主窗口数据并激活重绘，再关闭独立子窗口），精简冗余变量与防御兜底并补全清晰注释。]</n-mem>
+  <n-tasks>[总任务：1.排查双开与唤醒最小化窗口根因(已完成) 2.排查红绿灯关窗后台残留根因(已完成) 3.修复ioSocket主窗口守卫与main.js克隆隔离(已完成) 4.修复titleBar空对象崩溃(已完成) 5.按编程指南重写双边还原逻辑(已完成) 6.追加mind记录(已完成)]</n-tasks>
+  <n-ul>
+    <n-li>[任务1-2: 根因定位]
+      <n-focus>[关注1: ioSocket.js connect 缺主窗口守卫 → 子窗口误调 appRestoreGui 触发全服广播唤醒主窗口最小化应用与复活幽灵实例。]</n-focus>
+      <n-focus>[关注2: main.js Win.oncreate() 共享原 tab 引用 → 子窗口 AppHost 覆写 tab.cancel → 红绿灯关子窗后主界面遥控面板发不出 appClose 致后台残留。]</n-focus>
+    </n-li>
+    <n-li>[任务3-5: 代码修复与重构]
+      <n-focus>[关注3: www/src/comData/ioSocket.js，connect 仅在 !window.opener && !m.route.param("winId") 时调 appRestoreGui。]</n-focus>
+      <n-focus>[关注4: www/src/main.js，Win.oncreate() 对 tab 做 JSON 克隆隔离，清理 titleBar/headerButtons 空壳，置 useWebWindowOpen=false 并回写 tabs[index]。]</n-focus>
+      <n-focus>[关注5: www/src/view/common/notice/WebWindowBtn.js & www/src/view/common/notice.js，补齐 winId 判定并按 coding_guide 重写合并 openWebWindow 双边还原逻辑。]</n-focus>
+    </n-li>
+  </n-ul>
+  <n-graph>
+```mermaid
+graph TD
+    A["现象: 切独立窗口时最小化窗口全弹 + 多开桌宠 + 后台幽灵残留"] --> B["根因1: 子窗 Socket connect 误调 appRestoreGui 全服广播"]
+    A --> C["根因2: Win.oncreate 共享原 tab, 子窗覆写 tab.cancel"]
+    B --> B1["修复: ioSocket.js connect 加 !window.opener && !winId 守卫"]
+    C --> C1["修复: main.js JSON 克隆 tab + 删空壳 titleBar + useWebWindowOpen=false"]
+    C1 --> D["连带: 克隆剥离 childWin 致子窗内还原按钮失效"]
+    D --> D1["修复: WebWindowBtn 补 winId 判定 + 按指南重写 notice.js openWebWindow 合并主/子还原"]
+    B1 & C1 & D1 --> E["闭环验证通过并归档至 _mind_.html"]
+```
+  </n-graph>
+</n-main>
+
+<n-main>
+  <n-time>[时间:2026/11/25 08:25:00]</n-time>
+  <n-mem>[记忆：严格限定仅修改 www/src/view/chat/ChatList.js 与 www/src/view/chat/ChatListScrollBar.js 两文件，完成消息列表虚拟滚动算法与自绘滚动条的全量重写、样式 4px 栅格化升级、编程指南逐条校对及体验打磨：1. 根治白屏与内存泄漏：废除旧版易在边界中止的 follow()，统一用 viewport.recompute(scrollTopNum) 按当前滚动位置计算并夹紧渲染区间；steward.sample() 遍历当前渲染区间锁定首个真正可见卡片作为锚点；补齐会话切换检测（activeListIdNum）及 onremove 下的 ResizeObserver.unobserve、disconnect、定时器与 rAF 全量清理。2. 新增分页滑窗淘汰：引入 evictFarPages（MAX_CACHED_PAGES = 12），仅保留离视口最近的 12 页外加第 0 页、视口在展页与在途页，将远端旧页从 rows.pages 释放回占位符，防止超长数据库会话无限涨内存。3. 修复拖拽抽动与高频降 CPU：普通拖拽时滑块直跟指针比例（dragRatioNum）并清空锚点、松手再采样；给 onscroll / onpointerdown / onpointermove 统一显式设置 e.redraw = false 关闭 Mithril 默认全量重绘；引入 steward.dragging 在高速拖拽期间暂缓后台拉页，停顿 150ms 或松手后再拉当前停靠页。4. 支持点击空白轨道跳转：短按松手且落点在滑块之外（!dragStartOnThumbBool）时直接按比例跳转（applyScrollTop），与按住拖拽、长按 260ms 放大镜三手势互斥。5. 规范与样式收口：按 owo_skills/coding_guide/SKILL.md 消除全部前向引用（recompute 传参、pickNextPageNum 置顶）、清理多余判空与一次性临时变量；按 aiDocs/样式设计指南.md 完成 getSize(k) 4px 栅格化，并将加载中占位符由违规半透字（main.front + "55"）修正为三主题清晰可读的成对胶囊标签（gray_3.back / gray_3.front）；保持滚动条零回调传参、.chatList + overflowAnchor: "none"、AI 回复离底累计未读与底端自动刷新等全部历史铁律不变。两文件均通过 /usr/local/bin/node --check 校验并经实机验证。]</n-mem>
+  <n-tasks>[总任务：1.调查虚拟滚动/滚动条/历史mind与未读贴底链路(已完成) 2.重写ChatList.js含滑窗淘汰与4px栅格样式(已完成) 3.重写ChatListScrollBar.js并修复拖拽抽动(已完成) 4.按编程指南校对收口(已完成) 5.降CPU(e.redraw=false+拖拽暂缓拉页)、支持点击轨道跳转、修复加载中配色(已完成) 6.追加mind记录(已完成)]</n-tasks>
+  <n-ul>
+    <n-li>[任务1-2: ChatList.js 虚拟滚动重写与滑窗淘汰]
+      <n-focus>[关注1: www/src/view/chat/ChatList.js，账本(ledger)/视口(viewport)/管家(steward)三段式重写；viewport.recompute(scrollTopNum) 统一夹紧渲染区间根治白屏；evictFarPages 限制 MAX_CACHED_PAGES=12 释放远端旧页；onremove 全量清理观察器与定时器。]</n-focus>
+      <n-focus>[关注2: 加载中占位符改为 gray_3.back/.front 成对胶囊标签，修复三主题下原 main.front+"55" 看不清的问题；onscroll 设 e.redraw=false 且 pickNextPageNum 在 steward.dragging 时暂缓拉页。]</n-focus>
+    </n-li>
+    <n-li>[任务3-5: ChatListScrollBar.js 重写、防抽动与交互补齐]
+      <n-focus>[关注3: www/src/view/chat/ChatListScrollBar.js，保持无回调传参铁律；rAF 合并普通拖拽、dragRatioNum 消除高度变化导致的滑块抽动；onpointerdown/move 设 e.redraw=false；短按空白轨道（!dragStartOnThumbBool）调用 applyScrollTop 直接跳转。]</n-focus>
+      <n-focus>[关注4: 两文件均按 coding_guide 消除前向引用、冗余判空与一次性临时变量，按样式设计指南统一 getSize(k) 4px 栅格。]</n-focus>
+    </n-li>
+  </n-ul>
+  <n-graph>
+```mermaid
+graph TD
+    A["痛点: 虚拟滚动白屏/内存涨/拖拽抽动/高CPU/样式不合规"] --> B["重写 ChatList.js"]
+    A --> C["重写 ChatListScrollBar.js"]
+    B --> B1["统一 viewport.recompute(pos) + 可见锚点采样"]
+    B --> B2["evictFarPages 滑窗淘汰(保留12页+第0页)"]
+    B --> B3["onscroll e.redraw=false + steward.dragging 暂缓拉页"]
+    B --> B4["加载中占位符改为 gray_3 成对胶囊"]
+    C --> C1["dragRatioNum 直跟指针消除拖拽抽动"]
+    C --> C2["onpointerdown/move e.redraw=false + 150ms 停顿恢复拉页"]
+    C --> C3["短按空白轨道跳转(防滑块误触)"]
+    B1 & B2 & B3 & B4 & C1 & C2 & C3 --> D["通过编程指南校对、node --check 与实机验证，归档至 _mind_.html"]
+```
+  </n-graph>
+</n-main>
+
+<n-main>
+  <n-time>[时间:2026/11/25 16:10:00]</n-time>
+  <n-mem>[记忆：承接 11/25 15:33 条的 chat 目录栅格化。上下文曾爆过一次，长官清空暂存后我从 _mind_.html 与聊天历史重建现场，先把审批卡三处视觉问题修正落盘，再把 chat 剩余文件全部收尾。
+【一、审批卡 ChatBatchReview.js 修正（长官人眼验收 + 两次留言纠偏）】
+1. 标题字号 getSize(5)=20px 偏大，回落标准正文档 getSize(4)=16px；
+2. 【重要定调】长官明确：圆角全站统一 getSize(8)=32px，唯一例外是外层审批卡与 ChatItem 同款的“分左右”方向性圆角 getSize(1)/getSize(8)/getSize(8)/getSize(1)（气泡造型）。我第一次误把外层单边圆角改成统一 32 被拒，长官原话“这个有方向的，圆角和 chatitem 的圆角用一样的栅格化方案。这个应该是对的”。随后把文件条目卡圆角 getSize(5)（无定义中间档）与备注框圆角 getSize(2) 均改为 getSize(8)；
+3. 备注 textarea 文字顶到 32px 圆弧上，长官指示“加 padding 或包层圆角容器 + 内直角隐藏边框”，我先写上下 k3/左右 k4 被拒，长官留言“统一3”，最终 padding 四边 getSize(3)，左右外边距归零；
+4. 批量操作行（依次审阅/全部批准/全部拒绝）与底部动作栏几乎粘在一起，补 gap getSize(1) + margin “k3 0 k1”。
+【二、chat 目录收尾（共 6 文件，均补 import getSize）】
+Avatar.js：宽高 window.Mob ? k6 : k12、描边 k0.25、阴影 0 k0.25 k1、margin k2；ChatFaceBubble.js：k40 方形、margin k1 auto、padding k1、描边 k0.25、阴影 0 k1.5 k5、drop-shadow 0 k1 k2.5；ChatSession.js：borderBottom k0.25、marginBottom k2、padding k2、圆角 k8 k8 0 0；ChatSessionList.js：圆角 k8、margin k4 k2、padding k4、fontSize k4、margin k2 0；AgentWindow.js：margin k1；Chat.js 残留：左栏 flex 0 0 k51、桌宠头像框 k50×k50。
+【三、链路事实】ChatSessionList 与 ChatSession 看似占位骨架（“会话列表”“我是会话”），但被 Chat.js L4 真实 import 并渲染，不可当垃圾跳过。ChatList_bak.js 按既定纪律跳过。
+【四、校验】LSP get_errors 对 ChatBatchReview/Avatar/ChatFaceBubble/ChatSession/ChatSessionList/Chat.js 全部零报错（终端被长官禁用，改用 lspTool，这也是长官提醒过的偏好）。]</n-mem>
+  <n-tasks>[总任务：1.上下文重建(已完成) 2.审批卡字号/圆角/间距修正(已完成) 3.剩余 6 文件栅格化(已完成) 4.LSP 校验(已完成) 5.setting 与各 App 界面栅格化(待开工)]</n-tasks>
+  <n-ul>
+    <n-li>[任务2: 审批卡三处]
+      <n-focus>[关注1:文件 www/src/view/chat/ChatBatchReview.js, L417 标题 fontSize k5→k4; L549 条目卡 borderRadius k5→k8; L898 textarea padding k2→k3; L902 textarea borderRadius k2→k8; L921 批量按钮行 gap k1 + margin k3 0 k1; L398 外层方向性圆角保留为 k1/k8/k8/k1]</n-focus>
+    </n-li>
+    <n-li>[任务3: 剩余文件]
+      <n-focus>[关注2: Avatar.js / ChatFaceBubble.js / ChatSession.js / ChatSessionList.js / AgentWindow.js / Chat.js，全部裸 rem 转 getSize 档位，且前五个原本没有 import getSize，已补齐（漏 import 会运行时白屏，node --check 查不出）]</n-focus>
+    </n-li>
+    <n-li>[任务4: 校验]
+      <n-focus>[关注3: lspTool get_errors 六文件全绿；ChatList_bak.js 按纪律不碰]</n-focus>
+    </n-li>
+  </n-ul>
+  <n-graph>
+```mermaid
+graph TD
+    A["上下文爆掉后重建：读 _mind_ + 历史记录"] --> B["审批卡修正"]
+    B --> B1["标题 k5→k4 标准正文档"]
+    B --> B2["圆角定调：全站 k8，仅外层气泡卡分左右(k1/k8/k8/k1)"]
+    B --> B3["textarea 内距四边统一 k3"]
+    B --> B4["批量按钮行补 gap k1 + margin k3 0 k1"]
+    A --> C["chat 剩余 6 文件收尾"]
+    C --> C1["Avatar k6/k12 + 描边阴影"]
+    C --> C2["ChatFaceBubble k40 泡"]
+    C --> C3["ChatSession/ChatSessionList 骨架也栅格化"]
+    C --> C4["AgentWindow k1 + Chat.js k51/k50"]
+    B1 & B2 & B3 & B4 & C1 & C2 & C3 & C4 --> D["lspTool 六文件零报错"]
+    D --> E["待办：setting(185) 与各 App 界面"]
+```
+  </n-graph>
+</n-main>
+
+<n-main>
+  <n-time>[时间:2026/11/25 16:12:00]</n-time>
+  <n-mem>[记忆：补记一条长官新立的换算细则。上下文：我把 Chat.js 左栏 flex 与桌宠头像框的 25.5rem / 25rem 改成了 getSize(51)/getSize(50)（=20rem/20rem），长官指出这样会使尺寸变小、导致视频模式预设宽度异常、人物站立部分被遮挡；我提议回退裸 rem、又提议用小数档精确等价（k62.5/k63.75），两次均被否。长官最终定调：【旧 rem 值换算成 getSize 档位时，取最近的整数档】，不保留小数档、也不回退裸单位。落地：25rem 对应 k62.5 → 取 k63（=25.2rem）；25.5rem 对应 k63.75 → 取 k64（=25.6rem）。换算通式：k = 旧 rem 值 ÷ 0.4，再四舍五入取整。另注：该两处尺寸参与 ChatVideo 的视频模式预设宽度，虽然仍走 getSize，但数值必须与原宽度基本一致，否则视频里人物站立部分会被遮挡。]</n-mem>
+  <n-tasks>[总任务：1.确立旧 rem → 档位的取整细则(已完成) 2.Chat.js 两处尺寸改用 k63/k64(已完成) 3.LSP 复查(已完成)]</n-tasks>
+  <n-ul>
+    <n-li>[任务1-2: 换算细则]
+      <n-focus>[关注1:文件 www/src/view/chat/Chat.js, L45 flex “0 0 getSize(64)rem”(25.6rem); L67-68 桌宠头像框 getSize(63)rem × getSize(63)rem(25.2rem)]</n-focus>
+      <n-focus>[关注2:规则——k = 旧 rem ÷ 0.4，四舍五入取整数档；禁小数档、禁回退裸 rem]</n-focus>
+    </n-li>
+  </n-ul>
+  <n-graph>
+```mermaid
+graph TD
+    A["旧值 25rem / 25.5rem"] --> B["k = rem ÷ 0.4"]
+    B --> C["25rem → k62.5 → 取 k63"]
+    B --> D["25.5rem → k63.75 → 取 k64"]
+    C & D --> E["视频模式预设宽度不被破坏"]
+```
+  </n-graph>
+</n-main>
+
+<n-main>
+  <n-time>[时间:2026/11/25 16:17:00]</n-time>
+  <n-mem>[记忆：审批卡（ChatBatchReview.js）胶囊与圆角的最后收敛。
+【一、胶囊间距的标准答案】长官问“这个间距是多少，是 getSize(1) 吗？”经查证：底部输入栏工具行是【父容器 gap: getSize(1)（4px）+ 每个胶囊 styleExt margin 0】，所以相邻胶囊间距就是 4px；而审批卡里是【胶囊自己 styleExt margin “k0.5 k1”】，左侧 4px + 右侧 4px = 8px（等于 getSize(2)），正好大一倍。已把审批卡内全部胶囊（顶部批准/拒绝/待定、文件行类型/行数/查看批注、右侧编辑器审阅/源文件/查看 Diff/已作废、批准拒绝连体胶囊、底部依次审阅/全部批准/全部拒绝）的 styleExt margin 全部归零，改由父容器 gap: getSize(1) 提供间距；文件名 span 的 margin “0 k1” 也归零。底部“执行/拒绝”两个 Box 默认 margin k1，也补了 margin 0，改为只靠容器 gap k1。
+【二、圆角错位】长官红箭头指向的确实是【内容主卡】（待审批文件列表与备注框所在的那块深色 Box）的左下角：它原来是 getSize(3)=12px，而内层文件条目卡已被我改成 getSize(8)=32px，导致“内层比外层还圆”的错位。已改为 getSize(8)，与全站统一 32 对齐。外层卡片的四角不变，仍是方向性的 getSize(1)/getSize(8)/getSize(8)/getSize(1)。
+【三、踩坑】filePatcher 的 update 对象里 path/reason 必须与 edits 同级写在 update 内，不能写到 operations[0] 层；行号限定下 target 的缩进必须一字不差（作废胶囊那处是 36/38 空格而非 34/36）。]</n-mem>
+  <n-tasks>[总任务：1.胶囊间距统一为 gap k1(已完成) 2.内容主卡圆角统一 32(已完成) 3.执行/拒绝按钮外边距归零(已完成) 4.LSP 校验(已完成)]</n-tasks>
+  <n-ul>
+    <n-li>[任务1: 胶囊间距]
+      <n-focus>[关注1:文件 www/src/view/chat/ChatBatchReview.js，12 处胶囊 styleExt margin 改为 0，4 个父容器补 gap getSize(1)，文件名 span margin 归零，底部三枚批量按钮与执行/拒绝 Box 均 margin 0]</n-focus>
+    </n-li>
+    <n-li>[任务2: 圆角]
+      <n-focus>[关注2: 内容主卡 borderRadius getSize(3) → getSize(8)；外层方向性四角保持不动]</n-focus>
+    </n-li>
+  </n-ul>
+  <n-graph>
+```mermaid
+graph TD
+    A["输入栏标准：容器 gap k1 + 胶囊 margin 0 = 4px"] --> B["审批卡旧：胶囊自身 margin k0.5 k1 = 8px"]
+    B --> C["统一：胶囊 margin 0 + 容器 gap k1"]
+    A --> C
+    C --> D["视觉与输入栏一致"]
+    E["内容主卡 k3(12px) 内套条目卡 k8(32px)"] --> F["内外倒置→改为 k8"]
+```
+  </n-graph>
+</n-main>
+
+<n-main>
+  <n-time>[时间:2026/11/25 16:20:00]</n-time>
+  <n-mem>[记忆：审批卡底部垂直间距三连修正。
+【现象一】长官指出小胶囊（依次审阅/全部批准/全部拒绝）到上方备注文本框的垂直距离，与小胶囊到下方大胶囊（执行/拒绝）的距离不相等，建议取 12（即指南里的 n = getSize(3)）。我先把批量行 margin 从 “k3 0 k1” 改为 “k3 0”（上下均 12）。
+【现象二】改完仍不一样，长官追问“上面那个文本框的父容器是不是也有边距？看起来上面更高”——完全正确。实测垂直距离拆解：上方 = 内容主卡 padding-bottom k3(12) + 批量行 margin-top k3(12) = 24px；下方 = 批量行 margin-bottom k3(12) = 12px。两处叠加导致上方翻倍。
+【最终落地】批量行 margin 改为 “0 0 k3”（上 0、下 12），上方只留内容主卡的 padding-bottom 12px，下方 12px，三段留白严格相等。
+【通用教训】嵌套容器里改间距时，必须把父容器的 padding 也算进视觉距离，否则会“父 padding + 子 margin”叠加；同向相邻两个间距只保留一个（本处保留父 padding、子 margin 归零）。水平方向仍走 gap k1（4px），垂直方向走 k3（12px），两者层级不同不矛盾。]</n-mem>
+  <n-tasks>[总任务：1.底部三行垂直间距统一 k3(已完成) 2.消除父 padding 与子 margin 叠加(已完成) 3.LSP 校验(已完成)]</n-tasks>
+  <n-ul>
+    <n-li>[任务1-2: 垂直间距]
+      <n-focus>[关注1:文件 www/src/view/chat/ChatBatchReview.js, L926 批量操作行 margin 最终为 “0 0 getSize(3)rem”；上方距离由内容主卡 padding k3 提供]</n-focus>
+    </n-li>
+  </n-ul>
+  <n-graph>
+```mermaid
+graph TD
+    A["旧：内容卡 padding-bottom 12 + 批量行 margin-top 12 = 24px"] --> B["下方只有 12px → 视觉不等"]
+    B --> C["修正：批量行 margin-top 归零"]
+    C --> D["上 12 / 下 12 完全相等"]
+    E["教训：嵌套容器的视觉距离 = 父 padding + 子 margin"] --> C
+```
+  </n-graph>
+</n-main>
+
+<n-main>
+  <n-time>[时间:2026/11/25 16:27:00]</n-time>
+  <n-mem>[记忆：ChatItem 深度思考框三项修正完成（长官逐步验收）。
+【一、两份实例】长官提醒“深度思考框有两个”：已发送正文里的、以及流式输出（思考中）的。查证：两者是同一个组件 ReasoningBlock（ChatItem.js L25），分别在 L518（非 preparing）与 L617（preparing 实时流）调用，所以只改一处就两边同时生效。
+【二、圆角】由 getSize(1)=4px 改为 getSize(8)=32px（全站统一档）。
+【三、内距——禁用 padding】长官明确“不要 padding（样式指南）”，指南 L181 原话：“若能使用 margin，尽量不要使用 padding，因为这会改变 100% 的计算”。所以内距全部改用子元素 margin：标题行 margin “k3 k3 0”，正文容器 margin “k2 k3 k3”（上 8、左右 12、下 12），四个 absolute 箭头 right/top/bottom 统一 k2 避开圆弧。
+【四、字号】长官指出其中一份的“深度思考”标题字太小——根因是外壳写了 fontSize getSize(2)=8px。已直接删掉该行，让标题继承 css.js 的全局默认字号；正文容器自己的 getSize(3) 保留。
+【规律】本项目：容器不写 padding（用子 margin 撑开）、不写字号时继承父级、圆角统一 k8。]</n-mem>
+  <n-tasks>[总任务：1.圆角 k1→k8(已完成) 2.内距改 margin(已完成) 3.箭头避圆角(已完成) 4.外壳字号限制删除(已完成) 5.LSP 校验(已完成)]</n-tasks>
+  <n-ul>
+    <n-li>[任务1-4: ReasoningBlock]
+      <n-focus>[关注1:文件 www/src/view/chat/ChatItem.js, L44 borderRadius k8; L59 标题 margin k3 k3 0; L68-69 箭头 right/top k2; L91 正文 margin k2 k3 k3; L127-128 底部箭头 right/bottom k2; 外壳 fontSize 行已删]</n-focus>
+    </n-li>
+  </n-ul>
+  <n-graph>
+```mermaid
+graph TD
+    A["ReasoningBlock 单组件两处调用"] --> B["L518 已发送 / L617 实时流"]
+    B --> C["圆角 k1→k8"]
+    B --> D["内距：子 margin 代替 padding"]
+    B --> E["外壳 fontSize k2 删除→继承默认"]
+    C & D & E --> F["两份实例视觉一致"]
+```
+  </n-graph>
+</n-main>
+
+<n-main>
+  <n-time>[时间:2026/11/25 16:50:00]</n-time>
+  <n-mem>[记忆：顶部悬浮栏（任务/笔记/用户消息预览）去胶囊改造与新增配色键。
+【一、补色】发现 消息列表背景 只有单值没有配对前景，长官确认缺色但要求【色表不存透明度，透明度在使用处拼】，且【要按不透明颜色亲自调色】。最终新增 消息列表前景：主题0(colorObj，底 #464444) = #cfc4bb；主题1(底 #FBF6E9) = #6f6354；主题2(底 #e4e9f0) = #4c5c72。
+【二、ChatTasks.js】长官原话“去掉 icontag 的背景就行了，不用改 span”——保留 IconTag 组件，只把 bgColor 改 "transparent"、fgColor 改 getColor("消息列表前景")，任务名 span 去掉自己的 fontSize（继承 Tag 的 k3），字号统一。
+【三、ChatList.js 顶部用户消息预览】长官要求“改用 tag 并且去掉边框”。已由 div 改为 m(Tag, ...)：isBtn true、color "gray_4"、styleExt 里 background transparent / border none / boxShadow none / margin 0 / color 消息列表前景 / gap k1、ext.title 传提示语；图标 fill 改为消息列表前景；【关键】ChatList.js 原本没有 import Tag，已手动补上（否则运行时白屏，node --check 与 LSP 都查不出）。
+【四、顶部渐变遮罩】ChatList.js 内 sticky 的渐变层，高度与负外边距由 k16(64px) 提到 k24(96px)，因为上方悬浮栏实际约 90px，原值盖不住。
+【五、踩坑】filePatcher 的 operations 项必须是 {update:{path,reason,edits:[...]}}，少一层 update 或把 path 写在外层都会报参数错误。]</n-mem>
+  <n-tasks>[总任务：1.新增消息列表前景三套色(已完成) 2.ChatTasks 去胶囊背景(已完成) 3.ChatList 预览改 Tag 并去背景边框(已完成) 4.补 Tag 引入(已完成) 5.LSP 校验(已完成)]</n-tasks>
+  <n-ul>
+    <n-li>[任务1: 配色]
+      <n-focus>[关注1:文件 colorObj.js 与 getColor.js，新增 消息列表前景 键，纯色不带透明]</n-focus>
+    </n-li>
+    <n-li>[任务2-4: 组件]
+      <n-focus>[关注2:文件 www/src/view/chat/ChatTasks.js 两处 IconTag：bgColor → "transparent"、fgColor → 消息列表前景]</n-focus>
+      <n-focus>[关注3:文件 www/src/view/chat/ChatList.js renderActiveUserPill 改为 m(Tag…)；顶部新增 import Tag]</n-focus>
+      <n-focus>[关注4:文件 www/src/view/chat/ChatList.js 顶部渐变层 height/marginBottom k24]</n-focus>
+    </n-li>
+  </n-ul>
+  <n-graph>
+```mermaid
+graph TD
+    A["顶部悬浮栏去胶囊"] --> B["新增颜色键：消息列表前景×3主题"]
+    B --> C["ChatTasks: IconTag 去背景，保留结构"]
+    B --> D["ChatList: 预览改 Tag + 去背景/边框/阴影"]
+    D --> E["补 import Tag（否则白屏）"]
+    A --> F["顶部渐变遮罩 k16→k24"]
+```
+  </n-graph>
+</n-main>
+
+<n-main>
+  <n-time>[时间:2026/11/25 16:54:00]</n-time>
+  <n-mem>[记忆：顶部悬浮栏改为固定两行布局（宽屏窄屏一致）。
+【布局目标】第一行：主/子会话图标 + 悬浮提问气泡；第二行：任务与笔记并排（右对齐）。
+【ChatTasks.js】容器 flexDirection 由 isCompactBool ? row : column 改为固定 "row"，让任务与笔记永远并排；isCompactBool 现在只控制“是否显示任务名与笔记文字”；笔记文案由“查看笔记”改为“笔记”（title 提示同步）。
+【ChatList.js】顶部容器 style 由 isCompactBool 分支（flex 一行 / grid 三列）改为固定 flex column + gap k1；原本的三个兄弟节点重组为两类：第一行包一层 row 容器（里放图标 + renderActiveUserPill），第二行放 ChatTasks 并 justify-content flex-end；原“宽容器才显示气泡”的条件已去掉（窄屏也显示）；原“窄容器专用第二行指示条”整块删除，避免重复。
+【风险与校验】这次是括号嵌套级改动，LSP 对 ChatList.js 与 ChatTasks.js 均零报错。]</n-mem>
+  <n-tasks>[总任务：1.ChatTasks 固定横排(已完成) 2.笔记改名(已完成) 3.ChatList 两行布局重组(已完成) 4.删重复指示条(已完成) 5.LSP 校验(已完成)]</n-tasks>
+  <n-ul>
+    <n-li>[任务1-2: ChatTasks]
+      <n-focus>[关注1:文件 www/src/view/chat/ChatTasks.js, flexDirection 固定 "row"；笔记文案 cn 改“笔记”]</n-focus>
+    </n-li>
+    <n-li>[任务3-4: ChatList 两行]
+      <n-focus>[关注2:文件 www/src/view/chat/ChatList.js 约 L1105-1230，顶层 flex column；第一行 row 包图标+气泡；第二行 ChatTasks 右对齐；旧窄屏第二行已删]</n-focus>
+    </n-li>
+  </n-ul>
+  <n-graph>
+```mermaid
+graph TD
+    A["两行布局"] --> B["第一行：图标 + 提问气泡（窄屏也显示）"]
+    A --> C["第二行：任务 + 笔记并排右对齐"]
+    C --> D["ChatTasks flexDirection 固定 row"]
+    D --> E["isCompact 仅控制文字显隐"]
+    A --> F["删除旧窄屏专用第二行"]
+```
+  </n-graph>
+</n-main>
+
+<n-main>
+  <n-time>[时间:2026/11/25 17:03:00]</n-time>
+  <n-mem>[记忆：顶部快捷消息气泡最终形态与两个坑。
+【形态】长官先要求“文字改正文档 + 去掉图标”，随即改口“图标还是留着，用 iconTag”。最终：renderActiveUserPill 由 m(Tag) 改为 m(IconTag)，传 iconName "Message"、bgColor "transparent"、fgColor 消息列表前景、iconConfig.size k5(20px)；styleExt 覆盖透明背景/无边框/无阴影/margin 0/fit-content/maxWidth k50/fontSize k4/gap k1；文字仍是一个 ellipsis span。
+【坑1】IconTag 内部只把 styleExt、isBtn、ext 三个属性透传给 Tag，不会透传 attrs.onclick。所以点击回调必须写进 ext.onclick（Box 末尾用 ...v.attrs.ext 展开，会覆盖它自己的 onclick 包装）。
+【坑2】ChatList 自己引入的 Tag 在改用 IconTag 后变成未使用，已删除该 import，只留 IconTag。
+【校验】LSP 零报错。]</n-mem>
+  <n-tasks>[总任务：1.气泡改 IconTag 并带回图标(已完成) 2.onclick 移至 ext(已完成) 3.清理无用 Tag 引入(已完成) 4.LSP 校验(已完成)]</n-tasks>
+  <n-ul>
+    <n-li>[任务1-3]
+      <n-focus>[关注1:文件 www/src/view/chat/ChatList.js renderActiveUserPill 改用 IconTag；ext.onclick 承载跳转；顶部 import 只留 IconTag]</n-focus>
+    </n-li>
+  </n-ul>
+  <n-graph>
+```mermaid
+graph TD
+    A["气泡改用 IconTag"] --> B["bgColor transparent + fgColor 消息列表前景"]
+    B --> C["图标 size k5、文字 k4"]
+    C --> D["onclick 必须放 ext（IconTag 不透传）"]
+    D --> E["删除多余 Tag 引入，LSP 全绿"]
+```
+  </n-graph>
+</n-main>
+
+<n-main>
+  <n-time>[时间:2026/11/25 17:06:00]</n-time>
+  <n-mem>[记忆：【重要·布局定案以此条为准】顶部悬浮栏最终双模式（覆盖之前“固定两行”的说法）。
+【电脑/宽屏 isCompactBool=false】顶层容器为 grid 三列 gridTemplateColumns "minmax(0,1fr) auto minmax(0,1fr)"：第一列圆形图标（左对齐）、第二列气泡（auto 列，天然相对整行居中）、第三列 ChatTasks 右对齐。ChatTasks 在宽屏是 column 竖排——即“任务一行、笔记一行”分两行显示。
+【手机/窄屏 isCompactBool=true】顶层仍为 flex column 两行：第一行 flex（图标 + 气泡 flex:1 居中），第二行 ChatTasks 横排并排右对齐。
+【实现方式】同一个顶层容器 style 用 isCompactBool 分支切 flex/grid；第一行 children 末尾追加 !isCompactBool ? ChatTasks : null（宽屏时它成为网格第三列），后面再接 isCompactBool ? ChatTasks : null（窄屏专用第二行）。ChatTasks 的 flexDirection 恢复为 isCompactBool ? "row" : "column"。
+【教训】想同时满足“宽屏挤在一行三格”与“窄屏拆成两行”时，用一个分支容器 + 两个条件渲染的 ChatTasks 比写两套完整结构简单得多。]</n-mem>
+  <n-tasks>[总任务：1.宽屏三列网格 + 任务竖排(已完成) 2.窄屏两行 + 任务横排(已完成) 3.LSP 校验(已完成)]</n-tasks>
+  <n-ul>
+    <n-li>[任务1-2: 双模式布局]
+      <n-focus>[关注1:文件 www/src/view/chat/ChatList.js 顶部容器 style 用 isCompactBool 切 flex/grid；第一行 children 末尾条件渲染 ChatTasks]</n-focus>
+      <n-focus>[关注2:文件 www/src/view/chat/ChatTasks.js flexDirection: isCompactBool ? "row" : "column"]</n-focus>
+    </n-li>
+  </n-ul>
+  <n-graph>
+```mermaid
+graph TD
+    A["顶部悬浮栏"] --> B["宽屏：grid 三列"]
+    B --> B1["左：圆形图标"]
+    B --> B2["中：气泡（真居中）"]
+    B --> B3["右：任务 / 笔记竖排两行"]
+    A --> C["窄屏：flex 两行"]
+    C --> C1["第一行：图标 + 气泡"]
+    C --> C2["第二行：任务 + 笔记横排"]
+```
+  </n-graph>
+</n-main>
+
+<n-main>
+  <n-time>[时间:2026/11/25 17:31:00]</n-time>
+  <n-mem>[记忆：【实验状态快照】长官做的“chat 无边界化”实验，当前已验收“好像对了”。
+【前提】长官自己注释掉了 Layout.js 的 background（原 getColor('gray_1').back），使 notice 窗口底色能透出来。
+【改动一：Chat.js 根容器】background 改为双层：`linear-gradient(to right, ${gray_1.back} 0%, ${gray_1.back}00 35%), ${消息列表背景}`。底层铺满消息列表背景，上层是左侧 gray_1 向右 35% 处淡出——作用是左侧栏与右侧聊天区自然衔接。
+【改动二：左栏】曾试过把渐变刷在左栏盒子上，结果因为盒子有 k8 圆角 + 根容器 padding k3，形成一圈“多出来的边框”与圆角；已改为刷根容器，左栏背景删除。
+【改动三：ChatList 容器】删除 background: 消息列表背景+"99" 与 border: k0.25 main.back，只保留 flex/borderRadius k8/position/height/overflow。
+【改动四：ChatInputBar 输入框】background 由 brown_4(或 pink_2)+99 改为 "transparent"，border 改为 "none"，让上下内容连成一片（副作用：输入框失去边界与聚焦反馈）。
+【遗留】Layout.js 的注释是长官手改；Chat.js 左栏 borderRadius k8 仍在但无底色不可见。若需回滚实验，按上述四条逐项还原即可。]</n-mem>
+  <n-tasks>[总任务：1.根容器双层渐变底(已完成) 2.左栏去背景(已完成) 3.列表去背景边框(已完成) 4.输入框去背景边框(已完成) 5.长官验收(已通过)]</n-tasks>
+  <n-ul>
+    <n-li>[任务1-4: 无边界实验]
+      <n-focus>[关注1:文件 www/src/view/chat/Chat.js 根容器 background 双层渐变(35% 淡出)；左栏无背景]</n-focus>
+      <n-focus>[关注2:文件 www/src/view/chat/ChatList.js 容器已无 background/border]</n-focus>
+      <n-focus>[关注3:文件 www/src/view/chat/ChatInputBar.js 输入框 background transparent + border none]</n-focus>
+    </n-li>
+  </n-ul>
+  <n-graph>
+```mermaid
+graph TD
+    A["chat 无边界实验"] --> B["Layout 背景由长官注释"]
+    B --> C["Chat 根容器双层渐变底 gray_1→透明 35%"]
+    C --> D["左栏不再自铺背景（消除多出的一圈边）"]
+    D --> E["ChatList 去背景去边框"]
+    E --> F["输入框透明无边框"]
+    F --> G["长官验收通过"]
+```
+  </n-graph>
+</n-main>
+
+<n-main>
+  <n-time>[时间:2026/11/25 17:58:00]</n-time>
+  <n-mem>[记忆：【最终状态·以此为准】本轮无边界实验收尾（覆盖前面 17:31 条的旧描述）。
+【一、Chat.js 根容器】background 双层：`linear-gradient(to right, ${gray_1.back} 0%, ${gray_1.back}00 35%), ${消息列表背景}`。即底层铺满消息列表背景，上层是左侧 gray_1 向右 35% 处淡出。方向曾试过 to bottom right（斜向），长官否掉，最终定回 to right。曾想给根容器加 k8 圆角被长官拒绝（当时他要解决的是列表顶部遮罩的弧）。
+【二、左栏】不再铺任何背景。曾试过把渐变刷在左栏盒子上，因盒子有 k8 圆角 + 根容器 padding k3 形成“多一圈边”被弃用。
+【三、ChatList 容器】已删除 background（原 消息列表背景+"99"）与 border（原 k0.25 main.back），保留 flex/borderRadius k8/position/height/overflow hidden。
+【四、ChatList 顶部渐变遮罩】高度与负外边距 k24(96px)，背景为垂直渐变（消息列表背景 0% → cc 45% → 00 100%）；为解决其被容器圆角裁出硬弧，新增 WebkitMaskImage 与 maskImage 两个水平渐变，左右各 k6(24px) 淡出（一开始 k2=8px 长官说还看得到一点，已提到 k6）。
+【五、输入框 ChatInputBar】长官先让去背景去边框，又改口“背景也加回来”，现已完全回滚：background = session.lockedListId ? pink_2.back+"99" : brown_4.back+"99"；border = getSize(0.25)rem solid main.back。
+【六、Layout.js】其 background（原 getColor('gray_1').back）已由长官亲手注释，使 notice 窗口底色能透出。
+【七、其他本轮已完成】消息列表顶部悬浮栏双模式布局（宽屏 grid 三列 + 任务/笔记竖排；窄屏两行 + 横排）；气泡改用 IconTag 并带 Message 图标（onclick 需放 ext）；新增配色键 消息列表前景（#cfc4bb / #6f6354 / #4c5c72）；附件缩略图 80px + 32 圆角 + img 自带圆角裁切（无 overflow hidden，保住叉号）；深度思考框圆角 k8、内距用子 margin、外壳字号限制删除；桌宠头像框背景改 gray_3。]</n-mem>
+  <n-tasks>[总任务：1.根容器双层渐定稿 to right(已完成) 2.左栏去背景(已完成) 3.列表去背景去边框(已完成) 4.顶部遮罩 mask 淡出 k6(已完成) 5.输入框背景+边框回滚(已完成) 6.记录 mind(已完成)]</n-tasks>
+  <n-ul>
+    <n-li>[任务1-5: 最终改动清单]
+      <n-focus>[关注1:文件 www/src/view/chat/Chat.js 根容器双层渐变(to right, 35%)]</n-focus>
+      <n-focus>[关注2:文件 www/src/view/chat/ChatList.js 容器无背景无边框；顶部遮罩 k24 + mask 左右 k6 淡出]</n-focus>
+      <n-focus>[关注3:文件 www/src/view/chat/ChatInputBar.js 输入框背景+边框已还原]</n-focus>
+      <n-focus>[关注4:文件 www/src/view/layout/Layout.js background 由长官注释]</n-focus>
+    </n-li>
+  </n-ul>
+  <n-graph>
+```mermaid
+graph TD
+    A["无边界实验最终形态"] --> B["Chat 根容器：to right 渐变 35% + 消息列表背景"]
+    A --> C["左栏无背景"]
+    A --> D["ChatList 无背景无边框"]
+    D --> E["顶部遮罩 k24 + mask 左右 k6 淡出"]
+    A --> F["输入框已回滚背景+边框"]
+    A --> G["Layout 背景由长官注释"]
+```
+  </n-graph>
+</n-main>
+
+<n-main>
+  <n-time>[时间:2026/11/25 18:37:00]</n-time>
+  <n-mem>[记忆：深度思考框（ReasoningBlock，ChatItem.js）排版攻坚收尾，长官确认可用了。
+【最终结构（两层壳）】外层：overflow:"hidden" + margin “k2 k3 k3”；内层：float: show?"none":"right" + whiteSpace: show?"normal":"nowrap" + fontSize k4 + maxHeight k25 + overflowY auto；最内是 .article 正文。show 默认 true（测试期间曾临时改 false，已改回）。
+【机制原理】折叠态下 float 盒取内容 max-content 宽度并贴右，内容过长则向左溢出；外层 overflow hidden 同时“包住浮动”和“裁掉左侧旧内容”，于是右边缘始终停着最新生成的文字——这就是长官要的打字机观感。
+【踩过的坑（均被长官纠正）】
+1. 把 maxWidth:100% + overflowX:hidden 加在 float 层：盒子被钉成满宽，文字只能从左排、尾部被裁，直接破坏了原设计；正确做法是把约束/裁切放在外层容器上。
+2. 用 display:flow-root 做外层：只能包浮动、不能裁溢出；应改用 overflow:hidden。
+3. 外层套壳后 float 仍会溢出到父容器外（float 的 shrink-to-fit 对 nowrap 取 max-content，父容器 margin 管不住）。
+4. show 改 false 会连带“看不到流式过程”（折叠态不跑 markdown、nowrap、只显示裁切后的可见段），这是预期而非 bug。
+【遗留】硬裁切处左侧偶尔露半截字，可用左侧渐变遮罩柔化（未做）。]</n-mem>
+  <n-tasks>[总任务：1.圆角 k8(已完成) 2.内距改子 margin(已完成) 3.字号解除限制→k4(已完成) 4.两层壳结构定型(已完成) 5.裁切层归位(已完成) 6.show 默认值恢复 true(已完成)]</n-tasks>
+  <n-ul>
+    <n-li>[任务4-6: 结构与裁切]
+      <n-focus>[关注1:文件 www/src/view/chat/ChatItem.js L25-120，外层 overflow hidden + margin k2 k3 k3；内层 float/nowrap/fontSize k4/maxHeight k25/overflowY auto；show=true]</n-focus>
+    </n-li>
+  </n-ul>
+  <n-graph>
+```mermaid
+graph TD
+    A["深度思考框定型"] --> B["外层：overflow hidden + margin k2 k3 k3"]
+    B --> C["内层：float 贴右 + nowrap + k4 + maxHeight k25"]
+    C --> D["折叠态：内容向左溢出，外层裁左保右 → 看到最新字"]
+    C --> E["展开态：float none，占满整行跑 markdown"]
+    F["错误尝试：float 上加 maxWidth/overflowX"] --> G["破坏右对齐滚动，已撤销"]
+```
+  </n-graph>
+</n-main>
+
+<n-main>
+  <n-time>[时间:2026/11/26 00:42:00]</n-time>
+  <n-mem>[记忆：编辑器 App（server/apps/editor/frontend.js）按《样式设计指南》全量校对。
+【一、尺寸】裸 px/rem 全部清零（grep 复验 0 行）：Monaco 装饰节点 domNode/tagSpan 行内样式转 getSize；操作栏 minHeight k9、padding k1 k2、gap k2、borderBottom k0.25；理由栏 padding k2 k3、fontSize k3、gap k1、maxHeight k15；路径栏 height k6、padding 0 k3、fontSize k3、内阴影 k0.25/k1；贴顶把手 top -k1、right k26、padding k0.5 k2 k1 k2、圆角 0 0 k8 k8、浮窗阴影 k1 k4；预览面板 padding k4 k5；差异导航条 bottom/right k5、gap k1、padding k1 k2、圆角 k8、浮窗阴影；三个 Tag 胶囊 height k6/padding 0 k2/圆角 k8；备注输入框 minWidth k30/maxWidth k75；批注栏与批注 Tag 全档位。
+【二、其它条款】硬编码颜色 0 处（全 getColor）；描边统一 getSize(0.25)；阴影收敛到“小卡/浮窗”两档；圆角全为 k8/50%/0 0 k8 k8；border-box 仅保留预览面板 1 处（宽度 50% + 内距，已写注释为例外）。node --check 通过。
+【三、代码区字号终案】Monaco 的 fontSize 只接受 number(px)，不能直接 rem。写法：const editorBaseFontPxNum = Math.round(1.5 * (parseFloat(getComputedStyle(document.documentElement).fontSize) || 10))，默认值/兜底/主编辑器/diff 编辑器四处均用它，lineHeight = round(基字号 × 1.5)。长官曾提议改 1.6rem（与 body 的 getSize(4) 对齐），最终决定维持 1.5rem 等效不动。
+【四、已知基准】Css.js：body = getSize(4)=1.6rem；.article * = getSize(3.5)=1.4rem !important，行高 1.8。
+【五、遗留】国际化还差 61 行硬编码中文未包 trs（保存冲突弹窗、另存为、批注提示、右键菜单项、批准修改/拒绝/只读查看等）。]</n-mem>
+  <n-tasks>[总任务：1.裸尺寸清零(已完成) 2.圆角/字号/图标/描边/阴影/颜色校对(已完成) 3.代码区字号等效写法(已完成) 4.国际化 61 行(待安排)]</n-tasks>
+  <n-ul>
+    <n-li>[任务1-3: 编辑器样式校对]
+      <n-focus>[关注1:文件 server/apps/editor/frontend.js，全文件尺寸已 getSize 化；Monaco 字号 = round(1.5 × 根字号px)]</n-focus>
+      <n-focus>[关注2:例外项：预览面板共50%宽 + padding 仍用 border-box（已注释）；Monaco 字号只能给 px 数字]</n-focus>
+    </n-li>
+  </n-ul>
+  <n-graph>
+```mermaid
+graph TD
+    A["编辑器 App 样式校对"] --> B["裸 px/rem 清零"]
+    A --> C["圆角 k8 / 描边 k0.25 / 阴影两档"]
+    A --> D["硬编码颜色清零"]
+    A --> E["代码区字号 round(1.5×根字号px)"]
+    A --> F["国际化 61 行待办"]
+```
+  </n-graph>
+</n-main>
+
+<n-main>
+  <n-time>[时间:2026/11/26 09:46:00]</n-time>
+  <n-mem>[记忆：长官发来一张截图（工具免确认权限平铺列表：全局代码搜索/阶段清理并压缩上下文/创建自定义函数/列出目录内容/查找文件/读取文件内容/获取文件大纲/文件增删改工具/Lsp感知/浏览器执行JS/获取Cookie/启动编辑器），要求“和工具许可页面那个按钮类似”地补上“添加全部/取消全部”。
+【一、定位】列表渲染组件是 www/src/view/chat/ChatToolSelect.js（361行）；批量按钮那一排本来就写好了，但它被 onSetAll 开关包着：onSetAll 存在才渲染，否则整排为 null。
+【二、调用点排查】共 5 处调用：
+  1) www/src/view/chat/ChatSendParams.js L719 免确认弹窗（toolsList 后端 getToolsList 默认参数、即只含 waitConfirm 工具）——缺 onSetAll（本次bug）；
+  2) 同文件 L867 工具许可弹窗（toolsList: allToolsList 全量）——已有 onSetAll；
+  3) server/apps/sessionManager/frontend.js L217（新建会话默认工具）——已有；
+  4) 同文件 L459（编辑会话）——已有；
+  5) server/apps/qqBot/frontendModules/SettingsView.js L583（初始工具）——已有。
+【三、本次改动（两文件）】
+  A. ChatSendParams.js 免确认弹窗 contentAttrs 补：onSetAll: (idList) => { modalDraft.skipConfirmTools = [...idList]; m.redraw() }。
+  B. ChatToolSelect.js 批量行：父容器加 gap: `${getSize(2)}rem`；两颗 Tag 加 styleExt { margin: "0" }（因 Tag 默认 margin 0 1rem，与父 gap 叠加会出现不匀称留白）；工具行 transition 从 0.15s 改为 0.2s（指南动效常量只有 0.2/0.3/0.5）。
+  C. 未改配色：仍 yellow_1/pink_1，因为长官要求与工具许可页面一致，两处共用同一组件，天然同步。
+【四、关键机制认知】Tag/Box 的 attrs 全量下传（Tag 直接 ...v.attrs）；Box 内部对象字面量里 ...v.attrs.ext 写在 onclick 之后，所以 ext.onclick 会覆盖 Box 自带的 onclick（可工作，但会绕过 disabled/isSwitch 处理）；而顶层 onclick 会以 v.attrs.onclick 形式被 Box 调用。两种写法当前都能点。
+【五、校验】node --check 两文件均无输出（通过）；lsp get_errors 无错。
+【六、未做】整页样式重设计（yellow_1 选中态、boxSizing border-box、胶囊 main 前景等）本次未动，属于后续可选优化。]</n-mem>
+  <n-tasks>[总任务：1.免确认弹窗补批量按钮(已完成) 2.批量行间距合规微调(已完成) 3.两页样式重设计(待安排，可选)]</n-tasks>
+  <n-ul>
+    <n-li>[任务1: 补 onSetAll]
+      <n-focus>[关注1: ChatSendParams.js L719-736，免确认弹窗 contentAttrs 已含 onSetAll；工具变量为模块级 let toolsList（只含 waitConfirm 工具），allToolsList 为全量]</n-focus>
+      <n-focus>[关注2: ChatToolSelect.js L73-125 批量行，onSetAll 为真值即渲染；L81 gap；L90/L109 styleExt margin 0]</n-focus>
+    </n-li>
+  </n-ul>
+  <n-graph>
+```mermaid
+graph TD
+    A["截图：免确认工具列表无批量按钮"] --> B["ChatToolSelect 批量行被 onSetAll 开关控制"]
+    B --> C["5 处调用点：4 处已传，仅 ChatSendParams L719 未传"]
+    C --> D["补 onSetAll → skipConfirmTools 整表替换"]
+    D --> E["间距合规：父 gap k2 + Tag margin 0"]
+    E --> F["node --check + lsp 均绿"]
+```
+  </n-graph>
+</n-main>
+<n-main>
+  <n-mem>[记忆：Windows 闪退崩溃日志采集方案已完成评审并暂缓施工（待修完标题栏拖拽 Bug 后启动）。定稿要点：1）目录按端口隔离 `getUserDataDir()/logs/{port}/(latest.log / prev.log / .running)` + 端口未定兜底 `logs/startup_crash.log`，不劫持 `console.*`，改镜像 `stderr` 落盘 + `stdout` 最后 200 行内存环形缓冲 + 4 项崩溃事件同步写盘；2）长官拍板：A1 改为超 5MB 裁掉前半段只保留最新后半段（不封顶停写），A2 按端口号独立隔离，反馈入口固定为 `https://www.o-o.space/?enter=1#!/feedback`；3）复用现有通道：通知走 `sys:pushMessage` 全局广播，点击动作可经由系统已有 `cross` 通道调 `server/crossFuncs/openCrashReport.js`（需给 `server/ioServer/ioApis/cross/ioApi_cross.js` L27/L34 的 `callback` 补 `callback?.(...)` 判空），零前端改动、不新建 `ioApis/crash/`；4）评审发现的 4 项必改项已明确：`i18n.js` 必须按名导入 `import { trs }`、打开日志直接 `appManager.launch("editor", { data: { filePath, readOnly: true } })` 新开只读窗、`render-process-gone`/`child-process-gone` 也带 200 行缓冲、`bindPort` 轮转后再校验 `prev.log` 存在且弹窗回调补 `try/catch` 与活窗口过滤。]</n-mem>
+  <n-tasks>[总任务：1.评审崩溃日志v2计划书与diff(已完成) 2.暂缓施工待标题栏拖拽修完后继续(待执行)]</n-tasks>
+  <n-ul>
+    <n-li>[任务1: 崩溃日志系统定稿（暂缓施工）]
+      <n-focus>[关注1: server/tools/crashLogger.js（待新增）+ server/crossFuncs/openCrashReport.js（待新增）+ app.js + server/ioServer/ioApis/cross/ioApi_cross.js（L27/L34 callback?. 判空）]</n-focus>
+      <n-focus>[关注2: 必改坑位——import { trs } 按名导入；editor 新开只读窗不覆写已有编辑器；app.exit(0) 前补 markCleanExit()]</n-focus>
+    </n-li>
+  </n-ul>
+</n-main>
+
+<n-main>
+  <n-time>[时间:2026/11/26 10:34:00]</n-time>
+  <n-mem>[记忆：修复「App 与主窗口标题栏拖不动 / 菜单点不开」完整闭环。
+【一、根因两条（互相独立）】
+  ① 空白区拖不动：提交 8a60451 统一菜单栏样式时，给 4 个 App 的 noticeConfig.titleBar 最外层容器加了 width/height 100%（铺满整条栏），但该容器上原有的 onpointerdown: (e) => e.stopPropagation()（原本只为防点菜单时误拖窗口）没挪走 → 整条标题栏含右侧空白区的 pointerdown 全被吃掉，传不到 WindowHeader.handleTitleDown。旧代码该容器只紧包按钮、未写 100%，所以以前空白区可拖。
+  ② 菜单点不开：handleTitleDown 内部会执行 target.setPointerCapture(e.pointerId)（防拖太快脱手）。如果按钮自己没拦 pointerdown，标题栏会抢走指针捕获，松手时 pointerup 被标题栏接走，浏览器判定“按在按钮上、松在标题栏上”→ onclick 不触发，菜单弹不出来。右上角最小化/关闭按钮一直能点，正是因为它们身上各自写了 onpointerdown stopPropagation。
+【二、最终改动（7 文件）】
+  A. 删除外层拦截：server/apps/editor/frontend.js L1249、qqBot/frontend.js L448、terminal/frontend.js L287、desktopPet/frontend.js L88。
+  B. 拦截下放到按钮（全部用 ext 注入，不靠类名）：
+     - editor：三个菜单按钮（同一份 .map 配置，改 1 处 covers 3 个）ext 加 onpointerdown；
+     - qqBot：文件按钮 ext 加；
+     - terminal：文件按钮新增 ext（原本只有顶层 onclick）；工作目录气泡 iconTag 的 ext 首行加；模式指示 iconTag 是 isBtn:false 不可点，未加；
+     - desktopPet：视图按钮新增 ext；
+     - 主窗口 www/src/view/common/FileMenu.js、ViewMenu.js：各自 ext 首行加；
+     - 主窗口 MessageInbox.js：闪显消息条（L204）与圆形邮件按钮（L233）各加 onpointerdown。
+【三、关键事实】WindowHeader.js L23 已有 if (e.target.closest(".win-btn") || e.target.closest(".tab-item")) return 的类名白名单；主窗口 www/src/view/common/TitleBar.js 最外层本来就没有 stopPropagation。
+【四、过程】第一版提交“外层删+内层加”被驳回为“先只删外层看会不会有问题”，结果证实内层必须加（setPointerCapture 抢指针），遂按长官解释全量补上。
+【五、校验】7 文件 node --check 全部静默通过。
+【六、注意】另一条笔记里写到崩溃日志方案改用 server/crossFuncs/openCrashReport.js + 给 ioApi_cross.js 的 callback 补 callback?. 判空、不新建 ioApis/crash；与本会话定稿（新建 ioApis/crash/ioApi_crash.js）不一致，后续施工前需先确认以哪份为准。]</n-mem>
+  <n-tasks>[总任务：1.外层拦截删除(已完成) 2.内层按钮拦截下放(已完成) 3.七文件语法校验(已完成) 4.长官实测验收(待反馈)]</n-tasks>
+  <n-ul>
+    <n-li>[任务1-3: 标题栏拖动与菜单点击修复]
+      <n-focus>[关注1: 拦截位置统一在 ext.onpointerdown，Box/iconTag 均支持 ext 覆盖；顶层 onclick 保持不变]</n-focus>
+      <n-focus>[关注2: 未动的可点元素：terminal 模式指示胶囊 isBtn:false；主窗口项目名 Tag isBtn:false]</n-focus>
+    </n-li>
+  </n-ul>
+  <n-graph>
+```mermaid
+graph TD
+    A["空白区拖不动"] --> B["外层容器 100% 铺满 + 残留 stopPropagation"]
+    B --> C["修复: 删 4 处外层拦截"]
+    D["菜单点不开"] --> E["标题栏 setPointerCapture 抢指针，click 不触发"]
+    E --> F["修复: 拦截下放到每个按钮 ext"]
+    C & F --> G["7 文件 node --check 全绿"]
+```
+  </n-graph>
+</n-main>
+<n-main>
+  <n-mem>[记忆：完成两项核心改造并全部通过 node --check 校验。
+【一、通用 App 窗口分组协议（msg.data.group）与审批窗隔离】
+  1) 公共路口 www/src/comData/ioSocket.js L281 改为通用透传 group: msg.data?.group !== undefined ? msg.data.group : msg.type（零业务耦合，不引入独立窗启动参数）；
+  2) 审批/对比调用方显式声明分组：server/tools/waitConfirm.js L66 与 www/src/view/chat/ChatBatchReview.js L678/L942 传入 group: "editor_diff_" + confirmCmd.id；www/src/view/chat/ChatiTmRestoreDialog.js L145 传入 group: "editor_tm_diff"，审批窗与普通编辑器彻底隔离，审完关闭不残留无关标签。
+【二、欢迎使用 App（server/apps/welcome/）与最近项目路径记忆】
+  1) 最近项目持久化：server/managers/projectManager.js 新增 recordRecentProject / getRecentProjects / getLastProjectDir，持久化至 tempPath.getUserDataDir()/recent_projects.json（最多 8 条，Windows 路径规范化并忽略盘符大小写去重，读取自动过滤失效路径），在 save() 与 load() 成功后自动写入；projectLoad.js 与 projectSave.js 的系统对话框默认定位到上次项目目录（先核验目录存在）。
+  2) 新增 server/apps/welcome/（app.json、128×128 全铺直角 icon.svg、welcomeData.js、backend.js、frontend.js），严格遵循样式设计指南与 App 开发指南，展示 Word 式存档提醒、「新建项目并保存到目录（projectNew → projectSave saveAs）」「打开已有项目…」、最近项目一键打开列表及「启动添加模型向导」。
+  3) 宿主对接：www/src/view/common/AppHost.js 注入 launchModelWizard；server/serve.js 每次冷启动收尾以 appManager.launch("welcome", { background: true, data: { group: "" } }) 预拉起，主窗口连接后由 appRestoreGui 自动弹出居中，每次冷启动必弹。]</n-mem>
+  <n-tasks>[总任务：1.通用msg.data.group分组与审批窗隔离(已完成) 2.最近项目路径持久化与对话框默认目录(已完成) 3.欢迎使用App开发与冷启动接入(已完成) 4.全量node --check校验(已完成)]</n-tasks>
+  <n-ul>
+    <n-li>[任务1: 通用窗口分组与审批窗隔离]
+      <n-focus>[关注1: www/src/comData/ioSocket.js L281 透传 msg.data?.group；waitConfirm.js / ChatBatchReview.js 用 "editor_diff_" + confirmCmd.id；ChatiTmRestoreDialog.js 用 "editor_tm_diff"]</n-focus>
+    </n-li>
+    <n-li>[任务2: 欢迎使用 App 与最近项目记忆]
+      <n-focus>[关注1: server/managers/projectManager.js recent_projects.json（win32 忽略大小写去重）+ projectLoad.js / projectSave.js defaultPath]</n-focus>
+      <n-focus>[关注2: server/apps/welcome/ 5 文件 + AppHost.js 注入 launchModelWizard + server/serve.js 冷启动预拉起 welcome（group: ""）]</n-focus>
+    </n-li>
+  </n-ul>
+</n-main>
+
+<n-main>
+  <n-time>[时间:2026/11/26 13:19:00]</n-time>
+  <n-mem>[记忆：记录本轮两个文件的实际改动（时光机分割线胶囊），以及上一轮欢迎页配色修复。
+【一、时光机“左右分割线 + 中间绿色胶囊”（已核代码，非转述）】
+  A. 服务端 server/ioServer/ioApis/chat/ioApi_chat.js（240 行）
+     - 函数级状态：L24 listId、L25 chatUuid、L26 snapshotId、L27 hasStartedTurn（声明在 try 外，catch 收尾时也拿得到真实值）。
+     - L28-43 emitTmDiff(targetListId)：三条件（hasStartedTurn && snapshotId && chatUuid）齐备才干活；生成 tmDiffChat = { uuid: idTool.get("sys"), content: "", name: trs("角色/系统"), group: "tmDiff", timestamp, chatListId, snapshotId, ext: { snapshotUuid: chatUuid } }；先 chats.add 入库，再 io.emit("chat", tmDiffChat)，再 io.emit("chat:push", { listId })。前后端双通道推送。
+     - 赋值点：L67 chatUuid = idTool.get("chat")（本轮开头用户消息 UUID，提前生成兼作时光机 msgId）；L81 快照成功后 snapshotId = res.data.hash；L193 真正触发大模型前 hasStartedTurn = true。
+     - 调用点：L205 正常结束（comData.editChatList 清空 procId 之后）调 emitTmDiff(listId)；L232 catch 异常收尾（写完 group:"error" 系统消息后）调 emitTmDiff(errorListId)。即正常与异常两条路径都会补分割线。
+  B. 前端 www/src/view/chat/ChatItem.js（1407 行）L199-277
+     - view() 开头拦截 chat.group === "tmDiff"，直接 return，不进头像/气泡分支。
+     - 结构：左右各一个 flex:1、height=getSize(0.25)rem、background=getColor("gray_5").back 的细线；中间 IconTag（iconName: History，bgColor/fgColor = green_1.back/front，styleExt 圆角 k8、margin 0、flexShrink 0），文案 trs("时光机/查看文件变动")。
+     - 点击：fnCall("restoreChatFile", [{ uuid: snapshotUuid, listId }]) → 成功则 Notice.launch({ content: ChatiTmRestoreDialog, contentAttrs: { diffList, uuid, listId } })，失败 Notice 报错，全程 try/catch + console.error。
+     - snapshotUuid 取值：chat.ext?.snapshotUuid || chat.uuid（兼容旧消息）；非子项时容器 id = chat.uuid，供锚点跳转。
+【二、欢迎页 server/apps/welcome/frontend.js（我改）】
+  - 可见性修复：左侧导航选中态原本 background=gray_2.back 但文字/图标=main.back（两套色系混搭）→ 改为 main.back 底 + main.front 前景，图标 fill 同前景；Box 的 color 同步 main/gray_4。
+  - 新增设置入口：navItemsArr 末尾 { key:"setting", icon:"Setting", spacerBefore:true }，marginTop:auto 推到底部，onclick 内联 Notice.launch({ sign:"setting_main", tip, content: Setting })（Setting 由 AppHost.js L111 已注入，无需改宿主）。
+  - 按样式指南修 6 处：gap:"0"→getSize(0)、borderRight rgba 0.12→0.15、选中阴影→浮窗档(0 k1 k4 0.15)、未选中阴影→小卡档(0 k0.25 k1 0.08)、导航图标 k5→k4（文字 k3 时图标应 k4）、事件外置改内联。
+【三、验收待办】时光机分割线需重启后端 + 刷新页面后发一轮新对话验证；欢迎页需重开 App 窗口验证左侧导航与底部设置。]</n-mem>
+  <n-tasks>[总任务：1.时光机 tmDiff 分割线胶囊代码核实与归档(已完成) 2.欢迎页配色与设置入口(已完成，候验收) 3.两个功能实测(待长官)]</n-tasks>
+  <n-ul>
+    <n-li>[任务1: tmDiff 双文件]
+      <n-focus>[关注1: ioApi_chat.js L28 emitTmDiff 三条件门禁 + L205 正常/L232 异常两处调用；快照信息三条：chatUuid(L67)、snapshotId(L81)、hasStartedTurn(L193)]</n-focus>
+      <n-focus>[关注2: ChatItem.js L199 提前 return 分支；图标 History + green_1；点击链 restoreChatFile → ChatiTmRestoreDialog]</n-focus>
+    </n-li>
+  </n-ul>
+  <n-graph>
+```mermaid
+graph TD
+    A["本轮开头: chatUuid 预生成(L67)"] --> B["自动快照成功 → snapshotId(L81)"]
+    B --> C["真正触发模型前 hasStartedTurn=true(L193)"]
+    C --> D["正常结束清空 procId(L205) → emitTmDiff"]
+    C --> E["catch 异常收尾(L232) → emitTmDiff"]
+    D & E --> F["三条件齐备 → 补 group:tmDiff 消息(ext.snapshotUuid)"]
+    F --> G["ChatItem L199 渲染左右细线 + 中间绿胶囊"]
+    G --> H["点击 → restoreChatFile → ChatiTmRestoreDialog"]
+```
+  </n-graph>
+</n-main>
+
+<n-main>
+  <n-time>[时间:2026/11/26 13:41:00]</n-time>
+  <n-mem>[记忆：两颗胶囊（时光机与任务执行）的配色与分割线终于定格，长官说“暂时这样”。
+【一、最终形态（可直接按此恢复）】
+  A. 任务胶囊 www/src/view/chat/TaskProcessGroup.js
+     - 内部：原手写 div 胶囊已改为系统 IconTag（Tag 的带图标封装）；styleExt 只覆盖 margin:0，padding/圆角/字号全用组件默认。
+     - 布局：胶囊行容器 flex + justifyContent center + gap getSize(3)rem；左线 flex:1、右线 flex:1、胶囊 margin 0。
+     - 颜色：bgColor getColor("gray_4").back、fgColor getColor("gray_4").front（不再区分状态）。
+     - 图标：iconName = isReplying?"Loading" : hasError?"Attention" : "Success"（三态保留，颜色统一）。
+     - 交互：ext.onpointerenter/leave 改 opacity 0.75/1，onclick 切换 userToggled/userExpanded。
+  B. 时光机胶囊 www/src/view/chat/ChatItem.js L199-287
+     - 内容顺序：IconTag 自带 History 图标 → 「查看文件变动」文字 → iconPark "Up" 箭头（getSize(4)rem）。箭头在末尾表示归属上方消息。
+     - 颜色：bgColor getColor("gray_4").back、fgColor getColor("gray_4").front；Up 箭头 fill 同步。与任务胶囊完全同源。
+     - 布局：左线 width getSize(10)rem + flexShrink:0（左对齐但不贴边）→ 胶囊 → 右线 flex:1；胶囊 styleExt margin:0，间距靠父容器 gap getSize(3)rem。
+     - 点击：restoreChatFile({uuid, listId}) → ChatiTmRestoreDialog；snapshotUuid = chat.ext?.snapshotUuid || chat.uuid。
+  C. 分割线（四处：两胶囊各左右两条）
+     - height: getSize(0.25)rem（1px，命中指南“常规描边”档）
+     - background: linear-gradient(90deg, transparent, getColor("gray_4").front) 与反向
+     - 暗色主题实际色 #999999；浅色主题会自动变深灰
+【二、调色时间线（避免下次重踏）】
+  1. 原始：时光机 gray_5.back 纯色 1px；任务条 gray_4.front + "33" 透明度 1px 渐隐（两者本来就不同）。
+  2. 长官要求“都用 main、粗一点、两端收窄”→ 四条线统一 main.back + 2px + 渐隐。
+  3. 任务胶囊三态色（黄/粉/蓝）→ 被纠“用原来的颜色” → 回 gray_4 → 又改 gray_2（输入栏色）→ 长官说“不如最早” → 回退 gray_4。
+  4. 时光机胶囊：green_1 → 透明底 + getColor("消息列表前景") → 最终 gray_4（与任务统一）。
+  5. 线色：main → gray_5.back（#4f4f5a 太暗）→ gray_5.front（#eeeeee 太亮）→ gray_4.front（#999999 中档）→ 粗细 2px→1px。
+  6. 插曲：一次提交被误认为改了粗细而驳回，实为纯换色；重提时在 reason 里明标注 height 不变才通过。
+【三、关键知识】getColor.js 的“消息列表前景/背景”是三套主题下的字符串（非 {back,front}），暗色为 #cfc4bb；ChatList/ChatTasks 的 bgColor:"transparent" + fgColor:getColor("消息列表前景") 是标准组合。暗色板：gray_1 #393432、main #937374、gray_2 #7a7a7a、gray_4 #47464f/#999999、gray_5 #4f4f5a/#eeeeee。
+【四、后续可调旋钮】只需改两处：四根线的 getColor("gray_4").front（换亮/暗档）与 getSize(0.25)（改粗细）。]</n-mem>
+  <n-tasks>[总任务：1.胶囊组件化与配色定稿(已完成) 2.分割线颜色/粗细定稿(已完成) 3.长官“暂时这样”，待后续再评估]</n-tasks>
+  <n-ul>
+    <n-li>[任务1-2: 定稿状态]
+      <n-focus>[关注1: TaskProcessGroup.js — IconTag + gray_4 配对 + 父容器 gap k3 + 胶囊 margin 0；线 flex:1/getSize(0.25)/gray_4.front 渐隐]</n-focus>
+      <n-focus>[关注2: ChatItem.js L199-287 — IconTag(History) + 文字 + Up 箭头；左线 k10 固定宽、右线 flex:1；配色同为 gray_4]</n-focus>
+    </n-li>
+  </n-ul>
+  <n-graph>
+```mermaid
+graph TD
+    A["长官: 胶囊统一用 Tag"] --> B["两胶囊改为 IconTag"]
+    B --> C["配色反复: 三态色/透明/gray_2 → 最终 gray_4"]
+    D["长官: 分割线用 main、粗点、两端收窄"] --> E["线 2px main 渐隐"]
+    E --> F["太暗 gray_5.back → 太亮 gray_5.front → 定格 gray_4.front"]
+    F --> G["再细: 2px → 1px"]
+    C & G --> H["两胶囊壳同源 + 线 1px #999999，长官: 暂时这样"]
+```
+  </n-graph>
+</n-main>

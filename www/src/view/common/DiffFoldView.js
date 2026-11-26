@@ -1,6 +1,8 @@
 import m from "/@npm/mithril.js"
 import Tag from "./tag.js"
 import getColor from "./getColor.js"
+import { trs } from "./i18n.js"
+import getSize from "./getSize.js"
 
 // 行级 LCS 差异算法（O(n*m)，超大文件降级为逐行对比）
 function computeDiff(origLines, propLines) {
@@ -118,6 +120,7 @@ export default () => {
       const proposedContent = attrs.proposedContent || ""
       const fileId = attrs.fileId || "diff"
       const context = attrs.context || 3
+      const edits = attrs.edits
 
       const ops = computeDiff(originalContent.split(/\r?\n/), proposedContent.split(/\r?\n/))
       const segments = buildSegments(ops, context)
@@ -127,10 +130,10 @@ export default () => {
         return m("",
           {
             style: {
-              padding: "1rem",
-              margin: "0.5rem 0",
+              padding: `${getSize(3)}rem`,
+              margin: `${getSize(1)}rem 0`,
               color: getColor("gray_4").front,
-              fontSize: "1.2rem"
+              fontSize: `${getSize(3)}rem`
             }
           },
           "文件无差异"
@@ -159,7 +162,7 @@ export default () => {
             style: {
               display: "flex",
               fontFamily: "monospace",
-              fontSize: "1.2rem",
+              fontSize: `${getSize(3)}rem`,
               background: color ? getColor(color).back : "transparent",
               whiteSpace: "pre-wrap",
               wordBreak: "break-all"
@@ -169,10 +172,10 @@ export default () => {
             m("span",
               {
                 style: {
-                  width: "4.5rem",
-                  minWidth: "4.5rem",
+                  width: `${getSize(11)}rem`,
+                  minWidth: `${getSize(11)}rem`,
                   textAlign: "right",
-                  marginRight: "0.8rem",
+                  marginRight: `${getSize(2)}rem`,
                   color: color ? getColor(color).front : getColor("gray_4").front,
                   userSelect: "none"
                 }
@@ -197,8 +200,8 @@ export default () => {
           style: {
             display: "flex",
             flexDirection: "column",
-            margin: "0.5rem 0",
-            borderRadius: "1rem",
+            margin: `${getSize(1)}rem 0`,
+            borderRadius: `${getSize(3)}rem`,
             background: getColor("gray_4").back
           }
         },
@@ -208,8 +211,8 @@ export default () => {
               style: {
                 display: "flex",
                 alignItems: "center",
-                gap: "0.5rem",
-                margin: "0.5rem",
+                gap: `${getSize(1)}rem`,
+                margin: `${getSize(1)}rem`,
                 position: "sticky",
                 top: 0,
                 zIndex: 1,
@@ -238,7 +241,7 @@ export default () => {
               m("span",
                 {
                   style: {
-                    fontSize: "1.2rem",
+                    fontSize: `${getSize(3)}rem`,
                     color: getColor("gray_4").front
                   }
                 },
@@ -263,11 +266,11 @@ export default () => {
                       {
                         style: {
                           textAlign: "center",
-                          padding: "0.3rem 0.5rem",
+                          padding: `${getSize(1)}rem ${getSize(1)}rem`,
                           margin: "0",
                           background: getColor("gray_2").back,
                           color: getColor("gray_2").front,
-                          fontSize: "1.2rem",
+                          fontSize: `${getSize(3)}rem`,
                           cursor: "pointer",
                           userSelect: "none"
                         },
@@ -282,6 +285,7 @@ export default () => {
                 )
               }
               const changeIdx = changeBlocks.indexOf(seg)
+              const renderedEdits = new Set()
               return m("",
                 {
                   key: `show-${segIdx}`,
@@ -291,7 +295,72 @@ export default () => {
                     flexDirection: "column"
                   }
                 },
-                seg.ops.map(op => renderLine(op))
+                seg.ops.map(op => {
+                  let matchedEdit = null
+                  if (edits && edits.length > 0) {
+                    if (op.type === "del") {
+                      const curLine = op.orig + 1
+                      matchedEdit = edits.find(e => !renderedEdits.has(e) && e.origStartLine === curLine)
+                    } else if (op.type === "add") {
+                      const curLine = op.prop + 1
+                      matchedEdit = edits.find(e => !renderedEdits.has(e) && e.modifiedStartLine === curLine)
+                    }
+                  }
+
+                  if (matchedEdit) {
+                    renderedEdits.add(matchedEdit)
+                  }
+
+                  const reasonBanner = matchedEdit && matchedEdit.reason
+                    ? m("",
+                      {
+                        style: {
+                          display: "flex",
+                          alignItems: "center",
+                          gap: `${getSize(2)}rem`,
+                          padding: `${getSize(1)}rem ${getSize(2)}rem`,
+                          margin: `${getSize(1)}rem 0`,
+                          borderRadius: `${getSize(2)}rem`,
+                          background: getColor("blue_1").back,
+                          color: getColor("blue_1").front,
+                          fontSize: `${getSize(3)}rem`
+                        }
+                      },
+                      [
+                        m("span",
+                          {
+                            style: {
+                              display: "inline-flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              background: getColor("blue_1").front,
+                              color: getColor("blue_1").back,
+                              padding: `${getSize(0.5)}rem ${getSize(1)}rem`,
+                              borderRadius: `${getSize(1)}rem`,
+                              flexShrink: 0
+                            }
+                          },
+                          m.trust(window.iconPark.getIcon("Edit", { size: `${getSize(3)}rem`, fill: getColor("blue_1").back }))
+                        ),
+                        m("span",
+                          {
+                            style: {
+                              flex: 1,
+                              wordBreak: "break-all",
+                              overflowWrap: "break-word"
+                            }
+                          },
+                          matchedEdit.reason
+                        )
+                      ]
+                    )
+                    : null
+
+                  return [
+                    reasonBanner,
+                    renderLine(op)
+                  ]
+                })
               )
             })
           )

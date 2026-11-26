@@ -1,5 +1,6 @@
 import ChatItem from "./ChatItem.js"
 import getColor from "../common/getColor.js"
+import getSize from "../common/getSize.js"
 import getBlurBg from "../common/getBlurBg.js"
 import Avatar from "./Avatar.js"
 import { trs } from "../common/i18n.js"
@@ -48,13 +49,13 @@ export default () => {
           style: {
             display: "flex",
             flexDirection: "column",
-            margin: '1rem',
-            padding: '0.5rem 1rem',
-            borderRadius: '0.5rem 2rem 2rem 0.5rem',
-            boxShadow: `0rem 0rem 2rem ${hasError ? getColor("工具组失败边框") + "33" : getColor("工具组成功边框") + "33"}`,
+            margin: `${getSize(3)}rem`,
+            padding: `${getSize(1)}rem ${getSize(3)}rem`,
+            borderRadius: `${getSize(1)}rem ${getSize(8)}rem ${getSize(8)}rem ${getSize(1)}rem`,
+            boxShadow: `0 0 ${getSize(5)}rem ${hasError ? getColor("工具组失败边框") + "33" : getColor("工具组成功边框") + "33"}`,
             background: getBlurBg(hasError ? "工具组失败边框" : "工具组成功边框", hasError ? "工具组失败背景" : "工具组成功背景"),
-            border: `0.1rem solid ${hasError ? getColor("工具组失败边框") : getColor("工具组成功边框")}33`,
-            borderLeft: hasError ? `0.4rem solid ${getColor("工具组失败边框")}` : `0.4rem solid ${getColor("工具组成功边框")}`,
+            border: `${getSize(0.25)}rem solid ${hasError ? getColor("工具组失败边框") : getColor("工具组成功边框")}33`,
+            borderLeft: hasError ? `${getSize(1)}rem solid ${getColor("工具组失败边框")}` : `${getSize(1)}rem solid ${getColor("工具组成功边框")}`,
           }
         }, [
           // 标题栏
@@ -67,23 +68,23 @@ export default () => {
             isLoading ? m('span', {
               style: {
                 display: 'inline-block',
-                width: '1rem',
-                height: '1rem',
-                border: '0.15rem solid #aaa',
+                width: `${getSize(3)}rem`,
+                height: `${getSize(3)}rem`,
+                border: `${getSize(0.5)}rem solid #aaa`,
                 borderTopColor: 'transparent',
                 borderRadius: '50%',
                 animation: 'spin 1s linear infinite',
-                marginRight: '0.5rem',
+                marginRight: `${getSize(1)}rem`,
               }
             }) : null,
             (hasError ? '⚠ ' + trs("聊天/工具/调用失败", { cn: "工具调用失败", en: "Tool Call Failed" }) : (isLoading ? trs("聊天/工具/调用中", { cn: "工具调用中...", en: "Calling Tool..." }) : trs("聊天/工具/调用完成", { cn: "工具调用", en: "Tool Call" }))) + toolInfo.namesStr,
-            m('span', { style: { marginLeft: '0.5rem', opacity: 0.7 } },
+            m('span', { style: { marginLeft: `${getSize(1)}rem`, opacity: 0.7 } },
               `(${toolInfo.count}${trs("聊天/工具/项工具", { cn: "工具", en: "Tools" })} · ${chats.length}${trs("聊天/工具/条消息", { cn: "消息", en: "Msgs" })})${duration ? ` · ${(duration / 1000).toFixed(1)}s` : ''}`
             )
           ]),
           // 未展开时的简略参数展示（平铺胶囊标签）
           (!expanded && chats.some(c => c.ask?.toolCallStage === "prepare" && c.ask?.sysCalls?.length > 0)) ? m('', {
-            style: { marginTop: '0.4rem', paddingLeft: '1.2rem', display: 'flex', flexDirection: 'column', gap: '0.4rem', cursor: 'pointer' },
+            style: { marginTop: `${getSize(1)}rem`, paddingLeft: `${getSize(3)}rem`, display: 'flex', flexDirection: 'column', gap: `${getSize(1)}rem`, cursor: 'pointer' },
             onclick: () => { expanded = true }
           }, 
             (chats.find(c => c.ask?.toolCallStage === "prepare")?.ask?.sysCalls || []).map(call => {
@@ -109,8 +110,8 @@ export default () => {
               const argValues = getDeepValues(argsObj).filter(v => v !== undefined && v !== null && String(v).trim() !== '');
               if (argValues.length === 0) return null;
 
-              return m('', { style: { display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' } }, [
-                m('span', { style: { fontSize: '1.3rem', color: getColor("工具组文字颜色"), opacity: 0.7 } }, call.name || call.id),
+              return m('', { style: { display: 'flex', alignItems: 'center', gap: `${getSize(1)}rem`, flexWrap: 'wrap' } }, [
+                m('span', { style: { fontSize: `${getSize(3)}rem`, color: getColor("工具组文字颜色"), opacity: 0.7 } }, call.name || call.id),
                 ...argValues.map(val => {
                   let valStr = String(val).replace(/\n/g, ' ').replace(/\r/g, '');
                   if (valStr.length > 25) {
@@ -133,14 +134,14 @@ export default () => {
                   }
                   return m('span', {
                     style: {
-                      fontSize: '1.2rem',
-                      padding: '0.3rem 0.8rem',
+                      fontSize: `${getSize(3)}rem`,
+                      padding: `${getSize(1)}rem ${getSize(2)}rem`,
                       background: 'rgba(128, 128, 128, 0.15)',
-                      borderRadius: '1.2rem',
-                      border: '1px solid rgba(128, 128, 128, 0.2)',
+                      borderRadius: `${getSize(3)}rem`,
+                      border: `${getSize(0.25)}rem solid rgba(128, 128, 128, 0.2)`,
                       color: getColor("工具组文字颜色"),
                       whiteSpace: 'nowrap',
-                      maxWidth: '24rem',
+                      maxWidth: `${getSize(60)}rem`,
                       overflow: 'hidden',
                       textOverflow: 'ellipsis'
                     }
@@ -151,7 +152,7 @@ export default () => {
           ) : null,
 
           // 展开详情 - 使用 isGroupChild 而不是 isChildren，避免显示【转到】按钮
-          expanded ? m('', { style: { marginTop: '0.5rem' } },
+          expanded ? m('', { style: { marginTop: `${getSize(1)}rem` } },
             chats.map(chat => m(ChatItem, { key: chat.uuid, chat, isGroupChild: true }))
           ) : null,
           // CSS 动画

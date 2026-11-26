@@ -4,6 +4,7 @@ import ChatList from "./ChatList.js"
 import InputBar from "./ChatInputBar.js"
 import comData from "../../comData/comData.js"
 import chatData from "./chatData.js"
+import getSize from "../common/getSize.js"
 
 export default ({ listId, agentName }) => {
   return {
@@ -28,7 +29,7 @@ export default ({ listId, agentName }) => {
           display: "flex",
           flexDirection: "column",
           height: "100%",
-          margin: "0.5rem",
+          margin: `${getSize(1)}rem`,
           minHeight: "0",
 
         }

@@ -1,6 +1,7 @@
 import Box from "./box.js";
 import Tag from "./tag.js";
 import getColor from "./getColor.js";
+import getSize from "./getSize.js";
 
 var FormItem;
 
@@ -16,11 +17,11 @@ FormItem = function() {
           style: {
             backgroundColor: getColor("brown_2").back,
             color: getColor("brown_2").front,
-            margin: "1rem 0.5rem 0 0.5rem",
-            padding: "0.6rem 1.5rem",
-            borderRadius: "0.5rem 0.5rem 0 0",
+            margin: `${getSize(3)}rem ${getSize(1)}rem 0 ${getSize(1)}rem`,
+            padding: `${getSize(2)}rem ${getSize(4)}rem`,
+            borderRadius: `${getSize(2)}rem ${getSize(2)}rem 0 0`,
             width: "fit-content",
-            fontSize: "1.1rem",
+            fontSize: `${getSize(3)}rem`,
             fontWeight: "bold",
             boxShadow: "none",
             ...(styleLabel || {})
@@ -32,9 +33,9 @@ FormItem = function() {
         m(Box,
         {
           style: {
-            margin: "0 0.5rem 1rem 0.5rem",
+            margin: `0 ${getSize(1)}rem ${getSize(3)}rem ${getSize(1)}rem`,
             padding: "none",
-            borderRadius: "0 1rem 1rem 1rem",
+            borderRadius: `0 ${getSize(3)}rem ${getSize(3)}rem ${getSize(3)}rem`,
             ...(styleContent || {})
           }
         },
@@ -44,8 +45,8 @@ FormItem = function() {
           {
             styleExt: {
               color: getColor("gray_4").front,
-              marginBottom: "1rem",
-              borderRadius: "0.5rem",
+              marginBottom: `${getSize(3)}rem`,
+              borderRadius: `${getSize(2)}rem`,
               ...(styleDescription || {})
             }
           },

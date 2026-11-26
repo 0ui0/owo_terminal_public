@@ -1,4 +1,6 @@
 import Session from "./ChatSession.js"
+import getSize from "../common/getSize.js"
+
 export default ()=>{
   return {
     view(){
@@ -6,16 +8,16 @@ export default ()=>{
         style:{
           disply:"flex",
           flexDirection:"column",
-          borderRadius:"3rem",
+          borderRadius:`${getSize(8)}rem`,
           background:"#755d5c55",
-          margin:"2rem 1rem",
-          padding:"2rem",
+          margin:`${getSize(4)}rem ${getSize(2)}rem`,
+          padding:`${getSize(4)}rem`,
         }
       },[
         m("",{
           style:{
-            fontSize:"2rem",
-            margin:"1rem 0",
+            fontSize:`${getSize(4)}rem`,
+            margin:`${getSize(2)}rem 0`,
             color:"#333",
             fontWeight:"bold"
           }

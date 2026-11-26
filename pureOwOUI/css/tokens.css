@@ -1,0 +1,95 @@
+/* ==========================================================================
+   pureOwOUI · 设计令牌
+
+   ① 尺寸：用 CSS 原生自定义函数实现 getSize
+      --gs(k) = 0.4k rem = 4k px，与项目里 getSize(k) 完全一致
+      支持环境：Chromium 139+（本项目 Electron 38 = Chromium 140）
+
+   ② 颜色：只用纯色名，不编号
+      中性三层：bg / surface / surface-2
+      彩色七个：gray / white / red / orange / green / blue / purple
+      每个都带成对前景 --xxx-fg，禁止背景与前景混搭
+   ========================================================================== */
+
+@function --gs(--k: 1) {
+  result: calc(0.4rem * var(--k));
+}
+
+@layer tokens {
+  :root {
+    color-scheme: dark;
+
+    /* ---------- 中性三层（层级靠明度拉开） ---------- */
+    --bg: #393432;
+    --bg-fg: #ffe1bb;
+    --surface: #47464f;
+    --surface-fg: #999999;
+    --surface-2: #4f4f5a;
+    --surface-2-fg: #eeeeee;
+
+    /* ---------- 彩色（按钮 / 标签） ---------- */
+    --gray: #7a7a7a;
+    --gray-fg: #333333;
+    --white: #eeeeee;
+    --white-fg: #333333;
+    --red: #a75e5e;
+    --red-fg: #463838;
+    --orange: #a0751f;
+    --orange-fg: #111111;
+    --green: #50815b;
+    --green-fg: #113700;
+    --blue: #34343d;
+    --blue-fg: #849aba;
+    --purple: #6c6379;
+    --purple-fg: #2b0630;
+
+    /* ---------- 默认品牌色指向 ---------- */
+    --main: var(--red);
+    --main-fg: var(--red-fg);
+
+    /* ---------- 半透明推导与阴影 ---------- */
+    --line: color-mix(in srgb, #000 15%, transparent);
+    --line-soft: color-mix(in srgb, #fff 12%, transparent);
+    --veil: color-mix(in srgb, #000 45%, transparent);
+    --muted: color-mix(in srgb, var(--bg-fg) 55%, transparent);
+    --hover: color-mix(in srgb, var(--bg-fg) 8%, transparent);
+
+    --shadow-card: 0 --gs(0.25) --gs(1) color-mix(in srgb, #000 8%, transparent);
+    --shadow-float: 0 --gs(1) --gs(4) color-mix(in srgb, #000 15%, transparent);
+
+    --ring: 0 0 0 --gs(0.5) color-mix(in srgb, var(--main) 70%, transparent);
+  }
+
+  /* ---------- 浅色主题：body 上放一个 checkbox 就能切，组件零改动 ---------- */
+  body:has(#theme:checked) {
+    color-scheme: light;
+
+    --bg: #fcf8ed;
+    --bg-fg: #3c342c;
+    --surface: #ffffff;
+    --surface-fg: #594f4c;
+    --surface-2: #f7f0dd;
+    --surface-2-fg: #5f4905;
+
+    --gray: #e8dfc8;
+    --gray-fg: #594f4c;
+    --white: #ffffff;
+    --white-fg: #333333;
+    --red: #ff7675;
+    --red-fg: #ffffff;
+    --orange: #ffc83c;
+    --orange-fg: #5f4905;
+    --green: #2ed573;
+    --green-fg: #ffffff;
+    --blue: #74b9ff;
+    --blue-fg: #ffffff;
+    --purple: #a29bfe;
+    --purple-fg: #2d3436;
+
+    --line: color-mix(in srgb, #000 12%, transparent);
+    --line-soft: color-mix(in srgb, #000 8%, transparent);
+    --veil: color-mix(in srgb, #000 35%, transparent);
+    --shadow-card: 0 --gs(0.25) --gs(1) color-mix(in srgb, #000 6%, transparent);
+    --shadow-float: 0 --gs(1) --gs(4) color-mix(in srgb, #000 12%, transparent);
+  }
+}

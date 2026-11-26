@@ -219,7 +219,7 @@ class AppManager {
         } catch (initErr) {
           console.error(`[AppManager] ${type} 的后端初始化失败:`, initErr)
           this.apps.delete(app.id) // 撤销注册
-          const errorMsg = `App 初始化失败: ${initErr.message}`
+          const errorMsg = `App 初始化失败: ${initErr.message}\n堆栈:\n${initErr.stack}`
           if (this.io) this.io.emit("app:error", { appId: app.id, msg: errorMsg })
           return { ok: false, msg: errorMsg }
         }

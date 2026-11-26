@@ -1,60 +1,51 @@
 export default {
   view: (vnode) => {
-    const { m, Box, getColor, isValidPath, hash, relPath, rootName, iconPark, onBack, onOpenRepo, isMob, showSidebar, toggleSidebar, trs } = vnode.attrs;
+    const { m, Box, getColor, getSize, iconTag, isValidPath, hash, relPath, rootName, iconPark, onBack, onOpenRepo, isMob, showSidebar, toggleSidebar, trs } = vnode.attrs;
     const compact = isMob;
     return m("",
       {
         style: {
-          padding: compact ? "0.4rem 0.5rem" : "0.6rem 1rem",
+          padding: compact ? `${getSize(1)}rem` : `${getSize(3)}rem`,
           background: getColor('gray_12').back,
           color: getColor('gray_12').front,
           display: "flex",
           alignItems: "center",
-          gap: compact ? "0.3rem" : "0.8rem",
-          borderBottom: `0.1rem solid ${getColor('gray_2').back}`,
+          gap: compact ? `${getSize(1)}rem` : `${getSize(3)}rem`,
+          borderBottom: `${getSize(0.25)}rem solid ${getColor('gray_2').back}`,
           overflow: "hidden"
         }
       },
       [
         // 移动端：菜单切换按钮
-        isMob ? m("div",
+        isMob ? m(iconTag,
           {
-            style: {
-              padding: "0.5rem",
-              borderRadius: "0.6rem",
-              background: showSidebar ? getColor('main').back : "transparent",
-              color: showSidebar ? getColor('main').front : getColor('gray_12').front,
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center"
+            iconName: "HamburgerButton",
+            isBtn: true,
+            bgColor: showSidebar ? getColor('main').back : "transparent",
+            fgColor: showSidebar ? getColor('main').front : getColor('gray_12').front,
+            styleExt: {
+              margin: 0
             },
-            onclick: toggleSidebar
-          },
-          m.trust(iconPark.getIcon('HamburgerButton', { fill: showSidebar ? getColor('main').front : getColor('gray_12').front }))) : null,
-        m("div",
+            ext: {
+              onclick: toggleSidebar
+            }
+          }) : null,
+        m(iconTag,
           {
-            style: {
-              display: "flex",
-              alignItems: "center",
-              gap: "0.5rem",
-              padding: "0.5rem 1rem",
-              borderRadius: "0.6rem",
-              background: getColor('gray_2').back,
-              color: getColor('gray_2').front,
-              cursor: (relPath || hash) ? "pointer" : "default",
-              opacity: (relPath || hash) ? 1 : 0.3,
-              transition: "all 0.2s",
-              border: `0.1rem solid ${getColor('gray_3').back}`
+            iconName: "Left",
+            isBtn: true,
+            bgColor: getColor('gray_2').back,
+            fgColor: getColor('gray_2').front,
+            styleExt: {
+              margin: 0,
+              padding: `${getSize(2)}rem`,
+              opacity: (relPath || hash) ? 1 : 0.3
             },
-            onclick: () => {
-              return onBack();
+            ext: {
+              onclick: onBack
             }
           },
-          [
-            m.trust(iconPark.getIcon('Left', { fill: getColor('gray_2').front })),
-            compact ? null : m("span", trs("时光机/工具栏/返回", { cn: "返回", en: "Back" }))
-          ]),
+          compact ? null : trs("时光机/工具栏/返回", { cn: "返回", en: "Back" })),
 
         m("div",
           {
@@ -62,14 +53,16 @@ export default {
               flex: 1,
               display: "flex",
               alignItems: "center",
-              gap: "0.6rem",
-              padding: "0.5rem 1rem",
+              gap: `${getSize(1.5)}rem`,
+              padding: `${getSize(2)}rem ${getSize(2.5)}rem`,
               background: getColor(isValidPath ? 'gray_1' : 'gray_2').back,
               color: getColor(isValidPath ? 'gray_1' : 'gray_2').front,
-              borderRadius: "0.6rem",
-              border: `0.1rem solid ${getColor('gray_3').back}`,
+              borderRadius: `${getSize(8)}rem`,
+              border: `${getSize(0.25)}rem solid ${getColor('gray_3').back}`,
               cursor: "pointer",
               transition: "all 0.2s",
+              fontSize: `${getSize(3)}rem`,
+              lineHeight: `${getSize(4)}rem`,
               overflow: "hidden"
             },
             onclick: () => {
@@ -77,7 +70,10 @@ export default {
             }
           },
           [
-            m.trust(iconPark.getIcon('History', { fill: getColor(isValidPath ? 'gray_1' : 'gray_2').front })),
+            m.trust(iconPark.getIcon('History', {
+              size: `${getSize(4)}rem`,
+              fill: getColor(isValidPath ? 'gray_1' : 'gray_2').front
+            })),
             m("span",
               {
                 style: {
@@ -90,30 +86,22 @@ export default {
                 (!hash ? `${rootName} / ${trs("时光机/工具栏/总时间轴", { cn: "总时间轴", en: "Timeline" })}` : `${rootName}${relPath ? '/' + relPath : ''}`))
           ]),
 
-        m("div",
+        m(iconTag,
           {
-            style: {
-              display: "flex",
-              alignItems: "center",
-              gap: "0.5rem",
-              padding: "0.5rem 1.2rem",
-              borderRadius: "0.6rem",
-              background: getColor('main').back,
-              color: getColor('main').front,
-              cursor: "pointer",
-              transition: "all 0.2s",
-              boxShadow: "0 0.1rem 0.2rem rgba(0,0,0,0.05)",
-              whiteSpace: "nowrap",
-              flexShrink: 0
+            iconName: "FolderOpen",
+            isBtn: true,
+            bgColor: getColor('main').back,
+            fgColor: getColor('main').front,
+            styleExt: {
+              margin: 0,
+              flexShrink: 0,
+              padding: `${getSize(2)}rem`
             },
-            onclick: () => {
-              return onOpenRepo();
+            ext: {
+              onclick: onOpenRepo
             }
           },
-          [
-            m.trust(iconPark.getIcon('FolderOpen', { fill: getColor('main').front })),
-            compact ? null : m("span", trs("时光机/工具栏/打开目录", { cn: "打开目录", en: "Open" }))
-          ])
+          compact ? null : trs("时光机/工具栏/打开目录", { cn: "打开目录", en: "Open" }))
       ]);
   }
 };

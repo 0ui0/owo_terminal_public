@@ -91,7 +91,7 @@ export default {
     // 1. 提取并计算目标工作目录
     const mainDir = workDirTool.getMainWorkDir(metaData.listId)
     if (!mainDir && (!searchDir || !pathLib.isAbsolute(searchDir))) {
-      return "错误：当前会话未设置工作目录。请先要求用户配置工作目录，或者在使用工具时提供绝对路径。"
+      return "错误：当前会话未设置工作目录。请先要求管理员配置工作目录，或者在使用工具时提供绝对路径。"
     }
     const targetDir = searchDir
       ? (pathLib.isAbsolute(searchDir) ? searchDir : pathLib.resolve(mainDir, searchDir))
@@ -116,8 +116,8 @@ export default {
           toolId: this.id
         }
       })
-      if (!userConfirm.ok) return `用户拒绝在项目外搜索：${targetDir}。原因：${userConfirm.comment || "未提供"}`
-      if (userConfirm.comment) userComment = `【用户备注】${userConfirm.comment}`
+      if (!userConfirm.ok) return `管理员拒绝在项目外搜索：${targetDir}。原因：${userConfirm.comment || "未提供"}`
+      if (userConfirm.comment) userComment = `【管理员备注】${userConfirm.comment}`
     }
 
     const maxLimit = maxResults || 50

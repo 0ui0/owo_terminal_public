@@ -1,4 +1,5 @@
 import Notice from "../notice.js"
+import getSize from "../getSize.js"
 import WindowHeader from "./WindowHeader.js"
 import TabBar from "./TabBar.js"
 
@@ -80,7 +81,7 @@ export default function openControlPanel({ anchorDom, winId, x, y } = {}) {
           style: {
             display: "flex",
             flexDirection: "column",
-            minWidth: "16rem"
+            minWidth: `${getSize(40)}rem`
           }
         }, [
           // 完整复用标准标题栏

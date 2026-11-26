@@ -25,7 +25,11 @@ export default {
     this.socket.on("connect", () => {
       console.log("连接成功")
       // 刷新/重连后，把后端还活着的 App 窗口全部重建出来（等同逐个点击任务管理器里的眼睛按钮）
-      settingData.fnCall("appRestoreGui", []).catch(err => console.error("重建 App 窗口失败:", err))
+      if (!window.opener && !m.route.param("winId")) { //只有主窗口需要在刷新后重新唤醒app
+        settingData.fnCall("appRestoreGui", []).catch(err => console.error("重建 App 窗口失败:", err))
+      }
+      
+      
     })
 
     this.socket.on("sound:play", (msg) => {
@@ -243,17 +247,29 @@ export default {
         let targetW = (saved && saved.width) || def.width || 0
         let targetH = (saved && saved.height) || def.height || 0
 
-        // Safe capping for defaults
-        if (!saved && targetW) targetW = Math.min(targetW, window.innerWidth * 0.95)
-        if (!saved && targetH) targetH = Math.min(targetH, window.innerHeight * 0.95)
+        // 可用视口：顶部让出 2.5rem（与 noticeBox 的 top 偏移配套），底部扣掉导航栏实测高度
+        const rootFontPxNum = parseFloat(getComputedStyle(document.documentElement).fontSize) || 10
+        const navInsetNum = commonData.navInset || 0
+        const availViewportObj = {
+          widthNum: window.innerWidth,
+          heightNum: window.innerHeight,
+          topInsetNum: 2.5 * rootFontPxNum,
+          navInsetNum: navInsetNum,
+          availWNum: window.innerWidth * 0.95,
+          availHNum: window.innerHeight - navInsetNum - 2.5 * rootFontPxNum
+        }
+
+        // Safe capping for defaults（同时避开底部导航栏）
+        if (!saved && targetW) targetW = Math.min(targetW, availViewportObj.availWNum)
+        if (!saved && targetH) targetH = Math.min(targetH, availViewportObj.availHNum)
 
         let targetX = (saved && saved.x !== undefined) ? saved.x : 0
         let targetY = (saved && saved.y !== undefined) ? saved.y : 0
 
-        // Auto-center if not saved but has specific size
+        // Auto-center if not saved but has specific size（在可用区域内居中，而非整屏）
         if ((!saved || saved.x === undefined) && targetW > 0 && targetH > 0) {
-          targetX = (window.innerWidth - targetW) / 2
-          targetY = (window.innerHeight - targetH) / 2
+          targetX = (availViewportObj.widthNum - targetW) / 2
+          targetY = availViewportObj.topInsetNum + (availViewportObj.availHNum - targetH) / 2
         }
 
         // Mark as launched in backend
@@ -262,7 +278,7 @@ export default {
         // 定义窗口配置对象（纯静态配置，所有动态钩子移入 AppHost 内部接管）
         const noticeObj = {
           sign: msg.appId,
-          group: msg.type,
+          group: msg.data?.group !== undefined ? msg.data.group : msg.type,
           appType: msg.type,
           icon: msg.icon,
           tip: `[${msg.appId}]${msg.name}`,

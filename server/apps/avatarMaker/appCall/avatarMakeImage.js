@@ -70,7 +70,7 @@ export default {
     const effectiveApiKey = (config.imageApiKey || "").trim()
     const effectiveModel = (model || config.imageModel || "").trim()
 
-    // 危险/消耗性操作安全拦截：生图前必须经用户确认
+    // 危险/消耗性操作安全拦截：生图前必须经管理员确认
     const confirmId = uuidV4()
     const userConfirm = await waitConfirm({
       id: confirmId,
@@ -86,11 +86,11 @@ export default {
     })
 
     if (!userConfirm.ok) {
-      log(`⚠️ 用户拒绝/取消了生图请求: ${userConfirm.comment || "未提供"}`)
-      return { ok: false, msg: `用户主动拒绝/取消了生图操作。原因：${userConfirm.comment || "未提供"}` }
+      log(`⚠️ 管理员拒绝/取消了生图请求: ${userConfirm.comment || "未提供"}`)
+      return { ok: false, msg: `管理员主动拒绝/取消了生图操作。原因：${userConfirm.comment || "未提供"}` }
     }
 
-    const commentSuffix = userConfirm.comment ? `。用户备注：${userConfirm.comment}` : ""
+    const commentSuffix = userConfirm.comment ? `。管理员备注：${userConfirm.comment}` : ""
 
     try {
       if (app.data.cancelTask) throw new Error("AbortError: 任务被取消")

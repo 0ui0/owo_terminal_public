@@ -1,212 +1,368 @@
+// 会话任务进度与笔记快捷入口（嵌入消息列表顶部悬浮栏） + 任务明细弹窗
+
 import { trs } from "../common/i18n.js"
 import getColor from "../common/getColor.js"
+import getSize from "../common/getSize.js"
 import Notice from "../common/notice.js"
-import ChatNote from "./ChatNote.js"
+import Box from "../common/box.js"
 import Tag from "../common/tag.js"
-import comData from "../../comData/comData.js"
 import IconTag from "../common/iconTag.js"
+import ChatNote from "./ChatNote.js"
+import comData from "../../comData/comData.js"
 
-export default () => {
-  const renderTaskEntry = (task, depth = 0) => {
-    const itemKey = (task.taskid || task.subtaskid) + "_" + depth;
-    return m.fragment({ key: itemKey }, [
-      m(".task-item", {
-        style: {
-          display: "flex",
-          alignItems: "flex-start",
-          gap: "0.8rem",
-          padding: "0.6rem 0",
-          paddingLeft: `${depth * 1.5}rem`,
-          borderBottom: (depth === 0) ? `0.05rem solid ${getColor('gray_4').front + '11'}` : "none",
-          position: "relative",
-          opacity: task.status === "已完成" ? 0.6 : 1,
-        }
-      }, [
-        // 引导线
-        depth > 0 ? m(".indent-line", {
+const getStatusColorName = (statusStr) => statusStr === "执行中"
+  ? "main"
+  : statusStr === "已完成"
+    ? "green_1"
+    : "gray_2"
+
+const getStatusIconName = (statusStr) => statusStr === "已完成"
+  ? "CheckOne"
+  : statusStr === "执行中"
+    ? "LoadingOne"
+    : "Timer"
+
+// 递归渲染任务树条目（保留简洁圆环状态图标 + 原生 Tag + 百分比）
+const renderTaskEntry = (task, depthNum = 0, isLastBool = true) => {
+  const statusColorStr = getStatusColorName(task.status)
+  const pctNum = Math.max(0, Math.min(100, Number(task.process) || 0))
+  const isDoneBool = task.status === "已完成" || pctNum >= 100
+  const hasSubtasksBool = Boolean(task.subtasks && task.subtasks.length > 0)
+
+  return m.fragment(
+    {
+      key: `${task.taskid || task.subtaskid}_${depthNum}`
+    },
+    [
+      m(
+        "",
+        {
           style: {
-            position: "absolute",
-            left: `${(depth - 1) * 1.5 + 0.5}rem`,
-            top: 0,
-            bottom: "50%",
-            width: "0.05rem",
-            borderLeft: `0.05rem dashed ${getColor('gray_4').front + '44'}`,
+            display: "flex",
+            alignItems: "flex-start",
+            gap: `${getSize(1)}rem`,
+            paddingTop: `${getSize(1)}rem`,
+            paddingBottom: `${getSize(1)}rem`,
+            paddingLeft: `${getSize(depthNum * 3)}rem`,
+            borderBottom: isLastBool && !hasSubtasksBool
+              ? "none"
+              : `${getSize(0.25)}rem solid rgba(0,0,0,0.12)`,
+            opacity: isDoneBool ? 0.78 : 1,
+            minWidth: 0
           }
-        }) : null,
-
-        m.trust(window.iconPark.getIcon(
-              task.status === "已完成" ? "CheckOne" : (task.status === "执行中" ? "LoadingOne" : "Timer"),
+        },
+        [
+          m(
+            "span",
+            {
+              style: {
+                display: "flex",
+                alignItems: "center",
+                flexShrink: 0,
+                marginTop: `${getSize(1)}rem`
+              }
+            },
+            m.trust(window.iconPark.getIcon(
+              getStatusIconName(task.status),
               {
-                fill: task.status === "已完成" ? getColor('green_1').back : (task.status === "执行中" ? getColor('main').back : getColor('gray_8').back),
-                size: "1.6rem",
+                fill: isDoneBool
+                  ? getColor("green_1").back
+                  : task.status === "执行中"
+                    ? getColor("main").back
+                    : getColor("gray_3").front,
+                size: `${getSize(5)}rem`,
                 spin: task.status === "执行中"
               }
-            )),
-        m(".task-info", { style: { flex: 1, minWidth: "0" } }, [
-          m(".task-name", {
-            style: {
-              // 默认字号（不设 fontSize），文字色用高对比 front
-              color: getColor('gray_1').front,
-              fontWeight: depth === 0 ? "600" : "400",
-              wordBreak: "break-word"
-            }
-          }, task.name),
-          m(".task-status-row", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "0.2rem" } }, [
-            m(".task-status-tag", {
+            ))
+          ),
+          m(
+            "",
+            {
               style: {
-                // 默认字号；背景用同色 back（实色），文字用同色 front，保证对比清晰
-                padding: "0.05rem 0.4rem",
-                borderRadius: "0.2rem",
-                background: task.status === "执行中" ? getColor('main').back : (task.status === "已完成" ? getColor('green_1').back : getColor('gray_3').back),
-                color: task.status === "执行中" ? getColor('main').front : (task.status === "已完成" ? getColor('green_1').front : getColor('gray_3').front)
-              }
-            }, task.status),
-            m(".task-process-num", { style: { color: getColor('gray_1').front } }, `${task.process}%`)
-          ])
-        ])
-      ]),
-      // 渲染子任务
-      task.subtasks && task.subtasks.length > 0
-        ? task.subtasks.map(sub => renderTaskEntry(sub, depth + 1))
-        : null
-    ]);
-  };
-
-  // 通过 Notice 弹出任务明细（参考 FileMenu 的坐标定位方式）
-  const showTaskMenu = (e, chatList) => {
-    e.stopPropagation();
-    const listId = chatList.id;
-    const rect = e.currentTarget.getBoundingClientRect();
-    const winW = 360;
-    Notice.launch({
-      group: "taskMenu",
-      width: winW,
-      hideBtn: 2,
-      // 胶囊在右上角：窗口右缘对齐胶囊右缘，向下弹出，避免超出屏幕右侧
-      win: { x: rect.right - winW, y: rect.bottom + 5 },
-      tip: trs("聊天/任务清单", { cn: "任务明细", en: "Task Details" }),
-      content: {
-        view: (vnode) => {
-          // 每次渲染从 comData 实时读取（comData 更新后 chatLists 引用会替换，必须实时取）
-          const tasks = comData.getChatList(vnode.attrs.listId)?.tasks || [];
-          return m(".task-list-card", {
-            style: {
-              maxHeight: "32rem",
-              overflowY: "auto",
-              background: getColor('gray_4').back + 'f2',
-              backdropFilter: "blur(20px)",
-              borderRadius: "1.5rem",
-              padding: "1rem",
-              boxShadow: "0 10px 30px rgba(0,0,0,0.3)",
-              border: `0.1rem solid ${getColor('main').back + '66'}`,
-              animation: "slideIn 0.3s ease-out"
-            }
-          }, [
-            m(".task-header", {
-              style: {
-                fontWeight: "bold",
-                marginBottom: "0.8rem",
+                flex: 1,
+                minWidth: 0,
                 display: "flex",
-                justifyContent: "space-between",
-                color: getColor('gray_1').front
+                flexDirection: "column",
+                gap: `${getSize(1)}rem`
               }
-            }, [
-              m("span", trs("聊天/任务清单", { cn: "任务明细", en: "Task Details" })),
-              m("span", {}, `${tasks.length}`)
-            ]),
-            m(".task-tree-container", tasks.map(task => renderTaskEntry(task)))
-          ])
-        }
-      },
-      contentAttrs: { listId }
-    })
-  }
-
-  return {
-    view({ attrs }) {
-      const { chatList } = attrs;
-      const notes = chatList?.notes || [];
-      const hasGraph = chatList?.graph?.nodes && Object.keys(chatList.graph.nodes).length > 0;
-
-      if ((!chatList?.tasks || chatList.tasks.length === 0) && notes.length === 0 && !hasGraph) return null;
-
-      let tasks = chatList.tasks || [];
-      let activeTask = tasks.find(t => t.status === "执行中") || tasks[0];
-
-      return m(".task-board", {
-        style: {
-          position: "sticky",
-          top: "1rem",
-          right: "1.5rem",
-          zIndex: 500,
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "flex-end",
-          float: "right",
-          marginTop:"1rem",
-          marginBottom: "-2.5rem",
-        }
-      }, [
-        // 胶囊主体 (点击弹出任务明细)
-        tasks.length > 0 ? m(IconTag, {
-          iconName:"DocDetail",
-
-          bgColor: getColor('red_2').back,
-          fgColor: getColor('red_2').front,
-
-          styleExt:{
-            transform: "scale(0.8)",
-            transformOrigin: "right center",
-          },
-
-          ext:{
-            onclick: (e) => showTaskMenu(e, chatList)
-          }
-          
-        }, [
-          m("span",activeTask?.name || ""),
-
-          m(".progress-pill", {
-            style: {
-              padding: "0.1rem 0.5rem",
-              background:"rgba(255,255,255,0.5)",
-              color:"#333",
-              borderRadius: "1rem",
-              marginLeft:"0 0.5rem",
-            }
-          }, `${activeTask?.process || 0}%`)
-        ]) : null,
-
-        // 笔记按钮 (当有笔记历史或有网点图时显示)
-        (notes.length > 0 || hasGraph) ? m(IconTag, {
-          iconName: "Notes",
-          isBtn: true,
-          bgColor: getColor('red_1').back,
-          fgColor: getColor('red_1').front,
-          styleExt:{
-            transform: "scale(0.8)",
-            transformOrigin: "right center",
-          },
-          ext: {
-            onclick: (e) => {
-              e.stopPropagation();
-              Notice.launch({
-                tip: trs("组件/笔记/标题", { cn: "结构化笔记", en: "Structured Note" }),
-                content: {
-                  view: (vnode) => {
-                    // 每次渲染从 comData 实时读取，AI 更新笔记/网点图后弹窗同步刷新
-                    const list = comData.getChatList(vnode.attrs.listId);
-                    return m(ChatNote, { notes: list?.notes || [], graph: list?.graph });
+            },
+            [
+              m(
+                "",
+                {
+                  style: {
+                    fontSize: `${getSize(3)}rem`,
+                    lineHeight: `${getSize(4)}rem`,
+                    color: getColor("gray_3").front,
+                    overflowWrap: "anywhere",
+                    wordBreak: "break-word"
                   }
                 },
-                contentAttrs: { listId: chatList.id }
-              });
-            }
-          }
-        }, [
-          m("span",trs("组件/笔记/查看", { cn: "查看笔记", en: "View Note" }))
-        ]) : null
-      ]);
-    }
-  }
+                task.name
+              ),
+              m(
+                "",
+                {
+                  style: {
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    gap: `${getSize(1)}rem`
+                  }
+                },
+                [
+                  m(
+                    Tag,
+                    {
+                      color: statusColorStr
+                    },
+                    task.status
+                  ),
+                  m(
+                    "span",
+                    {
+                      style: {
+                        fontSize: `${getSize(3)}rem`,
+                        color: getColor("gray_3").front,
+                        whiteSpace: "nowrap"
+                      }
+                    },
+                    `${pctNum}%`
+                  )
+                ]
+              )
+            ]
+          )
+        ]
+      ),
+      hasSubtasksBool
+        ? task.subtasks.map((sub, idxNum) => renderTaskEntry(sub, depthNum + 1, idxNum === task.subtasks.length - 1))
+        : null
+    ]
+  )
 }
+
+// 弹出任务明细 Notice 窗口（外层先铺一层系统默认 Box，任务卡片铺 gray_3 大圆角底）
+const showTaskMenu = (e, chatList) => {
+  e.stopPropagation()
+  // 锤定触发胶囊：窗口右缘对齐胶囊右缘、向下弹出，保持「右上角小窗」形态（参见 aiDocs/Notice说明.md）
+  const rectAnchor = e.currentTarget.getBoundingClientRect()
+  const winWNum = getSize(90) * 10
+  const winHNum = getSize(80) * 10
+  Notice.launch({
+    sign: `chat_tasks_${chatList.id}`,
+    hideBtn: 2,
+    width: winWNum,
+    height: winHNum,
+    win: {
+      x: rectAnchor.right - winWNum,
+      y: rectAnchor.bottom + 5
+    },
+    tip: trs("聊天/任务清单", { cn: "任务明细", en: "Task Details" }),
+    content: {
+      view(vnode) {
+        const listObj = comData.getChatList(vnode.attrs.listId)
+        const tasksArr = listObj && listObj.tasks ? listObj.tasks : []
+
+        return m(
+          Box,
+          {
+            isBlock: true,
+            style: {
+              width: "100%",
+              margin: 0,
+              boxSizing: "border-box",
+              padding: `${getSize(3)}rem`,
+              display: "flex",
+              flexDirection: "column",
+              gap: `${getSize(3)}rem`
+            }
+          },
+          [
+            m(
+              "",
+              {
+                style: {
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  gap: `${getSize(2)}rem`,
+                  flexShrink: 0
+                }
+              },
+              [
+                m(
+                  "span",
+                  {
+                    style: {
+                      fontSize: `${getSize(4)}rem`
+                    }
+                  },
+                  trs("聊天/任务清单", { cn: "任务明细", en: "Task Details" })
+                ),
+                m(
+                  Tag,
+                  {
+                    color: "main"
+                  },
+                  `${tasksArr.length}`
+                )
+              ]
+            ),
+            tasksArr.length === 0
+              ? m(
+                "",
+                {
+                  style: {
+                    flexShrink: 0,
+                    background: getColor("gray_3").back,
+                    color: getColor("gray_3").front,
+                    borderRadius: `${getSize(8)}rem`,
+                    padding: `${getSize(3)}rem`,
+                    textAlign: "center",
+                    fontSize: `${getSize(3)}rem`
+                  }
+                },
+                trs("聊天/暂无任务", { cn: "暂无任务记录", en: "No tasks yet" })
+              )
+              : m(
+                "",
+                {
+                  style: {
+                    flexShrink: 0,
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: `${getSize(3)}rem`,
+                    minWidth: 0
+                  }
+                },
+                tasksArr.map(task => m(
+                  "",
+                  {
+                    key: task.taskid || task.subtaskid || task.name,
+                    style: {
+                      flexShrink: 0,
+                      background: getColor("gray_3").back,
+                      color: getColor("gray_3").front,
+                      borderRadius: `${getSize(8)}rem`,
+                      padding: `${getSize(3)}rem`,
+                      display: "flex",
+                      flexDirection: "column",
+                      minWidth: 0
+                    }
+                  },
+                  renderTaskEntry(task, 0, true)
+                ))
+              )
+          ]
+        )
+      }
+    },
+    contentAttrs: {
+      listId: chatList.id
+    }
+  })
+}
+
+export default () => ({
+  view({ attrs }) {
+    const chatList = attrs.chatList
+    const tasksArr = chatList && chatList.tasks ? chatList.tasks : []
+    const notesArr = chatList && chatList.notes ? chatList.notes : []
+    const hasGraphBool = Boolean(chatList && chatList.graph && chatList.graph.nodes && Object.keys(chatList.graph.nodes).length > 0)
+
+    if (tasksArr.length === 0 && notesArr.length === 0 && !hasGraphBool) {
+      return null
+    }
+
+    const activeTask = tasksArr.find(t => t.status === "执行中") || tasksArr[0]
+    const isCompactBool = attrs.isCompact !== undefined ? Boolean(attrs.isCompact) : Boolean(window.Mob)
+
+    return m(
+      "",
+      {
+        style: {
+          display: "flex",
+          flexDirection: isCompactBool ? "row" : "column",
+          alignItems: isCompactBool ? "center" : "flex-end",
+          gap: `${getSize(1)}rem`,
+          flexShrink: 0,
+          pointerEvents: "auto"
+        }
+      },
+      [
+        tasksArr.length > 0
+          ? m(
+            IconTag,
+            {
+              iconName: "DocDetail",
+              bgColor: "transparent",
+              fgColor: getColor("消息列表前景"),
+              ext: {
+                title: activeTask && activeTask.name
+                  ? `${activeTask.name} (${activeTask.process || 0}%)`
+                  : trs("聊天/任务清单", { cn: "任务明细", en: "Task Details" }),
+                onclick(e) {
+                  showTaskMenu(e, chatList)
+                }
+              }
+            },
+            [
+              !isCompactBool
+                ? m(
+                  "span",
+                  {
+                    style: {
+                      maxWidth: `${getSize(36)}rem`,
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap"
+                    }
+                  },
+                  activeTask && activeTask.name ? activeTask.name : ""
+                )
+                : null,
+              `${activeTask && activeTask.process ? activeTask.process : 0}%`
+            ]
+          )
+          : null,
+
+        notesArr.length > 0 || hasGraphBool
+          ? m(
+            IconTag,
+            {
+              iconName: "Notes",
+              isBtn: true,
+              bgColor: "transparent",
+              fgColor: getColor("消息列表前景"),
+              ext: {
+                title: trs("组件/笔记/查看", { cn: "笔记", en: "Note" }),
+                onclick(e) {
+                  e.stopPropagation()
+                  Notice.launch({
+                    sign: `chat_note_${chatList.id}`,
+                    hideBtn: 2,
+                    tip: trs("组件/笔记/标题", { cn: "笔记", en: "Notes" }),
+                    content: {
+                      view(vnode) {
+                        const listObj = comData.getChatList(vnode.attrs.listId)
+                        return m(ChatNote, {
+                          notes: listObj && listObj.notes ? listObj.notes : [],
+                          graph: listObj ? listObj.graph : null
+                        })
+                      }
+                    },
+                    contentAttrs: {
+                      listId: chatList.id
+                    }
+                  })
+                }
+              }
+            },
+            !isCompactBool ? trs("组件/笔记/查看", { cn: "笔记", en: "Note" }) : ""
+          )
+          : null
+      ]
+    )
+  }
+})

@@ -10,6 +10,7 @@ import tempPath from "./server/tools/tempPath.js"
 import setupAppMenu from "./server/tools/appMenu.js"
 import appUpdater from "./appUpdater.js"
 import ioServer from "./server/ioServer/ioServer.js"
+import crashLogger from "./server/tools/crashLogger.js"
 
 let port
 
@@ -24,6 +25,9 @@ if (hasPortableFlag || hasDataDir) {
   app.setPath("userData", portableDataDir)
   console.log("[App] 激活便携模式，userData 已重定向至:", portableDataDir)
 }
+
+// 崩溃日志：必须在便携模式确定 userData 之后初始化
+crashLogger.init()
 
 
 
@@ -160,6 +164,7 @@ const createWindow = (port) => {
         }
       } else if (response === 1) { // Don't Save & Exit
         forceClose = true
+        crashLogger.markCleanExit()
         app.exit(0) // 强制退出整个应用
       }
     }
@@ -236,6 +241,7 @@ app.whenReady().then(async () => {
     // 2. 启动服务（内部调用 ioServer.run -> appManager.init -> loadappDefs）
     const serveResult = await serve()
     port = serveResult.port
+    crashLogger.bindPort(port)
 
     // 脏检查：利用 DynamicData 原生的观察者机制，当 comData 数据变动时标记项目为脏
     if (comData.data) {
@@ -244,8 +250,10 @@ app.whenReady().then(async () => {
 
 
     createWindow(port)
+    crashLogger.attachNotifier()
     appUpdater.checkForUpdates()
   } catch (err) {
+    crashLogger.recordStartupFailure(err)
     if (err.code === 'EADDRINUSE') {
       dialog.showErrorBox(trs("系统/错误/启动失败"), trs("系统/错误/端口占用"))
       app.quit()
@@ -275,6 +283,7 @@ app.on('before-quit', () => {
 
 // 退出清理：仅精准清理当前实例专属的 temp/{pid} 临时目录
 app.on('will-quit', () => {
+  crashLogger.markCleanExit()
   try {
     tempPath.clean()
   } catch (e) {

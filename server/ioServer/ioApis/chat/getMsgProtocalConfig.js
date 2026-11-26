@@ -174,6 +174,7 @@ export default function (json) {
       const parts = []
       parts.push(`系统：${process.platform} ${process.arch}`)
       parts.push(`时间：${timeStr} (${timezone})`)
+      parts.push(`软件运行端口:${ioServer.server.info.port}`)
 
       if (currentTokenConfig) {
         parts.push(`当前token余额：${currentTokenConfig.preTokens}`)

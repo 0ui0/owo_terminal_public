@@ -1,5 +1,6 @@
 import Box from "../box.js"
 import getColor from "../getColor.js"
+import getSize from "../getSize.js"
 import getAppIconUrl from "../getAppIconUrl.js"
 import materialize from "./materialize.js"
 import PinBtn from "./PinBtn.js"
@@ -140,21 +141,21 @@ export default function () {
       const hideBtn = activeTab.hideBtn || 0
       const isMini = attrs.isMini !== undefined ? attrs.isMini : !!activeTab.isMini
       const isActiveWindow = attrs.isActiveWindow
-      const isWide = isHostWindow ? window.innerWidth >= 700 : (win.width === 0 || win.width >= 700)
+      const isWide = (isHostWindow || win.isMaximized || win.width === 0) ? window.innerWidth >= 700 : win.width >= 700
 
       return m("", {
         style: {
           touchAction: "none",
           background: getColor('main').back,
-          borderRadius: win.isMaximized ? "0" : "3rem",
+          borderRadius: win.isMaximized ? "0" : `${getSize(8)}rem`,
           opacity: isActiveWindow === false ? 0.6 : 1,
           transition: "opacity 0.3s",
           display: "flex",
           flexDirection: "column",
           flexShrink: 0,
           userSelect: "none",
-          padding: isMini ? "0.2rem 0.5rem" : "0.4rem 1rem",
-          minHeight: isMini ? "1.7rem" : "3.3rem",
+          padding: isMini ? `${getSize(0.5)}rem ${getSize(1)}rem` : `${getSize(1)}rem ${getSize(3)}rem`,
+          minHeight: isMini ? `${getSize(4)}rem` : `${getSize(8)}rem`,
           "-webkit-app-region": isActiveWindow ? (isHostWindow ? "drag" : "no-drag") : "none",
           position: "relative",
           zIndex: 5
@@ -167,12 +168,13 @@ export default function () {
             position: "absolute",
             left: "0",
             top: "0",
-            height: isMini ? "2.1rem" : "4.1rem",
+            height: isMini ? `${getSize(5)}rem` : `${getSize(10)}rem`,
+            // 宽度跟随 macOS 原生红绿灯位置，属平台避让固定尺寸，不参与栅格化，保留 px
             width: isMini ? "88px" : "108px",
             background: "linear-gradient(to right, rgba(0, 0, 0, 0.25) 0%, rgba(0, 0, 0, 0.2) 50%, rgba(0, 0, 0, 0) 100%)",
-            borderRadius: win.isMaximized ? "0" : "3rem",
-            backdropFilter: "blur(12px)",
-            "-webkit-backdrop-filter": "blur(12px)",
+            borderRadius: win.isMaximized ? "0" : `${getSize(8)}rem`,
+            backdropFilter: `blur(${getSize(3)}rem)`,
+            "-webkit-backdrop-filter": `blur(${getSize(3)}rem)`,
             maskImage: "linear-gradient(to right, rgba(0,0,0,1) 50%, rgba(0,0,0,0) 95%)",
             "-webkit-mask-image": "linear-gradient(to right, rgba(0,0,0,1) 50%, rgba(0,0,0,0) 95%)",
             pointerEvents: "none",
@@ -187,7 +189,7 @@ export default function () {
             alignItems: "center",
             width: "100%",
             height: "100%",
-            gap: isMini ? "0.2rem" : "0.25rem",
+            gap: isMini ? `${getSize(0.5)}rem` : `${getSize(1)}rem`,
             position: "relative",
             zIndex: 2
           }
@@ -195,6 +197,7 @@ export default function () {
           // 红绿灯透明占位（在 flex 布局中让出左上角底座宽度，使标题自然避让）
           (!attrs.hideTrafficLight && isHostWindow && /macintosh|mac os x/i.test(navigator.userAgent)) ? m("", {
             style: {
+              // 对齐 macOS 原生红绿灯与底座宽度，属平台避让固定尺寸，不参与栅格化，保留 px
               width: isMini ? "66px" : "74px",
               flexShrink: 0,
               pointerEvents: "none"
@@ -218,8 +221,8 @@ export default function () {
               display: "flex",
               alignItems: "center",
               flexShrink: 0,
-              minWidth: isMini ? "2rem" : "4rem",
-              fontSize: isMini ? "1.1rem" : undefined,
+              minWidth: isMini ? `${getSize(5)}rem` : `${getSize(10)}rem`,
+              fontSize: isMini ? `${getSize(3)}rem` : undefined,
               cursor: "default",
               "-webkit-app-region": isActiveWindow ? (isHostWindow ? "drag" : "no-drag") : "none"
             }
@@ -228,12 +231,12 @@ export default function () {
               src: getAppIconUrl(activeTab.appType, activeTab.icon),
               onerror: (e) => { e.target.src = "/statics/navbar/program.svg" },
               style: {
-                width: isMini ? "1.1rem" : "1.6rem",
-                height: isMini ? "1.1rem" : "1.6rem",
+                width: isMini ? `${getSize(3)}rem` : `${getSize(4)}rem`,
+                height: isMini ? `${getSize(3)}rem` : `${getSize(4)}rem`,
                 borderRadius: "22%",
                 flexShrink: 0,
                 objectFit: "cover",
-                marginRight: isMini ? "0.3rem" : "0.5rem",
+                marginRight: `${getSize(1)}rem`,
                 verticalAlign: "middle",
                 pointerEvents: "none"
               }
@@ -269,8 +272,9 @@ export default function () {
           isBlock: true,
           style: {
             display: "block",
-            margin: "0.5rem",
-            borderRadius: "3rem",
+            margin: `${getSize(1)}rem`,
+            padding: "0",
+            borderRadius: `${getSize(8)}rem`,
             boxSizing: "border-box",
             background: "rgba(0,0,0,0.1)",
           }

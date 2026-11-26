@@ -45,7 +45,7 @@ export default {
       }
     }
 
-    // 防死循环熔断：1. 阶段 Token 为 0；或者 2. 上一轮刚刚整理过且没有收到新的人类用户提问
+    // 防死循环熔断：1. 阶段 Token 为 0；或者 2. 上一轮刚刚整理过且没有收到新的人类管理员提问
     const asks = aiAskInstance.asks || []
     const archiveIdx = asks.findIndex(a => a.id && String(a.id).startsWith("archive_"))
     let isDeadLoop = false
@@ -63,7 +63,7 @@ export default {
     }
 
     if (isDeadLoop) {
-      return "拒绝执行：当前会话历史已经是压缩后的极净状态。为了防止陷入死循环，严禁在没有产生新的用户交互前重复调用 compressContext 整理工具！请立即转向执行用户的实际任务"
+      return "拒绝执行：当前会话历史已经是压缩后的极净状态。为了防止陷入死循环，严禁在没有产生新的管理员交互前重复调用 compressContext 整理工具！请立即转向执行管理员的实际任务"
     }
 
       // 1. 收集此前累积在内存中的所有长期单次记忆（上限 100 条）
@@ -112,7 +112,7 @@ export default {
 
       summaryText += `\n\n### 📋 接下来要做什么 (Todo)\n- ${todo}`
 
-      // 3. 构建一条特殊的“阶段记忆归档”用户消息，作为初始历史背景放进消息历史并落库刷新
+      // 3. 构建一条特殊的“阶段记忆归档”管理员消息，作为初始历史背景放进消息历史并落库刷新
       const chatUuid = idTool.get("chat")
       const askId = idTool.get("ask")
       const contentText = `你在上一轮对话调用了压缩上下文工具，现在聊天记录已被清空。
@@ -120,8 +120,8 @@ export default {
 
 🔴【行动红线 - 极重要】：
 1. 历史整理与归档操作已成功结束，当前【严禁】再次调用 compressContext 整理工具，防止陷入死循环。
-2. 你必须立即回到用户原本的任务中，如果你不确定之前的任务，请先调用 findHistoryChats 检索前一阶段被清空的消息。
-3. 如果当前没有未完成的用户任务，请以普通文本向用户说明：“我已成功完成了阶段性总结并瘦身了历史消息。我们接下来继续做什么？”，不要发起任何工具调用。
+2. 你必须立即回到管理员原本的任务中，如果你不确定之前的任务，请先调用 findHistoryChats 检索前一阶段被清空的消息。
+3. 如果当前没有未完成的管理员任务，请以普通文本向管理员说明：“我已成功完成了阶段性总结并瘦身了历史消息。我们接下来继续做什么？”，不要发起任何工具调用。
 
 ========================================
 【🕒 时光档案馆 - 阶段性总结与上下文归档】
@@ -135,7 +135,7 @@ ${archivedMemoriesText}
 ${summaryText}
 ========================================`
 
-    // 压缩前用户确认：参考 filePatcher 的 waitConfirm 模式，破坏性操作前必须先征得用户同意
+    // 压缩前管理员确认：参考 filePatcher 的 waitConfirm 模式，破坏性操作前必须先征得管理员同意
     const userConfirm = await waitConfirm({
       type: "tip",
       title: "⚠️ 确认上下文压缩",
@@ -160,7 +160,7 @@ ${summaryText}
         group: "user"
       })
 
-      // 构建绝对标准的用户消息对象并物理写入 SQLite 数据库和广播刷新
+      // 构建绝对标准的管理员消息对象并物理写入 SQLite 数据库和广播刷新
       const chat = {
         uuid: chatUuid,
         content: contentText,
@@ -238,7 +238,7 @@ ${summaryText}
         }
       }, 500)
 
-      const remark = userConfirm && userConfirm.comment ? ` 用户备注：${userConfirm.comment}` : ""
+      const remark = userConfirm && userConfirm.comment ? ` 管理员备注：${userConfirm.comment}` : ""
       return `【系统通知】：当前阶段的冗余会话历史已整理并清空，Token 阶段计数器已重置为 0。${remark}`
     } catch (e) {
       return "整理历史消息失败：" + e.message
@@ -278,7 +278,7 @@ ${summaryText}
     }).required()
   },
   getDoc() {
-    return `请在收到系统的压缩上下文警告后或用户的要求下认真评估后是否决定调用本工具
+    return `请在收到系统的压缩上下文警告后或管理员的要求下认真评估后是否决定调用本工具
     【🔴 严重警告 - 关系到你的生死存亡】
     本工具会物理清空大模型当前会话的全部历史记录 and 工具调用细节！
     为避免在清理后彻底丧失记忆与任务逻辑（变成傻子），请在调用前极其小心谨慎地将当前会话发生的【所有关键信息与当前任务进展】高度总结整理！

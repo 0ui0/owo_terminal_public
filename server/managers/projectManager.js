@@ -29,6 +29,61 @@ class ProjectManager {
     this.isDirty = true
   }
 
+  getRecentProjectsFile() {
+    return path.join(tempPath.getUserDataDir(), "recent_projects.json")
+  }
+
+  recordRecentProject(filePath) {
+    if (typeof filePath !== "string" || !filePath.trim()) return
+    try {
+      const normalizedPath = path.normalize(filePath.trim())
+      const compareKey = process.platform === "win32" ? normalizedPath.toLowerCase() : normalizedPath
+      const recentFile = this.getRecentProjectsFile()
+      let listArr = []
+      if (fs.existsSync(recentFile)) {
+        const raw = fs.readFileSync(recentFile, "utf-8")
+        const parsed = JSON.parse(raw)
+        if (Array.isArray(parsed)) listArr = parsed
+      }
+      const filteredArr = listArr.filter((item) => {
+        if (!item || typeof item.path !== "string") return false
+        const itemKey = process.platform === "win32" ? path.normalize(item.path).toLowerCase() : path.normalize(item.path)
+        return itemKey !== compareKey
+      })
+      filteredArr.unshift({
+        path: normalizedPath,
+        name: path.basename(normalizedPath),
+        updatedAt: Date.now()
+      })
+      fs.writeFileSync(recentFile, JSON.stringify(filteredArr.slice(0, 8), null, 2), "utf-8")
+    } catch (err) {
+      console.error("[ProjectManager] 记录最近项目失败:", err)
+    }
+  }
+
+  getRecentProjects() {
+    try {
+      const recentFile = this.getRecentProjectsFile()
+      if (!fs.existsSync(recentFile)) return []
+      const raw = fs.readFileSync(recentFile, "utf-8")
+      const parsed = JSON.parse(raw)
+      if (!Array.isArray(parsed)) return []
+      return parsed
+        .filter((item) => item && typeof item.path === "string" && fs.existsSync(item.path))
+        .slice(0, 8)
+    } catch (err) {
+      console.error("[ProjectManager] 读取最近项目失败:", err)
+      return []
+    }
+  }
+
+  getLastProjectDir() {
+    const listArr = this.getRecentProjects()
+    if (listArr.length === 0) return ""
+    const dirPath = path.dirname(listArr[0].path)
+    return fs.existsSync(dirPath) ? dirPath : ""
+  }
+
   // === Save ===
   async save(filePath) {
     if (this.savePromise) {
@@ -104,6 +159,7 @@ class ProjectManager {
 
         this.currentProjectPath = filePath
         this.isDirty = false
+        this.recordRecentProject(filePath)
         console.log(`[ProjectManager] 已成功打包并保存项目至 ${filePath}`)
         return { ok: true }
       } catch (e) {
@@ -296,6 +352,7 @@ class ProjectManager {
 
       this.currentProjectPath = filePath
       this.isDirty = false
+      this.recordRecentProject(filePath)
       console.log(`[ProjectManager] Successfully Loaded from ${filePath}`)
       return { ok: true }
 

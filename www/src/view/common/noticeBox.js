@@ -1,5 +1,6 @@
 import Box from "./box.js";
 import getColor from "./getColor.js";
+import getSize from "./getSize.js";
 import commonData from "./commonData.js";
 import settingData from "../setting/settingData.js";
 import materialize from "./notice/materialize.js";
@@ -104,6 +105,7 @@ export default function () {
       const useFloatBall = !!activeTab.useFloatBall
       const isAuto = (win.width === 0 || win.height === 0)
 
+      // 八向拖拽手柄的全部尺寸保留原 px：参与 pointerdown 命中判定与 clientX/Y 增量计算，转 rem 会引入坐标换算误差
       const resizeHandles = (!win.isMaximized && !isHostWindow) ? ["n", "s", "w", "e", "nw", "ne", "sw", "se"].map(dir => {
         const isCorner = dir.length === 2
         return m("", {
@@ -134,35 +136,41 @@ export default function () {
           "-webkit-app-region": "no-drag",
           flexDirection: "column",
           background: getColor('gray_1').back,
-          borderRadius: win.isMaximized ? "0" : "3rem",
-          boxShadow: isHostWindow ? "0 0 0.5rem rgba(0,0,0,0.5)" : "0 0 2rem rgba(0,0,0,0.3)",
+          borderRadius: win.isMaximized ? "0" : `${getSize(8)}rem`,
+          boxShadow: isHostWindow ? `0 0 ${getSize(1)}rem rgba(0,0,0,0.5)` : `0 0 ${getSize(5)}rem rgba(0,0,0,0.3)`,
           // 已移除 backdrop-filter: blur(10px)：窗口底色不透明，模糊根本看不见，纯粹是每帧重绘的额外开销
           //overflow: "hidden",
-          border: win.isMaximized ? "none" : `0.1rem solid ${getColor('main').back}`,
+          border: win.isMaximized ? "none" : `${getSize(0.25)}rem solid ${getColor('main').back}`,
           boxSizing: "border-box",
           transition: isResizing ? "none" : "display 0.3s, opacity 0.3s",
-          minWidth: isMini ? "8rem" : "max(20rem, fit-content)",
+          minWidth: isMini ? `${getSize(20)}rem` : `max(${getSize(50)}rem, fit-content)`,
 
           ...(isHostWindow ? {
-            left: "0.5rem",
-            top: "0.5rem",
-            width: "calc(100% - 1rem)",
-            height: `calc(100% - 1rem - ${commonData.navInset || 0}px)`
+            left: `${getSize(1)}rem`,
+            top: `${getSize(1)}rem`,
+            width: `calc(100% - ${getSize(2)}rem)`,
+            height: `calc(100% - ${getSize(2)}rem - ${commonData.navInset || 0}px)`
           } : win.isMaximized ? {
             // 底部避让导航栏：Nav 已是独立于窗口层的高层级覆盖层，全屏窗口不能压住它
             left: "0px",
+            // 以下 2.5rem 与 nav.js getNavGap 内的 2.5rem 严格配套，属底部导航栏避让量；
+            // 导航栏尚未栅格化，此处同步保留原值，待导航栏改造完成后再一并统一
             top: "2.5rem",
             width: "100%",
             height: `calc(100% - 2.5rem - ${commonData.navInset || 0}px)`
           } : {
             // 位置统一交给 transform：改 x/y 只触发合成层位移，不再触发重排（left/top 恒为 0）
-            left: (win.x === 0 && win.y === 0 && isAuto) ? "50%" : "0px",
+            // 自适应居中：左右各贴 0 再用 margin auto 居中，浏览器按整屏宽算可用宽，避免手机上被腰斩
+            left: (win.x === 0 && win.y === 0 && isAuto) ? "0" : "0px",
+            right: (win.x === 0 && win.y === 0 && isAuto) ? "0" : "auto",
+            margin: (win.x === 0 && win.y === 0 && isAuto) ? "0 auto" : "0",
             top: (win.x === 0 && win.y === 0 && isAuto) ? `calc(50% + (2.5rem - ${commonData.navInset || 0}px) / 2)` : "0px",
-            transform: (win.x === 0 && win.y === 0 && isAuto) ? "translate(-50%, -50%)" : `translate3d(${win.x}px, ${win.y}px, 0)`,
-            width: win.width === 0 ? "auto" : (win.width + "px"),
+            transform: (win.x === 0 && win.y === 0 && isAuto) ? "translateY(-50%)" : `translate3d(${win.x}px, ${win.y}px, 0)`,
+            width: win.width === 0 ? ((win.x === 0 && win.y === 0 && isAuto) ? "fit-content" : "auto") : (win.width + "px"),
             height: win.height === 0 ? "auto" : (win.height + "px"),
             maxWidth: isAuto ? "95vw" : "none",
-            maxHeight: isAuto ? `calc(100vh - 2.5rem - ${commonData.navInset || 0}px - 2rem)` : "none"
+            // 用 100% 代替 100vh：手机地址栏会使 vh 比实际可见高度多出约一个地址栏
+            maxHeight: isAuto ? `calc(100% - 2.5rem - ${commonData.navInset || 0}px - ${getSize(5)}rem)` : "none"
           }),
           // 透明内容模式：窗口外壳同步去底，使内容整体悬浮
           ...(activeTab.transparentContent ? {
@@ -189,8 +197,8 @@ export default function () {
             background: activeTab.transparentContent
               ? "transparent"
               : getColor('brown_2').back,
-            margin: "0.5rem",
-            borderRadius: "3rem",
+            margin: `${getSize(1)}rem`,
+            borderRadius: `${getSize(8)}rem`,
             display: "flex",
             flexDirection: "column",
           }
@@ -217,7 +225,7 @@ export default function () {
                   }
                 }
               }, [
-                m.trust(iconPark.getIcon("OffScreenOne", { size: "48px" }))
+                m.trust(iconPark.getIcon("OffScreenOne", { size: `${getSize(12)}rem` }))
               ])
             ])
           }

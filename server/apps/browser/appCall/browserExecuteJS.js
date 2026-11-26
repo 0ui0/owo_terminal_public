@@ -24,7 +24,7 @@ export default {
       return "错误：未找到目标应用实例，或应用尚未运行。"
     }
 
-    // 危险操作安全拦截：执行 JS 必须经用户确认
+    // 危险操作安全拦截：执行 JS 必须经管理员确认
     const confirmId = uuidV4()
     const userConfirm = await waitConfirm({
       id: confirmId,
@@ -40,7 +40,7 @@ export default {
     })
 
     if (!userConfirm.ok) {
-      return `错误：用户拒绝了 AI 执行该脚本的请求。用户备注：${userConfirm.comment || "无"}`
+      return `错误：管理员拒绝了 AI 执行该脚本的请求。管理员备注：${userConfirm.comment || "无"}`
     }
 
     // 记录操作前的窗口最小化状态
@@ -63,7 +63,7 @@ export default {
       }
     }
 
-    let commentSuffix = userConfirm.comment ? `\n【用户备注】：${userConfirm.comment}` : ""
+    let commentSuffix = userConfirm.comment ? `\n【管理员备注】：${userConfirm.comment}` : ""
 
     if (res && res.ok) {
       try {
@@ -81,7 +81,7 @@ export default {
     return Joi.object({
       appId: Joi.string().required().description("浏览器实例 ID。必须指定要注入脚本的目标浏览器实例。"),
       code: Joi.string().required().description("要在网页上下文里执行的 JavaScript 脚本字符串，例如: 'document.title' 或 '(() => { return document.body.innerHTML })()'"),
-      argsDesc: Joi.string().optional().description("对于本次执行脚本的目的和安全性的简短说明，用于向用户展示确认")
+      argsDesc: Joi.string().optional().description("对于本次执行脚本的目的和安全性的简短说明，用于向管理员展示确认")
     })
   },
 

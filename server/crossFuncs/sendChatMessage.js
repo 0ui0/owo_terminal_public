@@ -1,5 +1,6 @@
 import comData from "../comData/comData.js"
 import { socketOnChat } from "../ioServer/ioApis/chat/ioApi_chat.js"
+import projectManager from "../managers/projectManager.js"
 
 export default {
   name: "sendChatMessage",
@@ -52,6 +53,9 @@ export default {
       };
 
       await socketOnChat(que, null);
+
+      // 消息已落库：标记脏位，让 5 分钟自动保存心跳把最新数据库快照并入存档包
+      projectManager.markDirty();
 
       return { ok: true, msg: "发送成功" }
     } catch (err) {

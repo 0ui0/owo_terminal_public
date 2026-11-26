@@ -1,0 +1,97 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <!-- 主题 2：经典蓝白晴空 (#DDEEFF / #53a6ff / #42A5F5 / #6C99C6 / #CAD5E2 / #DCE9F5) -->
+    <radialGradient id="blueSkyGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.72"/>
+      <stop offset="50%" stop-color="#53a6ff" stop-opacity="0.22"/>
+      <stop offset="100%" stop-color="#53a6ff" stop-opacity="0"/>
+    </radialGradient>
+
+    <radialGradient id="blueAzureOrb" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#53a6ff" stop-opacity="0.34"/>
+      <stop offset="55%" stop-color="#42A5F5" stop-opacity="0.14"/>
+      <stop offset="100%" stop-color="#42A5F5" stop-opacity="0"/>
+    </radialGradient>
+
+    <linearGradient id="blueRibbonA" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#53a6ff" stop-opacity="0.28"/>
+      <stop offset="50%" stop-color="#ffffff" stop-opacity="0.46"/>
+      <stop offset="100%" stop-color="#42A5F5" stop-opacity="0.26"/>
+    </linearGradient>
+
+    <linearGradient id="blueRibbonB" x1="100%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#6C99C6" stop-opacity="0.22"/>
+      <stop offset="50%" stop-color="#53a6ff" stop-opacity="0.18"/>
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0.42"/>
+    </linearGradient>
+
+    <linearGradient id="blueHillFar" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#DCE9F5" stop-opacity="0.72"/>
+      <stop offset="100%" stop-color="#CAD5E2" stop-opacity="0.42"/>
+    </linearGradient>
+
+    <linearGradient id="blueHillMid" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#53a6ff" stop-opacity="0.22"/>
+      <stop offset="100%" stop-color="#6C99C6" stop-opacity="0.30"/>
+    </linearGradient>
+
+    <linearGradient id="blueHillNear" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#6C99C6" stop-opacity="0.26"/>
+      <stop offset="100%" stop-color="#CAD5E2" stop-opacity="0.54"/>
+    </linearGradient>
+
+    <linearGradient id="blueCrest" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0"/>
+      <stop offset="50%" stop-color="#ffffff" stop-opacity="0.75"/>
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+
+  <!-- 1. 晴空通透光晕 -->
+  <ellipse cx="1540" cy="210" rx="580" ry="420" fill="url(#blueSkyGlow)"/>
+  <ellipse cx="340" cy="260" rx="540" ry="400" fill="url(#blueAzureOrb)"/>
+
+  <!-- 2. 蔚蓝晴云丝绸带 -->
+  <path
+    d="M -120 420 C 260 220, 620 560, 1020 350 C 1380 160, 1660 360, 2040 210 L 2040 460 C 1680 610, 1340 380, 980 560 C 580 760, 240 440, -120 620 Z"
+    fill="url(#blueRibbonA)"
+  />
+  <path
+    d="M -120 580 C 320 410, 740 720, 1180 480 C 1540 290, 1780 520, 2040 400 L 2040 620 C 1720 740, 1460 520, 1120 680 C 700 880, 300 580, -120 760 Z"
+    fill="url(#blueRibbonB)"
+  />
+
+  <!-- 3. 海洋浅蓝层叠远山 -->
+  <path
+    d="M -80 820 C 260 680, 540 720, 880 810 C 1220 900, 1520 670, 2000 780 L 2000 1120 L -80 1120 Z"
+    fill="url(#blueHillFar)"
+  />
+  <path
+    d="M -80 820 C 260 680, 540 720, 880 810 C 1220 900, 1520 670, 2000 780"
+    fill="none"
+    stroke="url(#blueCrest)"
+    stroke-width="2.5"
+  />
+
+  <path
+    d="M -80 900 C 340 770, 720 960, 1140 840 C 1480 745, 1740 830, 2000 890 L 2000 1120 L -80 1120 Z"
+    fill="url(#blueHillMid)"
+  />
+  <path
+    d="M -80 900 C 340 770, 720 960, 1140 840 C 1480 745, 1740 830, 2000 890"
+    fill="none"
+    stroke="url(#blueCrest)"
+    stroke-width="2"
+  />
+
+  <path
+    d="M -80 980 C 380 890, 780 1030, 1280 930 C 1600 865, 1820 925, 2000 965 L 2000 1120 L -80 1120 Z"
+    fill="url(#blueHillNear)"
+  />
+
+  <!-- 4. 右上角晴空光环 -->
+  <g opacity="0.7">
+    <circle cx="1645" cy="185" r="40" fill="#ffffff"/>
+    <circle cx="1645" cy="185" r="62" fill="#53a6ff" opacity="0.22"/>
+  </g>
+</svg>

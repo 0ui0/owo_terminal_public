@@ -21,7 +21,7 @@ export default {
     // Resolve Path
     const mainDir = workDirTool.getMainWorkDir(metaData.listId)
     if (!mainDir && (!dirPath || !pathLib.isAbsolute(dirPath))) {
-      return "错误：当前会话未设置工作目录。请先要求用户配置工作目录，或者在使用工具时提供绝对路径。"
+      return "错误：当前会话未设置工作目录。请先要求管理员配置工作目录，或者在使用工具时提供绝对路径。"
     }
     const resolvedPath = dirPath ? (pathLib.isAbsolute(dirPath) ? dirPath : pathLib.resolve(mainDir, dirPath)) : mainDir
 
@@ -40,7 +40,7 @@ export default {
           toolId: this.id
         }
       })
-      if (!userConfirm.ok) return `用户拒绝访问项目外目录：${resolvedPath}。原因：${userConfirm.comment || "未提供"}`
+      if (!userConfirm.ok) return `管理员拒绝访问项目外目录：${resolvedPath}。原因：${userConfirm.comment || "未提供"}`
       if (userConfirm.comment) commentSuffix = userConfirm.comment
     }
 

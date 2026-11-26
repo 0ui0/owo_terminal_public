@@ -1,5 +1,7 @@
 import Joi from "joi"
 import appManager from "../../../apps/appManager.js"
+// 【架构铁律】严禁通过 backend 触碰任何内部状态！工具内部禁止直接引用 backend，否则热更新会导致模块版本异常与实例分叉。
+// 此处仅暂时借用 cleanTerminalContent 这一无状态纯函数，会话一律通过 appManager.dispatch 获取。
 import backend from "../backend.js"
 
 export default {
@@ -10,7 +12,7 @@ export default {
     write: false
   },
 
-  fn(argObj, metaData) {
+  async fn(argObj, metaData) {
     const { value, error } = this.joi().validate(argObj)
     if (error) return "错误：" + error.details[0].message
 
@@ -72,27 +74,34 @@ export default {
       if (!app || app.type !== "terminal") return `未找到 appId 为 ${appId} 的终端`
       if (app.data.listId !== currentListId) return "权限不足：该终端不属于当前智能体会话列表。"
 
-      const session = backend.getSession(app.id)
+      const session = (await appManager.dispatch(app.id, "getSession")).data
+      const isVm = Boolean(session?.isVirtual || app.data.mode === "vm")
+      const mode = isVm ? "vm" : "host"
+      const currentCwd = session?.cwd || app.data.cwd
       const raw = session?.content ?? app.data.content
       const res = getLines(raw, startLine, endLine)
 
-      return `终端 (appId="${app.id}") 第 ${res.from} ~ ${res.to} 行输出（共 ${res.totalLines} 行）：\n<terminal>\n${res.text}\n</terminal>`
+      // 💡 遵照长官最高指示：在返回信息的最开头客观呈现 mode 类型与路径，不绑定审核主观标注
+      const headerNotice = `【终端类型】：${mode}\n【终端编号】：${app.id}\n【工作路径】：${currentCwd}\n---\n`
+      return `${headerNotice}终端第 ${res.from} ~ ${res.to} 行输出（共 ${res.totalLines} 行）：\n<terminal>\n${res.text}\n</terminal>`
     }
 
-    // 返回当前会话的所有终端列表
-    const terminals = [...appManager.apps.values()]
-      .filter(app => app.type === "terminal" && app.data.listId === currentListId)
-      .map(app => {
-        const session = backend.getSession(app.id)
-        const raw = session?.content ?? app.data.content
-        const res = getLines(raw, startLine, endLine)
-        return {
-          appId: app.id,
-          cwd: session?.cwd || app.data.cwd,
-          totalLines: res.totalLines,
-          content: res.text
-        }
+    // 返回当前会话的所有终端列表 (每项首要标明终端模式类型)
+    const terminals = []
+    for (const app of appManager.apps.values()) {
+      if (app.type !== "terminal" || app.data.listId !== currentListId) continue
+      const session = (await appManager.dispatch(app.id, "getSession")).data
+      const isVm = Boolean(session?.isVirtual || app.data.mode === "vm")
+      const raw = session?.content ?? app.data.content
+      const res = getLines(raw, startLine, endLine)
+      terminals.push({
+        appId: app.id,
+        mode: isVm ? "vm" : "host",
+        cwd: session?.cwd || app.data.cwd,
+        totalLines: res.totalLines,
+        content: res.text
       })
+    }
 
     if (terminals.length === 0) return "当前会话下暂无活跃的终端。"
     return JSON.stringify(terminals, null, 2)

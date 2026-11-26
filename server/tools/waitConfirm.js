@@ -40,7 +40,7 @@ export default async (config) => {
 
     return {
       ok: true,
-      comment: "系统自动免用户确认",
+      comment: "系统自动免管理员确认",
       ext: {
         ...value.ext,
         ...(autoApprovedFiles ? { files: autoApprovedFiles } : {})
@@ -63,6 +63,7 @@ export default async (config) => {
         for (const file of files) {
           const launchRes = await appManager.launch("editor", {
             data: {
+              group: "editor_diff_" + confirmCmd.id,
               confirmId: confirmCmd.id,
               fileId: file.fileId,
               filePath: file.path,

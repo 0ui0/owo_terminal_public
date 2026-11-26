@@ -1,4 +1,4 @@
-/* SettingsView.js - 设置页：官方 / 本地 / 社交脉冲 / 数据管理 */
+/* SettingsView.js - 设置页：官方 / 本地 / 社交脉冲 / 数据管理（iOS Inset Grouped 布局） */
 
 import { GroupCard, SwitchRow, InputRow, ActionRow } from "./FormWidgets.js";
 import PulseView from "./PulseView.js";
@@ -18,11 +18,40 @@ const PRESET_PERSONALITY = `你的设定如下：性别男，少年，身高165�
 在面对他人的时候，调皮搞怪的性格则充当了主角，内心渴望和人玩耍打闹，却用各种搞怪的恶作剧表现出来的小傲娇。
 当别人能够进入内心深处的时候，则表现出温柔的一面。`.trim();
 
-
+/* 格式化探测时间戳为 HH:MM */
+const formatDiscoveredTime = (ts) => {
+  if (!ts) return "";
+  const d = new Date(ts);
+  const hh = String(d.getHours()).padStart(2, "0");
+  const mm = String(d.getMinutes()).padStart(2, "0");
+  return `${hh}:${mm}`;
+};
 
 export default {
-  view: (vnode) => {
-    const { m, Box, Tag, Notice, ChatToolSelect, getColor, trs, draft, editKey, subTab, modelList = [], toolList = [], pulseMeta, pulseGroups, onSubTab, onChange, onImport, onExport, onResetPulse, onResetAll } = vnode.attrs;
+  view(vnode) {
+    const {
+      m,
+      Box,
+      Tag,
+      Notice,
+      ChatToolSelect,
+      getColor,
+      getSize,
+      trs,
+      draft,
+      editKey,
+      subTab,
+      modelList = [],
+      toolList = [],
+      discoveredGroups = [],
+      onSubTab,
+      onChange,
+      onImport,
+      onExport,
+      onResetPulse,
+      onResetAll,
+      onStartQrBind
+    } = vnode.attrs;
 
     /* 写入草稿字段 */
     const set = (key, value) => {
@@ -36,8 +65,6 @@ export default {
       draft[key][index][field] = value;
       onChange();
     };
-
-
 
     /* 勾选/取消某个接入目标的可用工具，null 表示使用默认工具集 */
     const toggleGroupTool = (key, index, toolId) => {
@@ -74,463 +101,605 @@ export default {
       onChange();
     };
 
-    /* 接入目标列表（群组 / 频道共用） */
-    const renderGroups = (key, idField, idLabel) => [
-      ...(draft[key] || []).map((item, index) => {
-        if (!Array.isArray(item.toolIdList)) {
-          item.toolIdList = getDefaultBotToolIdList();
-        }
-        return m(Box,
+    /* 接入目标分组区块（iOS Inset Grouped：每个目标独立分组卡片 + 底部新增按钮） */
+    const renderGroupSection = (key, idField, idLabel, sectionTitle) => {
+      const list = draft[key] || [];
+      const isOfficialGroup = key === "3rd_qqRobot_groups";
+      const emptyDiscoveredHint = isOfficialGroup && discoveredGroups.length === 0
+        ? trs("QQBot/设置/未捕获群提示", {
+            cn: "暂未捕获到群 OpenID：在目标 QQ 群中 @机器人 发一句话，此处会自动出现可选项（也可直接在上方手动粘贴）",
+            en: "No groups captured yet: @bot in the target QQ group to capture its OpenID here (or paste manually above)"
+          })
+        : null;
+
+      return m("",
         {
           style: {
             display: "flex",
             flexDirection: "column",
-            gap: "0.2rem",
-            margin: "0.4rem 0",
-            padding: "0.4rem",
-            borderRadius: "1.5rem",
-            background: getColor("gray_1").back
+            gap: `${getSize(3)}rem`
           }
         },
         [
-          m(InputRow,
-            {
-              m,
-              Box,
-              trs,
-              editKey,
-              label: idLabel,
-              value: item[idField],
-              onInput: (text) => setArr(key, index, idField, text)
-            }
-          ),
-          m(InputRow,
-            {
-              m,
-              Box,
-              trs,
-              editKey,
-              label: trs("QQBot/设置/名称", { cn: "名称", en: "Name" }),
-              value: item.name,
-              onInput: (text) => setArr(key, index, "name", text)
-            }
-          ),
-          m("div",
-            {
-              style: {
-                display: "flex",
-                alignItems: "center",
-                gap: "0.8rem",
-                padding: "0.6rem 0.5rem"
-              }
-            },
-            [
-              m("div",
+          list.length === 0
+            ? m(GroupCard,
                 {
-                  style: {
-                    fontSize: "1.5rem",
-                    flex: "none"
-                  }
-                },
-                trs("QQBot/设置/上级智能体", { cn: "上级智能体", en: "Superior Agent" })
-              ),
-              m("select",
-                {
-                  style: {
-                    flex: "1",
-                    minWidth: "6rem",
-                    maxWidth: "26rem",
-                    margin: "0",
-                    padding: "0.6rem 1.2rem",
-                    border: "none",
-                    borderRadius: "3rem",
-                    background: getColor("gray_1").back,
-                    color: getColor("gray_1").front,
-                    fontSize: "1.4rem",
-                    outline: "none",
-                    textAlign: "right"
-                  },
-                  value: item.derivedFromModelId || "",
-                  onchange: (e) => setArr(key, index, "derivedFromModelId", e.target.value)
+                  m,
+                  Box,
+                  getColor,
+                  getSize,
+                  trs,
+                  title: sectionTitle,
+                  footer: emptyDiscoveredHint
                 },
                 [
-                  m("option", { value: "" }, trs("QQBot/设置/系统默认", { cn: "系统默认", en: "System Default" })),
-                  ...modelList.map(model => m("option", { value: model.id }, `${model.name} (${model.model})`))
-                ]
-              )
-            ]
-          ),
-          m("div",
-            {
-              style: {
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                gap: "0.8rem",
-                padding: "0.6rem 0.5rem",
-                flexWrap: "wrap"
-              }
-            },
-            [
-              m("div",
-                {
-                  style: {
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "0.6rem"
-                  }
-                },
-                [
-                  m("div",
+                  m("",
                     {
                       style: {
-                        fontSize: "1.5rem"
+                        padding: `${getSize(1)}rem 0`
                       }
                     },
-                    trs("QQBot/设置/性格设定", { cn: "性格设定", en: "Personality" })
-                  ),
-                  m("div",
-                    {
-                      style: {
-                        fontSize: "1.2rem",
-                        opacity: 0.6
-                      }
-                    },
-                    (item.prompt && item.prompt.trim())
-                      ? trs("QQBot/设置/已配置性格", { cn: `已配置 (${item.prompt.trim().length} 字)`, en: `Customized (${item.prompt.trim().length} chars)` })
-                      : trs("QQBot/设置/未配置性格", { cn: "未设置", en: "Not Set" })
+                    m(Box,
+                      {
+                        isBtn: true,
+                        color: "blue_1",
+                        style: {
+                          textAlign: "center",
+                          padding: `${getSize(2)}rem ${getSize(3)}rem`,
+                          margin: "0",
+                          borderRadius: `${getSize(8)}rem`
+                        },
+                        onclick: () => addGroup(key, idField)
+                      },
+                      trs("QQBot/设置/新增", { cn: "+ 新增关联目标", en: "+ Add Target" })
+                    )
                   )
                 ]
-              ),
-              m(Tag,
-                {
-                  isBtn: true,
-                  color: "yellow_1",
-                  styleExt: {
-                    margin: "0",
-                    cursor: "pointer",
-                    flex: "none"
-                  },
-                  onclick: () => {
-                    let tempText = item.prompt || "";
-                    Notice.launch({
-                      sign: "qqbot_prompt_modal_" + key + "_" + index,
-                      tip: trs("QQBot/设置/设置性格提示词", {
-                        cn: `设置性格设定 - ${item.name || item[idField] || "目标"}`,
-                        en: `Set Personality - ${item.name || item[idField] || "Target"}`
-                      }),
-                      confirm: async () => {
-                        setArr(key, index, "prompt", tempText);
-                        m.redraw();
-                        return undefined;
-                      },
-                      content: () => ({
-                        view() {
-                          return m(Box,
+              )
+            : [
+                ...list.map((item, index) => {
+                  if (!Array.isArray(item.toolIdList)) {
+                    item.toolIdList = getDefaultBotToolIdList();
+                  }
+                  const matchedDiscovered = isOfficialGroup && discoveredGroups.some(g => g.groupOpenid === String(item[idField] || ""));
+                  const itemHeader = list.length === 1
+                    ? sectionTitle
+                    : `${sectionTitle} · #${index + 1}${item.name ? ` (${item.name})` : ""}`;
+
+                  return m(GroupCard,
+                    {
+                      m,
+                      Box,
+                      getColor,
+                      getSize,
+                      trs,
+                      title: itemHeader,
+                      footer: index === list.length - 1 ? emptyDiscoveredHint : null
+                    },
+                    [
+                      m(InputRow,
+                        {
+                          m,
+                          Box,
+                          getSize,
+                          trs,
+                          editKey,
+                          label: idLabel,
+                          value: item[idField],
+                          onInput: (text) => setArr(key, index, idField, text)
+                        }
+                      ),
+
+                      /* 官方机器人群 OpenID 快捷下拉点选 */
+                      isOfficialGroup && discoveredGroups.length > 0
+                        ? m("",
                             {
-                              color: "gray_3",
                               style: {
                                 display: "flex",
-                                flexDirection: "column",
-                                gap: "1.2rem",
-                                margin: "0.5rem",
-                                padding: "1.2rem",
-                                borderRadius: "1.5rem",
-                                maxWidth: "52rem"
+                                alignItems: "center",
+                                justifyContent: "space-between",
+                                gap: `${getSize(3)}rem`,
+                                padding: `${getSize(2)}rem 0`
                               }
                             },
                             [
-                              m("div",
+                              m("",
                                 {
                                   style: {
-                                    display: "flex",
-                                    gap: "0.8rem",
-                                    alignItems: "center",
-                                    flexWrap: "wrap"
+                                    fontSize: `${getSize(3)}rem`,
+                                    lineHeight: `${getSize(4)}rem`,
+                                    opacity: 0.6,
+                                    flex: "none"
+                                  }
+                                },
+                                trs("QQBot/设置/已探测群", { cn: "已探测群", en: "Discovered" })
+                              ),
+                              m("select",
+                                {
+                                  style: {
+                                    flex: "1",
+                                    minWidth: `${getSize(15)}rem`,
+                                    maxWidth: `${getSize(65)}rem`,
+                                    margin: "0",
+                                    padding: `${getSize(1.5)}rem ${getSize(3)}rem`,
+                                    border: "none",
+                                    borderRadius: `${getSize(8)}rem`,
+                                    background: getColor("gray_1").back,
+                                    color: getColor("gray_1").front,
+                                    fontSize: `${getSize(3)}rem`,
+                                    outline: "none"
+                                  },
+                                  value: matchedDiscovered ? String(item[idField]) : "",
+                                  onchange: (e) => {
+                                    if (e.target.value) {
+                                      setArr(key, index, idField, e.target.value);
+                                    }
                                   }
                                 },
                                 [
-                                  m(Tag,
-                                    {
-                                      isBtn: true,
-                                      color: "blue_1",
-                                      styleExt: { margin: "0", cursor: "pointer" },
-                                      onclick: () => {
-                                        tempText = PRESET_PERSONALITY;
-                                        m.redraw();
-                                      }
-                                    },
-                                    trs("QQBot/设置/填入预设性格", { cn: "填入预设性格（傲娇少年）", en: "Use Preset Personality" })
+                                  m("option",
+                                    { value: "" },
+                                    trs("QQBot/设置/选择已探测群", { cn: "选择已探测到的群 OpenID…", en: "Pick a discovered Group OpenID…" })
                                   ),
-                                  m(Tag,
-                                    {
-                                      isBtn: true,
-                                      color: "pink_1",
-                                      styleExt: { margin: "0", cursor: "pointer" },
-                                      onclick: () => {
-                                        tempText = "";
-                                        m.redraw();
-                                      }
-                                    },
-                                    trs("QQBot/设置/清空性格", { cn: "清空", en: "Clear" })
-                                  )
+                                  ...discoveredGroups.map(g => m("option",
+                                    { value: g.groupOpenid },
+                                    `${g.groupOpenid.slice(0, 8)}… | ${g.sender}${g.lastMsg ? `: ${g.lastMsg.slice(0, 12)}` : ""} (${formatDiscoveredTime(g.timestamp)})`
+                                  ))
                                 ]
-                              ),
-                              m(Box,
-                                {
-                                  tagName: "textarea",
-                                  color: "gray_1",
-                                  noValue: true,
-                                  style: {
-                                    minHeight: "14rem",
-                                    maxHeight: "36vh",
-                                    margin: "0",
-                                    padding: "1rem 1.2rem",
-                                    borderRadius: "1.5rem",
-                                    fontSize: "1.3rem",
-                                    lineHeight: "1.6",
-                                    resize: "vertical",
-                                    outline: "none",
-                                    fontFamily: "inherit"
-                                  },
-                                  ext: {
-                                    placeholder: trs("QQBot/设置/性格提示词占位符", {
-                                      cn: "填写此机器人的专属人设、性格特征、说话风格等。留空则不附加人设。",
-                                      en: "Enter personality, speaking style, or background. Leave empty for no extra persona."
-                                    }),
-                                    value: tempText,
-                                    oninput: (e) => {
-                                      tempText = e.target.value;
-                                    }
-                                  }
-                                }
-                              ),
-                              m("div",
-                                {
-                                  style: {
-                                    fontSize: "1.2rem",
-                                    opacity: 0.6,
-                                    lineHeight: "1.5",
-                                    padding: "0 0.2rem"
-                                  }
-                                },
-                                trs("QQBot/设置/性格设定说明", {
-                                  cn: "提示：无论设置何种性格，系统在创建时都会在末尾自动拼接通用的群聊规则（伪装成群友、简短口语化、禁止透露身份等）。点击右上角对勾保存。",
-                                  en: "Note: General chat rules will be appended automatically. Click checkmark at top right to save."
-                                })
                               )
                             ]
-                          );
+                          )
+                        : null,
+
+                      m(InputRow,
+                        {
+                          m,
+                          Box,
+                          getSize,
+                          trs,
+                          editKey,
+                          label: trs("QQBot/设置/名称", { cn: "名称", en: "Name" }),
+                          value: item.name,
+                          onInput: (text) => setArr(key, index, "name", text)
                         }
-                      })
-                    });
-                  }
-                },
-                trs("QQBot/设置/设置性格按钮", { cn: "设置性格", en: "Set Personality" })
-              )
-            ]
-          ),
-          m("div",
-            {
-              style: {
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                gap: "0.8rem",
-                padding: "0.6rem 0.5rem",
-                flexWrap: "wrap"
-              }
-            },
-            [
-              m("div",
-                {
-                  style: {
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "0.6rem"
-                  }
-                },
-                [
-                  m("div",
-                    {
-                      style: {
-                        fontSize: "1.5rem"
-                      }
-                    },
-                    trs("QQBot/设置/初始工具", { cn: "初始工具", en: "Default Tools" })
-                  ),
-                  m("div",
-                    {
-                      style: {
-                        fontSize: "1.2rem",
-                        opacity: 0.6
-                      }
-                    },
-                    (item.toolIdList || []).length === 0
-                      ? trs("QQBot/设置/工具名单为空", { cn: "名单为空，该群无工具可用", en: "Empty list: no tools in this group" })
-                      : `${(item.toolIdList || []).length} ${trs("QQBot/设置/已选工具数", { cn: "个工具", en: "tools" })}`
-                  )
-                ]
-              ),
-              m("div",
-                {
-                  style: {
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "0.5rem"
-                  }
-                },
-                [
-                  m(Tag,
-                    {
-                      isBtn: true,
-                      color: "gray_2",
-                      styleExt: {
-                        margin: "0",
-                        cursor: "pointer",
-                        flex: "none"
-                      },
-                      onclick: () => setGroupToolList(key, index, getDefaultBotToolIdList())
-                    },
-                    trs("QQBot/设置/重置初始工具", { cn: "重置初始工具", en: "Reset Initial" })
-                  ),
-                  m(Tag,
-                    {
-                      isBtn: true,
-                      color: "yellow_1",
-                      styleExt: {
-                        margin: "0",
-                        cursor: "pointer",
-                        flex: "none"
-                      },
-                      onclick: () => {
-                        Notice.launch({
-                          sign: "qqbot_tool_modal_" + key + "_" + index,
-                          tip: trs("QQBot/设置/选择初始工具", {
-                            cn: `选择初始工具 - ${item.name || item[idField] || "目标"}`,
-                            en: `Select Default Tools - ${item.name || item[idField] || "Target"}`
-                          }),
-                          hideBtn: 2,
-                          content: ChatToolSelect,
-                          contentAttrs: {
-                            toolsList: toolList,
-                            getSelectedList: () => item.toolIdList || [],
-                            onToggleTool: (toolId) => {
-                              toggleGroupTool(key, index, toolId);
-                              m.redraw();
-                            },
-                            onSetAll: (idList) => {
-                              setGroupToolList(key, index, [...idList]);
-                              m.redraw();
-                            }
+                      ),
+
+                      m("",
+                        {
+                          style: {
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            gap: `${getSize(3)}rem`,
+                            padding: `${getSize(2)}rem 0`
                           }
-                        });
-                      }
-                    },
-                    trs("QQBot/设置/选择工具按钮", { cn: "选择工具", en: "Select Tools" })
-                  )
-                ]
-              )
-            ]
-          ),
-          m("div",
-            {
-              style: {
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                gap: "1rem"
-              }
-            },
-            [
-              m("",
-                {
-                  style: {
-                    flex: "1",
-                    minWidth: "0"
-                  }
-                },
-                m(SwitchRow,
+                        },
+                        [
+                          m("",
+                            {
+                              style: {
+                                flex: "none",
+                                lineHeight: `${getSize(5)}rem`
+                              }
+                            },
+                            trs("QQBot/设置/上级智能体", { cn: "上级智能体", en: "Superior Agent" })
+                          ),
+                          m("select",
+                            {
+                              style: {
+                                flex: "1",
+                                minWidth: `${getSize(15)}rem`,
+                                maxWidth: `${getSize(65)}rem`,
+                                margin: "0",
+                                padding: `${getSize(1.5)}rem ${getSize(3)}rem`,
+                                border: "none",
+                                borderRadius: `${getSize(8)}rem`,
+                                background: getColor("gray_1").back,
+                                color: getColor("gray_1").front,
+                                fontSize: `${getSize(3)}rem`,
+                                outline: "none",
+                                textAlign: "right"
+                              },
+                              value: item.derivedFromModelId || "",
+                              onchange: (e) => setArr(key, index, "derivedFromModelId", e.target.value)
+                            },
+                            [
+                              m("option", { value: "" }, trs("QQBot/设置/系统默认", { cn: "系统默认", en: "System Default" })),
+                              ...modelList.map(model => m("option", { value: model.id }, `${model.name} (${model.model})`))
+                            ]
+                          )
+                        ]
+                      ),
+
+                      m("",
+                        {
+                          style: {
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            gap: `${getSize(3)}rem`,
+                            padding: `${getSize(2)}rem 0`,
+                            flexWrap: "wrap"
+                          }
+                        },
+                        [
+                          m("",
+                            {
+                              style: {
+                                display: "flex",
+                                flexDirection: "column",
+                                gap: `${getSize(1 / 2)}rem`,
+                                minWidth: "0",
+                                flex: "1"
+                              }
+                            },
+                            [
+                              m("",
+                                {
+                                  style: {
+                                    lineHeight: `${getSize(5)}rem`
+                                  }
+                                },
+                                trs("QQBot/设置/性格设定", { cn: "性格设定", en: "Personality" })
+                              ),
+                              m("",
+                                {
+                                  style: {
+                                    fontSize: `${getSize(3)}rem`,
+                                    lineHeight: `${getSize(4)}rem`,
+                                    opacity: 0.55
+                                  }
+                                },
+                                (item.prompt && item.prompt.trim())
+                                  ? trs("QQBot/设置/已配置性格", { cn: `已配置 (${item.prompt.trim().length} 字)`, en: `Customized (${item.prompt.trim().length} chars)` })
+                                  : trs("QQBot/设置/未配置性格", { cn: "未设置", en: "Not Set" })
+                              )
+                            ]
+                          ),
+                          m(Tag,
+                            {
+                              isBtn: true,
+                              color: "yellow_1",
+                              styleExt: {
+                                margin: "0",
+                                cursor: "pointer",
+                                flex: "none"
+                              },
+                              onclick: () => {
+                                let tempText = item.prompt || "";
+                                Notice.launch({
+                                  sign: "qqbot_prompt_modal_" + key + "_" + index,
+                                  tip: trs("QQBot/设置/设置性格提示词", {
+                                    cn: `设置性格设定 - ${item.name || item[idField] || "目标"}`,
+                                    en: `Set Personality - ${item.name || item[idField] || "Target"}`
+                                  }),
+                                  confirm: async () => {
+                                    setArr(key, index, "prompt", tempText);
+                                    m.redraw();
+                                    return undefined;
+                                  },
+                                  content: () => ({
+                                    view() {
+                                      return m(Box,
+                                        {
+                                          color: "gray_3",
+                                          style: {
+                                            display: "flex",
+                                            flexDirection: "column",
+                                            gap: `${getSize(3)}rem`,
+                                            margin: `${getSize(1)}rem`,
+                                            padding: `${getSize(3)}rem`,
+                                            borderRadius: `${getSize(8)}rem`,
+                                            maxWidth: `${getSize(130)}rem`
+                                          }
+                                        },
+                                        [
+                                          m("",
+                                            {
+                                              style: {
+                                                display: "flex",
+                                                gap: `${getSize(2)}rem`,
+                                                alignItems: "center",
+                                                flexWrap: "wrap"
+                                              }
+                                            },
+                                            [
+                                              m(Tag,
+                                                {
+                                                  isBtn: true,
+                                                  color: "blue_1",
+                                                  styleExt: {
+                                                    margin: "0",
+                                                    cursor: "pointer"
+                                                  },
+                                                  onclick: () => {
+                                                    tempText = PRESET_PERSONALITY;
+                                                    m.redraw();
+                                                  }
+                                                },
+                                                trs("QQBot/设置/填入预设性格", { cn: "填入预设性格（傲娇少年）", en: "Use Preset Personality" })
+                                              ),
+                                              m(Tag,
+                                                {
+                                                  isBtn: true,
+                                                  color: "pink_1",
+                                                  styleExt: {
+                                                    margin: "0",
+                                                    cursor: "pointer"
+                                                  },
+                                                  onclick: () => {
+                                                    tempText = "";
+                                                    m.redraw();
+                                                  }
+                                                },
+                                                trs("QQBot/设置/清空性格", { cn: "清空", en: "Clear" })
+                                              )
+                                            ]
+                                          ),
+                                          m(Box,
+                                            {
+                                              tagName: "textarea",
+                                              color: "gray_1",
+                                              noValue: true,
+                                              style: {
+                                                minHeight: `${getSize(35)}rem`,
+                                                maxHeight: "36vh",
+                                                margin: "0",
+                                                padding: `${getSize(3)}rem`,
+                                                borderRadius: `${getSize(8)}rem`,
+                                                fontSize: `${getSize(3)}rem`,
+                                                lineHeight: `${getSize(4)}rem`,
+                                                resize: "vertical",
+                                                outline: "none",
+                                                fontFamily: "inherit"
+                                              },
+                                              ext: {
+                                                placeholder: trs("QQBot/设置/性格提示词占位符", {
+                                                  cn: "填写此机器人的专属人设、性格特征、说话风格等。留空则不附加人设。",
+                                                  en: "Enter personality, speaking style, or background. Leave empty for no extra persona."
+                                                }),
+                                                value: tempText,
+                                                oninput: (e) => {
+                                                  tempText = e.target.value;
+                                                }
+                                              }
+                                            }
+                                          ),
+                                          m("",
+                                            {
+                                              style: {
+                                                fontSize: `${getSize(3)}rem`,
+                                                opacity: 0.6,
+                                                lineHeight: `${getSize(4)}rem`,
+                                                padding: `0 ${getSize(1 / 2)}rem`
+                                              }
+                                            },
+                                            trs("QQBot/设置/性格设定说明", {
+                                              cn: "提示：无论设置何种性格，系统在创建时都会在末尾自动拼接通用的群聊规则（伪装成群友、简短口语化、禁止透露身份等）。点击右上角对勾保存。",
+                                              en: "Note: General chat rules will be appended automatically. Click checkmark at top right to save."
+                                            })
+                                          )
+                                        ]
+                                      );
+                                    }
+                                  })
+                                });
+                              }
+                            },
+                            trs("QQBot/设置/设置性格按钮", { cn: "设置性格", en: "Set Personality" })
+                          )
+                        ]
+                      ),
+
+                      m("",
+                        {
+                          style: {
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            gap: `${getSize(3)}rem`,
+                            padding: `${getSize(2)}rem 0`,
+                            flexWrap: "wrap"
+                          }
+                        },
+                        [
+                          m("",
+                            {
+                              style: {
+                                display: "flex",
+                                flexDirection: "column",
+                                gap: `${getSize(1 / 2)}rem`,
+                                minWidth: "0",
+                                flex: "1"
+                              }
+                            },
+                            [
+                              m("",
+                                {
+                                  style: {
+                                    lineHeight: `${getSize(5)}rem`
+                                  }
+                                },
+                                trs("QQBot/设置/初始工具", { cn: "初始工具", en: "Default Tools" })
+                              ),
+                              m("",
+                                {
+                                  style: {
+                                    fontSize: `${getSize(3)}rem`,
+                                    lineHeight: `${getSize(4)}rem`,
+                                    opacity: 0.55
+                                  }
+                                },
+                                (item.toolIdList || []).length === 0
+                                  ? trs("QQBot/设置/工具名单为空", { cn: "名单为空，该群无工具可用", en: "Empty list: no tools in this group" })
+                                  : `${(item.toolIdList || []).length} ${trs("QQBot/设置/已选工具数", { cn: "个工具", en: "tools" })}`
+                              )
+                            ]
+                          ),
+                          m("",
+                            {
+                              style: {
+                                display: "flex",
+                                alignItems: "center",
+                                gap: `${getSize(1)}rem`,
+                                flex: "none"
+                              }
+                            },
+                            [
+                              m(Tag,
+                                {
+                                  isBtn: true,
+                                  color: "gray_2",
+                                  styleExt: {
+                                    margin: "0",
+                                    cursor: "pointer",
+                                    flex: "none"
+                                  },
+                                  onclick: () => setGroupToolList(key, index, getDefaultBotToolIdList())
+                                },
+                                trs("QQBot/设置/重置初始工具", { cn: "重置初始工具", en: "Reset Initial" })
+                              ),
+                              m(Tag,
+                                {
+                                  isBtn: true,
+                                  color: "yellow_1",
+                                  styleExt: {
+                                    margin: "0",
+                                    cursor: "pointer",
+                                    flex: "none"
+                                  },
+                                  onclick: () => {
+                                    Notice.launch({
+                                      sign: "qqbot_tool_modal_" + key + "_" + index,
+                                      tip: trs("QQBot/设置/选择初始工具", {
+                                        cn: `选择初始工具 - ${item.name || item[idField] || "目标"}`,
+                                        en: `Select Default Tools - ${item.name || item[idField] || "Target"}`
+                                      }),
+                                      hideBtn: 2,
+                                      content: ChatToolSelect,
+                                      contentAttrs: {
+                                        toolsList: toolList,
+                                        getSelectedList: () => item.toolIdList || [],
+                                        onToggleTool: (toolId) => {
+                                          toggleGroupTool(key, index, toolId);
+                                          m.redraw();
+                                        },
+                                        onSetAll: (idList) => {
+                                          setGroupToolList(key, index, [...idList]);
+                                          m.redraw();
+                                        }
+                                      }
+                                    });
+                                  }
+                                },
+                                trs("QQBot/设置/选择工具按钮", { cn: "选择工具", en: "Select Tools" })
+                              )
+                            ]
+                          )
+                        ]
+                      ),
+
+                      m(SwitchRow,
+                        {
+                          m,
+                          Box,
+                          getSize,
+                          trs,
+                          editKey,
+                          label: trs("QQBot/设置/启用", { cn: "启用", en: "Enable" }),
+                          value: item.switch,
+                          onToggle: (v) => setArr(key, index, "switch", v ? 1 : 0)
+                        }
+                      ),
+
+                      m(ActionRow,
+                        {
+                          m,
+                          Box,
+                          Tag,
+                          getSize,
+                          trs,
+                          label: trs("QQBot/设置/删除目标", { cn: "移除此目标", en: "Remove Target" }),
+                          btnText: trs("QQBot/设置/删除", { cn: "删除", en: "Delete" }),
+                          color: "pink_1",
+                          onAction: () => removeGroup(key, index)
+                        }
+                      )
+                    ]
+                  );
+                }),
+                m(Box,
                   {
-                    m,
-                    Box,
-                    trs,
-                    editKey,
-                    label: trs("QQBot/设置/启用", { cn: "启用", en: "Enable" }),
-                    value: item.switch,
-                    onToggle: (v) => setArr(key, index, "switch", v ? 1 : 0)
-                  }
-                )
-              ),
-              m(Tag,
-                {
-                  isBtn: true,
-                  color: "pink_1",
-                  styleExt: {
-                    margin: "0",
-                    cursor: "pointer",
-                    flex: "none"
+                    isBtn: true,
+                    color: "blue_1",
+                    style: {
+                      textAlign: "center",
+                      padding: `${getSize(2)}rem ${getSize(3)}rem`,
+                      margin: "0",
+                      borderRadius: `${getSize(8)}rem`
+                    },
+                    onclick: () => addGroup(key, idField)
                   },
-                  onclick: () => removeGroup(key, index)
-                },
-                trs("QQBot/设置/删除", { cn: "删除", en: "Delete" })
-              )
-            ]
-          )
+                  trs("QQBot/设置/新增", { cn: "+ 新增关联目标", en: "+ Add Target" })
+                )
+              ]
         ]
       );
-    }),
-      m(Box,
-        {
-          isBtn: true,
-          color: "blue_1",
-          style: {
-            textAlign: "center",
-            padding: "0.8rem",
-            marginTop: "0.5rem"
-          },
-          onclick: () => addGroup(key, idField)
-        },
-        trs("QQBot/设置/新增", { cn: "+ 新增关联目标", en: "+ Add Target" })
-      )
-    ];
+    };
 
     return m("",
       {
         style: {
           display: "flex",
-          flexDirection: "column"
+          flexDirection: "column",
+          gap: `${getSize(4)}rem`
         }
       },
       [
-        m("div",
+        /* iOS 分段控制器（Segmented Control） */
+        m(Box,
           {
+            color: "gray_4",
             style: {
               display: "flex",
-              gap: "0.5rem",
-              flexWrap: "wrap",
-              margin: "0.5rem 0.5rem 1rem 0.5rem"
+              alignItems: "center",
+              gap: `${getSize(1)}rem`,
+              padding: `${getSize(1)}rem`,
+              margin: "0",
+              borderRadius: `${getSize(8)}rem`
             }
           },
-          SUBS.map(item => m(Tag,
-            {
-              isBtn: true,
-              color: subTab === item.key ? "main" : "gray_4",
-              styleExt: {
-                margin: "0",
-                cursor: "pointer"
+          SUBS.map(item => {
+            const active = subTab === item.key;
+            return m(Box,
+              {
+                isBtn: true,
+                color: active ? "main" : "gray_4",
+                style: {
+                  flex: "1",
+                  margin: "0",
+                  padding: `${getSize(1.5)}rem ${getSize(2)}rem`,
+                  borderRadius: `${getSize(8)}rem`,
+                  fontSize: `${getSize(3)}rem`,
+                  lineHeight: `${getSize(4)}rem`,
+                  textAlign: "center",
+                  whiteSpace: "nowrap",
+                  background: active ? getColor("main").back : "transparent",
+                  color: active ? getColor("main").front : getColor("gray_4").front
+                },
+                onclick: () => onSubTab(item.key)
               },
-              onclick: () => onSubTab(item.key)
-            },
-            trs(`QQBot/设置页签/${item.key}`, { cn: item.cn, en: item.en })
-          ))
+              trs(`QQBot/设置页签/${item.key}`, { cn: item.cn, en: item.en })
+            );
+          })
         ),
 
         subTab === "official" ? m("",
           {
             style: {
               display: "flex",
-              flexDirection: "column"
+              flexDirection: "column",
+              gap: `${getSize(6)}rem`
             }
           },
           [
@@ -539,6 +708,7 @@ export default {
                 m,
                 Box,
                 getColor,
+                getSize,
                 trs,
                 title: trs("QQBot/设置/运行开关", { cn: "运行开关", en: "Switches" })
               },
@@ -547,17 +717,22 @@ export default {
                   {
                     m,
                     Box,
+                    getSize,
                     trs,
                     editKey,
                     label: trs("QQBot/设置/机器人开关", { cn: "机器人开关", en: "Bot Switch" }),
                     value: draft["3rd_qqRobot_switch"],
-                    onToggle: (v) => set("3rd_qqRobot_switch", v)
+                    onToggle: (v) => {
+                      set("3rd_qqRobot_switch", v);
+                      if (v) set("3rd_qqRobotLocal_switch", false);
+                    }
                   }
                 ),
                 m(SwitchRow,
                   {
                     m,
                     Box,
+                    getSize,
                     trs,
                     editKey,
                     label: trs("QQBot/设置/调试模式开关", { cn: "调试模式开关", en: "Debug Mode" }),
@@ -569,6 +744,7 @@ export default {
                   {
                     m,
                     Box,
+                    getSize,
                     trs,
                     editKey,
                     label: trs("QQBot/设置/响应任意群组", { cn: "响应任意群组(无视名单)", en: "React Any Group" }),
@@ -583,25 +759,37 @@ export default {
                 m,
                 Box,
                 getColor,
+                getSize,
                 trs,
                 title: trs("QQBot/设置/凭证", { cn: "凭证", en: "Credentials" })
               },
               [
+                onStartQrBind ? m("",
+                  {
+                    style: {
+                      padding: `${getSize(1)}rem 0`
+                    }
+                  },
+                  m(Box,
+                    {
+                      isBtn: true,
+                      color: "blue_1",
+                      style: {
+                        textAlign: "center",
+                        padding: `${getSize(2)}rem ${getSize(3)}rem`,
+                        margin: "0",
+                        borderRadius: `${getSize(8)}rem`
+                      },
+                      onclick: () => onStartQrBind()
+                    },
+                    trs("QQBot/设置/扫码连接", { cn: "手机 QQ 扫码一键连接", en: "Scan QR with QQ" })
+                  )
+                ) : null,
                 m(InputRow,
                   {
                     m,
                     Box,
-                    trs,
-                    editKey,
-                    label: trs("QQBot/设置/机器人QQ号", { cn: "机器人QQ号", en: "Bot QQ" }),
-                    value: draft["3rd_qqRobot_qqNum"],
-                    onInput: (text) => set("3rd_qqRobot_qqNum", text)
-                  }
-                ),
-                m(InputRow,
-                  {
-                    m,
-                    Box,
+                    getSize,
                     trs,
                     editKey,
                     label: trs("QQBot/设置/机器人appid", { cn: "机器人appid", en: "Bot AppID" }),
@@ -613,8 +801,10 @@ export default {
                   {
                     m,
                     Box,
+                    getSize,
                     trs,
                     editKey,
+                    isPassword: true,
                     label: trs("QQBot/设置/机器人秘钥secret", { cn: "机器人秘钥secret", en: "Bot Secret" }),
                     value: draft["3rd_qqRobot_secret"],
                     onInput: (text) => set("3rd_qqRobot_secret", text)
@@ -624,34 +814,39 @@ export default {
                   {
                     m,
                     Box,
+                    getSize,
                     trs,
                     editKey,
-                    label: trs("QQBot/设置/机器人令牌token", { cn: "机器人令牌token", en: "Bot Token" }),
+                    label: trs("QQBot/设置/机器人QQ号", { cn: "机器人QQ号 (官方已作废)", en: "Bot QQ (Deprecated)" }),
+                    value: draft["3rd_qqRobot_qqNum"],
+                    onInput: (text) => set("3rd_qqRobot_qqNum", text)
+                  }
+                ),
+                m(InputRow,
+                  {
+                    m,
+                    Box,
+                    getSize,
+                    trs,
+                    editKey,
+                    label: trs("QQBot/设置/机器人令牌token", { cn: "机器人令牌token (官方已作废)", en: "Bot Token (Deprecated)" }),
                     value: draft["3rd_qqRobot_token"],
                     onInput: (text) => set("3rd_qqRobot_token", text)
                   }
                 )
               ]
             ),
-            m(GroupCard,
-              {
-                m,
-                Box,
-                getColor,
-                trs,
-                title: trs("QQBot/设置/机器人关联QQ群", { cn: "机器人关联QQ群", en: "Linked QQ Groups" })
-              },
-              renderGroups("3rd_qqRobot_groups", "groupid", trs("QQBot/设置/群号", { cn: "群号", en: "Group ID" }))
+            renderGroupSection(
+              "3rd_qqRobot_groups",
+              "groupid",
+              trs("QQBot/设置/群OpenID", { cn: "群 OpenID", en: "Group OpenID" }),
+              trs("QQBot/设置/机器人关联QQ群", { cn: "机器人关联QQ群", en: "Linked QQ Groups" })
             ),
-            m(GroupCard,
-              {
-                m,
-                Box,
-                getColor,
-                trs,
-                title: trs("QQBot/设置/机器人关联QQ频道", { cn: "机器人关联QQ频道", en: "Linked QQ Channels" })
-              },
-              renderGroups("3rd_qqRobot_channels", "channelid", trs("QQBot/设置/频道号", { cn: "频道号", en: "Channel ID" }))
+            renderGroupSection(
+              "3rd_qqRobot_channels",
+              "channelid",
+              trs("QQBot/设置/频道号", { cn: "频道号", en: "Channel ID" }),
+              trs("QQBot/设置/机器人关联QQ频道", { cn: "机器人关联QQ频道", en: "Linked QQ Channels" })
             )
           ]
         ) : null,
@@ -660,7 +855,8 @@ export default {
           {
             style: {
               display: "flex",
-              flexDirection: "column"
+              flexDirection: "column",
+              gap: `${getSize(6)}rem`
             }
           },
           [
@@ -669,6 +865,7 @@ export default {
                 m,
                 Box,
                 getColor,
+                getSize,
                 trs,
                 title: trs("QQBot/设置/本地OneBot", { cn: "本地 OneBot", en: "Local OneBot" })
               },
@@ -677,17 +874,22 @@ export default {
                   {
                     m,
                     Box,
+                    getSize,
                     trs,
                     editKey,
                     label: trs("QQBot/设置/机器人开关", { cn: "机器人开关", en: "Bot Switch" }),
                     value: draft["3rd_qqRobotLocal_switch"],
-                    onToggle: (v) => set("3rd_qqRobotLocal_switch", v)
+                    onToggle: (v) => {
+                      set("3rd_qqRobotLocal_switch", v);
+                      if (v) set("3rd_qqRobot_switch", false);
+                    }
                   }
                 ),
                 m(InputRow,
                   {
                     m,
                     Box,
+                    getSize,
                     trs,
                     editKey,
                     label: trs("QQBot/设置/机器人QQ号", { cn: "机器人QQ号", en: "Bot QQ" }),
@@ -699,6 +901,7 @@ export default {
                   {
                     m,
                     Box,
+                    getSize,
                     trs,
                     editKey,
                     label: trs("QQBot/设置/websocket地址", { cn: "websocket地址", en: "WebSocket URL" }),
@@ -708,15 +911,11 @@ export default {
                 )
               ]
             ),
-            m(GroupCard,
-              {
-                m,
-                Box,
-                getColor,
-                trs,
-                title: trs("QQBot/设置/机器人关联QQ群", { cn: "机器人关联QQ群", en: "Linked QQ Groups" })
-              },
-              renderGroups("3rd_qqRobotLocal_groups", "groupid", trs("QQBot/设置/群号", { cn: "群号", en: "Group ID" }))
+            renderGroupSection(
+              "3rd_qqRobotLocal_groups",
+              "groupid",
+              trs("QQBot/设置/群号", { cn: "群号", en: "Group ID" }),
+              trs("QQBot/设置/机器人关联QQ群", { cn: "机器人关联QQ群", en: "Linked QQ Groups" })
             )
           ]
         ) : null,
@@ -727,11 +926,10 @@ export default {
             Box,
             Tag,
             getColor,
+            getSize,
             trs,
             draft,
             editKey,
-            pulseMeta,
-            pulseGroups,
             onChange,
             onResetPulse
           }
@@ -741,7 +939,8 @@ export default {
           {
             style: {
               display: "flex",
-              flexDirection: "column"
+              flexDirection: "column",
+              gap: `${getSize(6)}rem`
             }
           },
           [
@@ -750,8 +949,13 @@ export default {
                 m,
                 Box,
                 getColor,
+                getSize,
                 trs,
-                title: trs("QQBot/设置/配置备份", { cn: "配置备份", en: "Backup" })
+                title: trs("QQBot/设置/配置备份", { cn: "配置备份", en: "Backup" }),
+                footer: trs("QQBot/设置/存档说明", {
+                  cn: "配置现已随项目存档自动持久化；导入 / 导出仅用于备份与跨设备迁移。",
+                  en: "Config is now persisted with the project archive; import / export is only for backup and migration."
+                })
               },
               [
                 m(ActionRow,
@@ -759,6 +963,7 @@ export default {
                     m,
                     Box,
                     Tag,
+                    getSize,
                     trs,
                     label: trs("QQBot/设置/导入配置", { cn: "导入配置", en: "Import" }),
                     desc: trs("QQBot/设置/导入说明", { cn: "从 JSON 文件恢复全部配置", en: "Restore config from a JSON file" }),
@@ -772,6 +977,7 @@ export default {
                     m,
                     Box,
                     Tag,
+                    getSize,
                     trs,
                     label: trs("QQBot/设置/导出配置", { cn: "导出配置", en: "Export" }),
                     desc: trs("QQBot/设置/导出说明", { cn: "把当前配置另存为 JSON 备份", en: "Save current config as JSON" }),
@@ -785,6 +991,7 @@ export default {
                     m,
                     Box,
                     Tag,
+                    getSize,
                     trs,
                     label: trs("QQBot/设置/恢复出厂", { cn: "恢复出厂", en: "Factory Reset" }),
                     desc: trs("QQBot/设置/恢复出厂说明", { cn: "清空所有配置与统计（不可撤销）", en: "Clear all config (irreversible)" }),
@@ -794,20 +1001,6 @@ export default {
                   }
                 )
               ]
-            ),
-            m(Box,
-              {
-                style: {
-                  fontSize: "1.2rem",
-                  opacity: "0.7",
-                  margin: "0 0.5rem",
-                  borderRadius: "1.5rem"
-                }
-              },
-              trs("QQBot/设置/存档说明", {
-                cn: "配置现已随项目存档自动持久化；导入 / 导出仅用于备份与跨设备迁移。",
-                en: "Config is now persisted with the project archive; import / export is only for backup and migration."
-              })
             )
           ]
         ) : null

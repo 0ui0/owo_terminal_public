@@ -3,6 +3,7 @@ import commonData from "./commonData.js"
 import Notice from "./notice.js"
 import { trs } from "./i18n.js"
 import getColor from "./getColor.js"
+import getSize from "./getSize.js"
 import ioSocket from "../../comData/ioSocket.js"
 
 export default () => {
@@ -35,7 +36,7 @@ export default () => {
                 return m("", {
                   style: {
                     textAlign: "center",
-                    padding: "2rem",
+                    padding: `${getSize(5)}rem`,
                     color: getColor("gray_4").front
                   }
                 }, trs("系统/消息/暂无", { cn: "暂无消息", en: "No messages" }))
@@ -45,8 +46,8 @@ export default () => {
                 style: {
                   display: "flex",
                   flexDirection: "column",
-                  gap: "0.5rem",
-                  padding: "1rem"
+                  gap: `${getSize(1)}rem`,
+                  padding: `${getSize(3)}rem`
                 }
               }, commonData.messages.map((msg, index) => {
                 const getIconName = () => {
@@ -92,10 +93,10 @@ export default () => {
                   style: {
                     display: "flex",
                     flexDirection: "column",
-                    gap: "0.8rem",
-                    padding: "1.2rem 2rem",
+                    gap: `${getSize(2)}rem`,
+                    padding: `${getSize(3)}rem ${getSize(5)}rem`,
                     background: "rgba(0,0,0,0.05)",
-                    borderRadius: "3rem",
+                    borderRadius: `${getSize(8)}rem`,
                     cursor: "pointer",
                     position: "relative"
                   },
@@ -117,27 +118,27 @@ export default () => {
                       alignItems: "center"
                     }
                   }, [
-                    m("", { style: { display: "flex", alignItems: "center", gap: "0.5rem" } }, [
-                      m.trust(window.iconPark.getIcon(getIconName(), { fill: getIconColor(), size: "1.2rem" })),
-                      m("span", { style: { fontSize: "1.1rem", color: getColor("gray_1").front, opacity: 0.6 } }, getTypeName()),
+                    m("", { style: { display: "flex", alignItems: "center", gap: `${getSize(1)}rem` } }, [
+                      m.trust(window.iconPark.getIcon(getIconName(), { fill: getIconColor(), size: `${getSize(3)}rem` })),
+                      m("span", { style: { fontSize: `${getSize(3)}rem`, color: getColor("gray_1").front, opacity: 0.6 } }, getTypeName()),
                       !msg.isRead ? m("", {
                         style: {
-                          width: "0.6rem",
-                          height: "0.6rem",
+                          width: `${getSize(2)}rem`,
+                          height: `${getSize(2)}rem`,
                           borderRadius: "50%",
                           background: getIconColor()
                         }
                       }) : null
                     ]),
-                    m("", { style: { display: "flex", alignItems: "center", gap: "0.8rem" } }, [
-                      m("span", { style: { fontSize: "1.1rem", color: getColor("gray_1").front, opacity: 0.4 } }, formatTime(msg.timestamp)),
+                    m("", { style: { display: "flex", alignItems: "center", gap: `${getSize(2)}rem` } }, [
+                      m("span", { style: { fontSize: `${getSize(3)}rem`, color: getColor("gray_1").front, opacity: 0.4 } }, formatTime(msg.timestamp)),
                       m("", {
                         style: { cursor: "pointer", display: "flex", alignItems: "center" },
                         onpointerup: (e) => {
                           e.stopPropagation()
                           commonData.messages.splice(index, 1)
                         }
-                      }, m.trust(window.iconPark.getIcon("Close", { fill: getColor("gray_1").front, size: "1.1rem", opacity: 0.5 })))
+                      }, m.trust(window.iconPark.getIcon("Close", { fill: getColor("gray_1").front, size: `${getSize(3)}rem`, opacity: 0.5 })))
                     ])
                   ]),
                   // Body Row
@@ -145,19 +146,19 @@ export default () => {
                     style: {
                       display: "flex",
                       flexDirection: "column",
-                      gap: "0.3rem",
-                      paddingLeft: "0.2rem"
+                      gap: `${getSize(1)}rem`,
+                      paddingLeft: `${getSize(0.5)}rem`
                     }
                   }, [
-                    m("", { style: { fontWeight: "bold", fontSize: "1.3rem", color: getColor("gray_1").front, lineHeight: "1.4" } }, msg.title),
-                    msg.content ? m("", { style: { fontSize: "1.2rem", color: getColor("gray_1").front, opacity: 0.8, lineHeight: "1.4" } }, msg.content) : null,
+                    m("", { style: { fontWeight: "bold", fontSize: `${getSize(3)}rem`, color: getColor("gray_1").front, lineHeight: "1.4" } }, msg.title),
+                    msg.content ? m("", { style: { fontSize: `${getSize(3)}rem`, color: getColor("gray_1").front, opacity: 0.8, lineHeight: "1.4" } }, msg.content) : null,
                     msg.meta && msg.meta.progress !== undefined ? m("", {
                       style: {
                         width: "100%",
-                        height: "0.4rem",
+                        height: `${getSize(1)}rem`,
                         background: "rgba(0,0,0,0.1)",
-                        borderRadius: "0.2rem",
-                        marginTop: "0.5rem",
+                        borderRadius: `${getSize(0.5)}rem`,
+                        marginTop: `${getSize(1)}rem`,
                         overflow: "hidden"
                       }
                     }, m("", {
@@ -191,21 +192,22 @@ export default () => {
           style: {
             display: "flex",
             alignItems: "center",
-            gap: "0.5rem",
-            padding: "0.2rem 0.8rem",
+            gap: `${getSize(1)}rem`,
+            padding: `${getSize(0.5)}rem ${getSize(2)}rem`,
             background: "rgba(0,0,0,0.1)",
-            borderRadius: "1.2rem",
+            borderRadius: `${getSize(3)}rem`,
             cursor: "pointer",
             "-webkit-app-region": "no-drag",
-            maxWidth: "18rem",
+            maxWidth: `${getSize(45)}rem`,
             boxSizing: "border-box"
           },
+          onpointerdown: (e) => e.stopPropagation(),
           onpointerup: openInbox
         }, [
-          m.trust(window.iconPark.getIcon(getIconName(), { fill: getColor("main").front, size: "1.2rem" })),
+          m.trust(window.iconPark.getIcon(getIconName(), { fill: getColor("main").front, size: `${getSize(3)}rem` })),
           m("span", {
             style: {
-              fontSize: "1.2rem",
+              fontSize: `${getSize(3)}rem`,
               color: getColor("main").front,
               whiteSpace: "nowrap",
               overflow: "hidden",
@@ -221,31 +223,32 @@ export default () => {
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          width: "2.4rem",
-          height: "2.4rem",
+          width: `${getSize(6)}rem`,
+          height: `${getSize(6)}rem`,
           borderRadius: "50%",
           cursor: "pointer",
           "-webkit-app-region": "no-drag",
           background: "rgba(0,0,0,0.05)"
         },
+        onpointerdown: (e) => e.stopPropagation(),
         onpointerup: openInbox
       }, [
-        m.trust(window.iconPark.getIcon("Mail", { fill: getColor("main").front, size: "1.4rem" })),
+        m.trust(window.iconPark.getIcon("Mail", { fill: getColor("main").front, size: `${getSize(3)}rem` })),
         unreadCount > 0 ? m("", {
           style: {
             position: "absolute",
-            top: "-0.4rem",
-            right: "-0.4rem",
+            top: `-${getSize(1)}rem`,
+            right: `-${getSize(1)}rem`,
             background: badgeTheme.back,
             color: badgeTheme.front,
-            fontSize: "1rem",
-            padding: "0 0.4rem",
-            borderRadius: "1rem",
+            fontSize: `${getSize(2)}rem`,
+            padding: `0 ${getSize(1)}rem`,
+            borderRadius: `${getSize(8)}rem`,
             fontWeight: "bold",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            height: "1.4rem"
+            height: `${getSize(3)}rem`
           }
         }, unreadCount) : null
       ])

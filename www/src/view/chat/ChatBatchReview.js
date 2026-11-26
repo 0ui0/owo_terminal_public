@@ -4,9 +4,11 @@ import Tag from "../common/tag.js"
 import Notice from "../common/notice.js"
 import comData from "../../comData/comData.js"
 import getColor from "../common/getColor.js"
+import getSize from "../common/getSize.js"
 import settingData from "../setting/settingData.js"
 import DiffFoldView from "../common/DiffFoldView.js"
 import chatData from "./chatData.js"
+import { trs } from "../common/i18n.js"
 
 export default () => {
   let localGlobalComment = ""
@@ -39,7 +41,7 @@ export default () => {
               style: {
                 display: "flex",
                 flexDirection: "column",
-                gap: "0.4rem"
+                gap: `${getSize(1)}rem`
               }
             },
             [
@@ -48,7 +50,7 @@ export default () => {
                   style: {
                     display: "flex",
                     alignItems: "center",
-                    gap: "0.5rem"
+                    gap: `${getSize(1)}rem`
                   }
                 },
                 [
@@ -56,7 +58,11 @@ export default () => {
                     {
                       color: file.type === "add" ? "green_1" : (file.type === "delete" ? "pink_1" : "blue_1")
                     },
-                    file.type === "add" ? "新增" : (file.type === "delete" ? "删除" : "修改")
+                    file.type === "add"
+                      ? trs("filePatcher/标签/新增", { cn: "新增", en: "Add" })
+                      : (file.type === "delete"
+                        ? trs("filePatcher/标签/删除", { cn: "删除", en: "Delete" })
+                        : trs("filePatcher/标签/修改", { cn: "修改", en: "Update" }))
                   ),
                   m("span",
                     (file.relativePath || file.path).split("/").pop()
@@ -66,7 +72,7 @@ export default () => {
               m("",
                 {
                   style: {
-                    fontSize: "1.2rem",
+                    fontSize: `${getSize(3)}rem`,
                     opacity: 0.6,
                     wordBreak: "break-all"
                   }
@@ -89,7 +95,7 @@ export default () => {
                     style: {
                       display: "flex",
                       alignItems: "center",
-                      gap: "0.5rem"
+                      gap: `${getSize(1)}rem`
                     }
                   },
                   [
@@ -118,7 +124,7 @@ export default () => {
                   : m("",
                     {
                       style: {
-                        marginTop: "0.5rem",
+                        marginTop: `${getSize(1)}rem`,
                         whiteSpace: "pre-wrap"
                       }
                     },
@@ -141,7 +147,7 @@ export default () => {
                     style: {
                       display: "flex",
                       alignItems: "center",
-                      gap: "0.5rem"
+                      gap: `${getSize(1)}rem`
                     }
                   },
                   [
@@ -170,7 +176,7 @@ export default () => {
                   : m("",
                     {
                       style: {
-                        marginTop: "0.5rem",
+                        marginTop: `${getSize(1)}rem`,
                         whiteSpace: "pre-wrap"
                       }
                     },
@@ -263,15 +269,15 @@ export default () => {
       {
         style: {
           display: "block",
-          margin: "0.5rem 0",
-          padding: "1rem",
-          borderRadius: "1rem",
+          margin: `${getSize(1)}rem 0`,
+          padding: `${getSize(3)}rem`,
+          borderRadius: `${getSize(3)}rem`,
           background: getColor("确认框输入背景"),
-          maxHeight: "15rem",
+          maxHeight: `${getSize(38)}rem`,
           overflowY: "auto",
           fontFamily: "monospace",
-          fontSize: "1.2rem",
-          border: `1px solid ${getColor("确认框输入边框")}`
+          fontSize: `${getSize(3)}rem`,
+          border: `${getSize(0.25)}rem solid ${getColor("确认框输入边框")}`
         }
       },
       diffRows.map(row => {
@@ -292,10 +298,10 @@ export default () => {
           return m("",
             {
               style: {
-                padding: "0.2rem 0.4rem",
+                padding: `${getSize(0.5)}rem ${getSize(1)}rem`,
                 color: getColor("确认框文字"),
-                borderRadius: "0.5rem",
-                margin: "0.1rem 0",
+                borderRadius: `${getSize(2)}rem`,
+                margin: `${getSize(0.25)}rem 0`,
                 whiteSpace: "pre-wrap",
                 wordBreak: "break-all"
               }
@@ -308,12 +314,12 @@ export default () => {
               color: tagColor,
               styleExt: {
                 display: "block",
-                padding: "0.2rem 0.4rem",
-                borderRadius: "0.5rem",
-                margin: "0.1rem 0",
+                padding: `${getSize(0.5)}rem ${getSize(1)}rem`,
+                borderRadius: `${getSize(2)}rem`,
+                margin: `${getSize(0.25)}rem 0`,
                 whiteSpace: "pre-wrap",
                 wordBreak: "break-all",
-                fontSize: "1.2rem" // 确保它作为文本行的字号不膨胀
+                fontSize: `${getSize(3)}rem` // 确保它作为文本行的字号不膨胀
               }
             },
             `${prefix} ${row.text}`
@@ -343,7 +349,11 @@ export default () => {
             const list = data.chatLists?.find(l => l.id === chatList.id)
             const cmd = list?.confirmCmds?.find(c => c.id === confirmCmd.id)
             if (cmd?.ext?.files) {
-              cmd.ext.files.forEach(f => f.status = status)
+              cmd.ext.files.forEach(f => {
+                if (f.status !== "failed") {
+                  f.status = status
+                }
+              })
             }
           })
         } catch (err) {
@@ -385,16 +395,16 @@ export default () => {
           style: {
             display: "flex",
             flexDirection: "column",
-            borderRadius: "0.5rem 2rem 2rem 0.5rem",
-            margin: "1rem",
-            padding: "1rem",
-            boxShadow: `0.1rem 0.1rem 1rem ${getColor("确认框背景") === "#ffffffee" ? "#ccc" : "#333"}`,
+            borderRadius: `${getSize(1)}rem ${getSize(8)}rem ${getSize(8)}rem ${getSize(1)}rem`,
+            margin: `${getSize(3)}rem`,
+            padding: `${getSize(3)}rem`,
+            boxShadow: `0 ${getSize(0.25)}rem ${getSize(1)}rem ${getColor("确认框背景") === "#ffffffee" ? "#ccc" : "#333"}`,
             background: getColor("确认框背景"),
             color: getColor("确认框文字"),
-            maxWidth: "60rem",
+            maxWidth: `${getSize(200)}rem`,
             zIndex: 100,
             position: "relative",
-            borderLeft: `0.4rem solid ${getColor("确认框标题边框")}`
+            borderLeft: `${getSize(1)}rem solid ${getColor("确认框标题边框")}`
           }
         },
         [
@@ -402,14 +412,14 @@ export default () => {
           m("span",
             {
               style: {
-                marginBottom: "0.5rem",
+                marginBottom: `${getSize(1)}rem`,
                 color: getColor("确认框标题"),
-                fontSize: "1.8rem",
+                fontSize: `${getSize(4)}rem`,
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "space-between",
                 flexWrap: "wrap",
-                gap: "0.5rem"
+                gap: `${getSize(1)}rem`
               }
             },
             [
@@ -418,7 +428,8 @@ export default () => {
                 {
                   style: {
                     display: "flex",
-                    alignItems: "center"
+                    alignItems: "center",
+                    gap: `${getSize(1)}rem`
                   }
                 },
                 [
@@ -426,7 +437,7 @@ export default () => {
                     {
                       color: "green_1",
                       styleExt: {
-                        margin: "0.2rem 0.3rem"
+                        margin: 0
                       }
                     },
                     `${approvedCount} 批准`
@@ -435,7 +446,7 @@ export default () => {
                     {
                       color: "pink_1",
                       styleExt: {
-                        margin: "0.2rem 0.3rem"
+                        margin: 0
                       }
                     },
                     `${rejectedCount} 拒绝`
@@ -445,7 +456,7 @@ export default () => {
                       {
                         color: "yellow_1",
                         styleExt: {
-                          margin: "0.2rem 0.3rem"
+                          margin: 0
                         }
                       },
                       `${pendingCount} 待定`
@@ -460,9 +471,9 @@ export default () => {
           m(Box,
             {
               style: {
-                margin: "0.5rem 0 1rem",
-                padding: "1rem",
-                borderRadius: "1rem",
+                margin: `${getSize(1)}rem 0 ${getSize(3)}rem`,
+                padding: `${getSize(3)}rem`,
+                borderRadius: `${getSize(8)}rem`,
                 background: getColor("确认框内容背景"),
                 overflowWrap: "break-word",
                 wordBreak: "break-all",
@@ -477,8 +488,8 @@ export default () => {
                 ? m("",
                   {
                     style: {
-                      fontSize: "1.5rem",
-                      marginBottom: "1rem"
+                      fontSize: `${getSize(4)}rem`,
+                      marginBottom: `${getSize(3)}rem`
                     }
                   },
                   confirmCmd.content
@@ -492,14 +503,14 @@ export default () => {
                     display: "flex",
                     justifyContent: "space-between",
                     alignItems: "center",
-                    marginBottom: "0.8rem"
+                    marginBottom: `${getSize(2)}rem`
                   }
                 },
                 [
                   m("span",
                     {
                       style: {
-                        fontSize: "1.5rem"
+                        fontSize: `${getSize(4)}rem`
                       }
                     },
                     `待审批文件列表 (${files.length}):`
@@ -515,14 +526,15 @@ export default () => {
                   style: {
                     display: "flex",
                     flexDirection: "column",
-                    gap: "0.8rem",
-                    maxHeight: "30rem",
+                    gap: `${getSize(2)}rem`,
+                    maxHeight: `${getSize(75)}rem`,
                     overflowY: "auto"
                   }
                 },
                 files.map((file, idx) => {
                   const isApproved = file.status === "approved"
                   const isRejected = file.status === "rejected"
+                  const isFailed = file.status === "failed"
                   const hasDiffExpanded = !!expandedDiffs[file.fileId]
                   const hasNotesOrComment = !!(file.notes || file.comment)
 
@@ -534,8 +546,8 @@ export default () => {
                       style: {
                         display: "flex",
                         flexDirection: "column",
-                        padding: "0.8rem 1rem",
-                        borderRadius: "2rem",
+                        padding: `${getSize(2)}rem ${getSize(3)}rem`,
+                        borderRadius: `${getSize(8)}rem`,
                         margin: "0"
                       }
                     },
@@ -548,7 +560,7 @@ export default () => {
                             alignItems: "center",
                             justifyContent: "space-between",
                             flexWrap: "wrap",
-                            gap: "0.5rem"
+                            gap: `${getSize(1)}rem`
                           }
                         },
                         [
@@ -558,7 +570,8 @@ export default () => {
                               style: {
                                 display: "flex",
                                 alignItems: "center",
-                                flexWrap: "wrap"
+                                flexWrap: "wrap",
+                                gap: `${getSize(1)}rem`
                               }
                             },
                             [
@@ -566,17 +579,21 @@ export default () => {
                                 {
                                   color: file.type === "add" ? "green_1" : (file.type === "delete" ? "pink_1" : "blue_1"),
                                   styleExt: {
-                                    margin: "0.2rem 0.3rem"
+                                    margin: 0
                                   }
                                 },
-                                file.type === "add" ? "新增" : (file.type === "delete" ? "删除" : "修改")
+                                file.type === "add"
+                                  ? trs("filePatcher/标签/新增", { cn: "新增", en: "Add" })
+                                  : (file.type === "delete"
+                                    ? trs("filePatcher/标签/删除", { cn: "删除", en: "Delete" })
+                                    : trs("filePatcher/标签/修改", { cn: "修改", en: "Update" }))
                               ),
                               m("span",
                                 {
                                   title: file.path,
                                   style: {
-                                    fontSize: "1.5rem",
-                                    margin: "0 0.3rem",
+                                    fontSize: `${getSize(4)}rem`,
+                                    margin: 0,
                                     fontWeight: "bold",
                                     color: getColor("gray_1").front
                                   }
@@ -588,7 +605,7 @@ export default () => {
                                   {
                                     color: "green_1",
                                     styleExt: {
-                                      margin: "0.2rem 0.3rem"
+                                      margin: 0
                                     }
                                   },
                                   `+${file.addLines}`
@@ -599,7 +616,7 @@ export default () => {
                                   {
                                     color: "pink_1",
                                     styleExt: {
-                                      margin: "0.2rem 0.3rem"
+                                      margin: 0
                                     }
                                   },
                                   `-${file.delLines}`
@@ -614,7 +631,7 @@ export default () => {
                                     color: "yellow_1",
                                     styleExt: {
                                       cursor: "pointer",
-                                      margin: "0.2rem 0.3rem"
+                                      margin: 0
                                     },
                                     onclick: () => {
                                       Notice.launch({
@@ -639,39 +656,44 @@ export default () => {
                             {
                               style: {
                                 display: "flex",
-                                alignItems: "center"
+                                alignItems: "center",
+                                gap: `${getSize(1)}rem`
                               }
                             },
                             [
                               // 编辑器审阅按钮（Diff 审批模式）
-                              m(Tag,
-                                {
-                                  isBtn: true,
-                                  color: "main",
-                                  styleExt: {
-                                    cursor: "pointer",
-                                    margin: "0.2rem 0.3rem"
-                                  },
-                                  onclick: async () => {
-                                    try {
-                                      await settingData.fnCall("appLaunch", ["editor", {
-                                        data: {
-                                          confirmId: confirmCmd.id,
-                                          fileId: file.fileId,
-                                          filePath: file.path,
-                                          originalContent: file.originalContent,
-                                          proposedContent: file.proposedContent,
-                                          isDiff: true,
-                                          reason: confirmCmd.ext?.reason
-                                        }
-                                      }])
-                                    } catch (launchErr) {
-                                      console.error("打开编辑器审阅失败:", launchErr)
+                              !isFailed
+                                ? m(Tag,
+                                  {
+                                    isBtn: true,
+                                    color: "main",
+                                    styleExt: {
+                                      cursor: "pointer",
+                                      margin: 0
+                                    },
+                                    onclick: async () => {
+                                      try {
+                                        await settingData.fnCall("appLaunch", ["editor", {
+                                          data: {
+                                            group: "editor_diff_" + confirmCmd.id,
+                                            confirmId: confirmCmd.id,
+                                            fileId: file.fileId,
+                                            filePath: file.path,
+                                            originalContent: file.originalContent,
+                                            proposedContent: file.proposedContent,
+                                            isDiff: true,
+                                            reason: file.reason || confirmCmd.ext?.reason,
+                                            edits: file.edits
+                                          }
+                                        }])
+                                      } catch (launchErr) {
+                                        console.error("打开编辑器审阅失败:", launchErr)
+                                      }
                                     }
-                                  }
-                                },
-                                "编辑器审阅"
-                              ),
+                                  },
+                                  trs("filePatcher/按钮/编辑器审阅", { cn: "编辑器审阅", en: "Review in Editor" })
+                                )
+                                : null,
 
                               // 源文件按钮（直接打开当前磁盘文件）
                               m(Tag,
@@ -680,7 +702,7 @@ export default () => {
                                   color: "gray_2",
                                   styleExt: {
                                     cursor: "pointer",
-                                    margin: "0.2rem 0.3rem"
+                                    margin: 0
                                   },
                                   onclick: async () => {
                                     try {
@@ -694,69 +716,84 @@ export default () => {
                                     }
                                   }
                                 },
-                                "源文件"
+                                trs("filePatcher/按钮/源文件", { cn: "源文件", en: "Source File" })
                               ),
 
                               // 查看 Diff 按钮
-                              m(Tag,
-                                {
-                                  isBtn: true,
-                                  color: hasDiffExpanded ? "gray_2" : "gray_4",
-                                  styleExt: {
-                                    cursor: "pointer",
-                                    margin: "0.2rem 0.3rem"
+                              !isFailed
+                                ? m(Tag,
+                                  {
+                                    isBtn: true,
+                                    color: hasDiffExpanded ? "gray_2" : "gray_4",
+                                    styleExt: {
+                                      cursor: "pointer",
+                                      margin: 0
+                                    },
+                                    onclick: () => {
+                                      expandedDiffs[file.fileId] = !expandedDiffs[file.fileId]
+                                    }
                                   },
-                                  onclick: () => {
-                                    expandedDiffs[file.fileId] = !expandedDiffs[file.fileId]
-                                  }
-                                },
-                                hasDiffExpanded ? "收起 Diff" : "查看 Diff"
-                              ),
+                                  hasDiffExpanded
+                                    ? trs("filePatcher/按钮/收起Diff", { cn: "收起 Diff", en: "Collapse Diff" })
+                                    : trs("filePatcher/按钮/查看Diff", { cn: "查看 Diff", en: "View Diff" })
+                                )
+                                : null,
 
-                              // 胶囊开关
-                              m("",
-                                {
-                                  style: {
-                                    display: "inline-flex",
-                                    borderRadius: "3rem",
-                                    background: getColor("确认框输入背景"),
-                                    padding: "2px",
-                                    margin: "0.2rem 0.3rem"
-                                  }
-                                },
-                                [
-                                  m(Tag,
-                                    {
-                                      isBtn: true,
-                                      // 修复：未选中时使用灰调 gray_2 而不是 "none" 以保持成色完整，且借助透明度区分
-                                      color: isApproved ? "green_1" : "gray_2",
-                                      styleExt: {
-                                        margin: "0",
-                                        borderRadius: "3rem 0 0 3rem",
-                                        cursor: "pointer",
-                                        opacity: isApproved ? 1 : 0.6
+                              // 胶囊开关或作废Tag
+                              isFailed
+                                ? m(Tag,
+                                  {
+                                    color: "gray_3",
+                                    styleExt: {
+                                      margin: 0,
+                                      borderRadius: `${getSize(8)}rem`
+                                    }
+                                  },
+                                  trs("filePatcher/按钮/已作废", { cn: "已作废", en: "Invalid" })
+                                )
+                                : m("",
+                                  {
+                                    style: {
+                                      display: "inline-flex",
+                                      borderRadius: `${getSize(8)}rem`,
+                                      background: getColor("确认框输入背景"),
+                                      padding: `${getSize(1)}rem`,
+                                      margin: 0
+                                    }
+                                  },
+                                  [
+                                    m(Tag,
+                                      {
+                                        isBtn: true,
+                                        // 修复：未选中时使用灰调 gray_2 而不是 "none" 以保持成色完整，且借助透明度区分
+                                        color: isApproved ? "green_1" : "gray_2",
+                                        styleExt: {
+                                          margin: "0",
+                                          borderRadius: `${getSize(8)}rem 0 0 ${getSize(8)}rem`,
+                                          cursor: "pointer",
+                                          opacity: isApproved ? 1 : 0.6
+                                        },
+                                        onclick: () => setFileStatus(file.fileId, "approved")
                                       },
-                                      onclick: () => setFileStatus(file.fileId, "approved")
-                                    },
-                                    "批准"
-                                  ),
-                                  m(Tag,
-                                    {
-                                      isBtn: true,
-                                      // 修复：未选中时使用灰调 gray_2 而不是 "none"
-                                      color: isRejected ? "pink_1" : "gray_2",
-                                      styleExt: {
-                                        margin: "0",
-                                        borderRadius: "0 3rem 3rem 0",
-                                        cursor: "pointer",
-                                        opacity: isRejected ? 1 : 0.6
+                                      trs("filePatcher/按钮/批准", { cn: "批准", en: "Approve" })
+                                    ),
+                                    m(Tag,
+                                      {
+                                        isBtn: true,
+                                        // 修复：未选中时使用灰调 gray_2 而不是 "none"
+                                        color: isRejected ? "pink_1" : "gray_2",
+                                        styleExt: {
+                                          margin: "0",
+                                          borderRadius: `0 ${getSize(8)}rem ${getSize(8)}rem 0`,
+                                          cursor: "pointer",
+                                          opacity: isRejected ? 1 : 0.6
+                                        },
+                                        onclick: () => setFileStatus(file.fileId, "rejected")
                                       },
-                                      onclick: () => setFileStatus(file.fileId, "rejected")
-                                    },
-                                    "拒绝"
-                                  )
-                                ]
-                              )
+                                      trs("filePatcher/按钮/拒绝", { cn: "拒绝", en: "Reject" })
+                                    )
+                                  ]
+                                )
                             ]
                           )
                         ]
@@ -767,21 +804,87 @@ export default () => {
                         {
                           title: file.path,
                           style: {
-                            fontSize: "1.2rem",
+                            fontSize: `${getSize(3)}rem`,
                             opacity: 0.6,
-                            margin: "0.3rem 0.3rem 0",
+                            margin: `${getSize(1)}rem ${getSize(1)}rem 0`,
                             wordBreak: "break-all",
                             overflowWrap: "break-word",
-                            lineHeight: "1.6rem",
+                            lineHeight: `${getSize(4)}rem`,
                             color: getColor("gray_1").front
                           }
                         },
                         file.relativePath || file.path
                       ),
 
+                      // 第三行：展示当前 update 的专属修改理由（与路径字号一致，移除总理由标签）
+                      file.reason
+                        ? m("div",
+                          {
+                            style: {
+                              fontSize: `${getSize(3)}rem`,
+                              opacity: 0.8,
+                              margin: `${getSize(0.5)}rem ${getSize(1)}rem 0`,
+                              wordBreak: "break-all",
+                              overflowWrap: "break-word",
+                              lineHeight: `${getSize(4)}rem`,
+                              color: getColor("gray_4").front
+                            }
+                          },
+                          file.reason
+                        )
+                        : null,
+
+                      // 作废条目的原因警示块
+                      isFailed && file.error
+                        ? m(Box,
+                          {
+                            isBlock: true,
+                            color: "pink_1",
+                            style: {
+                              display: "flex",
+                              alignItems: "flex-start",
+                              gap: `${getSize(1)}rem`,
+                              padding: `${getSize(1)}rem ${getSize(2)}rem`,
+                              margin: `${getSize(1)}rem ${getSize(1)}rem 0`,
+                              borderRadius: `${getSize(2)}rem`,
+                              fontSize: `${getSize(3)}rem`,
+                              lineHeight: `${getSize(4)}rem`
+                            }
+                          },
+                          [
+                            m("span",
+                              {
+                                style: {
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  flexShrink: 0,
+                                  marginTop: `${getSize(0.25)}rem`
+                                }
+                              },
+                              m.trust(window.iconPark.getIcon("Attention", { size: `${getSize(4)}rem`, fill: getColor("pink_1").front }))
+                            ),
+                            m("span",
+                              {
+                                style: {
+                                  flex: 1,
+                                  wordBreak: "break-all",
+                                  overflowWrap: "break-word"
+                                }
+                              },
+                              `${trs("filePatcher/提示/作废原因", { cn: "作废原因", en: "Reason" })}: ${file.error}`
+                            )
+                          ]
+                        )
+                        : null,
+
                       // 展开的内嵌 Diff
                       hasDiffExpanded
-                        ? m(DiffFoldView, { originalContent: file.originalContent, proposedContent: file.proposedContent, fileId: file.fileId })
+                        ? m(DiffFoldView, {
+                            originalContent: file.originalContent,
+                            proposedContent: file.proposedContent,
+                            fileId: file.fileId,
+                            edits: file.edits
+                          })
                         : null
                     ]
                   )
@@ -796,16 +899,16 @@ export default () => {
                   oninput: (e) => localGlobalComment = e.target.value,
                   style: {
                     width: "auto",
-                    padding: "0.8rem",
-                    margin: "1rem 0.5rem 0.5rem",
+                    padding: `${getSize(3)}rem`,
+                    margin: `${getSize(3)}rem 0 0`,
                     background: getColor("确认框输入背景"),
-                    border: `1px solid ${getColor("确认框输入边框")}`,
-                    borderRadius: "0.8rem",
+                    border: `${getSize(0.25)}rem solid ${getColor("确认框输入边框")}`,
+                    borderRadius: `${getSize(8)}rem`,
                     color: getColor("确认框输入文字"),
                     outline: "none",
-                    minHeight: "6rem",
+                    minHeight: `${getSize(15)}rem`,
                     resize: "vertical",
-                    fontSize: "1.5rem"
+                    fontSize: `${getSize(4)}rem`
                   }
                 }
               )
@@ -819,7 +922,9 @@ export default () => {
               {
                 style: {
                   display: "flex",
-                  alignItems: "center"
+                  alignItems: "center",
+                  gap: `${getSize(1)}rem`,
+                  margin: `0 0 ${getSize(3)}rem`
                 }
               },
               [
@@ -828,19 +933,22 @@ export default () => {
                   {
                     isBtn: true,
                     color: "main",
+                    styleExt: { margin: 0 },
                     onclick: async () => {
                       for (let i = files.length - 1; i >= 0; i--) {
                         const file = files[i]
                         try {
                           await settingData.fnCall("appLaunch", ["editor", {
                             data: {
+                              group: "editor_diff_" + confirmCmd.id,
                               confirmId: confirmCmd.id,
                               fileId: file.fileId,
                               filePath: file.path,
                               originalContent: file.originalContent,
                               proposedContent: file.proposedContent,
                               isDiff: true,
-                              reason: confirmCmd.ext?.reason
+                              reason: file.reason || confirmCmd.ext?.reason,
+                              edits: file.edits
                             }
                           }])
                         } catch (launchErr) {
@@ -849,23 +957,25 @@ export default () => {
                       }
                     }
                   },
-                  "依次审阅"
+                  trs("filePatcher/按钮/依次审阅", { cn: "依次审阅", en: "Review All in Editor" })
                 ),
                 m(Tag,
                   {
                     isBtn: true,
                     color: "green_1",
+                    styleExt: { margin: 0 },
                     onclick: () => setAllStatus("approved")
                   },
-                  "全部批准"
+                  trs("filePatcher/按钮/全部批准", { cn: "全部批准", en: "Approve All" })
                 ),
                 m(Tag,
                   {
                     isBtn: true,
                     color: "pink_1",
+                    styleExt: { margin: 0 },
                     onclick: () => setAllStatus("rejected")
                   },
-                  "全部拒绝"
+                  trs("filePatcher/按钮/全部拒绝", { cn: "全部拒绝", en: "Reject All" })
                 )
               ]
             )
@@ -880,7 +990,7 @@ export default () => {
                 display: "flex",
                 justifyContent: "flex-end",
                 alignItems: "center",
-                gap: "0.5rem"
+                gap: `${getSize(1)}rem`
               }
             },
             [
@@ -903,12 +1013,12 @@ export default () => {
                         styleExt: {
                           display: "flex",
                           alignItems: "center",
-                          gap: "0.4rem"
+                          gap: `${getSize(1)}rem`
                         }
                       },
                       [
                         window.iconPark
-                          ? m.trust(window.iconPark.getIcon("Attention", { size: "1.5rem", fill: getColor("yellow_1").front }))
+                          ? m.trust(window.iconPark.getIcon("Attention", { size: `${getSize(4)}rem`, fill: getColor("yellow_1").front }))
                           : null,
                         m("span", `尚有 ${pendingCount} 个文件未明确批准或拒绝`)
                       ]
@@ -922,13 +1032,14 @@ export default () => {
                 {
                   isBtn: true,
                   style: {
+                    margin: "0",
                     marginRight: "0",
                     background: getColor("确认框按钮执行背景"),
                     color: getColor("确认框按钮执行文字"),
                     opacity: allDecided ? 1 : 0.38,
                     filter: allDecided ? "none" : "grayscale(80%)",
                     cursor: allDecided ? "pointer" : "not-allowed",
-                    boxShadow: allDecided ? "0 2px 6px rgba(0,0,0,0.15)" : "none",
+                    boxShadow: allDecided ? `0 ${getSize(0.5)}rem ${getSize(2)}rem rgba(0,0,0,0.15)` : "none",
                     transition: "all 0.2s ease"
                   },
                   async onclick() {
@@ -958,6 +1069,7 @@ export default () => {
                 {
                   isBtn: true,
                   style: {
+                    margin: "0",
                     marginRight: "0",
                     background: getColor("确认框按钮拒绝背景"),
                     color: getColor("确认框按钮拒绝文字")

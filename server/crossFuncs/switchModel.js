@@ -38,7 +38,7 @@ export default {
       // 仅在勾选"清空临时上下文并插入历史阅读提示"时，植入恢复指令
       if (clearContext) {
         // 植入恢复指令
-        const sysMsgContent = "用户指定了你和它继续对话，请调用【历史记录查询工具】查询先前的对话情况，然后接前面的对话或者任务继续。";
+        const sysMsgContent = "管理员指定了你和他继续对话，请调用【历史记录查询工具】查询先前的对话情况，然后接前面的对话或者任务继续。";
         
         let historyCount = 0;
         if (archiveDb.tb_chat_messages) {

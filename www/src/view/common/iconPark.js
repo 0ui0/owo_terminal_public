@@ -18,6 +18,7 @@ import {
   TextItalic,
   Strikethrough,
   Code,
+  Edit,
   LinkOne,
   ListTwo,
   OffScreenOne,
@@ -90,7 +91,8 @@ import {
   Error,
   Success,
   Attention,
-  More
+  More,
+  Clear
 } from '/@npm/@icon-park/svg.js';
 
 let iconPark = {
@@ -113,6 +115,7 @@ let iconPark = {
   TextItalic,
   Strikethrough,
   Code,
+  Edit,
   LinkOne,
   ListTwo,
   OffScreenOne,
@@ -185,7 +188,8 @@ let iconPark = {
   Error,
   Success,
   Attention,
-  More
+  More,
+  Clear
 };
 
 export default {

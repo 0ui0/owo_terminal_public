@@ -6,6 +6,7 @@ import { trs } from "../common/i18n.js"
 import settingData from "../setting/settingData.js"
 import Notice from "../common/notice.js"
 import ChatToolSelect from "./ChatToolSelect.js"
+import getSize from "../common/getSize.js"
 
 export default () => {
   let toolsList = []
@@ -24,6 +25,8 @@ export default () => {
         thinkStrength: targetSession?.thinkStrength || "medium",
         tokenCompressSwitch: targetSession?.tokenCompressSwitch ?? true,
         autoLaunchEditor: !!targetSession?.autoLaunchEditor,
+        autoConfirmWorkspacePatch: !!targetSession?.autoConfirmWorkspacePatch,
+        confirmDeleteScope: Number(targetSession?.confirmDeleteScope ?? 0),
         skipConfirmTools: [...(targetSession?.skipConfirmTools || [])],
         allowUseTools: Array.isArray(targetSession?.allowUseTools) ? [...targetSession.allowUseTools] : null
       }
@@ -41,6 +44,8 @@ export default () => {
                 thinkStrength: modalDraft.thinkStrength,
                 tokenCompressSwitch: modalDraft.tokenCompressSwitch,
                 autoLaunchEditor: modalDraft.autoLaunchEditor,
+                autoConfirmWorkspacePatch: modalDraft.autoConfirmWorkspacePatch,
+                confirmDeleteScope: modalDraft.confirmDeleteScope,
                 skipConfirmTools: modalDraft.skipConfirmTools,
                 allowUseTools: modalDraft.allowUseTools
               })
@@ -102,6 +107,8 @@ export default () => {
       const thinkStrength = modalDraft.thinkStrength || "medium"
       const isTokenCompress = modalDraft.tokenCompressSwitch ?? true
       const isAutoLaunchEditor = !!modalDraft.autoLaunchEditor
+      const isAutoConfirmWorkspace = !!modalDraft.autoConfirmWorkspacePatch
+      const confirmDeleteScope = Number(modalDraft.confirmDeleteScope ?? 0)
       const skipConfirmTools = modalDraft.skipConfirmTools || []
       const allowUseToolIdList = modalDraft.allowUseTools
 
@@ -111,10 +118,9 @@ export default () => {
           style: {
             display: "flex",
             flexDirection: "column",
-            gap: "1.2rem",
-            padding: "1rem",
-            color: getColor("gray_1").front,
-            maxWidth: "48rem"
+            gap: `${getSize(3)}rem`,
+            padding: `${getSize(3)}rem`,
+            color: getColor("gray_1").front
           }
         },
         [
@@ -124,12 +130,12 @@ export default () => {
             {
               color: "gray_4",
               style: {
-                borderRadius: "3rem",
+                borderRadius: `${getSize(8)}rem`,
                 margin: "0",
-                padding: "1.2rem 1.5rem",
+                padding: `${getSize(3)}rem ${getSize(4)}rem`,
                 display: "flex",
                 flexDirection: "column",
-                gap: "1rem"
+                gap: `${getSize(2.5)}rem`
               }
             },
             [
@@ -148,7 +154,7 @@ export default () => {
                     "span",
                     {
                       style: {
-                        fontSize: "1.5rem"
+                        fontSize: `${getSize(4)}rem`
                       }
                     },
                     trs("输入栏/参数/思考控制", {
@@ -185,9 +191,9 @@ export default () => {
                     style: {
                       display: "flex",
                       flexDirection: "column",
-                      gap: "0.8rem",
-                      paddingTop: "0.8rem",
-                      borderTop: `0.1rem dashed ${getColor("gray_1").front}22`
+                      gap: `${getSize(2)}rem`,
+                      paddingTop: `${getSize(2)}rem`,
+                      borderTop: `${getSize(0.25)}rem dashed ${getColor("gray_1").front}22`
                     }
                   },
                   [
@@ -206,7 +212,7 @@ export default () => {
                           "span",
                           {
                             style: {
-                              fontSize: "1.5rem"
+                              fontSize: `${getSize(4)}rem`
                             }
                           },
                           trs("输入栏/参数/深度思考", {
@@ -217,7 +223,7 @@ export default () => {
                         m(
                           Box,
                           {
-                            color: "yellow",
+                            color: "main",
                             isSwitch: true,
                             value: isEnableThinking,
                             style: {
@@ -250,7 +256,7 @@ export default () => {
                           "span",
                           {
                             style: {
-                              fontSize: "1.5rem"
+                              fontSize: `${getSize(4)}rem`
                             }
                           },
                           trs("输入栏/参数/思考强度", {
@@ -263,7 +269,7 @@ export default () => {
                           {
                             style: {
                               display: "flex",
-                              gap: "0.5rem"
+                              gap: `${getSize(1)}rem`
                             }
                           },
                           [
@@ -297,9 +303,9 @@ export default () => {
                                 color: isActive ? "yellow_1" : "gray_2",
                                 styleExt: {
                                   margin: "0",
-                                  fontSize: "1.2rem",
-                                  padding: "0.3rem 0.8rem",
-                                  borderRadius: "3rem"
+                                  fontSize: `${getSize(3)}rem`,
+                                  padding: `${getSize(1)}rem ${getSize(2)}rem`,
+                                  borderRadius: `${getSize(8)}rem`
                                 },
                                 onclick: () => {
                                   modalDraft.thinkStrength = opt.level
@@ -324,9 +330,9 @@ export default () => {
             {
               color: "gray_4",
               style: {
-                borderRadius: "3rem",
+                borderRadius: `${getSize(8)}rem`,
                 margin: "0",
-                padding: "1.2rem 1.5rem",
+                padding: `${getSize(3)}rem ${getSize(4)}rem`,
                 display: "flex",
                 justifyContent: "space-between",
                 alignItems: "center"
@@ -337,7 +343,7 @@ export default () => {
                 "span",
                 {
                   style: {
-                    fontSize: "1.5rem"
+                    fontSize: `${getSize(4)}rem`
                   }
                 },
                 trs("输入栏/参数/上下文压缩", {
@@ -372,9 +378,9 @@ export default () => {
             {
               color: "gray_4",
               style: {
-                borderRadius: "3rem",
+                borderRadius: `${getSize(8)}rem`,
                 margin: "0",
-                padding: "1.2rem 1.5rem",
+                padding: `${getSize(3)}rem ${getSize(4)}rem`,
                 display: "flex",
                 justifyContent: "space-between",
                 alignItems: "center"
@@ -385,7 +391,7 @@ export default () => {
                 "span",
                 {
                   style: {
-                    fontSize: "1.5rem"
+                    fontSize: `${getSize(4)}rem`
                   }
                 },
                 trs("输入栏/参数/审批打开编辑器", {
@@ -414,18 +420,232 @@ export default () => {
             ]
           ),
 
+          // 卡片 3.5: 工作目录内编辑文件免确认
+          m(
+            Box,
+            {
+              color: "gray_4",
+              style: {
+                borderRadius: `${getSize(8)}rem`,
+                margin: "0",
+                padding: `${getSize(3)}rem ${getSize(4)}rem`,
+                display: "flex",
+                flexDirection: "column",
+                gap: `${getSize(1.5)}rem`
+              }
+            },
+            [
+              m(
+                "",
+                {
+                  style: {
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center"
+                  }
+                },
+                [
+                  m(
+                    "span",
+                    {
+                      style: {
+                        fontSize: `${getSize(4)}rem`
+                      }
+                    },
+                    trs("输入栏/参数/工作目录内编辑免确认", {
+                      cn: "文件增删改工具：工作目录编辑免确认",
+                      en: "filePatcher: Auto-confirm Edits in Workspace"
+                    })
+                  ),
+                  m(
+                    Box,
+                    {
+                      color: "main",
+                      isSwitch: true,
+                      value: isAutoConfirmWorkspace,
+                      style: {
+                        margin: "0"
+                      },
+                      onbeforeupdate(vnode) {
+                        vnode.state.data.value = isAutoConfirmWorkspace
+                      },
+                      onclick: () => {
+                        modalDraft.autoConfirmWorkspacePatch = !isAutoConfirmWorkspace
+                        m.redraw()
+                      }
+                    }
+                  )
+                ]
+              ),
+              m(
+                "div",
+                {
+                  style: {
+                    fontSize: `${getSize(3)}rem`,
+                    opacity: 0.6,
+                    lineHeight: `${getSize(4)}rem`
+                  }
+                },
+                trs("输入栏/参数/工作目录内编辑免确认说明", {
+                  cn: "此项仅对“文件增删改工具”生效，对终端等其它工具无效。开启后，仅在当前工作目录内编辑文件时自动放行；若下方配置了该工具的免确认白名单，则以全系统免确认优先，但不包含删除文件。",
+                  en: "This setting only applies to \"filePatcher\" and does not affect terminal or other tools. When enabled, file edits inside the current workspace are auto-approved; if whitelisted below, full-system skip takes priority, excluding file deletion."
+                })
+              )
+            ]
+          ),
+
+          // 卡片 3.6: 删除文件免确认 (3档分段器)
+          m(
+            Box,
+            {
+              color: "gray_4",
+              style: {
+                borderRadius: `${getSize(8)}rem`,
+                margin: "0",
+                padding: `${getSize(3)}rem ${getSize(4)}rem`,
+                display: "flex",
+                flexDirection: "column",
+                gap: `${getSize(2)}rem`
+              }
+            },
+            [
+              m(
+                "",
+                {
+                  style: {
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    flexWrap: "wrap",
+                    gap: `${getSize(1)}rem`
+                  }
+                },
+                [
+                  m(
+                    "span",
+                    {
+                      style: {
+                        fontSize: `${getSize(4)}rem`
+                      }
+                    },
+                    trs("输入栏/参数/删除文件免确认", {
+                      cn: "文件增删改工具：删除文件免确认",
+                      en: "filePatcher: Skip Confirm for File Deletion"
+                    })
+                  ),
+                  m(
+                    "",
+                    {
+                      style: {
+                        display: "inline-flex",
+                        borderRadius: `${getSize(8)}rem`,
+                        background: getColor("确认框输入背景"),
+                        padding: `${getSize(1)}rem`
+                      }
+                    },
+                    [
+                      m(
+                        Tag,
+                        {
+                          isBtn: true,
+                          color: confirmDeleteScope === 0 ? "main" : "gray_2",
+                          styleExt: {
+                            margin: "0",
+                            borderRadius: `${getSize(8)}rem 0 0 ${getSize(8)}rem`,
+                            cursor: "pointer",
+                            fontSize: `${getSize(3)}rem`,
+                            padding: `${getSize(0.5)}rem ${getSize(2)}rem`,
+                            opacity: confirmDeleteScope === 0 ? 1 : 0.6
+                          },
+                          onclick: () => {
+                            modalDraft.confirmDeleteScope = 0
+                            m.redraw()
+                          }
+                        },
+                        trs("输入栏/参数/删除免确认_关闭", {
+                          cn: "关闭",
+                          en: "Off"
+                        })
+                      ),
+                      m(
+                        Tag,
+                        {
+                          isBtn: true,
+                          color: confirmDeleteScope === 1 ? "main" : "gray_2",
+                          styleExt: {
+                            margin: "0",
+                            borderRadius: "0",
+                            cursor: "pointer",
+                            fontSize: `${getSize(3)}rem`,
+                            padding: `${getSize(0.5)}rem ${getSize(2)}rem`,
+                            opacity: confirmDeleteScope === 1 ? 1 : 0.6
+                          },
+                          onclick: () => {
+                            modalDraft.confirmDeleteScope = 1
+                            m.redraw()
+                          }
+                        },
+                        trs("输入栏/参数/删除免确认_工作目录", {
+                          cn: "工作目录",
+                          en: "Workspace"
+                        })
+                      ),
+                      m(
+                        Tag,
+                        {
+                          isBtn: true,
+                          color: confirmDeleteScope === 2 ? "main" : "gray_2",
+                          styleExt: {
+                            margin: "0",
+                            borderRadius: `0 ${getSize(8)}rem ${getSize(8)}rem 0`,
+                            cursor: "pointer",
+                            fontSize: `${getSize(3)}rem`,
+                            padding: `${getSize(0.5)}rem ${getSize(2)}rem`,
+                            opacity: confirmDeleteScope === 2 ? 1 : 0.6
+                          },
+                          onclick: () => {
+                            modalDraft.confirmDeleteScope = 2
+                            m.redraw()
+                          }
+                        },
+                        trs("输入栏/参数/删除免确认_全系统", {
+                          cn: "全系统",
+                          en: "System"
+                        })
+                      )
+                    ]
+                  )
+                ]
+              ),
+              m(
+                "div",
+                {
+                  style: {
+                    fontSize: `${getSize(3)}rem`,
+                    opacity: 0.6,
+                    lineHeight: `${getSize(4)}rem`
+                  }
+                },
+                trs("输入栏/参数/删除文件免确认说明", {
+                  cn: "此项仅对“文件增删改工具”的删除操作生效（对终端等工具无效）。设为“关闭”时，全系统任何删除均需人工确认（即使下方配置了免确认工具也会被拦截）；设为“工作目录”时，仅工作区内删除免确认；设为“全系统”时，所有删除均直接放行。",
+                  en: "This setting only applies to file deletions by \"filePatcher\" (not terminal). When set to \"Off\", all file deletions require manual confirmation even if whitelisted below; \"Workspace\" auto-approves deletions inside workspace; \"System\" auto-approves all deletions."
+                })
+              )
+            ]
+          ),
+
           // 卡片 4: 工具免确认权限
           m(
             Box,
             {
               color: "gray_4",
               style: {
-                borderRadius: "3rem",
+                borderRadius: `${getSize(8)}rem`,
                 margin: "0",
-                padding: "1.2rem 1.5rem",
+                padding: `${getSize(3)}rem ${getSize(4)}rem`,
                 display: "flex",
                 flexDirection: "column",
-                gap: "0.8rem"
+                gap: `${getSize(2)}rem`
               }
             },
             [
@@ -446,7 +666,7 @@ export default () => {
                       style: {
                         display: "flex",
                         alignItems: "center",
-                        gap: "0.6rem"
+                        gap: `${getSize(2)}rem`
                       }
                     },
                     [
@@ -454,7 +674,7 @@ export default () => {
                         "span",
                         {
                           style: {
-                            fontSize: "1.5rem"
+                            fontSize: `${getSize(4)}rem`
                           }
                         },
                         trs("输入栏/参数/工具免确认权限", {
@@ -466,7 +686,7 @@ export default () => {
                         "span",
                         {
                           style: {
-                            fontSize: "1.2rem",
+                            fontSize: `${getSize(3)}rem`,
                             opacity: 0.6
                           }
                         },
@@ -483,9 +703,9 @@ export default () => {
                       color: "yellow_1",
                       styleExt: {
                         margin: "0",
-                        fontSize: "1.2rem",
-                        padding: "0.3rem 0.8rem",
-                        borderRadius: "3rem"
+                        fontSize: `${getSize(3)}rem`,
+                        padding: `${getSize(1)}rem ${getSize(2)}rem`,
+                        borderRadius: `${getSize(8)}rem`
                       },
                       onclick: () => {
                         Notice.launch({
@@ -499,6 +719,10 @@ export default () => {
                           contentAttrs: {
                             toolsList,
                             getSelectedList: () => modalDraft.skipConfirmTools,
+                            onSetAll: (idList) => {
+                              modalDraft.skipConfirmTools = [...idList]
+                              m.redraw()
+                            },
                             onToggleTool: (toolId) => {
                               if (modalDraft.skipConfirmTools.includes(toolId)) {
                                 modalDraft.skipConfirmTools = modalDraft.skipConfirmTools.filter(id => id !== toolId)
@@ -523,23 +747,23 @@ export default () => {
                 "div",
                 {
                   style: {
-                    fontSize: "1.2rem",
+                    fontSize: `${getSize(3)}rem`,
                     opacity: 0.6
                   }
                 },
                 trs("输入栏/参数/工具免确认说明", {
-                  cn: "加入白名单的工具在被 AI 调用时将直接放行，无需每次手动确认",
-                  en: "Whitelisted tools will execute directly when called by AI without popup confirmation"
+                  cn: "加入白名单的工具在被 AI 调用时将直接全系统放行，无需每次手动确认。若在白名单中配置了“文件增删改工具”，其免确认权限不包含删除文件，需要在上方开关中单独配置。",
+                  en: "Whitelisted tools will execute system-wide without confirmation when called by AI. If \"filePatcher\" is whitelisted, deletion is not included and must be configured separately in the switch above."
                 })
               ),
 
               skipConfirmTools.length === 0
                 ? m("div", {
                   style: {
-                    fontSize: "1.2rem",
+                    fontSize: `${getSize(3)}rem`,
                     opacity: 0.5,
-                    paddingLeft: "0.2rem",
-                    paddingTop: "0.4rem"
+                    paddingLeft: `${getSize(0.5)}rem`,
+                    paddingTop: `${getSize(1)}rem`
                   }
                 }, trs("输入栏/参数/暂无免确认工具", {
                   cn: "暂无免确认工具（点击右上角“+ 添加工具”）",
@@ -555,12 +779,12 @@ export default () => {
             {
               color: "gray_4",
               style: {
-                borderRadius: "3rem",
+                borderRadius: `${getSize(8)}rem`,
                 margin: "0",
-                padding: "1.2rem 1.5rem",
+                padding: `${getSize(3)}rem ${getSize(4)}rem`,
                 display: "flex",
                 flexDirection: "column",
-                gap: "1rem"
+                gap: `${getSize(3)}rem`
               }
             },
             [
@@ -580,7 +804,7 @@ export default () => {
                       style: {
                         display: "flex",
                         alignItems: "center",
-                        gap: "0.6rem"
+                        gap: `${getSize(2)}rem`
                       }
                     },
                     [
@@ -588,7 +812,7 @@ export default () => {
                         "span",
                         {
                           style: {
-                            fontSize: "1.5rem"
+                            fontSize: `${getSize(4)}rem`
                           }
                         },
                         trs("输入栏/参数/工具许可", {
@@ -600,7 +824,7 @@ export default () => {
                         "span",
                         {
                           style: {
-                            fontSize: "1.2rem",
+                            fontSize: `${getSize(3)}rem`,
                             opacity: 0.6
                           }
                         },
@@ -620,7 +844,7 @@ export default () => {
                       style: {
                         display: "flex",
                         alignItems: "center",
-                        gap: "0.5rem"
+                        gap: `${getSize(1)}rem`
                       }
                     },
                     [
@@ -631,9 +855,9 @@ export default () => {
                           color: "yellow_1",
                           styleExt: {
                             margin: "0",
-                            fontSize: "1.2rem",
-                            padding: "0.3rem 0.8rem",
-                            borderRadius: "3rem"
+                            fontSize: `${getSize(3)}rem`,
+                            padding: `${getSize(1)}rem ${getSize(2)}rem`,
+                            borderRadius: `${getSize(8)}rem`
                           },
                           onclick: () => {
                             Notice.launch({
@@ -678,7 +902,7 @@ export default () => {
                 "div",
                 {
                   style: {
-                    fontSize: "1.2rem",
+                    fontSize: `${getSize(3)}rem`,
                     opacity: 0.6
                   }
                 },
@@ -691,10 +915,10 @@ export default () => {
               allowUseToolIdList === null || allowUseToolIdList.length === 0
                 ? m("div", {
                   style: {
-                    fontSize: "1.2rem",
+                    fontSize: `${getSize(3)}rem`,
                     opacity: 0.5,
-                    paddingLeft: "0.2rem",
-                    paddingTop: "0.4rem"
+                    paddingLeft: `${getSize(0.5)}rem`,
+                    paddingTop: `${getSize(1)}rem`
                   }
                 }, allowUseToolIdList === null
                   ? trs("输入栏/参数/工具许可未限制说明", {

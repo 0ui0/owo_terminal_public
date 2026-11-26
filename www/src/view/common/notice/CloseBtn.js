@@ -1,5 +1,6 @@
 import Box from "../box.js"
 import getColor from "../getColor.js"
+import getSize from "../getSize.js"
 
 // 7. 关闭/取消按钮
 // Close / Cancel
@@ -14,16 +15,16 @@ export default function () {
         style: {
           background: getColor('gray_2').back,
           color: getColor('gray_6').front,
-          border: `0.1rem solid ${getColor('gray_1').back}`,
-          borderRadius: activeTab.cancelWords ? "3rem" : "50%",
+          border: `${getSize(0.25)}rem solid ${getColor('gray_1').back}`,
+          borderRadius: activeTab.cancelWords ? `${getSize(8)}rem` : "50%",
           display: "inline-flex",
           justifyContent: "center",
           alignItems: "center",
-          padding: activeTab.cancelWords ? (isMini ? "0 0.4rem" : "0 0.8rem") : "0",
-          minWidth: isMini ? "1.4rem" : "2.5rem",
-          width: activeTab.cancelWords ? "auto" : (isMini ? "1.4rem" : "2.5rem"),
-          height: isMini ? "1.4rem" : "2.5rem",
-          fontSize: isMini ? "0.9rem" : "1.2rem",
+          padding: activeTab.cancelWords ? (isMini ? `0 ${getSize(1)}rem` : `0 ${getSize(2)}rem`) : "0",
+          minWidth: isMini ? `${getSize(3)}rem` : `${getSize(6)}rem`,
+          width: activeTab.cancelWords ? "auto" : (isMini ? `${getSize(3)}rem` : `${getSize(6)}rem`),
+          height: isMini ? `${getSize(3)}rem` : `${getSize(6)}rem`,
+          fontSize: isMini ? `${getSize(2)}rem` : `${getSize(3)}rem`,
           whiteSpace: "nowrap",
           flexShrink: 0,
           "-webkit-app-region": "no-drag"
@@ -45,7 +46,7 @@ export default function () {
             ? activeTab.cancelWords
             : m.trust((typeof iconPark !== 'undefined' ? iconPark : window.iconPark)?.getIcon("Close", {
                 fill: getColor('gray_6').front,
-                size: isMini ? "8px" : "12px"
+                size: isMini ? `${getSize(2)}rem` : `${getSize(3)}rem`
               }))
         ])
       ])

@@ -1,0 +1,36 @@
+/* welcomeData.js - 欢迎使用 App 单例路由器（支持多实例） */
+
+export default {
+  instances: new Map(),
+  tools: {},
+
+  addTool(name, tool) {
+    this.tools[name] = tool
+  },
+
+  add(key, value) {
+    this[key] = value
+  },
+
+  onDispatch(msg, callback) {
+    const instance = this.instances.get(msg.appId)
+    if (instance && instance.onDispatch) {
+      instance.onDispatch(msg, callback)
+    } else if (callback) {
+      callback({ ok: false, msg: "未找到运行中的 App 实例" })
+    }
+  },
+
+  registerInstances(appId, instanceInterface) {
+    if (!this.instances.has(appId)) {
+      this.instances.set(appId, instanceInterface)
+    }
+  },
+
+  unregisterInstances(appId, commonData) {
+    this.instances.delete(appId)
+    if (commonData && typeof commonData.unregisterApp === "function") {
+      commonData.unregisterApp(appId)
+    }
+  }
+}

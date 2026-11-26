@@ -20,6 +20,8 @@ import Box from "./box.js";
 import Tag from "./tag.js";
 import admonition from '/@npm/marked-admonition-extension.js';
 import markedKatex from '/@npm/marked-katex-extension';
+import getSize from "./getSize.js";
+import { trs } from "./i18n.js";
 
 
 mermaid.initialize({
@@ -59,7 +61,7 @@ const scheduleRender = function () {
           }
         }).catch(function (err) {
           console.error("Mermaid 渲染失败:", err);
-          elm.innerHTML = `<pre style="color:#ff6b6b;font-size:0.9rem;white-space:pre-wrap;word-break:break-all;margin:0;">${err.message}</pre>`;
+          elm.innerHTML = `<pre style="color:#ff6b6b;white-space:pre-wrap;word-break:break-all;margin:0;">${err.message}</pre>`;
           if (typeof m !== "undefined" && typeof m.redraw === "function") {
             m.redraw();
           }
@@ -136,7 +138,7 @@ const scheduleRenderAbc = function () {
               console.error("生成音乐合成器失败:", createErr);
             });
           } else {
-            audioContainer.innerHTML = `<div style="font-size:0.8rem;color:#ff6b6b;padding:0.5rem 0;">当前环境不支持 Web Audio API，无法播放音频。</div>`;
+            audioContainer.innerHTML = `<div style="color:#ff6b6b;padding:${getSize(1)}rem 0;">当前环境不支持 Web Audio API，无法播放音频。</div>`;
           }
         }
         if (typeof m !== "undefined" && typeof m.redraw === "function") {
@@ -144,7 +146,7 @@ const scheduleRenderAbc = function () {
         }
       } catch (err) {
         console.error("ABCJS 渲染失败:", err);
-        elm.innerHTML = `<pre style="color:#ff6b6b;font-size:0.9rem;white-space:pre-wrap;word-break:break-all;margin:0;">${err.message}</pre>`;
+        elm.innerHTML = `<pre style="color:#ff6b6b;white-space:pre-wrap;word-break:break-all;margin:0;">${err.message}</pre>`;
         if (typeof m !== "undefined" && typeof m.redraw === "function") {
           m.redraw();
         }
@@ -161,15 +163,15 @@ function htmlEncode(src) {
 
 formatHide = function (content) {
   content = content.replace(/\[hide(?=\w+){0,1}\]([\s\S]+?)\[\/hide\]/g, (_, x1) => {
-    return `<table style="width:100%;border:2px dashed #82c3ae">
+    return `<table style="width:100%;border:${getSize(0.5)}rem dashed #82c3ae">
   <tr>
-    <td style="padding:0.5rem"><center style="color:#82c3ae">隐藏内容</center><br>${x1}</td>
+    <td style="padding:${getSize(1)}rem"><center style="color:#82c3ae">隐藏内容</center><br>${x1}</td>
   </tr>
 </table>`;
   });
-  content = content.replace("【本内容已隐藏，回复后刷新可见哦】", `<table style="width:100%;border:2px dashed #da7561">
+  content = content.replace("【本内容已隐藏，回复后刷新可见哦】", `<table style="width:100%;border:${getSize(0.5)}rem dashed #da7561">
   <tr>
-    <td style="padding:0.5rem"><center style="color:#da7561">本内容已隐藏，回复后刷新可见哦</center></td>
+    <td style="padding:${getSize(1)}rem"><center style="color:#da7561">本内容已隐藏，回复后刷新可见哦</center></td>
   </tr>
 </table>`);
   return content;
@@ -189,7 +191,7 @@ window.miniBrowser = function () {
             style: {
               width: Mob ? "90vw" : "60vw",
               height: "75vh",
-              marginTop: "2rem"
+              marginTop: `${getSize(5)}rem`
             }
           },
           [
@@ -215,7 +217,208 @@ marked.use(markedKatex({
   nonStandard: true,
 }));
 
+
+
+/* marked.setOptions({
+  renderer: renderMD,
+  breaks: true,
+  smartLists: true, //使用比原生markdown更时髦的列表
+  smartypants: false, //时髦标点
+  highlight: function (code) {
+    return hljs.highlightAuto(code).value;
+  }
+}); */
+
+marked.use({ 
+  extensions: [
+    {
+      name: 'terminal',
+      level: 'block',
+      start(src) { return src.match(/<terminal>/i)?.index; },
+      tokenizer(src) {
+        const rule = /^<terminal>([\s\S]*?)<\/terminal>/i;
+        const match = rule.exec(src);
+        if (match) {
+          return {
+            type: 'terminal',
+            raw: match[0],
+            text: match[1].trim()
+          };
+        }
+      },
+      renderer(token) {
+        return renderMD.code({ text: token.text, lang: 'terminal' });
+      }
+    },
+    {
+      name: 'systemTags',
+      level: 'inline',
+      start(src) { return src.match(/\[(?:filePath|attachid|appid|refAppid|codeQuote|elementId|msg|compress|skill):/i)?.index; },
+      tokenizer(src) {
+        const rule = /^\[(filePath|attachid|appid|refAppid|codeQuote|elementId|msg|compress|skill):([^\]]+)\]/i;
+        const match = rule.exec(src);
+        if (match) {
+          return {
+            type: 'systemTags',
+            raw: match[0],
+            tagType: match[1].toLowerCase(),
+            tagValue: match[2]
+          };
+        }
+      },
+      renderer(token) {
+        const escapeAttr = (str) => String(str || '')
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;');
+
+        const makeLaunchClick = (appType, appData = {}) => {
+          const reqObj = { name: 'appLaunch', params: [appType, { data: appData }] };
+          const jsonStr = JSON.stringify(reqObj).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+          return `fetch('/api/cross',{method:'POST',headers:{'Content-Type':'application/json'},body:'${jsonStr.replace(/"/g, '&quot;')}'})`;
+        };
+
+        const isImageFile = (nameStr = '') => {
+          const clean = String(nameStr).toLowerCase().split('?')[0].split('#')[0];
+          return /\.(png|jpe?g|webp|svg|gif|bmp|ico)$/.test(clean);
+        };
+
+        const buildDualTagHtml = ({ iconName, label, value, title, colorName, dataId, onclick = '' }) => {
+          const keyColor = getColor(colorName);
+          const valColor = getColor('gray_3');
+          const iconHtml = (typeof window !== 'undefined' && window.iconPark && typeof window.iconPark.getIcon === 'function')
+            ? `<span style="display:inline-flex;align-items:center;flex-shrink:0;">${window.iconPark.getIcon(iconName, { fill: keyColor.front, size: `${getSize(4)}rem` })}</span>`
+            : '';
+          const textRule = `font-size:${getSize(3)}rem !important;line-height:${getSize(4)}rem !important;`;
+          const leftPart = `<span style="display:inline-flex;align-items:center;gap:${getSize(1)}rem;padding:${getSize(1 / 2)}rem ${getSize(2)}rem;background:${keyColor.back};color:${keyColor.front};white-space:nowrap;flex-shrink:0;${textRule}">${iconHtml}<span style="${textRule}">${escapeAttr(label)}</span></span>`;
+          const rightPart = `<span style="display:inline-flex;align-items:center;padding:${getSize(1 / 2)}rem ${getSize(2)}rem;background:${valColor.back};color:${valColor.front};max-width:${getSize(52)}rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;${textRule}">${escapeAttr(value)}</span>`;
+          const wrapperStyle = `display:inline-flex;align-items:stretch;overflow:hidden;vertical-align:middle;border-radius:${getSize(8)}rem;margin:0 ${getSize(1 / 2)}rem;user-select:none;max-width:100%;text-decoration:none;border:none;${onclick ? 'cursor:pointer;' : ''}`;
+          return `<span contenteditable="false"${onclick ? ` onclick="${onclick}"` : ''} data-id="${escapeAttr(dataId)}" title="${escapeAttr(title)}" style="${wrapperStyle}">${leftPart}${rightPart}</span>`;
+        };
+
+        const type = token.tagType;
+        const val = token.tagValue;
+
+        if (type === 'attachid') {
+          const isImg = isImageFile(val) || !val.includes('.');
+          const url = val.includes('.') ? `/attachment/${val}` : `/attachment/${val}.png`;
+          const fullImgUrl = typeof window !== 'undefined' && window.location ? `${window.location.origin}${url}` : url;
+          const onclick = makeLaunchClick(
+            isImg ? 'imageViewer' : 'editor',
+            isImg ? { currentImagePath: fullImgUrl } : { filePath: url, readOnly: true, singleInstance: true }
+          );
+          if (isImg) {
+            return `<span class="owo-attachment" contenteditable="false" data-id="${escapeAttr(val)}" title="${escapeAttr(val)}" style="display:inline-block;margin:${getSize(1)}rem 0;vertical-align:middle;"><img src="${escapeAttr(url)}" style="max-width:${getSize(38)}rem;max-height:${getSize(38)}rem;object-fit:contain;border-radius:${getSize(4)}rem;box-shadow:0 ${getSize(1)}rem ${getSize(4)}rem rgba(0,0,0,0.15);cursor:zoom-in;" onclick="${onclick}" onerror="this.style.display='none'"/></span>`;
+          }
+          return buildDualTagHtml({
+            iconName: 'Paperclip',
+            label: trs('标签/名称/附件', { cn: '附件', en: 'File' }),
+            value: val,
+            title: val,
+            colorName: 'green_1',
+            dataId: val,
+            onclick
+          });
+        }
+        if (type === 'filepath') {
+          const fileName = val.split(/[/\\]/).pop() || val;
+          const isImg = isImageFile(val);
+          const appType = isImg ? 'imageViewer' : 'editor';
+          const appData = isImg ? { currentImagePath: val } : { filePath: val, readOnly: true, singleInstance: true };
+          return buildDualTagHtml({
+            iconName: 'FileText',
+            label: trs('标签/名称/文件', { cn: '文件', en: 'Path' }),
+            value: fileName,
+            title: val,
+            colorName: 'blue_2',
+            dataId: val,
+            onclick: makeLaunchClick(appType, appData)
+          });
+        }
+        if (type === 'appid' || type === 'refappid') {
+          return buildDualTagHtml({
+            iconName: 'Browser',
+            label: trs('标签/名称/应用', { cn: '应用', en: 'App' }),
+            value: val,
+            title: val,
+            colorName: 'pink_1',
+            dataId: val,
+            onclick: makeLaunchClick(val, {})
+          });
+        }
+        if (type === 'codequote') {
+          const colonIdx = val.indexOf(':');
+          const path = colonIdx >= 0 ? val.slice(0, colonIdx) : val;
+          const range = colonIdx >= 0 ? val.slice(colonIdx + 1) : '';
+          const fileName = path.split(/[/\\]/).pop() || path;
+          const display = range ? `${fileName} (${range})` : fileName;
+          return buildDualTagHtml({
+            iconName: 'FileCode',
+            label: trs('标签/名称/代码', { cn: '代码', en: 'Code' }),
+            value: display,
+            title: `${path}${range ? ' @ ' + range : ''}`,
+            colorName: 'yellow_1',
+            dataId: val
+          });
+        }
+        if (type === 'elementid') {
+          const displayId = val.length > 10 ? (val.includes('-') ? val.split('-')[0] : val.slice(0, 8) + '…') : val;
+          return buildDualTagHtml({
+            iconName: 'GridNine',
+            label: trs('标签/名称/元素', { cn: '元素', en: 'Elem' }),
+            value: displayId,
+            title: val,
+            colorName: 'blue_1',
+            dataId: val
+          });
+        }
+        if (type === 'compress') {
+          return buildDualTagHtml({
+            iconName: 'Inbox',
+            label: trs('标签/名称/压缩', { cn: '压缩', en: 'Compress' }),
+            value: val,
+            title: val,
+            colorName: 'purple_1',
+            dataId: val
+          });
+        }
+        if (type === 'skill') {
+          return buildDualTagHtml({
+            iconName: 'MagicWand',
+            label: trs('标签/名称/技能', { cn: '技能', en: 'Skill' }),
+            value: val,
+            title: val,
+            colorName: 'main',
+            dataId: val
+          });
+        }
+        if (type === 'msg') {
+          const parts = val.split(':');
+          const id = parts[0] || '';
+          const shortId = id.slice(0, 7);
+          let comment = '';
+          if (parts.length > 2 && parts[2]) {
+            try { comment = decodeURIComponent(parts[2]); } catch (e) { comment = ''; }
+          }
+          return buildDualTagHtml({
+            iconName: 'Message',
+            label: trs('标签/名称/引用', { cn: '引用', en: 'Quote' }),
+            value: comment ? `${shortId} · ${comment}` : shortId,
+            title: comment || val,
+            colorName: 'pink_2',
+            dataId: val
+          });
+        }
+        return token.raw;
+      }
+    }
+  ]
+});
+
+
 renderMD = new marked.Renderer();
+
 
 renderMD.link = function ({ href, title, text }) {
   return `<a ${href ? `href='${href}'` : ""} ${title ? `title='${title}'` : ""} target='_blank'>${text || ""}</a>`;
@@ -227,7 +430,7 @@ renderMD.image = function ({ href, title, text }) {
   ${href ? `src='${typeof transUrl === "function" ? transUrl(href) : href}'` : ""}
   ${title ? `title='${title}'` : ""}
   ${text ? `alt='${text}'` : ""}
-  onerror="this.src = './statics/imgError.svg'"
+  onerror="this.onerror=null;this.src='/statics/imgError.svg'"
   />
 </span>`;
 };
@@ -259,10 +462,10 @@ renderMD.code = function (arg) {
     const filter = isDark ? "invert(1) hue-rotate(180deg) brightness(0.9)" : "none";
     const border = `${color.front}33`;
 
-    return `<div style="width: 100%; max-width: 100%; box-sizing: border-box; overflow: auto; background: ${bg}; padding: 1rem; border-radius: 0.8rem; border: 1px solid ${border}; margin: 1rem 0;">
+    return `<div style="width: 100%; max-width: 100%; box-sizing: border-box; overflow: auto; background: ${bg}; padding: ${getSize(3)}rem; border-radius: ${getSize(2)}rem; border: ${getSize(0.25)}rem solid ${border}; margin: ${getSize(3)}rem 0;">
       <div style="width: 100%; filter: ${filter};">
         <div class="owo-abc-pending" data-code="${escapedCode}" style="width: 100%;">正在解析五线谱...</div>
-        <div class="owo-abc-audio-container" style="margin-top: 0.8rem; width: 100%;"></div>
+        <div class="owo-abc-audio-container" style="margin-top: ${getSize(2)}rem; width: 100%;"></div>
       </div>
     </div>`;
   }
@@ -281,7 +484,7 @@ renderMD.code = function (arg) {
     const bg = color.back;
     const border = `${color.front}33`;
 
-    return `<div class="owo-mermaid-pending" data-code="${escapedCode}" style="width: 100%; max-width: 100%; box-sizing: border-box; overflow: auto; background: ${bg}; padding: 1rem; border-radius: 0.8rem; border: 1px solid ${border}; margin: 1rem 0;">正在解析拓扑图...</div>`;
+    return `<div class="owo-mermaid-pending" data-code="${escapedCode}" style="width: 100%; max-width: 100%; box-sizing: border-box; overflow: auto; background: ${bg}; padding: ${getSize(3)}rem; border-radius: ${getSize(2)}rem; border: ${getSize(0.25)}rem solid ${border}; margin: ${getSize(3)}rem 0;">正在解析拓扑图...</div>`;
   }
 
   let highlighted = "";
@@ -324,17 +527,17 @@ renderMD.code = function (arg) {
   // 渲染每一行：支持折行(pre-wrap)，行号(user-select:none)与代码同行包裹永不错位
   const linesHtml = lines.map((lineContent, idx) => {
     return `<div style="display: flex; align-items: flex-start; line-height: 1.6; min-width: 0;">
-      <span style="user-select: none; width: 3.8rem; flex-shrink: 0; text-align: right; padding-right: 1.2rem; color: #88888866; font-size: 1.2rem; box-sizing: border-box; font-family: monospace;">${idx + 1}</span>
+      <span style="user-select: none; width: ${getSize(10)}rem; flex-shrink: 0; text-align: right; padding-right: ${getSize(3)}rem; color: #88888866; box-sizing: border-box; font-family: monospace;">${idx + 1}</span>
       <span class="owo-code-line-content" style="flex: 1 1 0%; min-width: 0; white-space: pre-wrap; word-break: break-all; overflow-wrap: anywhere; font-family: inherit;">${lineContent || '<br>'}</span>
     </div>`;
   }).join("");
 
   const displayLang = (lang || 'code').toUpperCase();
 
-  return `<div class="owo-code-card" style="width: 100%; max-width: 100%; box-sizing: border-box; margin: 1.2rem 0; border-radius: 1rem; overflow: hidden; background: ${getColor('gray_3').back}; border: 1px solid ${getColor('gray_4').front}22;">
-    <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.35rem 1rem; background: ${getColor('gray_4').back}; border-bottom: 1px solid ${getColor('gray_4').front}18; user-select: none;">
-      <span style="font-size: 1.15rem; font-weight: 600; color: ${getColor('gray_4').front}; letter-spacing: 0.05rem;">${displayLang}</span>
-      <button style="background: transparent; color: ${getColor('gray_4').front}; border: none; padding: 0.1rem 0.4rem; font-size: 1.15rem; cursor: pointer; opacity: 0.85; transition: opacity 0.2s;" onmouseover="this.style.opacity='1'; this.style.textDecoration='underline';" onmouseout="this.style.opacity='0.85'; this.style.textDecoration='none';" onclick="
+  return `<div class="owo-code-card" style="width: 100%; max-width: 100%; box-sizing: border-box; margin: ${getSize(3)}rem 0; border-radius: ${getSize(3)}rem; overflow: hidden; background: ${getColor('gray_3').back}; border: ${getSize(0.25)}rem solid ${getColor('gray_4').front}22;">
+    <div style="display: flex; justify-content: space-between; align-items: center; padding: ${getSize(1)}rem ${getSize(3)}rem; background: ${getColor('gray_4').back}; border-bottom: ${getSize(0.25)}rem solid ${getColor('gray_4').front}18; user-select: none;">
+      <span style="font-weight: 600; color: ${getColor('gray_4').front}; letter-spacing: ${getSize(0.25)}rem;">${displayLang}</span>
+      <button style="background: transparent; color: ${getColor('gray_4').front}; border: none; padding: ${getSize(0.25)}rem ${getSize(1)}rem; cursor: pointer; opacity: 0.85; transition: opacity 0.2s;" onmouseover="this.style.opacity='1'; this.style.textDecoration='underline';" onmouseout="this.style.opacity='0.85'; this.style.textDecoration='none';" onclick="
         const card = this.closest('.owo-code-card');
         const code = Array.from(card.querySelectorAll('.owo-code-line-content')).map(el => el.textContent).join('\\n');
         navigator.clipboard.writeText(code);
@@ -344,42 +547,86 @@ renderMD.code = function (arg) {
         }, 1500);
       ">复制</button>
     </div>
-    <div class="hljs" style="padding: 1rem 0.5rem; font-family: Menlo, Monaco, Consolas, monospace; font-size: 1.3rem; background: transparent; overflow: hidden;">
+    <div class="hljs" style="padding: ${getSize(3)}rem ${getSize(1)}rem; font-family: Menlo, Monaco, Consolas, monospace; background: transparent; overflow: hidden;">
       ${linesHtml}
     </div>
   </div>`;
 };
 
-marked.setOptions({
-  renderer: renderMD,
+
+marked.use({
   breaks: true,
-  smartLists: true, //使用比原生markdown更时髦的列表
-  smartypants: false, //时髦标点
-  highlight: function (code) {
-    return hljs.highlightAuto(code).value;
-  }
+  gfm: true,
+  renderer: renderMD // 把你配好 link / image / code 的 renderMD 实例用 marked.use 挂进去！
 });
 
-const terminalExtension = {
-  name: 'terminal',
-  level: 'block',
-  start(src) { return src.match(/<terminal>/i)?.index; },
-  tokenizer(src) {
-    const rule = /^<terminal>([\s\S]*?)<\/terminal>/i;
-    const match = rule.exec(src);
-    if (match) {
-      return {
-        type: 'terminal',
-        raw: match[0],
-        text: match[1].trim()
-      };
+
+
+const htmlRunnerPlugin = () => {
+  let htmlList = [];
+  return {
+    hooks: {
+      preprocess(markdown) {
+        htmlList = [];
+        return markdown.replace(
+          /(```[\s\S]*?```)|((?:<!doctype\s+html[^>]*>\s*)?<html[\s\S]*?<\/html>)/gi,
+          (match, codeBlock, html) => {
+            if (codeBlock) return codeBlock;
+            htmlList.push(html);
+            return `\n\nOWO_HTML_RUNNER_${htmlList.length - 1}\n\n`;
+          }
+        );
+      },
+      postprocess(html) {
+        return html.replace(/(?:<p>)?OWO_HTML_RUNNER_(\d+)(?:<\/p>)?/g, (_, i) => {
+          const rawHtml = htmlList[i];
+          const safeSrcdoc = rawHtml.replace(/&/g, "&amp;").replace(/"/g, "&quot;");
+          const escapedCode = rawHtml.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+          const cardBg = getColor('gray_3').back;
+          const headerBg = getColor('gray_4').back;
+          const textColor = getColor('gray_4').front;
+          const borderColor = `${textColor}22`;
+          const runBg = getColor('green_1') ? getColor('green_1').back : '#3b6e52';
+          const runFront = getColor('green_1') ? getColor('green_1').front : '#a8e6cf';
+
+          // 宽度用 min(82vw, 960px) 尽量撑开宽屏视野，同时 max-width: 100% 保证不撑破父容器
+          return `<div class="owo-html-runner" data-srcdoc="${safeSrcdoc}" style="width: min(82vw, ${getSize(240)}rem); max-width: 100%; box-sizing: border-box; margin: ${getSize(3)}rem 0; border-radius: ${getSize(3)}rem; overflow: hidden; background: ${cardBg}; border: ${getSize(0.25)}rem solid ${borderColor};">
+            <div style="display: flex; justify-content: space-between; align-items: center; gap: ${getSize(3)}rem; padding: ${getSize(1)}rem ${getSize(3)}rem; background: ${headerBg}; border-bottom: ${getSize(0.25)}rem solid ${borderColor}; user-select: none;">
+              <span style="font-weight: 600; color: ${textColor}; letter-spacing: ${getSize(0.25)}rem; white-space: nowrap;">HTML 沙箱</span>
+              <div style="display: flex; align-items: center; gap: ${getSize(1)}rem; flex-wrap: wrap;">
+                <button style="background: ${runBg}; color: ${runFront}; border: ${getSize(0.25)}rem solid ${runFront}33; border-radius: ${getSize(5)}rem; padding: ${getSize(0.5)}rem ${getSize(2)}rem; cursor: pointer; transition: opacity 0.2s;" onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'" onclick="
+                  const card = this.closest('.owo-html-runner');
+                  const stage = card.querySelector('.owo-runner-stage');
+                  const src = card.getAttribute('data-srcdoc');
+                  stage.innerHTML = '<iframe sandbox=\\'allow-scripts\\' style=\\'width: 100%; height: ${getSize(130)}rem; border: none; display: block; background: #fff; resize: vertical;\\'></iframe>';
+                  stage.querySelector('iframe').srcdoc = src;
+                ">▶ 运行</button>
+                <button style="background: ${cardBg}; color: ${textColor}; border: ${getSize(0.25)}rem solid ${borderColor}; border-radius: ${getSize(5)}rem; padding: ${getSize(0.5)}rem ${getSize(2)}rem; cursor: pointer; transition: opacity 0.2s;" onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'" onclick="
+                  const card = this.closest('.owo-html-runner');
+                  card.querySelector('.owo-runner-stage').innerHTML = '<div style=\\'padding: ${getSize(6)}rem ${getSize(3)}rem; text-align: center; color: ${textColor}88;\\'>已停止运行 · 点击“运行”启动预览</div>';
+                ">⏹ 停止</button>
+                <button style="background: transparent; color: ${textColor}; border: ${getSize(0.25)}rem solid ${borderColor}; border-radius: ${getSize(5)}rem; padding: ${getSize(0.5)}rem ${getSize(2)}rem; cursor: pointer; transition: opacity 0.2s;" onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'" onclick="
+                  const pre = this.closest('.owo-html-runner').querySelector('.owo-runner-code');
+                  pre.style.display = pre.style.display === 'none' ? 'block' : 'none';
+                ">源码</button>
+              </div>
+            </div>
+            <div class="owo-runner-stage" style="width: 100%; overflow: hidden;">
+              <div style="padding: ${getSize(6)}rem ${getSize(3)}rem; text-align: center; color: ${textColor}88;">待运行 · 点击右上角“运行”加载沙箱页面</div>
+            </div>
+            <pre class="owo-runner-code" style="display: none; margin: 0; padding: ${getSize(3)}rem; max-height: ${getSize(80)}rem; overflow: auto; font-family: Menlo, Monaco, Consolas, monospace; line-height: 1.5; color: ${textColor}; background: ${cardBg}; border-top: ${getSize(0.25)}rem solid ${borderColor}; white-space: pre-wrap; word-break: break-all;">${escapedCode}</pre>
+          </div>`;
+        });
+      }
     }
-  },
-  renderer(token) {
-    return renderMD.code({ text: token.text, lang: 'terminal' });
-  }
+  };
 };
-marked.use({ extensions: [terminalExtension] });
+
+// 注册插件
+marked.use(htmlRunnerPlugin());
+
+
 const formatCache = new Map();
 
 if (!window.__owoFormatListenerAdded) {
@@ -429,10 +676,10 @@ const formatImpl = function (content, type, opt) {
       en: `...... (${content.length - actualShow} chars folded) ......`
     }) : `...... (剩余 ${content.length - actualShow} 字符被折叠) ......`;
 
-    return `<div style="padding: 1rem; background: ${getColor('gray_4').back}; color: ${getColor('gray_4').front}; border-radius: 1rem; margin-bottom: 1rem; display: flex; flex-wrap: wrap; gap: 1rem; justify-content: space-between; align-items: center;">
-      <div style="flex: 1 1 0%; min-width: 200px;">${trsText}</div>
-      <div style="flex-shrink: 0; padding: 0.5rem 1rem; background: ${getColor('pink_1').back}; color: ${getColor('pink_1').front}; border-radius: 3rem; cursor: pointer; white-space: nowrap;" onclick="this.dispatchEvent(new CustomEvent('owo-open-editor', { bubbles: true, detail: '${uid}' }))">${trsBtn}</div>
-    </div><div style="width: 100%; min-width: 0; font-family: inherit; margin: 0; padding: 1rem; box-sizing: border-box; background: ${getColor('gray_3').back}; color: ${getColor('gray_3').front}; border-radius: 1rem; white-space: pre-wrap; word-break: break-all; contain: content;">${escaped}\n\n${trsRemaining}</div>`;
+    return `<div style="padding: ${getSize(3)}rem; background: ${getColor('gray_4').back}; color: ${getColor('gray_4').front}; border-radius: ${getSize(3)}rem; margin-bottom: ${getSize(3)}rem; display: flex; flex-wrap: wrap; gap: ${getSize(3)}rem; justify-content: space-between; align-items: center;">
+      <div style="flex: 1 1 0%; min-width: ${getSize(50)}rem;">${trsText}</div>
+      <div style="flex-shrink: 0; padding: ${getSize(1)}rem ${getSize(3)}rem; background: ${getColor('pink_1').back}; color: ${getColor('pink_1').front}; border-radius: ${getSize(8)}rem; cursor: pointer; white-space: nowrap;" onclick="this.dispatchEvent(new CustomEvent('owo-open-editor', { bubbles: true, detail: '${uid}' }))">${trsBtn}</div>
+    </div><div style="width: 100%; min-width: 0; font-family: inherit; margin: 0; padding: ${getSize(3)}rem; box-sizing: border-box; background: ${getColor('gray_3').back}; color: ${getColor('gray_3').front}; border-radius: ${getSize(3)}rem; white-space: pre-wrap; word-break: break-all; contain: content;">${escaped}\n\n${trsRemaining}</div>`;
   }
   if (type === void 0 || type === "markdown" || type === "block" || type === "note" || type === null) {
     if (opt != null ? opt.mini : void 0) {
@@ -446,8 +693,8 @@ const formatImpl = function (content, type, opt) {
         dom = document.createElement("div");
         m.render(dom, m(Tag, {
           styleExt: {
-            borderRadius: "0.5rem",
-            margin: "1rem 0 1rem 0",
+            borderRadius: `${getSize(2)}rem`,
+            margin: `${getSize(3)}rem 0`,
             color: "#888"
           },
           isBtn: true
@@ -459,7 +706,7 @@ const formatImpl = function (content, type, opt) {
       });
     }
     //content = content.replace(/<[^<>\W]+>/g, " *HTML标签不可以使用噢* ");
-    content = content.replace(/\x08/g, '<span style="display:inline-block;background:#ff6b6b22;color:#ff6b6b;border:1px solid #ff6b6b;border-radius:3px;padding:0 3px;margin:0 2px;font-size:0.75em;line-height:1.2;vertical-align:middle;font-family:monospace;font-weight:bold;">⌫ BS</span>');
+    content = content.replace(/\x08/g, `<span style="display:inline-block;background:#ff6b6b22;color:#ff6b6b;border:${getSize(0.25)}rem solid #ff6b6b;border-radius:${getSize(1)}rem;padding:0 ${getSize(1)}rem;margin:0 ${getSize(0.5)}rem;line-height:1.2;vertical-align:middle;font-family:monospace;font-weight:bold;">⌫ BS</span>`);
     content = formatHide(content);
     content = content.replace(/\[i(=s){0,1}\]|\[\/i\]/g, "*");
     content = content.replace(/([a-zA-Z0-9_]+)@([a-zA-Z0-9_\.]+)\.([a-zA-Z]+)/g, "$1#$2.$3"); // 替换邮箱at符号
@@ -473,31 +720,6 @@ const formatImpl = function (content, type, opt) {
       return `<embed src="${typeof transUrl === "function" ? transUrl(x) : x}" width="${w}" height="${h}" type="application/x-shockwave-flash"></embed>`;
     });
 
-    // --- 附件渲染渲染 (Attachment Rendering) ---
-    content = content.replace(/\[attachid:([^\]]+)\]/g, (item, id) => {
-      const url = id.includes('.') ? `/attachment/${id}` : `/attachment/${id}.png`;
-      const isImage = /\.(jpg|jpeg|png|gif|webp)$/i.test(url);
-
-      if (isImage) {
-        return `<div class="owo-attachment" style="display:block; margin: 1rem 0; width: fit-content;">
-              <img src="${url}" 
-                  style="max-width: 15rem; max-height: 15rem; object-fit: contain; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); cursor: zoom-in; transition: all 0.3s ease;"
-                  onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 6px 20px rgba(0,0,0,0.2)'"
-                  onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='0 4px 15px rgba(0,0,0,0.1)'"
-                  onclick="window.open('${url}', '_blank')"
-                  onerror="this.style.display='none'"
-              />
-          </div>`;
-      } else {
-        // 非图片文件渲染为下载/查看链接
-        return `<div class="owo-attachment" style="display:block; margin: 1rem 0;">
-            <a href="${url}" target="_blank" 
-              style="display: inline-flex; align-items: center; padding: 0.5rem 1rem; background: #5e4a5e; color: #fff; border-radius: 4px; text-decoration: none; border: 1rem solid #725a5a; border-width: 0 0 0 0.4rem;">
-              📁 附件: ${id}
-            </a>
-        </div>`;
-      }
-    });
 
     try {
       code = marked(content);
@@ -514,8 +736,8 @@ const formatImpl = function (content, type, opt) {
   framespacing="0"
   allowfullscreen="true"
   width="1024px"
-  height="500px"
-  style="width:100%;margin:1rem"
+  height="${getSize(125)}rem"
+  style="width:100%;margin:${getSize(3)}rem"
 ></iframe>`;
       });
       code = code.replace(/\[qqmusic\][a-zA-Z_\-0-9]+\[\/qqmusic\]/g, (item) => {
@@ -530,8 +752,8 @@ const formatImpl = function (content, type, opt) {
   framespacing="0"
   allowfullscreen="true"
   width="80%"
-  height="80px"
-  style="width:80%;margin:1rem"
+  height="${getSize(20)}rem"
+  style="width:80%;margin:${getSize(3)}rem"
 ></iframe>`;
       });
 
@@ -627,6 +849,10 @@ export default format = function (content, type, opt) {
   }
 
   const result = formatImpl(content, type, opt);
+
+  if (result.includes("owo-mermaid-pending") || result.includes("owo-abc-pending")) {
+    return result;
+  }
 
   if (formatCache.size > 200) {
     const firstKey = formatCache.keys().next().value;

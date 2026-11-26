@@ -34,10 +34,10 @@ export default function () {
         baseSize = Math.ceil(root.clientWidth / (455 / 10));
         break;
       case "wideScreen":
-        baseSize = 11;
+        baseSize = 9;
         break;
       default:
-        baseSize = 10;
+        baseSize = 8;
         break;
     }
     root.style["font-size"] = (baseSize * commonData.zoomFactor) + "px";

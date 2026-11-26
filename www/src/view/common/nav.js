@@ -1,4 +1,5 @@
 import getColor from "./getColor.js"
+import getSize from "./getSize.js"
 import commonData from "./commonData.js"
 import NavItem from "./navItem.js"
 import Notice from "./notice.js"
@@ -57,31 +58,31 @@ export default {
         "-webkit-user-select": "none",
         position: "fixed",
         alignItems: "center",
-        bottom: "0rem",
-        left: useFloatBall ? "0.5rem" : "50%",
+        bottom: "0",
+        left: useFloatBall ? `${getSize(1)}rem` : "50%",
         transform: useFloatBall ? "none" : "translate(-50%,0)",
         // 必须高于 Notice 层容器（notice.js 中固定容器 zIndex:999999），否则智能体窗口会遮住导航栏
         zIndex: 1000000,
         ...(commonData.navWinMode ? {
           width: "100%",
-          paddingTop: "1rem",
+          paddingTop: `${getSize(3)}rem`,
           left: "0",
           transform: "unset",
-          borderRadius: "0.5rem 0.5rem 0 0",
+          borderRadius: `${getSize(2)}rem ${getSize(2)}rem 0 0`,
           backgroundColor: "rgba(230,230,229,0.5)",
 
           backgroundImage: "url(./statics/nav_bg.svg)",
           backgroundRepeat: "no-repeat",
           backgroundSize: "100% auto",
           backgroundPosition: "bottom",
-          "backdrop-filter": "blur(5px)",
-          "-webkit-backdrop-filter": "blur(5px)",
+          "backdrop-filter": `blur(${getSize(2)}rem)`,
+          "-webkit-backdrop-filter": `blur(${getSize(2)}rem)`,
           display: "flex",
           flexDirection: "column",
           justifyContent: "center",
           alignItems: "center",
-          boxShadow: "0 -0.5rem 0.5rem rgba(100,100,100,0.3)",
-          borderTop: "0.1rem solid rgba(10,10,10,0.3)"
+          boxShadow: `0 -${getSize(1)}rem ${getSize(1)}rem rgba(100,100,100,0.3)`,
+          borderTop: `${getSize(0.25)}rem solid rgba(10,10,10,0.3)`
         } : {})
       }
     }, [
@@ -95,7 +96,7 @@ export default {
           transform: "translate(-50%, 0)",
           width: "min(100vw, 200%)",
           height: "auto",
-          bottom: "0rem",
+          bottom: "0",
           pointerEvents: "none",
           border: "none",
           zIndex: -1
@@ -108,19 +109,19 @@ export default {
           "-webkit-user-select": "none",
           display: "flex",
           alignItems: "center",
-          backgroundColor: getColor('gray_12').back+"55",
+          backgroundColor: getColor('gray_12').back+"aa",
           backgroundImage: "url(./statics/nav_bg.svg)",
           backgroundRepeat: "no-repeat",
           backgroundSize: "100% auto",
           backgroundPosition: "bottom",
-          borderRadius: "5rem",
+          borderRadius: `${getSize(13)}rem`,
           minWidth: (isMini || !Mob) ? "auto" : "85vw",
-          padding: "1rem 0",
-          marginBottom: "1.2rem",
-          "backdrop-filter": "blur(20px)",
-          "-webkit-backdrop-filter": "blur(20px)",
-          boxShadow: "0 0 0.5rem rgba(100,100,100,0.3)",
-          border: `0.1rem solid ${getColor('main').back}`,
+          padding: `${getSize(3)}rem 0`,
+          marginBottom: `${getSize(3)}rem`,
+          //"backdrop-filter": "blur(20px)",
+          //"-webkit-backdrop-filter": "blur(20px)",
+          boxShadow: `0 0 ${getSize(1)}rem rgba(100,100,100,0.3)`,
+          border: `${getSize(0.25)}rem solid ${getColor('main').back}`,
           position: "relative",
           ...(commonData.navWinMode ? {
             background: "unset",
@@ -151,8 +152,8 @@ export default {
             style: {
               "user-select": "none",
               "-webkit-user-select": "none",
-              marginLeft: "1rem",
-              marginRight: "1rem",
+              marginLeft: `${getSize(3)}rem`,
+              marginRight: `${getSize(3)}rem`,
               width: `${(isMini ? 1.0 : 2) * barZoomRate}rem`,
               height: "auto",
               cursor: "pointer",
@@ -201,7 +202,7 @@ export default {
                 display: "inline-flex",
                 justifyContent: "space-evenly",
                 alignItems: "center",
-                borderLeft: effectiveUrlList.length > 0 ? "0.2rem solid rgba(0,0,0,0.2)" : "none"
+                borderLeft: effectiveUrlList.length > 0 ? `${getSize(0.5)}rem solid rgba(0,0,0,0.2)` : "none"
               }
             }, [
               (() => {

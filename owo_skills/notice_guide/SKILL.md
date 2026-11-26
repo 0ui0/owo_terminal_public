@@ -1,3 +1,7 @@
+---
+description: "宅喵终端Notice使用说明 本指南为内部开发使用，除非管理员指定，否则不做阅读"
+---
+
 # 📦 owo_terminal Notice 模块使用说明书
 
 在 `owo_terminal` 架构中，`Notice` 模块不仅用于普通的全局文本提示，它本质上是前端系统的**窗口管理器（Window Manager）**。它负责承载、定位、缩放以及调度所有的外部 App（如资源管理器、时光机）、终端窗口（ChatTerm）和子智能体窗口（AgentWindow）。
@@ -340,3 +344,41 @@ target.setPointerCapture(e.pointerId);
   target.style.transition = "transform 0.2s cubic-bezier(0.2, 0, 0, 1)";
   ```
 - **物理重排提交**：当抬起指针时，清除所有的 `transform` 和 `transition` 临时样式，调用 `onSetTabOrder` 将最终计算出来的 Tab `sign` 排序数组写入 `Notice` 的状态队列（改变 `data.dataArr` 数组顺序）。由于指定了 Mithril 的 `key`，Mithril 在 `redraw` 时会以最小的 DOM操作代价改变 DOM 节点的物理位置，完成从视觉平移动画到物理 DOM 顺序一致性的闭环过渡。
+
+---
+
+## 🧩 标题栏自定义菜单栏 (`titleBar`) 使用规范
+
+`Notice` 的标题栏菜单槽位（包括宽屏时位于第一行中部、以及窄屏/迷你模式下位于第二行的深色圆角胶囊容器）**不提供默认内边距（`padding: 0`），也不对内部组件做宽高约束**，以便各 App 自由传入菜单栏、按钮组或其它自定义控件。
+
+### 📐 编写建议
+1. **内部边距自决**：菜单栏内部的留白、圆角与间距请由组件自身严格参照 `aiDocs/样式设计指南.md` 配置（例如圆角套圆角取 `getSize(1)`，避免使用 `border-box`，也不要在 `width: "100%"` 的容器上直接叠加横向 `padding` 导致内容溢出）。
+2. **用 `100% × 100%` 根容器铺满外部槽位**：建议在 `titleBar` 组件最外层放置一个 `width: "100%"`、`height: "100%"` 的无 `padding` 容器铺满外部槽位，再在其内部配置 `display: "flex"`、`alignItems`、`gap` 以及子元素的 `margin`，既能适配宽屏行内排版，也能在窄屏第二行胶囊内保持四边可控：
+
+```javascript
+export default () => ({
+  view: () =>
+    m("",
+      {
+        style: {
+          width: "100%",
+          height: "100%",
+          display: "flex",
+          alignItems: "center",
+          gap: `${getSize(1)}rem`
+        }
+      },
+      [
+        // 内部菜单项 / 按钮（按样式设计指南自行控制 margin / gap）
+      ]
+    )
+})
+```
+
+3. **单行排列时必须限高（重要）**：标题栏在高屏是**单行**布局，槽位高度就是窗口标题栏那一行的高度（标准 `minHeight` 为 `getSize(8)` = 32px，迷你模式为 `getSize(4)` = 16px）。菜单栏内部的**纵向求和**不得超过这个值：
+
+```text
+纵向总高 = 上下 margin + 上下 padding + 文字行高
+```
+
+超过就会把标题栏整体撑高，挤压下方窗口内容（曾出现标题栏从 24px 被撑到 49px 的案例）。参考组合：内层 `margin: k1` + 胶囊上下 `padding: k1` + 行高（字号 `k3` 对应行高 `k4` = 16px）≈ 40px，**已经超出 32px 槽位**；若要严格卡在 32px，常见做法是内层只用左右留白 `margin: 0 k1`、纵向靠槽位自动分配，或把胶囊上下内距降到 `k0.5`。确需更大留白时，请同步调整 `WindowHeader` 第一行的 `minHeight`，两边保持一致。

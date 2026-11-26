@@ -53,7 +53,7 @@ const gomoku2Data = {
       
       pendingResolves.set(appId, wrappedResolve)
       
-      // 设置超时机制，防止用户离开导致 AI 一直挂起
+      // 设置超时机制，防止管理员离开导致 AI 一直挂起
       if (timeoutMs > 0) {
         timeoutId = setTimeout(() => {
           if (pendingResolves.has(appId) && pendingResolves.get(appId) === wrappedResolve) {

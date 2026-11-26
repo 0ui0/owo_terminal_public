@@ -1,14 +1,16 @@
+import getSize from "../common/getSize.js"
+
 export default ()=>{
   return {
     view(){
       return m("",{
         style:{
           width:"100%",
-          borderBottom:"0.1rem solid #46413fff",
-          marginBottom:"1rem",
-          padding:"1rem",
+          borderBottom:`${getSize(0.25)}rem solid #46413fff`,
+          marginBottom:`${getSize(2)}rem`,
+          padding:`${getSize(2)}rem`,
           boxSizing:"border-box",
-          borderRadius:"1rem 1rem 0 0",
+          borderRadius:`${getSize(8)}rem ${getSize(8)}rem 0 0`,
           //background:"#47464f",
           color:"#111",
         }

@@ -1,6 +1,6 @@
 import desktopPetData from "./desktopPetData.js"
 
-export default ({ appId, m, Notice, ioSocket, comData, commonData, settingData, Box, Tag, iconPark, getColor, trs, sysMenu }) => {
+export default ({ appId, m, Notice, ioSocket, comData, commonData, settingData, Box, Tag, iconPark, getColor, getSize, trs, sysMenu }) => {
   let isClickThroughBool = true
   let customActionStr = ""
   let handlePointerMove = null
@@ -85,32 +85,48 @@ export default ({ appId, m, Notice, ioSocket, comData, commonData, settingData, 
       if (noticeConfig) {
         noticeConfig.titleBar = {
           view: () => m("", {
-            onpointerdown: (e) => e.stopPropagation(),
             style: {
+              width: "100%",
+              height: "100%",
               display: "flex",
-              alignItems: "center",
-              gap: "0.4rem",
-              height: "100%"
+              alignItems: "center"
             }
           }, [
-            m(Box, {
-              tagName: "div",
-              isBtn: true,
-              color: "main",
-              noValue: true,
+            // 内层：四边留白 k1，元素间距由 gap 提供
+            m("", {
               style: {
-                padding: "0.3rem 0.8rem",
-                borderRadius: "3rem",
-                fontSize: "1.2rem",
-                display: "inline-flex",
+                flex: 1,
+                minWidth: 0,
+                display: "flex",
                 alignItems: "center",
-                cursor: "pointer",
-                boxShadow: "0 0.2rem 0.6rem rgba(0, 0, 0, 0.15)",
-                "-webkit-app-region": "no-drag",
-                userSelect: "none"
-              },
-              onclick: (dom, e) => openViewMenu(e || dom)
-            }, "视图")
+                gap: `${getSize(1)}rem`,
+                margin: `${getSize(1)}rem`,
+                flexWrap: "wrap"
+              }
+            }, [
+              m(Box, {
+                tagName: "div",
+                isBtn: true,
+                color: "main",
+                noValue: true,
+                style: {
+                  padding: `${getSize(1)}rem ${getSize(3)}rem`,
+                  borderRadius: `${getSize(8)}rem`,
+                  fontSize: `${getSize(3)}rem`,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  cursor: "pointer",
+                  margin: 0,
+                  boxShadow: `0 ${getSize(0.5)}rem ${getSize(2)}rem rgba(0, 0, 0, 0.15)`,
+                  "-webkit-app-region": "no-drag",
+                  userSelect: "none"
+                },
+                ext: {
+                  onpointerdown: (e) => e.stopPropagation()
+                },
+                onclick: (dom, e) => openViewMenu(e || dom)
+              }, "视图")
+            ])
           ])
         }
       }

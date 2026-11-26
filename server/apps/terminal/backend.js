@@ -8,6 +8,9 @@ import idTool from "../../tools/idTool.js"
 import subAgents from "../../tools/aiAsk/subAgents.js"
 import comData from "../../comData/comData.js"
 import workDirTool from "../../tools/workDirTool.js"
+import { trs } from "../../tools/i18n.js"
+import { createVirtualShell } from "./virtualPty.js"
+import qemuManager from "../../tools/vm/qemuManager.js"
 
 const execAsync = util.promisify(exec)
 
@@ -134,28 +137,69 @@ function cleanTerminalContent(str) {
 
 export default {
   cleanTerminalContent,
+  async beforeLaunch(app, appManager) {
+    if (app.data?.mode === "vm") {
+      // 1. 初始化微虚拟机运行环境框架
+      const initialized = await qemuManager.isInitialized()
+      if (!initialized) {
+        await qemuManager.init()
+      }
+
+      // 2. 检查引擎与镜像是否就绪
+      const isBinReady = qemuManager.isQemuBinReady()
+      const isImageReady = qemuManager.isQemuImageReady()
+      if (!isBinReady || !isImageReady) {
+        console.log(`[Terminal Backend] 微虚拟机组件未就绪 (bin:${isBinReady}, img:${isImageReady})，通知前端引导下载 (${app.id})...`)
+        if (appManager.io) {
+          appManager.io.emit("terminal:requireVmSetup", { isBinReady, isImageReady })
+        }
+        throw new Error("VM_SETUP_REQUIRED")
+      }
+    }
+  },
   async init(app, manager) {
-    const { cwd, listId, toolCallGroupId, deferredFns } = app.data
-
     app.data.content = app.data.content || ""
-    app.data.cwd = cwd || workDirTool.getMainWorkDir(0) || pathLib.resolve(process.cwd(), "..", "aiWork")
-    app.data.listId = listId || 0
+    app.data.cwd = app.data.cwd || workDirTool.getMainWorkDir(0) || pathLib.resolve(process.cwd(), "..", "aiWork")
+    app.data.initialCwd = app.data.initialCwd || app.data.cwd
+    app.data.listId = app.data.listId || 0
+    app.data.mode = app.data.mode || "host"
 
-    const shell = await createShell(app.data.cwd)
+    const isVm = app.data.mode === "vm"
+    const io = manager.io
+
+    const emitStreamChunk = (chunkText) => {
+      io.emit("app:dispatch", {
+        appId: app.id,
+        action: "stream",
+        args: { content: chunkText }
+      })
+    }
+
+    let shell = null
+
+    if (isVm) {
+      shell = createVirtualShell({
+        appId: app.id,
+        getWorkspaceDir: () => app.data.cwd,
+        io: manager.io
+      })
+    } else {
+      shell = await createShell(app.data.cwd)
+    }
 
     const session = {
       shell,
+      isVirtual: isVm,
       content: app.data.content,
       cwd: app.data.cwd,
+      initialCwd: app.data.initialCwd,
       listId: app.data.listId,
-      toolCallGroupId: toolCallGroupId || null,
-      deferredFns: deferredFns || null,
+      toolCallGroupId: app.data.toolCallGroupId || null,
+      deferredFns: app.data.deferredFns || null,
       editThrottleTimer: null,
       cwdCheckTimer: null
     }
     sessions.set(app.id, session)
-
-    const io = manager.io
 
     let pendingStreamOutput = ""
     let streamThrottleTimer = null
@@ -257,8 +301,95 @@ export default {
     const session = sessions.get(app.id)
 
     switch (action) {
+      case "syncHostCwd": {
+        if (!session || !session.shell) {
+          return {
+            ok: false,
+            msg: trs("终端/错误/会话不存在", {
+              cn: "终端 session 不存在或底层进程已断开",
+              en: "Terminal session does not exist or shell is disconnected"
+            })
+          }
+        }
+        const targetCwd = args?.targetCwd
+        if (!targetCwd) {
+          return {
+            ok: false,
+            msg: trs("终端/错误/路径无效", {
+              cn: "未指定目标工作目录",
+              en: "Target directory not specified"
+            })
+          }
+        }
+        session.shell.write(`cd '${targetCwd}'\n`)
+        session.cwd = targetCwd
+        app.data.initialCwd = targetCwd
+        app.data.cwd = targetCwd
+        return {
+          ok: true,
+          msg: trs("终端/提示/物理目录已同步", {
+            cn: "已同步切换至新工作目录",
+            en: "Switched to new working directory"
+          }),
+          data: { initialCwd: targetCwd }
+        }
+      }
+
+      case "remountVmWorkspace": {
+        const workspaceDir = args?.workspaceDir
+        if (!workspaceDir) {
+          return {
+            ok: false,
+            msg: trs("终端/错误/路径无效", {
+              cn: "未指定目标工作目录",
+              en: "Target directory not specified"
+            })
+          }
+        }
+        const dirName = pathLib.basename(workspaceDir)
+        io.emit("app:dispatch", {
+          appId: app.id,
+          action: "stream",
+          args: { content: "\r\n>>> [owo-vm] 收到工作目录重挂载指令，正在重启微虚拟机...\r\n" }
+        })
+
+        const restartRes = await qemuManager.restart({ workspaceDir })
+        if (!restartRes.ok) {
+          return {
+            ok: false,
+            msg: trs("终端/错误/虚机重启失败", {
+              cn: `微虚拟机重启失败: ${restartRes.msg}`,
+              en: `MicroVM restart failed: ${restartRes.msg}`
+            })
+          }
+        }
+
+        if (session) {
+          session.cwd = workspaceDir
+        }
+        app.data.initialCwd = workspaceDir
+        app.data.cwd = workspaceDir
+
+        return {
+          ok: true,
+          msg: trs("终端/提示/虚机已重挂载", {
+            cn: "微虚拟机已重新挂载新工作目录并重启",
+            en: "MicroVM remounted and restarted"
+          }),
+          data: { initialCwd: workspaceDir, dirName }
+        }
+      }
+
       case "write": {
-        if (!session) return { ok: false, msg: "终端 session 不存在" }
+        if (!session) {
+          return {
+            ok: false,
+            msg: trs("终端/错误/会话不存在", {
+              cn: "终端 session 不存在",
+              en: "Terminal session does not exist"
+            })
+          }
+        }
         let data = args.data || ""
         if (args.bracketed && !data.startsWith("\x1b[200~")) {
           data = `\x1b[200~${data}\x1b[201~\r`
@@ -270,19 +401,39 @@ export default {
             await new Promise(r => setTimeout(r, 15))
           }
         }
-        return { ok: true, msg: "写入成功" }
+        return {
+          ok: true,
+          msg: trs("终端/提示/写入成功", {
+            cn: "写入成功",
+            en: "Written successfully"
+          })
+        }
       }
 
       case "resize": {
-        if (!session) return { ok: false, msg: "终端 session 不存在" }
+        if (!session) {
+          return {
+            ok: false,
+            msg: trs("终端/错误/会话不存在", {
+              cn: "终端 session 不存在",
+              en: "Terminal session does not exist"
+            })
+          }
+        }
         try {
           session.shell.resize(args.cols || 80, args.rows || 24)
         } catch (e) { }
-        return { ok: true, msg: "resize 成功" }
+        return {
+          ok: true,
+          msg: trs("终端/提示/调整尺寸成功", {
+            cn: "resize 成功",
+            en: "Resize successful"
+          })
+        }
       }
 
       case "checkRunningProcess": {
-        if (!session?.shell?.pid) return { ok: true, hasRunningProcess: false }
+        if (!session?.shell?.pid || session?.shell?.pid === "vm_guest") return { ok: true, hasRunningProcess: false }
         try {
           if (process.platform === "win32") {
             try {
@@ -326,8 +477,29 @@ export default {
         }
       }
 
+      // 供 appCall 通过官方 dispatch 路由取用 session 本体（含 shell 句柄与实时 content）
+      // 返回值仅在同一进程的内存中传递，不经过任何序列化，绝不面向 socket 下发
+      case "getSession": {
+        return {
+          ok: true,
+          msg: trs("通用/提示/获取成功", {
+            cn: "获取成功",
+            en: "Retrieved successfully"
+          }),
+          data: session
+        }
+      }
+
       case "getContent": {
-        if (!session) return { ok: false, msg: "终端 session 不存在" }
+        if (!session) {
+          return {
+            ok: false,
+            msg: trs("终端/错误/会话不存在", {
+              cn: "终端 session 不存在",
+              en: "Terminal session does not exist"
+            })
+          }
+        }
         const limit = args.limit || 20
         let targetContent = args.raw ? session.content : cleanTerminalContent(session.content)
         const allLines = targetContent.split(/\r?\n/)
@@ -336,7 +508,10 @@ export default {
         const isTruncated = totalLines > limit
         return {
           ok: true,
-          msg: "获取成功",
+          msg: trs("通用/提示/获取成功", {
+            cn: "获取成功",
+            en: "Retrieved successfully"
+          }),
           data: {
             appId: app.id,
             content,
@@ -348,8 +523,13 @@ export default {
       }
 
       case "open": {
-        // 广播 open 给前端，前端负责聚焦/打开窗口（由 appManager.launch 的 app:active 完成）
-        return { ok: true, msg: "终端已激活" }
+        return {
+          ok: true,
+          msg: trs("终端/提示/已激活", {
+            cn: "终端已激活",
+            en: "Terminal activated"
+          })
+        }
       }
 
       case "setToolContext": {
@@ -357,17 +537,89 @@ export default {
           session.toolCallGroupId = args.toolCallGroupId || null
           session.deferredFns = args.deferredFns || null
         }
-        return { ok: true, msg: "已更新工具上下文" }
+        return {
+          ok: true,
+          msg: trs("终端/提示/工具上下文已更新", {
+            cn: "已更新工具上下文",
+            en: "Tool context updated"
+          })
+        }
       }
 
+      case "getVmStatus": {
+        const vmStatus = qemuManager.getStatus()
+        return { ok: true, msg: "获取成功", data: vmStatus }
+      }
+
+      case "startVm": {
+        const res = await qemuManager.start({ workspaceDir: session?.cwd })
+        return res
+      }
+
+      case "stopVm": {
+        const res = await qemuManager.stop()
+        return res
+      }
+
+      case "restartVm": {
+        const res = await qemuManager.restart({ workspaceDir: session?.cwd })
+        return res
+      }
+
+      case "resetVm":
+      case "restoreVmImage": {
+        const res = await qemuManager.downloadAsset("image", { io })
+        return res
+      }
+
+      case "uploadVmImage": {
+        const res = await qemuManager.uploadImage(args || {})
+        return res
+      }
+
+      case "restoreVmSrc": {
+        const res = await qemuManager.downloadAsset("qemuSrc", { io })
+        return res
+      }
+
+      case "startVmAssetDownload": {
+        const res = await qemuManager.downloadAsset(args?.assetType, { io })
+        return res
+      }
+
+      case "cancelVmAssetDownload": {
+        const res = qemuManager.cancelDownload(args?.assetType)
+        return res
+      }
+
+      case "getVmDownloadProgress": {
+        return { ok: true, msg: "获取成功", data: qemuManager.getDownloadingStatus() }
+      }
+
+      case "saveVmHardware": {
+        const res = await qemuManager.saveHardwareConfig(args || {})
+        return res
+      }
+
+      case "checkQemuReady": {
+        return { ok: true, msg: "检测完成", data: { ready: qemuManager.isQemuBinReady() } }
+      }
+
+      case "getVmConsoleLogs": {
+        return { ok: true, msg: "获取成功", data: qemuManager.getConsoleLogs() }
+      }
+
+      case "clearVmConsoleLogs": {
+        return qemuManager.clearConsoleLogs()
+      }
+
+      case "sendVmConsoleInput": {
+        return qemuManager.sendConsoleInput(args?.input || "")
+      }
 
       default:
         return { ok: false, msg: `未知操作: ${action}` }
     }
   },
 
-  // 供 appCall 直接访问 session 的工具方法
-  getSession(appId) {
-    return sessions.get(appId)
-  }
 }

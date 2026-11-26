@@ -14,11 +14,11 @@ export default () => {
           height: "100%",
           display: "flex",
           flexDirection: "column",
-          background: getColor('gray_1').back,
+          //background: getColor('gray_1').back,
           color: getColor('gray_1').front,
         }
       }, [
-        m(Css),
+        //m(Css), 移出去，写在这里会重复生成style
         // Custom Title Bar
         //m(TitleBar),
 

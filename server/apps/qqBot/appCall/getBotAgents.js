@@ -1,6 +1,5 @@
 import Joi from "joi"
 import appManager from "../../../apps/appManager.js"
-import { qlog } from "../lib/logger.js"
 
 export default {
   name: "获取QQ机器人列表",
@@ -54,7 +53,12 @@ export default {
         data: bots
       }
     } catch (err) {
-      qlog(`[qqBot/getBotAgents] ${err.message}`, "error")
+      if (app) {
+        appManager.dispatch(app.id, "log", {
+          text: `[qqBot/getBotAgents] ${err.message}`,
+          level: "error"
+        });
+      }
       return { ok: false, msg: err.message }
     }
   },

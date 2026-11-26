@@ -40,6 +40,24 @@ class TempPathManager {
     return userPlansDir
   }
 
+  // 获取用户技能目录 (userData/owo_data/skills，自动确保目录存在)
+  getUserSkillsDir() {
+    const userSkillsDir = pathLib.join(this.getUserDataDir(), "skills")
+    fs.ensureDirSync(userSkillsDir)
+    return userSkillsDir
+  }
+
+  // 获取用户微虚拟机运行目录 (userData/owo_data/vm，一次性确保 vm 及其子目录 download/bin/image/qemu 全部准备就绪)
+  getUserVmDir() {
+    const userVmDir = pathLib.join(this.getUserDataDir(), "vm")
+    fs.ensureDirSync(userVmDir)
+    fs.ensureDirSync(pathLib.join(userVmDir, "download"))
+    fs.ensureDirSync(pathLib.join(userVmDir, "bin"))
+    fs.ensureDirSync(pathLib.join(userVmDir, "image"))
+    fs.ensureDirSync(pathLib.join(userVmDir, "qemu"))
+    return userVmDir
+  }
+
   // 获取当前实例 temp/{pid} 下的物理路径（自动确保目录存在）
   get(subPath = "") {
     const userData = this.getUserDataDir()

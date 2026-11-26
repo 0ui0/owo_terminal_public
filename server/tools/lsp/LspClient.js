@@ -25,11 +25,24 @@ export default class LspClient extends EventEmitter {
    * 启动 LSP 服务进程
    */
   async start() {
-    this.process = spawn(this.command, this.args, {
+    let spawnCommand = this.command;
+    let spawnArgs = this.args;
+    const spawnEnv = { ...process.env, ...this.options.env };
+    let shell = process.platform === 'win32';
+
+    // 💡 纯内置自包含自举模式：当目标为随包内置的 Node 脚本时，直接用当前 Electron 自身 (process.execPath) 驱动
+    if (this.options.isBuiltinNodeScript && this.options.scriptPath) {
+      spawnCommand = process.execPath;
+      spawnArgs = [this.options.scriptPath, ...this.args];
+      spawnEnv.ELECTRON_RUN_AS_NODE = '1';
+      shell = false;
+    }
+
+    this.process = spawn(spawnCommand, spawnArgs, {
       stdio: ['pipe', 'pipe', 'pipe'],
       cwd: this.options.cwd || process.cwd(),
-      env: { ...process.env, ...this.options.env },
-      shell: process.platform === 'win32'
+      env: spawnEnv,
+      shell
     });
 
     return new Promise((resolve, reject) => {
@@ -124,7 +137,7 @@ export default class LspClient extends EventEmitter {
   /**
    * 发送 LSP 请求
    */
-  sendRequest(method, params, timeoutMs = 30000) {
+  sendRequest(method, params, timeoutMs = 8000) {
     if (!this.process) return Promise.reject(new Error("LSP 进程未启动"));
     const id = this.idCounter++;
     const message = {

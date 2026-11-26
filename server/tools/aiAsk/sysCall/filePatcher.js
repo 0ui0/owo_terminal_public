@@ -85,6 +85,23 @@ function computeLineStartOffsets(text) {
   return offsets
 }
 
+function getLineNumFromOffsets(offsets, charIdx) {
+  let low = 0
+  let high = offsets.length - 1
+  while (low <= high) {
+    const mid = (low + high) >> 1
+    if (offsets[mid] <= charIdx) {
+      if (mid === offsets.length - 1 || offsets[mid + 1] > charIdx) {
+        return mid + 1
+      }
+      low = mid + 1
+    } else {
+      high = mid - 1
+    }
+  }
+  return 1
+}
+
 // 当 target 匹配失败时，进行行级深度诊断，定位首个断点行与空格差异
 function diagnoseTargetMismatch(windowText, target, startLineNum = 1) {
   const targetLines = target.split("\n")
@@ -200,6 +217,8 @@ function applyEditsToContent(originalContent, edits) {
     }
 
     const absIdx = searchFrom + windowText.indexOf(target)
+    edit.origStartLine = getLineNumFromOffsets(lineOffsets, absIdx)
+    edit.origEndLine = getLineNumFromOffsets(lineOffsets, Math.max(absIdx, absIdx + target.length - 1))
     replacements.push({
       originalIndex: i,
       startIdx: absIdx,
@@ -208,7 +227,7 @@ function applyEditsToContent(originalContent, edits) {
     })
   }
 
-  // 检查是否存在范围重叠（避免用户的多个 edit 修改了同一块区域导致冲突）
+  // 检查是否存在范围重叠（避免管理员的多个 edit 修改了同一块区域导致冲突）
   replacements.sort((a, b) => b.startIdx - a.startIdx)
   for (let j = 0; j < replacements.length - 1; j++) {
     if (replacements[j].startIdx < replacements[j+1].endIdx) {
@@ -219,6 +238,17 @@ function applyEditsToContent(originalContent, edits) {
   // 倒序应用替换，这样后面的替换就不会影响前面替换的下标！
   for (const r of replacements) {
     content = content.slice(0, r.startIdx) + r.replace + content.slice(r.endIdx)
+  }
+
+  // 精准回算每个 edit 在修改后新文件中的真实行号
+  const modLineOffsets = computeLineStartOffsets(content)
+  const ascReplacements = [...replacements].sort((a, b) => a.startIdx - b.startIdx)
+  let delta = 0
+  for (const r of ascReplacements) {
+    const newStartIdx = r.startIdx + delta
+    edits[r.originalIndex].modifiedStartLine = getLineNumFromOffsets(modLineOffsets, newStartIdx)
+    edits[r.originalIndex].modifiedEndLine = getLineNumFromOffsets(modLineOffsets, Math.max(newStartIdx, newStartIdx + r.replace.length - 1))
+    delta += (r.replace.length - (r.endIdx - r.startIdx))
   }
 
   return eol === "\r\n" ? content.replace(/\n/g, "\r\n") : content
@@ -251,7 +281,13 @@ export default {
 
     const workDirs = workDirTool.getWorkDirs(metaData.listId)
 
-    // 1. 前置批量项目外越界检查（合并为单次弹窗询问）
+    // 💡 架构设计准则（工作目录外与默认审批的场景分流）：
+    // 1. 若当前会话未配置主工作目录（mainDir 为空），系统不存在明确的“项目内外边界”，
+    //    因此不触发前置工作目录外询问弹窗，直接交由下游默认的 Monaco Diff 审批卡片统一把关；
+    // 2. 与 fileOpener（读工具）的区别：读文件涉及隐私窃取风险且无后续 Diff 审核流，故无工作区时仍需前置防护；
+    // 3. 而写文件（filePatcher）在未配置工作目录时，已有严密的代码审查卡片作为坚实防线，
+    //    若此时强行弹窗两次（先问目录再审卡片），不仅语义割裂而且极大损耗人机交互效率；
+    // 4. 只有当管理员显式配置了工作目录（mainDir 存在）时，才严格区分项目内外，对项目外文件执行“前置目录授权 + 后续 Diff 审查”的双重防御。
     const outOfProjectSet = new Set()
     for (const op of operations) {
       const validKey = Object.keys(op || {}).find(k => ["add", "delete", "update"].includes(k) && op[k])
@@ -290,19 +326,31 @@ export default {
       const validKeys = Object.keys(op || {}).filter(k => ["add", "delete", "update"].includes(k) && op[k])
 
       if (validKeys.length === 0) {
-        prepareFailedResults.push({
+        preparedChanges.push({
+          type: ActionType.UPDATE,
           path: `operation_${i + 1}`,
+          relativePath: `operation_${i + 1}`,
+          reason: "格式错误",
+          originalContent: "",
+          proposedContent: "",
           status: "failed",
-          error: `第 ${i + 1} 个 operation 格式错误：必须指定 add、delete 或 update 之一。`
+          error: `第 ${i + 1} 个 operation 格式错误：必须指定 add、delete 或 update 之一。`,
+          edits: []
         })
         continue
       }
 
       if (validKeys.length > 1) {
-        prepareFailedResults.push({
+        preparedChanges.push({
+          type: ActionType.UPDATE,
           path: `operation_${i + 1}`,
+          relativePath: `operation_${i + 1}`,
+          reason: "格式错误",
+          originalContent: "",
+          proposedContent: "",
           status: "failed",
-          error: `第 ${i + 1} 个 operation 格式错误：每个 operation 只能指定一种操作，当前同时传入了: ${validKeys.join(", ")}。请拆分为多个 operation。`
+          error: `第 ${i + 1} 个 operation 格式错误：每个 operation 只能指定一种操作，当前同时传入了: ${validKeys.join(", ")}。请拆分为多个 operation。`,
+          edits: []
         })
         continue
       }
@@ -317,10 +365,16 @@ export default {
 
       const isAbs = pathLib.isAbsolute(rawPath)
       if (!isAbs && !mainDir) {
-        prepareFailedResults.push({
+        preparedChanges.push({
+          type: opType,
           path: rawPath,
+          relativePath: rawPath,
+          reason: opReason,
+          originalContent: "",
+          proposedContent: "",
           status: "failed",
-          error: `当前会话未设置工作目录，补丁中的相对路径 "${rawPath}" 无法解析。请先配置工作目录，或者使用绝对路径。`
+          error: `当前会话未设置工作目录，补丁中的相对路径 "${rawPath}" 无法解析。请先配置工作目录，或者使用绝对路径。`,
+          edits: opData.edits
         })
         continue
       }
@@ -330,11 +384,17 @@ export default {
       const isInProject = workDirs.some(dir => resolvedPath === dir.path || resolvedPath.startsWith(dir.path + pathLib.sep))
       if (mainDir && !isInProject) {
         if (!outOfProjectConfirm.ok) {
-          prepareFailedResults.push({
-            path: rawPath,
+          preparedChanges.push({
+            type: opType,
+            path: resolvedPath,
+            relativePath: rawPath,
+            reason: opReason,
+            originalContent: "",
+            proposedContent: "",
             status: "rejected",
-            reason: outOfProjectConfirm.comment ? `用户拒绝访问项目外文件：${resolvedPath}。\n用户拒绝理由/备注：【注意用户留言】${outOfProjectConfirm.comment}` : `用户拒绝访问项目外文件：${resolvedPath}。`,
-            ...(outOfProjectConfirm.comment && { comment: `【注意用户留言】${outOfProjectConfirm.comment}` })
+            rejectReason: outOfProjectConfirm.comment ? `管理员拒绝访问项目外文件：${resolvedPath}。\n管理员拒绝理由/备注：【注意管理员留言】${outOfProjectConfirm.comment}` : `管理员拒绝访问项目外文件：${resolvedPath}。`,
+            ...(outOfProjectConfirm.comment && { comment: `【注意管理员留言】${outOfProjectConfirm.comment}` }),
+            edits: opData.edits
           })
           continue
         }
@@ -354,10 +414,16 @@ export default {
         }
 
         if (fileExists && !opData.cover) {
-          prepareFailedResults.push({
-            path: rawPath,
+          preparedChanges.push({
+            type: ActionType.ADD,
+            path: resolvedPath,
+            relativePath: rawPath,
+            reason: opReason,
+            originalContent: originalContent,
+            proposedContent: opData.content,
             status: "failed",
-            error: `⚠️ 安全拦截：文件 ${rawPath} 已存在。若确需全量覆盖已存在的文件，请将 add 中的 cover 参数显式设为 true；若只需局部修改，请使用 update 操作。`
+            error: `⚠️ 安全拦截：文件 ${rawPath} 已存在。若确需全量覆盖已存在的文件，请将 add 中的 cover 参数显式设为 true；若只需局部修改，请使用 update 操作。`,
+            edits: []
           })
           continue
         }
@@ -370,7 +436,9 @@ export default {
           originalContent: fileExists ? originalContent : "",
           proposedContent: opData.content || "",
           readTimestamp: fileExists ? readTimestamp : 0,
-          isCover: fileExists
+          isCover: fileExists,
+          status: "pending",
+          edits: []
         })
       } else if (opType === "delete") {
         let originalContent = ""
@@ -383,14 +451,22 @@ export default {
           relativePath: rawPath,
           reason: opReason,
           originalContent,
-          proposedContent: ""
+          proposedContent: "",
+          status: "pending",
+          edits: []
         })
       } else if (opType === "update") {
         if (!opData.edits || opData.edits.length === 0) {
-          prepareFailedResults.push({
-            path: rawPath,
+          preparedChanges.push({
+            type: ActionType.UPDATE,
+            path: resolvedPath,
+            relativePath: rawPath,
+            reason: opReason,
+            originalContent: "",
+            proposedContent: "",
             status: "failed",
-            error: `在更新 ${rawPath} 时，未提供任何 edits。`
+            error: `在更新 ${rawPath} 时，未提供任何 edits。`,
+            edits: []
           })
           continue
         }
@@ -402,19 +478,31 @@ export default {
           readTimestamp = stat.mtimeMs
           const cached = fileState.get(resolvedPath)
           if (cached && stat.mtimeMs > cached.timestamp) {
-            prepareFailedResults.push({
-              path: rawPath,
+            preparedChanges.push({
+              type: ActionType.UPDATE,
+              path: resolvedPath,
+              relativePath: rawPath,
+              reason: opReason,
+              originalContent: "",
+              proposedContent: "",
               status: "failed",
-              error: `⚠️ 安全拦截：文件 ${rawPath} 自上次读取以来已被外部修改过。\n为防止覆盖最新改动，请先使用 fileOpener 重新读取文件！`
+              error: `⚠️ 安全拦截：文件 ${rawPath} 自上次读取以来已被外部修改过。\n为防止覆盖最新改动，请先使用 fileOpener 重新读取文件！`,
+              edits: opData.edits
             })
             continue
           }
           originalContent = await fs.readFile(resolvedPath, "utf-8")
         } catch (err) {
-          prepareFailedResults.push({
-            path: rawPath,
+          preparedChanges.push({
+            type: ActionType.UPDATE,
+            path: resolvedPath,
+            relativePath: rawPath,
+            reason: opReason,
+            originalContent: "",
+            proposedContent: "",
             status: "failed",
-            error: `读取文件失败 ${rawPath}: ${err.message}`
+            error: `读取文件失败 ${rawPath}: ${err.message}`,
+            edits: opData.edits
           })
           continue
         }
@@ -428,20 +516,41 @@ export default {
             reason: opReason,
             originalContent,
             proposedContent,
-            readTimestamp
+            readTimestamp,
+            status: "pending",
+            edits: opData.edits
           })
         } catch (err) {
-          prepareFailedResults.push({
-            path: rawPath,
+          preparedChanges.push({
+            type: ActionType.UPDATE,
+            path: resolvedPath,
+            relativePath: rawPath,
+            reason: opReason,
+            originalContent: "",
+            proposedContent: "",
             status: "failed",
-            error: `应用补丁失败 [${rawPath}]: ${err.message}`
+            error: `应用补丁失败 [${rawPath}]: ${err.message}`,
+            edits: opData.edits
           })
           continue
         }
       }
     }
 
-    const overallReason = Array.from(new Set(reasons.filter(Boolean))).join("\n") || "代码补丁变更"
+    // 组装编号+缩进树状整体理由
+    const overallReasonLines = []
+    preparedChanges.forEach((change, idx) => {
+      const fileName = pathLib.basename(change.relativePath || change.path)
+      const opTitle = change.reason || (change.type === ActionType.ADD ? "新增文件" : (change.type === ActionType.DELETE ? "删除文件" : "修改文件"))
+      const invalidSuffix = change.status === "failed" ? ` (已作废: ${change.error})` : ""
+      overallReasonLines.push(`${idx + 1}. [${fileName}] ${opTitle}${invalidSuffix}`)
+      if (change.edits && change.edits.length > 0) {
+        change.edits.forEach((edit, eIdx) => {
+          overallReasonLines.push(`   ${idx + 1}.${eIdx + 1} ${edit.reason}`)
+        })
+      }
+    })
+    const overallReason = overallReasonLines.join("\n")
 
     // 1. 为每个变更计算行变动统计并赋予唯一标识
     for (let idx = 0; idx < preparedChanges.length; idx++) {
@@ -450,31 +559,79 @@ export default {
       change.addLines = stats.addLines
       change.delLines = stats.delLines
       change.fileId = `file_${idx}_${uuidV4().slice(0, 8)}`
-      change.status = "pending"
+      if (!change.status) {
+        change.status = "pending"
+      }
     }
 
-    // 2. 仅在确定用户设置了白名单且普通 waitConfirm 会被跳过时，前置触发不会走白名单的高危删除拦截
-    if (comData.data.get()?.chatLists?.find(l => l.id === metaData.listId)?.skipConfirmTools?.includes(this.id)) {
-      for (const delChange of preparedChanges.filter(c => c.type === ActionType.DELETE)) {
+    // 💡 权限与沙箱免确认分流判定：
+    // 读取删除免确认档位：0=关闭(默认,全系统删除均需确认且一票否决白名单), 1=工作目录, 2=全系统
+    const currentList = comData.getChatList(metaData.listId)
+    const deleteScope = Number(currentList?.confirmDeleteScope ?? 0)
+    const isSkipConfirmTool = Boolean(currentList?.skipConfirmTools?.includes(this.id))
+    const autoConfirmWorkspace = Boolean(currentList?.autoConfirmWorkspacePatch)
+
+    const allInWorkspace = Boolean(mainDir) && preparedChanges.every(c => {
+      if (c.status === "failed") return true
+      const resolvedPath = pathLib.isAbsolute(c.path) ? c.path : pathLib.resolve(mainDir, c.path)
+      return workDirs.some(dir => resolvedPath === dir.path || resolvedPath.startsWith(dir.path + pathLib.sep))
+    })
+
+    const hasDelete = preparedChanges.some(c => c.type === ActionType.DELETE && c.status !== "failed")
+    const hasEdit = preparedChanges.some(c => c.type !== ActionType.DELETE && c.status !== "failed")
+
+    // 2. 高危删除专属拦截（0档拥有一票否决权，无论是否配了白名单均强制弹窗；1档工作区外强制弹窗）：
+    const shouldBlockDelete = hasDelete && (
+      deleteScope === 0 ||
+      (deleteScope === 1 && !allInWorkspace)
+    )
+
+    if (shouldBlockDelete) {
+      for (const delChange of preparedChanges.filter(c => c.type === ActionType.DELETE && c.status !== "failed")) {
         const { ok, comment } = await waitConfirm({
           type: "tip",
-          title: `⚠️ 高危操作拦截：删除文件确认: ${pathLib.basename(delChange.path)}`,
-          content: `${delChange.reason || overallReason}\n\n检测到当前已开启免确认，但即将【永久删除】文件：${delChange.relativePath}。\n删除为高危操作，请再次核验并批准。`,
+          title: `高危操作拦截：删除文件确认: ${pathLib.basename(delChange.path)}`,
+          content: `${delChange.reason || overallReason}\n\n检测到即将【永久删除】文件：${delChange.relativePath}。\n删除为高危操作，请再次核验并批准。`,
           listId: metaData.listId,
           ext: { identifier: "danger:fileDelete" }
         })
         if (!ok) {
           delChange.status = "rejected"
-          delChange.rejectReason = comment || "用户拒绝删除文件"
+          delChange.rejectReason = comment || "管理员拒绝删除文件"
+          if (comment) {
+            delChange.comment = `【注意管理员留言】${comment}`
+          }
         }
       }
     }
 
-    const pendingReviewChanges = preparedChanges.filter(c => c.status !== "rejected")
+    // 3. 综合沙箱免审条件判定：
+    const isDeleteAllowedAuto = !hasDelete || deleteScope === 2 || (deleteScope === 1 && allInWorkspace)
+    const isEditAllowedAuto = !hasEdit || isSkipConfirmTool || (autoConfirmWorkspace && allInWorkspace)
+    const shouldAutoApproveInWorkspace = isDeleteAllowedAuto && isEditAllowedAuto && (!isSkipConfirmTool || deleteScope === 0)
+
+    const hasPendingReview = preparedChanges.some(c => c.status === "pending")
     const confirmId = uuidV4()
 
-    let userConfirm = { ok: true, comment: "" }
-    if (pendingReviewChanges.length > 0) {
+    let userConfirm = { ok: false, comment: "" }
+    if (shouldAutoApproveInWorkspace && hasPendingReview) {
+      preparedChanges.forEach(c => {
+        if (c.status === "pending") {
+          c.status = "approved"
+        }
+      })
+      userConfirm = {
+        ok: true,
+        comment: "",
+        ext: {
+          files: preparedChanges.map(c => ({
+            fileId: c.fileId,
+            path: c.path,
+            status: c.status
+          }))
+        }
+      }
+    } else if (hasPendingReview) {
       userConfirm = await waitConfirm({
         id: confirmId,
         type: "tip",
@@ -491,11 +648,14 @@ export default {
             path: c.path,
             relativePath: c.relativePath,
             type: c.type,
+            reason: c.reason,
+            error: c.error,
+            edits: c.edits,
             addLines: c.addLines,
             delLines: c.delLines,
             originalContent: c.originalContent,
             proposedContent: c.proposedContent,
-            status: c.status || "pending",
+            status: c.status,
             diff: null,
             notes: null,
             comment: ""
@@ -512,20 +672,22 @@ export default {
       const change = preparedChanges[idx]
       const reviewed = reviewedFiles.find(f => f.fileId === change.fileId || f.path === change.path)
 
-      // 如果全局被拒绝，或者该文件被标记为 rejected / pending
-      if (!(userConfirm.ok && reviewed?.status === "approved")) {
+      // 如果条目已作废失败，或者全局被拒绝，或者该文件被标记为 rejected / pending
+      if (change.status === "failed" || !(userConfirm.ok && reviewed?.status === "approved")) {
+        const isFailed = change.status === "failed"
         fileResults.push({
           path: change.relativePath,
-          status: "rejected",
-          reason: change.rejectReason || "用户拒绝操作",
-          ...(reviewed?.comment && { comment: `【注意用户留言】${reviewed.comment}` }),
+          status: isFailed ? "failed" : "rejected",
+          ...(isFailed ? { error: change.error } : {}),
+          reason: isFailed ? change.error : (change.rejectReason || "管理员拒绝操作"),
+          ...((reviewed?.comment || change.comment) && { comment: reviewed?.comment ? `【注意管理员留言】${reviewed.comment}` : change.comment }),
           ...(reviewed?.notes && { notes: reviewed.notes })
           // 💡 拒绝场景（无论单文件拒绝还是总框拒绝）一律不回传 diff，避免误导 AI 以为变更已生效
         })
         continue
       }
 
-      // 用户批准当前文件：物理落盘并执行乐观锁校验
+      // 管理员批准当前文件：物理落盘并执行乐观锁校验
       try {
         if (change.type === ActionType.DELETE) {
           await fs.unlink(change.path)
@@ -568,7 +730,7 @@ export default {
             action: change.type,
             ...(reviewed?.diff && { diff: reviewed.diff }),
             ...(reviewed?.notes && { notes: reviewed.notes }),
-            ...(reviewed?.comment && { comment: `【注意用户留言】${reviewed.comment}` })
+            ...(reviewed?.comment && { comment: `【注意管理员留言】${reviewed.comment}` })
           })
         }
       } catch (err) {
@@ -586,15 +748,25 @@ export default {
     const anyRejected = allFinalFiles.some(f => f.status === "rejected")
 
     let msg = "补丁执行完成"
-    if (anyFailed && anyRejected) msg = "部分文件操作失败，部分文件被用户拒绝"
+    if (anyFailed && anyRejected) msg = "部分文件操作失败，部分文件被管理员拒绝"
     else if (anyFailed) msg = "部分文件操作失败"
-    else if (anyRejected) msg = "部分文件被用户拒绝"
+    else if (anyRejected) msg = "部分文件被管理员拒绝"
 
     return {
       ok: !anyFailed && !anyRejected,
       msg,
       diff: allDiffs || "未开启，请手动检查",
-      globalComment: userConfirm.comment ? `【注意用户留言】${userConfirm.comment}` : null,
+      globalComment: (() => {
+        const comments = [
+          outOfProjectConfirm.comment,
+          userConfirm.comment
+        ].filter(Boolean)
+
+        if (comments.length > 0) {
+          return `【注意管理员留言】${comments.join("\n")}`
+        }
+        return null
+      })(),
       files: allFinalFiles
     }
   },
@@ -616,10 +788,11 @@ export default {
           }).description("删除文件"),
 
           update: Joi.object({
-            reason: Joi.string().required().description("编辑理由"),
+            reason: Joi.string().required().description("总编辑理由"),
             path: Joi.string().required().description("文件绝对路径或相对路径"),
             edits: Joi.array().items(
               Joi.object({
+                reason:Joi.string().required().description("分补丁编辑理由"),
                 target: Joi.string().required().description("要替换的局部原代码(带适量上下文，保留首尾空格)"),
                 replace: Joi.string().required().allow("").description("替换后的新代码片段"),
                 startLine: Joi.number().description("起始查找行(可选)。行号从1开始数，第1行就是文件第一行。给定时 target 只在从这一行开始的范围内查找替换"),
@@ -654,7 +827,7 @@ export default {
       【容错行为】
       - 部分 operation 检测失败（如路径不存在/越界被拒/文件已存在/target 不匹配等）
         不会整体打回：失败项会以 failed/rejected 状态及原因进入返回的 files 列表，
-        其余成功的 operation 会照常进入用户审查（Monaco Diff 确认），批准后落盘。
+        其余成功的 operation 会照常进入管理员审查（Monaco Diff 确认），批准后落盘。
         最终 ok=false 仅表示存在失败/被拒项，请依据 files 逐条查看处理。
     `
   }

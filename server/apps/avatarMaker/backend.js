@@ -65,7 +65,7 @@ function buildSopPrompt(appId, config) {
    - prompt: "${imagePrompt}"
    - baseImagePath: "${config.halfBodyBase || ""}"
    - outputPath: "${expImg}"
-2. ⏸️【人机交互确认】生成完成后，将生成的图片发送/展示给用户，并主动询问：“生成图片已完成，请检查效果，是否满意或需要调整？”`
+2. ⏸️【人机交互确认】生成完成后，将生成的图片发送/展示给管理员，并主动询问：“生成图片已完成，请检查效果，是否满意或需要调整？”`
   } else if (config.mode === "0b") {
     modeDesc = "模式⓪b（静态全身动作图片）"
     const poseImg = path.join(imagesDir, `${exprKey}_pose.png`)
@@ -77,7 +77,7 @@ function buildSopPrompt(appId, config) {
    - prompt: "${imagePrompt}"
    - baseImagePath: "${config.fullBodyBase || ""}"
    - outputPath: "${poseImg}"
-2. ⏸️【人机交互确认】生成完成后，将生成的动作图片发送/展示给用户，主动询问是否满意。`
+2. ⏸️【人机交互确认】生成完成后，将生成的动作图片发送/展示给管理员，主动询问是否满意。`
   } else if (config.mode === "1") {
     modeDesc = "模式①（表情特写到回位视频）"
     const expImg = path.join(imagesDir, `${exprKey}.png`)
@@ -89,14 +89,14 @@ function buildSopPrompt(appId, config) {
     const video2Prompt = `镜头从角色半身特写缓慢拉远到全身，表情从${prompt}逐渐恢复自然。过渡流畅丝滑，保持绿幕背景。`
 
     modeGuide = `【模式① 执行 SOP 步骤】
-⚠️ 【关键交互规则】：生成图片后必须暂停询问用户，确认满意后再继续后续视频生成！
+⚠️ 【关键交互规则】：生成图片后必须暂停询问管理员，确认满意后再继续后续视频生成！
 1. 第一步（生图）：调用 avatarMakeImage 工具基于半身像生成静态表情图。
    - appId: "${appId}"
    - prompt: "${expImagePrompt}"
    - baseImagePath: "${config.halfBodyBase || ""}"
    - outputPath: "${expImg}"
-2. ⏸️【暂停询问】：第一步图片生成完成后，**立即暂停操作**，将生成的表情图片效果反馈给用户，并提问：“Step 1 表情静态图已生成（路径: ${expImg}），请确认效果是否满意？满意请回复【继续】，我将为您生成推进拉远视频！”
-3. 第三步（确认后再继续）：收到用户【确认/OK/继续】的答复后，依次调用 avatarMakeVideo 生成推进视频与拉远拼接视频：
+2. ⏸️【暂停询问】：第一步图片生成完成后，**立即暂停操作**，将生成的表情图片效果反馈给管理员，并提问：“Step 1 表情静态图已生成（路径: ${expImg}），请确认效果是否满意？满意请回复【继续】，我将为您生成推进拉远视频！”
+3. 第三步（确认后再继续）：收到管理员【确认/OK/继续】的答复后，依次调用 avatarMakeVideo 生成推进视频与拉远拼接视频：
    - 推进视频 outputPath: "${tempVideo1}" (firstFrame="${config.fullBodyBase || ""}", lastFrame="${expImg}")
    - 拉远拼接视频 outputPath: "${finalVideo}" (firstFrame="${expImg}", lastFrame="${config.fullBodyBase || ""}", concatWith="${tempVideo1}")`
   } else if (config.mode === "2a") {
@@ -112,7 +112,7 @@ function buildSopPrompt(appId, config) {
    - prompt: "${videoPrompt}"
    - concatWith: null
    - outputPath: "${finalVideo}"
-2. ⏸️【人机交互确认】视频生成完成后，将生成的 WebM 视频反馈给用户检查。`
+2. ⏸️【人机交互确认】视频生成完成后，将生成的 WebM 视频反馈给管理员检查。`
   } else if (config.mode === "2b") {
     modeDesc = "模式②b（全身过渡动作视频 - 首尾不同）"
     const targetPoseImg = path.join(imagesDir, `${exprKey}_action_pose.png`)
@@ -121,14 +121,14 @@ function buildSopPrompt(appId, config) {
     const videoPrompt = `角色在绿幕前做"${prompt}"的全身动作过渡。画面平滑丝滑，保持绿幕背景。`
 
     modeGuide = `【模式②b 执行 SOP 步骤】
-⚠️ 【关键交互规则】：生成姿态尾帧图片后必须暂停询问用户，确认满意后再继续后续视频生成！
+⚠️ 【关键交互规则】：生成姿态尾帧图片后必须暂停询问管理员，确认满意后再继续后续视频生成！
 1. 第一步（生图）：调用 avatarMakeImage 工具生成新动作的静态全身尾帧图。
    - appId: "${appId}"
    - prompt: "${posePrompt}"
    - baseImagePath: "${config.fullBodyBase || ""}"
    - outputPath: "${targetPoseImg}"
-2. ⏸️【暂停询问】：第一步姿态尾帧图生成完成后，**立即暂停操作**，将姿态图反馈给用户，并提问：“Step 1 全身动作尾帧图已生成（路径: ${targetPoseImg}），请确认姿态是否满意？满意请回复【继续】，我将为您生成动作过渡视频！”
-3. 第三步（确认后再继续）：收到用户【确认/OK/继续】答复后，调用 avatarMakeVideo 补间生成动作过渡视频：
+2. ⏸️【暂停询问】：第一步姿态尾帧图生成完成后，**立即暂停操作**，将姿态图反馈给管理员，并提问：“Step 1 全身动作尾帧图已生成（路径: ${targetPoseImg}），请确认姿态是否满意？满意请回复【继续】，我将为您生成动作过渡视频！”
+3. 第三步（确认后再继续）：收到管理员【确认/OK/继续】答复后，调用 avatarMakeVideo 补间生成动作过渡视频：
    - firstFramePath: "${config.fullBodyBase || ""}"
    - lastFramePath: "${targetPoseImg}"
    - prompt: "${videoPrompt}"
@@ -146,7 +146,7 @@ function buildSopPrompt(appId, config) {
    - prompt: "${videoPrompt}"
    - concatWith: null
    - outputPath: "${finalVideo}"
-2. ⏸️【人机交互确认】视频生成完成后，将生成的 WebM 视频反馈给用户检查。`
+2. ⏸️【人机交互确认】视频生成完成后，将生成的 WebM 视频反馈给管理员检查。`
   }
 
   const sysMsg = `[appid:${appId}] 请根据以下配置与 SOP 严格执行角色包制作任务：
@@ -158,7 +158,7 @@ function buildSopPrompt(appId, config) {
 
 ${modeGuide}
 
-⚠️ 注意：若涉及图片生成阶段（如模式①与模式②b），生成完图片后务必暂停并询问用户确认，收到用户肯定答复后再继续执行后面的视频生成步骤！`
+⚠️ 注意：若涉及图片生成阶段（如模式①与模式②b），生成完图片后务必暂停并询问管理员确认，收到管理员肯定答复后再继续执行后面的视频生成步骤！`
 
   return { sysMsg, modeDesc, modeGuide, exprKey }
 }

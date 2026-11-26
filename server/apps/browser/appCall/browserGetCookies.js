@@ -29,7 +29,7 @@ export default {
       }
     }
 
-    // 危险操作安全拦截：获取 Cookie 必须经用户确认
+    // 危险操作安全拦截：获取 Cookie 必须经管理员确认
     const confirmId = uuidV4()
     const userConfirm = await waitConfirm({
       id: confirmId,
@@ -45,7 +45,7 @@ export default {
     })
 
     if (!userConfirm.ok) {
-      return `错误：用户拒绝了 AI 获取浏览器 Cookie 的请求。用户备注：${userConfirm.comment || "无"}`
+      return `错误：管理员拒绝了 AI 获取浏览器 Cookie 的请求。管理员备注：${userConfirm.comment || "无"}`
     }
 
     const res = await appManager.dispatch(targetAppId, "getCookies")
@@ -55,7 +55,7 @@ export default {
         return `当前浏览器实例 (${targetAppId}) 中没有任何 Cookie。`
       }
 
-      let commentSuffix = userConfirm.comment ? `。用户备注：${userConfirm.comment}` : ""
+      let commentSuffix = userConfirm.comment ? `。管理员备注：${userConfirm.comment}` : ""
       let output = `> [!INFO] 成功获取浏览器实例 (${targetAppId}) 的 Cookies${commentSuffix}。\n\n`
       output += `**Cookie 字符串 (Cookie String):**\n\`\`\`\n${cookieString}\n\`\`\`\n\n`
       output += `**结构化详情 (Cookies Detail):**\n`
@@ -77,6 +77,6 @@ export default {
   },
 
   getDoc() {
-    return `获取指定浏览器实例中当前加载页面的 Cookie。此操作极其敏感，可能包含用户登录凭证，必须说明调用意图。`
+    return `获取指定浏览器实例中当前加载页面的 Cookie。此操作极其敏感，可能包含管理员登录凭证，必须说明调用意图。`
   }
 }

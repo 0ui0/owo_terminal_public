@@ -53,9 +53,9 @@ const isUserTurnTrigger = (chat) => {
   return true
 }
 
-// 通信角色：优先标准契约 role，其次兼容旧的 group 字段
+// 通信角色：严格按系统标准读取 chat.ask.role，缺失时根据 group 分类兼容
 const getMsgRole = (chat) => {
-  const role = chat?.ask?.role || chat?.role
+  const role = chat?.ask?.role
   if (role) return role
   if (chat?.group === "user") return "user"
   if (chat?.group === "agent") return "assistant"

@@ -1,5 +1,6 @@
 import Box from "../box.js"
 import getColor from "../getColor.js"
+import getSize from "../getSize.js"
 import getAppIconUrl from "../getAppIconUrl.js"
 import Notice from "../notice.js"
 import openControlPanel from "./openControlPanel.js"
@@ -128,13 +129,15 @@ export default function () {
         style: {
           touchAction: "none",
           background: getColor('main').back,
-          borderRadius: "20px",
+          borderRadius: `${getSize(8)}rem`,
           opacity: attrs.isActiveWindow === false ? 0.8 : 1,
           transition: "opacity 0.3s",
           display: "inline-flex",
           alignItems: "center",
           flexShrink: 0,
           userSelect: "none",
+          // 包裹 macOS 原生红绿灯：胶囊高必须 = 红绿灯容器高 20px + 上下内距 3px×2 = 26px，
+          // 属平台物理尺寸组合，不参与栅格化，否则原生红绿灯会溢出胶囊
           padding: "3px 6px 3px 4px",
           height: "26px",
           boxSizing: "border-box",
@@ -142,7 +145,7 @@ export default function () {
           top: "0px",
           left: "0px",
           zIndex: 10,
-          boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
+          boxShadow: `0 ${getSize(0.5)}rem ${getSize(2)}rem rgba(0,0,0,0.15)`,
           "-webkit-app-region": isHostWindow ? "drag" : "no-drag"
         },
         onpointerdown: (e) => handleCapsuleDown(e, win, attrs, isHostWindow)
@@ -150,10 +153,11 @@ export default function () {
         // 左侧：包裹 macOS 原生红绿灯（严格固定 px 物理尺寸）
         (isHostWindow && /macintosh|mac os x/i.test(navigator.userAgent)) ? m("", {
           style: {
+            // 宽高与右距严格跟随 macOS 原生红绿灯物理尺寸，保留 px
             width: "70px",
             height: "20px",
             background: "#00000033",
-            borderRadius: "20px",
+            borderRadius: `${getSize(8)}rem`,
             marginRight: "6px",
             flexShrink: 0,
             pointerEvents: "none"
@@ -167,13 +171,13 @@ export default function () {
           style: {
             background: "rgba(0,0,0,0.15)",
             color: getColor('gray_8').front,
-            borderRadius: "14px",
+            borderRadius: `${getSize(4)}rem`,
             display: "inline-flex",
             alignItems: "center",
             justifyContent: "center",
-            padding: "0 6px",
-            height: "20px",
-            gap: "3px",
+            padding: `0 ${getSize(2)}rem`,
+            height: `${getSize(5)}rem`,
+            gap: `${getSize(1)}rem`,
             cursor: "pointer",
             userSelect: "none",
             flexShrink: 0,
@@ -189,7 +193,7 @@ export default function () {
               display: "inline-flex",
               alignItems: "center",
               justifyContent: "center",
-              fontSize: "12px",
+              fontSize: `${getSize(3)}rem`,
               lineHeight: 1
             }
           }, [
@@ -197,14 +201,14 @@ export default function () {
               src: getAppIconUrl(activeTab.appType, activeTab.icon),
               onerror: (ev) => { ev.target.src = "/statics/navbar/program.svg" },
               style: {
-                width: "12px",
-                height: "12px",
+                width: `${getSize(3)}rem`,
+                height: `${getSize(3)}rem`,
                 borderRadius: "22%",
                 flexShrink: 0,
                 objectFit: "contain",
                 pointerEvents: "none"
               }
-            }) : m.trust((typeof iconPark !== 'undefined' ? iconPark : window.iconPark)?.getIcon("More", { size: "12px", fill: getColor('gray_6').front }) || "⋯")
+            }) : m.trust((typeof iconPark !== 'undefined' ? iconPark : window.iconPark)?.getIcon("More", { size: `${getSize(3)}rem`, fill: getColor('gray_6').front }) || "⋯")
           ])
         ])
       ])

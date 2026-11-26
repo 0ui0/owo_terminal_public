@@ -10,19 +10,6 @@
 import pathLib from "path";
 import { fileURLToPath } from "url";
 import fs from "fs-extra";
-import backend from "../backend.js";
-import { qlog } from "./logger.js";
-
-// 通过 backend.js 注入 io 实例（由 backend.js 在 init 时设置 this.appManager）
-
-const options = {
-  get: async (key) => backend.app?.data?.config?.[key],
-  set: async (key, value) => {
-    if (backend.app?.data?.config) {
-      backend.app.data.config[key] = value;
-    }
-  }
-};
 
 // 已提示过的“未配置目标”集合，避免同一目标反复刷屏
 const _ignoredTargets = new Set();
@@ -34,6 +21,26 @@ const createMsg = (tag, user, msg) => {
 };
 
 export default {
+  app: null,
+  appManager: null,
+  options: null,
+
+  /**
+   * 初始化：挂载当前 App 实例与 AppManager
+   * @param {object} app - 当前 App 实例
+   * @param {object} appManager - 系统 App 管理器
+   */
+  init(app, appManager) {
+    this.app = app;
+    this.appManager = appManager;
+    this.options = app ? {
+      get: async (key) => this.app.data.config[key],
+      set: async (key, value) => {
+        this.app.data.config[key] = value;
+      }
+    } : null;
+  },
+
   /**
    * 向本地 UI 发送消息（通过注入的 io）
    */
@@ -53,15 +60,15 @@ export default {
     */
     try {
       const { meta } = ext || {};
-      const fromGroupid = meta?.d?.group_id || meta?.group_id || meta?.d?.channel_id;
+      const fromGroupid = meta?.d?.group_openid || meta?.group_id || meta?.d?.channel_id;
 
       const { default: subAgents } = await import("../../../tools/aiAsk/subAgents.js");
       const { default: chats } = await import("../../../ioServer/ioApis/chat/chats.js");
       const { default: idTool } = await import("../../../tools/idTool.js");
 
-      const groups = (await options.get("3rd_qqRobot_groups")) || [];
-      const localGroups = (await options.get("3rd_qqRobotLocal_groups")) || [];
-      const channels = (await options.get("3rd_qqRobot_channels")) || [];
+      const groups = (await this.options.get("3rd_qqRobot_groups")) || [];
+      const localGroups = (await this.options.get("3rd_qqRobotLocal_groups")) || [];
+      const channels = (await this.options.get("3rd_qqRobot_channels")) || [];
       const allGroups = [...groups, ...localGroups, ...channels];
       const groupConfig = allGroups.find(g => String(g.groupid || g.channelid) === String(fromGroupid));
 
@@ -75,7 +82,10 @@ export default {
       else if (!ext?.listId) {
         if (!_ignoredTargets.has(String(fromGroupid))) {
           _ignoredTargets.add(String(fromGroupid));
-          qlog(`[qqBot/msgCenter] 目标未配置或子智能体未就绪，已忽略该目标的消息 (from: ${fromGroupid})`, "info");
+          this.appManager.dispatch(this.app.id, "log", {
+            text: `[qqBot/msgCenter] 目标未配置或子智能体未就绪，已忽略该目标的消息 (from: ${fromGroupid})`,
+            level: "info"
+          });
         }
         return;
       }
@@ -101,17 +111,19 @@ export default {
         // "chat"      —— 消息实体推送：把完整 chat 对象推给前端，是“前端事实收到消息”的接口，供未来实时消费/流式渲染等使用
         // "chat:push" —— 列表刷新指令：只携带 listId，前端收到后清页 + 重新 pull + 滚到底
         // 注意：chat:push 不携带消息内容，只发它前端不会新增消息
-        if (backend.appManager?.io) {
-          backend.appManager.io.emit("chat", chat);
-          backend.appManager.io.emit("chat:push", { listId });
-        }
+        this.appManager.io.emit("chat", chat);
+        this.appManager.io.emit("chat:push", { listId });
       }
       else {
         //console.log("[qqBot/msgCenter] localSend 失败:找不到消息对应的本地智能体", { tag, user, msg, ext })
       }
 
     } catch (innerErr) {
-      qlog(`[qqBot/msgCenter] localSend 失败: ${innerErr?.message || innerErr}`, "error");
+      console.error(`[qqBot/msgCenter] localSend 失败: ${innerErr?.message || innerErr}`);
+      this.appManager.dispatch(this.app.id, "log", {
+        text: `[qqBot/msgCenter] localSend 失败: ${innerErr?.message || innerErr}`,
+        level: "error"
+      });
     }
   },
 
@@ -121,12 +133,17 @@ export default {
   qqUserSend: async function (uid, tag, user, msg, ext) {
     try {
       const qqBotOnline = (await import("./qqBotOnline.js")).default;
-      const qqRobotSwitch = await options.get("3rd_qqRobot_switch");
+      const qqRobotSwitch = await this.options.get("3rd_qqRobot_switch");
       if (qqRobotSwitch) {
-        await qqBotOnline.msgUser(uid, 0, createMsg(tag, user, msg), ext);
+        //await qqBotOnline.msgUser(uid, 0, createMsg(tag, user, msg), ext);
+        await qqBotOnline.wsMsgUser(uid, 0, createMsg(tag, user, msg), ext);
       }
     } catch (err) {
-      qlog(`[qqBot/msgCenter] qqUserSend 错误: ${err.message}`, "error");
+      console.error(`[qqBot/msgCenter] qqUserSend 错误: ${err.message}`);
+      this.appManager.dispatch(this.app.id, "log", {
+        text: `[qqBot/msgCenter] qqUserSend 错误: ${err.message}`,
+        level: "error"
+      });
     }
   },
 
@@ -136,7 +153,7 @@ export default {
   qqLocalUserSend: async function (uid, tag, user, msg, ext) {
     try {
       const qqWsServer = (await import("./qqBotServer.js")).default;
-      const localSwitch = await options.get("3rd_qqRobotLocal_switch");
+      const localSwitch = await this.options.get("3rd_qqRobotLocal_switch");
       if (localSwitch && qqWsServer.ws) {
         qqWsServer.ws.send(JSON.stringify({
           action: "send_private_msg",
@@ -149,7 +166,11 @@ export default {
         }));
       }
     } catch (err) {
-      qlog(`[qqBot/msgCenter] qqLocalUserSend 错误: ${err.message}`, "error");
+      console.error(`[qqBot/msgCenter] qqLocalUserSend 错误: ${err.message}`);
+      this.appManager.dispatch(this.app.id, "log", {
+        text: `[qqBot/msgCenter] qqLocalUserSend 错误: ${err.message}`,
+        level: "error"
+      });
     }
   },
 
@@ -161,18 +182,23 @@ export default {
   qqChannelGroupSend: async function (channelid, tag, user, msg, ext) {
     try {
       const qqBotOnline = (await import("./qqBotOnline.js")).default;
-      const qqRobotSwitch = await options.get("3rd_qqRobot_switch");
+      const qqRobotSwitch = await this.options.get("3rd_qqRobot_switch");
       if (qqRobotSwitch) {
-        await qqBotOnline.msgChannel(channelid, 0, createMsg(tag, user, msg), ext);
+        //await qqBotOnline.msgChannel(channelid, 0, createMsg(tag, user, msg), ext);
+        await qqBotOnline.wsMsgChannel(channelid, 0, createMsg(tag, user, msg), ext); //改用ws接口发信
       }
     } catch (err) {
-      qlog(`[qqBot/msgCenter] qqChannelSend 错误: ${err.message}`, "error");
+      console.error(`[qqBot/msgCenter] qqChannelSend 错误: ${err.message}`);
+      this.appManager.dispatch(this.app.id, "log", {
+        text: `[qqBot/msgCenter] qqChannelSend 错误: ${err.message}`,
+        level: "error"
+      });
     }
   },
 
   async localMsgSendToQqChannelGroups(tag, user, msg, ext) {
-    const qqRobotChannels = await options.get("3rd_qqRobot_channels");
-    const qqRobotReactAnyGroup = await options.get("3rd_qqRobot_reactAnyGroup");
+    const qqRobotChannels = (await this.options.get("3rd_qqRobot_channels")) || [];
+    const qqRobotReactAnyGroup = await this.options.get("3rd_qqRobot_reactAnyGroup");
     const fromChannelid = ext?.meta?.d?.channel_id;
 
     for (const channel of qqRobotChannels) {
@@ -189,12 +215,17 @@ export default {
   qqChannelUserSend: async function (guildid, tag, user, msg, ext) {
     try {
       const qqBotOnline = (await import("./qqBotOnline.js")).default;
-      const qqRobotSwitch = await options.get("3rd_qqRobot_switch");
+      const qqRobotSwitch = await this.options.get("3rd_qqRobot_switch");
       if (qqRobotSwitch) {
-        await qqBotOnline.msgChannelUser(guildid, 0, createMsg(tag, user, msg), ext);
+        //await qqBotOnline.msgChannelUser(guildid, 0, createMsg(tag, user, msg), ext);
+        await qqBotOnline.wsMsgChannelUser(guildid, 0, createMsg(tag, user, msg), ext);
       }
     } catch (err) {
-      qlog(`[qqBot/msgCenter] qqChannelUserSend 错误: ${err.message}`, "error");
+      console.error(`[qqBot/msgCenter] qqChannelUserSend 错误: ${err.message}`);
+      this.appManager.dispatch(this.app.id, "log", {
+        text: `[qqBot/msgCenter] qqChannelUserSend 错误: ${err.message}`,
+        level: "error"
+      });
     }
   },
 
@@ -204,19 +235,24 @@ export default {
   qqGroupSend: async function (groupid, tag, user, msg, ext) {
     try {
       const qqBotOnline = (await import("./qqBotOnline.js")).default;
-      const qqRobotSwitch = await options.get("3rd_qqRobot_switch");
+      const qqRobotSwitch = await this.options.get("3rd_qqRobot_switch");
       if (qqRobotSwitch) {
-        await qqBotOnline.msgGroup(groupid, 0, createMsg(tag, user, msg), ext);
+        //await qqBotOnline.msgGroup(groupid, 0, createMsg(tag, user, msg), ext);
+        await qqBotOnline.wsMsgGroup(groupid, 0, createMsg(tag, user, msg), ext);
       }
     } catch (err) {
-      qlog(`[qqBot/msgCenter] qqGroupSend 错误: ${err.message}`, "error");
+      console.error(`[qqBot/msgCenter] qqGroupSend 错误: ${err.message}`);
+      this.appManager.dispatch(this.app.id, "log", {
+        text: `[qqBot/msgCenter] qqGroupSend 错误: ${err.message}`,
+        level: "error"
+      });
     }
   },
 
   async localMsgSendToQqGroups(tag, user, msg, ext) {
-    const qqRobotGroups = await options.get("3rd_qqRobot_groups");
-    const qqRobotReactAnyGroup = await options.get("3rd_qqRobot_reactAnyGroup");
-    const fromGroupid = ext?.meta?.d?.group_id;
+    const qqRobotGroups = (await this.options.get("3rd_qqRobot_groups")) || [];
+    const qqRobotReactAnyGroup = await this.options.get("3rd_qqRobot_reactAnyGroup");
+    const fromGroupid = ext?.meta?.d?.group_openid;
 
     for (const group of qqRobotGroups) {
       if (!group.switch) continue;
@@ -234,14 +270,23 @@ export default {
   qqLocalGroupSend: async function (groupid, tag, user, msg, ext) {
     try {
       const qqWsServer = (await import("./qqBotServer.js")).default;
-      const localSwitch = await options.get("3rd_qqRobotLocal_switch");
+      const localSwitch = await this.options.get("3rd_qqRobotLocal_switch");
       if (localSwitch) {
         if (!qqWsServer.ws) {
           // HMR / 重连期间模块实例可能被重建，ws 会丢失；这里主动按配置里的地址补连一次，下一条消息即可恢复正常
-          const wsUrl = backend.app?.data?.config?.["3rd_qqRobotLocal_wsUrl"];
-          qlog(`[qqBot/msgCenter] 本地 WS 未就绪，已触发自动重连 (${wsUrl || "无地址"})，本次发送跳过`, "conn");
+          const wsUrl = await this.options.get("3rd_qqRobotLocal_wsUrl");
+          this.appManager.dispatch(this.app.id, "log", {
+            text: `[qqBot/msgCenter] 本地 WS 未就绪，已触发自动重连 (${wsUrl || "无地址"})，本次发送跳过`,
+            level: "conn"
+          });
           if (wsUrl) {
-            qqWsServer.start(wsUrl).catch(err => qlog(`[qqBot/msgCenter] 自动重连失败: ${err.message}`, "error"));
+            qqWsServer.start(wsUrl, this.app, this.appManager).catch(err => {
+              console.error(`[qqBot/msgCenter] 自动重连失败: ${err.message}`);
+              this.appManager.dispatch(this.app.id, "log", {
+                text: `[qqBot/msgCenter] 自动重连失败: ${err.message}`,
+                level: "error"
+              });
+            });
           }
           return;
         }
@@ -256,12 +301,16 @@ export default {
         }));
       }
     } catch (err) {
-      qlog(`[qqBot/msgCenter] qqLocalGroupSend 错误: ${err.message}`, "error");
+      console.error(`[qqBot/msgCenter] qqLocalGroupSend 错误: ${err.message}`);
+      this.appManager.dispatch(this.app.id, "log", {
+        text: `[qqBot/msgCenter] qqLocalGroupSend 错误: ${err.message}`,
+        level: "error"
+      });
     }
   },
 
   async localMsgSendToQqLocalGroups(tag, user, msg, ext) {
-    const localGroups = await options.get("3rd_qqRobotLocal_groups")
+    const localGroups = (await this.options.get("3rd_qqRobotLocal_groups")) || [];
 
     for (const group of localGroups) {
       if (!group.switch) continue;
@@ -275,7 +324,11 @@ export default {
 
   async privateSend(tag, user, msg, ext) {
     if (!ext?.source) {
-      qlog("[qqBot/msgCenter] privateSend 缺少 source 参数", "error");
+      console.error("[qqBot/msgCenter] privateSend 缺少 source 参数");
+      this.appManager.dispatch(this.app.id, "log", {
+        text: "[qqBot/msgCenter] privateSend 缺少 source 参数",
+        level: "error"
+      });
       return;
     }
     if (ext.source === "qqOnline/private") {
@@ -305,7 +358,11 @@ export default {
    */
   allSend_noUse: async function (tag, user, msg, ext) {
     if (!ext?.source) {
-      qlog("[qqBot/msgCenter] allSend_noUse 缺少 source 参数", "error");
+      console.error("[qqBot/msgCenter] allSend_noUse 缺少 source 参数");
+      this.appManager.dispatch(this.app.id, "log", {
+        text: "[qqBot/msgCenter] allSend_noUse 缺少 source 参数",
+        level: "error"
+      });
       return;
     }
     await this.privateSend(tag, user, msg, ext);
@@ -338,9 +395,11 @@ export default {
 
       //本地智能体列表消息发到对应群，根据ext.listId查找
       if (source === "local") {
+        //本地机器人
         await this.localMsgSendToQqLocalGroups("宅喵终端消息", user, msg, ext);
+        //官方机器人 
         await this.localMsgSendToQqChannelGroups("宅喵终端消息", user, msg, ext);
-        //await this.localMsgSendToQqGroups("宅喵终端消息", user, msg, ext);
+        await this.localMsgSendToQqGroups("宅喵终端消息", user, msg, ext);
       }
 
       //群组消息发到对应的本地智能体列表，根据群号查找
@@ -372,11 +431,19 @@ export default {
             }
           }
         } catch (cmdErr) {
-          qlog(`[qqBot/msgCenter] 命令 ${file} 执行失败: ${cmdErr?.message || cmdErr}`, "error");
+          console.error(`[qqBot/msgCenter] 命令 ${file} 执行失败: ${cmdErr?.message || cmdErr}`);
+          this.appManager.dispatch(this.app.id, "log", {
+            text: `[qqBot/msgCenter] 命令 ${file} 执行失败: ${cmdErr?.message || cmdErr}`,
+            level: "error"
+          });
         }
       }
     } catch (err) {
-      qlog(`[qqBot/msgCenter] send 错误: ${err.message}`, "error");
+      console.error(`[qqBot/msgCenter] send 错误: ${err.message}`);
+      this.appManager.dispatch(this.app.id, "log", {
+        text: `[qqBot/msgCenter] send 错误: ${err.message}`,
+        level: "error"
+      });
     }
   }
 };

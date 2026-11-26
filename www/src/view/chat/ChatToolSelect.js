@@ -2,6 +2,7 @@ import m from "/@npm/mithril.js"
 import Box from "../common/box.js"
 import Tag from "../common/tag.js"
 import getColor from "../common/getColor.js"
+import getSize from "../common/getSize.js"
 import { trs } from "../common/i18n.js"
 import Notice from "../common/notice.js"
 
@@ -32,11 +33,11 @@ export default () => {
           style: {
             display: "flex",
             flexDirection: "column",
-            gap: "1.2rem",
-            padding: "1rem",
+            gap: `${getSize(3)}rem`,
+            padding: `${getSize(3)}rem`,
             color: getColor("gray_1").front,
             width: "100%",
-            maxWidth: "48rem",
+            maxWidth: `${getSize(120)}rem`,
             boxSizing: "border-box"
           }
         },
@@ -48,10 +49,10 @@ export default () => {
               tagName: "input[type=text]",
               color: "gray_4",
               style: {
-                borderRadius: "3rem",
+                borderRadius: `${getSize(8)}rem`,
                 margin: "0",
-                padding: "1rem 1.5rem",
-                fontSize: "1.5rem",
+                padding: `${getSize(3)}rem ${getSize(4)}rem`,
+                fontSize: `${getSize(4)}rem`,
                 outline: "none",
                 border: "none",
                 width: "100%",
@@ -76,7 +77,8 @@ export default () => {
                 style: {
                   display: "flex",
                   alignItems: "center",
-                  flexWrap: "wrap"
+                  flexWrap: "wrap",
+                  gap: `${getSize(2)}rem`
                 }
               },
               [
@@ -85,6 +87,9 @@ export default () => {
                   {
                     isBtn: true,
                     color: "yellow_1",
+                    styleExt: {
+                      margin: "0"
+                    },
                     ext: {
                       onclick: () => {
                         onSetAll(allTools.map(tool => tool.id || tool))
@@ -101,6 +106,9 @@ export default () => {
                   {
                     isBtn: true,
                     color: "pink_1",
+                    styleExt: {
+                      margin: "0"
+                    },
                     ext: {
                       onclick: () => {
                         onSetAll([])
@@ -137,7 +145,7 @@ export default () => {
                       display: "flex",
                       flexWrap: "wrap",
                       width: "100%",
-                      maxHeight: chipsExpanded ? "none" : "7.2rem",
+                      maxHeight: chipsExpanded ? "none" : `${getSize(18)}rem`,
                       overflow: "hidden"
                     }
                   },
@@ -152,7 +160,7 @@ export default () => {
                         styleExt: {
                           display: "inline-flex",
                           alignItems: "center",
-                          gap: "0.4rem"
+                          gap: `${getSize(1)}rem`
                         }
                       },
                       [
@@ -183,7 +191,7 @@ export default () => {
                             }
                           },
                           m.trust(window.iconPark.getIcon("CloseSmall", {
-                            size: "12px",
+                            size: `${getSize(3)}rem`,
                             fill: getColor("main").front
                           }))
                         )
@@ -220,7 +228,7 @@ export default () => {
               style: {
                 display: "flex",
                 flexDirection: "column",
-                gap: "0.8rem"
+                gap: `${getSize(2)}rem`
               }
             },
             filteredTools.length === 0
@@ -229,9 +237,9 @@ export default () => {
                 {
                   key: "empty_search",
                   style: {
-                    padding: "2rem",
+                    padding: `${getSize(5)}rem`,
                     textAlign: "center",
-                    fontSize: "1.2rem",
+                    fontSize: `${getSize(3)}rem`,
                     opacity: 0.6
                   }
                 },
@@ -251,14 +259,14 @@ export default () => {
                     color: isSelected ? "yellow_1" : "gray_4",
                     isBtn: true,
                     style: {
-                      borderRadius: "3rem",
+                      borderRadius: `${getSize(8)}rem`,
                       margin: "0",
-                      padding: "1rem 1.5rem",
+                      padding: `${getSize(3)}rem ${getSize(4)}rem`,
                       display: "flex",
                       justifyContent: "space-between",
                       alignItems: "center",
                       cursor: "pointer",
-                      transition: "all 0.15s ease"
+                      transition: "all 0.2s ease"
                     },
                     ext: {
                       onclick: () => {
@@ -275,9 +283,9 @@ export default () => {
                         style: {
                           display: "flex",
                           flexDirection: "column",
-                          gap: "0.3rem",
+                          gap: `${getSize(1)}rem`,
                           flex: 1,
-                          marginRight: "1rem"
+                          marginRight: `${getSize(3)}rem`
                         }
                       },
                       [
@@ -285,7 +293,7 @@ export default () => {
                           "span",
                           {
                             style: {
-                              fontSize: "1.5rem"
+                              fontSize: `${getSize(4)}rem`
                             }
                           },
                           toolName
@@ -294,7 +302,7 @@ export default () => {
                           "span",
                           {
                             style: {
-                              fontSize: "1.2rem",
+                              fontSize: `${getSize(3)}rem`,
                               opacity: 0.6,
                               fontFamily: "monospace"
                             }
@@ -310,7 +318,7 @@ export default () => {
                         style: {
                           display: "flex",
                           alignItems: "center",
-                          gap: "0.5rem"
+                          gap: `${getSize(1)}rem`
                         }
                       },
                       [

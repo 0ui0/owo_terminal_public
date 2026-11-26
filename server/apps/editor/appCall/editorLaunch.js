@@ -21,10 +21,10 @@ export default {
     const { filePath, content, line, singleInstance, args } = value
     const listId = metaData?.listId
 
-    // 工作目录校验：与 fileOpener 等工具保持一致，工作目录外访问需用户确认
+    // 工作目录校验：与 fileOpener 等工具保持一致，工作目录外访问需管理员确认
     const mainDir = workDirTool.getMainWorkDir(listId)
     if (!mainDir && !pathLib.isAbsolute(filePath)) {
-      return "错误：当前会话未设置工作目录。请先要求用户配置工作目录，或者在使用工具时提供绝对路径。"
+      return "错误：当前会话未设置工作目录。请先要求管理员配置工作目录，或者在使用工具时提供绝对路径。"
     }
     const resolvedPath = pathLib.isAbsolute(filePath) ? filePath : pathLib.resolve(mainDir, filePath)
 
@@ -43,10 +43,10 @@ export default {
         }
       })
       if (!userConfirm.ok) {
-        return `用户拒绝在工作目录外打开文件：${resolvedPath}。原因：${userConfirm.comment || "未提供"}`
+        return `管理员拒绝在工作目录外打开文件：${resolvedPath}。原因：${userConfirm.comment || "未提供"}`
       }
       if (userConfirm.comment) {
-        commentSuffix = `。用户备注：${userConfirm.comment}`
+        commentSuffix = `。管理员备注：${userConfirm.comment}`
       }
     }
 

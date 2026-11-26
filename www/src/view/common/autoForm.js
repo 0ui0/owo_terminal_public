@@ -3,6 +3,7 @@ import Tag from "./tag.js";
 import Notice from "./notice.js";
 import lodash from "/@npm/lodash.js";
 import RefinedText from "./RefinedText.js";
+import getSize from "./getSize.js";
 
 /*
 要注意区分当前条目和子条目的 attrs.dataObj[attrs.dataName]
@@ -27,7 +28,7 @@ AutoForm = function() {
             display: ["[object Array]",
         "[object Object]"].indexOf(nodeType) !== -1 ? "grid" : void 0,
             gridTemplateColumns: "auto 1fr",
-            borderRadius: "1rem"
+            borderRadius: `${getSize(3)}rem`
           }
         },
         [
@@ -42,12 +43,12 @@ AutoForm = function() {
                     {
                       color: "brown",
                       style: {
-                        minWidth: "2.5rem",
+                        minWidth: `${getSize(7)}rem`,
                         textAlign: "center",
-                        padding: "0.4rem 0.8rem",
-                        borderRadius: "0.6rem",
-                        margin: "0.2rem 0.5rem",
-                        fontSize: "0.9rem"
+                        padding: `${getSize(1)}rem ${getSize(2)}rem`,
+                        borderRadius: `${getSize(2)}rem`,
+                        margin: `${getSize(0.5)}rem ${getSize(1)}rem`,
+                        fontSize: `${getSize(2)}rem`
                       }
                     },
                     key),
@@ -59,8 +60,8 @@ AutoForm = function() {
                           isBtn: true,
                           color: "sliver",
                           styleExt: {
-                            margin: "0.2rem 0.5rem",
-                            fontSize: "0.85rem",
+                            margin: `${getSize(0.5)}rem ${getSize(1)}rem`,
+                            fontSize: `${getSize(2)}rem`,
                             opacity: "0.8"
                           },
                           onclick: () => {
@@ -75,7 +76,7 @@ AutoForm = function() {
                           m("span",
                           {
                             style: {
-                              marginLeft: "4px"
+                              marginLeft: `${getSize(1)}rem`
                             }
                           },
                           showArr[key] ? "收起" : "展开")
@@ -83,8 +84,8 @@ AutoForm = function() {
                         showArr[key] ? m("div",
                         {
                           style: {
-                            marginTop: "0.5rem",
-                            marginBottom: "1rem"
+                            marginTop: `${getSize(1)}rem`,
+                            marginBottom: `${getSize(3)}rem`
                           }
                         },
                         [
@@ -280,7 +281,7 @@ AutoForm = function() {
             m("span",
             {
               style: {
-                marginLeft: "4px"
+                marginLeft: `${getSize(1)}rem`
               }
             },
             "新增条目")
@@ -301,7 +302,7 @@ AutoForm = function() {
             m("span",
             {
               style: {
-                marginLeft: "4px"
+                marginLeft: `${getSize(1)}rem`
               }
             },
             "复制")
@@ -337,7 +338,7 @@ AutoForm = function() {
             m("span",
             {
               style: {
-                marginLeft: "4px"
+                marginLeft: `${getSize(1)}rem`
               }
             },
             "删除本组")

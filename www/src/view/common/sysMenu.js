@@ -1,6 +1,7 @@
 import m from "/@npm/mithril.js"
 import Box from "./box.js"
 import getColor from "./getColor.js"
+import getSize from "./getSize.js"
 
 export default () => {
   return {
@@ -11,7 +12,7 @@ export default () => {
           style: {
             display: "flex",
             flexDirection: "column",
-            padding: "0.5rem"
+            padding: `${getSize(1)}rem`
           }
         },
         items.map((item, idx) => {
@@ -21,9 +22,9 @@ export default () => {
               {
                 key: "sep_" + idx,
                 style: {
-                  height: "1px",
+                  height: `${getSize(0.25)}rem`,
                   background: "rgba(128, 128, 128, 0.2)",
-                  margin: "0.4rem 0"
+                  margin: `${getSize(1)}rem 0`
                 }
               }
             )
@@ -33,15 +34,15 @@ export default () => {
             {
               key: item.id || item.name || ("item_" + idx),
               style: {
-                padding: "0.8rem 1.0rem",
-                margin: "0.1rem 0",
+                padding: `${getSize(2)}rem ${getSize(3)}rem`,
+                margin: `${getSize(0.25)}rem 0`,
                 textAlign: "left",
                 display: "flex",
                 justifyContent: "space-between",
                 alignItems: "center",
-                borderRadius: "1.0rem",
+                borderRadius: `${getSize(3)}rem`,
                 background: "transparent",
-                fontSize: "1.3rem",
+                fontSize: `${getSize(3)}rem`,
                 cursor: "pointer",
                 userSelect: "none",
                 transition: "background 0.15s ease"
@@ -65,8 +66,8 @@ export default () => {
                 {
                   style: {
                     opacity: 0.5,
-                    fontSize: "1.2rem",
-                    marginLeft: "1.0rem",
+                    fontSize: `${getSize(3)}rem`,
+                    marginLeft: `${getSize(3)}rem`,
                     float: "right",
                     fontFamily: "monospace"
                   }

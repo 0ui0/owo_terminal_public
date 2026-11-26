@@ -65,10 +65,10 @@ export default {
     })
 
     const userConfirm = await confirmPromise
-    if (!userConfirm.ok) return `用户拒绝了修改。备注：${userConfirm.comment || "无"}`
+    if (!userConfirm.ok) return `管理员拒绝了修改。备注：${userConfirm.comment || "无"}`
 
     // 【关键重构】由工具负责最终落盘
-    let commentSuffix = userConfirm.comment ? `。用户备注：${userConfirm.comment}` : ""
+    let commentSuffix = userConfirm.comment ? `。管理员备注：${userConfirm.comment}` : ""
     if (filePath) {
       await fs.writeFile(filePath, proposedContent, "utf-8")
 
@@ -81,7 +81,7 @@ export default {
         endLine: 0
       })
 
-      // 同时更新编辑器内存状态与 mtime，防止用户后续保存误报外部修改
+      // 同时更新编辑器内存状态与 mtime，防止管理员后续保存误报外部修改
       await appManager.dispatch(appId, "acceptDiff", { proposedContent })
 
       return `修改已成功应用并保存到 ${filePath}${commentSuffix}。`
@@ -103,6 +103,6 @@ export default {
   },
 
   getDoc() {
-    return `对编辑器内容进行修改。支持全文覆盖或局部 Patch，修改后会弹出确认框供用户核对。`
+    return `对编辑器内容进行修改。支持全文覆盖或局部 Patch，修改后会弹出确认框供管理员核对。`
   }
 }

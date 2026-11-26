@@ -1,14 +1,26 @@
 export default {
   view: (vnode) => {
-    const { m, Box, getColor, isValidPath, hash, relPath, files, history, selected, isSelecting, selectStart, selectEnd, rootName, repoPath, iconPark, onContextMenu, onPointerDown, onFileDragStart, onSnapshotDragStart, onOpen, onSelect, trs } = vnode.attrs;
+    const { m, Box, getColor, getSize, isValidPath, hash, relPath, files, history, selected, isSelecting, selectStart, selectEnd, rootName, repoPath, iconPark, onContextMenu, onPointerDown, onFileDragStart, onSnapshotDragStart, onOpen, onSelect, trs } = vnode.attrs;
+
+    // 文件类型图标来源：与资源管理器 App 同一套 SVG 资源（已复制到本 App icons/ 目录）
+    const getFileIconSrc = (name) => {
+      if (name.endsWith("/")) return "/api/apps/owoTimeMachine/icons/folder.svg"
+      const extStr = name.split(".").pop().toLowerCase()
+      if (["js", "json", "css", "html", "coffee", "ts", "mjs"].includes(extStr)) return "/api/apps/owoTimeMachine/icons/file_code.svg"
+      if (["md", "txt", "log", "owo"].includes(extStr)) return "/api/apps/owoTimeMachine/icons/file_text.svg"
+      if (["png", "jpg", "jpeg", "gif", "svg", "ico", "icns", "webp"].includes(extStr)) return "/api/apps/owoTimeMachine/icons/file_image.svg"
+      if (["mp4", "mp3", "wav", "avi", "mov", "flac"].includes(extStr)) return "/api/apps/owoTimeMachine/icons/file_media.svg"
+      return "/api/apps/owoTimeMachine/icons/file_default.svg"
+    }
+
     return m("",
       {
         style: {
           flex: 1,
           display: "flex",
           flexWrap: "wrap",
-          gap: "1.2rem",
-          padding: "1.2rem",
+          gap: `${getSize(3)}rem`,
+          padding: `${getSize(3)}rem`,
           overflowY: "auto",
           alignContent: "flex-start",
           background: getColor('gray_4').back,
@@ -37,7 +49,7 @@ export default {
                 width: Math.abs(selectEnd.x - selectStart.x) + "px",
                 height: Math.abs(selectEnd.y - selectStart.y) + "px",
                 background: getColor('main').back + '33',
-                border: `0.1rem solid ${getColor('main').front}`,
+                border: `${getSize(0.25)}rem solid ${getColor('main').front}`,
                 pointerEvents: "none",
                 zIndex: 10
               }
@@ -53,12 +65,21 @@ export default {
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                opacity: 0.2,
+                opacity: 0.55,
                 flexDirection: "column"
               }
             },
             [
-              m("", { style: { fontSize: "4rem", marginBottom: "1rem" } }, "🪐"),
+              m("", {
+                style: {
+                  display: "flex",
+                  justifyContent: "center",
+                  marginBottom: `${getSize(2.5)}rem`
+                }
+              }, m.trust(iconPark.getIcon("Planet", {
+                size: `${getSize(12)}rem`,
+                fill: getColor("gray_4").front
+              }))),
               m("", trs("时光机/内容区/尚未配置有效的工作路径", { cn: "尚未配置有效的工作路径", en: "No valid working path configured" }))
             ]) :
           (!hash ?
@@ -70,44 +91,67 @@ export default {
                   "data-name": item.hash,
                   draggable: true,
                   style: {
-                    width: "11rem",
-                    padding: "1rem 0.5rem",
+                    width: `${getSize(24)}rem`,
+                    padding: `${getSize(2)}rem ${getSize(1)}rem`,
                     textAlign: "center",
                     cursor: "pointer",
-                    borderRadius: "0.8rem",
-                    color: getColor('gray_4').front,
-                    background: selected.has(item.hash) ? getColor('main').back + '44' : "transparent",
-                    border: selected.has(item.hash) ? `0.1rem solid ${getColor('main').front}` : "0.1rem solid transparent",
-                    transition: "all 0.2s",
+                    borderRadius: `${getSize(8)}rem`,
+                    color: selected.has(item.hash) ? getColor("main").front : getColor('gray_4').front,
+                    background: selected.has(item.hash) ? getColor('main').back : "transparent",
+                    border: `${getSize(0.25)}rem solid ${selected.has(item.hash) ? getColor('main').back : 'transparent'}`,
+                    transition: "background 0.2s",
                     userSelect: "none",
-                    position: "relative"
+                    position: "relative",
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    gap: `${getSize(1)}rem`
                   },
                   ondragstart: (e) => {
                     return onSnapshotDragStart(e, item);
                   }
                 },
                 [
-                  m("", { style: { fontSize: "3rem", marginBottom: "0.6rem" } }, "📦"),
+                  m("", {
+                    style: {
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      height: `${getSize(10)}rem`,
+                      flexShrink: 0,
+                      pointerEvents: "none"
+                    }
+                  }, m.trust(iconPark.getIcon("History", {
+                    size: `${getSize(8)}rem`,
+                    fill: selected.has(item.hash) ? getColor("main").front : getColor("main").back
+                  }))),
                   m("",
                     {
                       style: {
-                        fontSize: "0.8rem",
-                        opacity: 0.5,
-                        marginBottom: "0.4rem"
+                        fontSize: `${getSize(3)}rem`,
+                        lineHeight: `${getSize(4)}rem`,
+                        height: `${getSize(8)}rem`,
+                        opacity: 0.65,
+                        overflow: "hidden",
+                        display: "-webkit-box",
+                        "-webkit-line-clamp": "2",
+                        "-webkit-box-orient": "vertical",
+                        pointerEvents: "none"
                       }
                     },
                     item.msg || "无备注"),
                   m("",
                     {
                       style: {
+                        fontSize: `${getSize(3)}rem`,
+                        lineHeight: `${getSize(4)}rem`,
+                        height: `${getSize(8)}rem`,
                         opacity: 0.8,
                         overflow: "hidden",
-                        textOverflow: "ellipsis",
                         display: "-webkit-box",
                         "-webkit-line-clamp": "2",
                         "-webkit-box-orient": "vertical",
-                        pointerEvents: "none",
-                        fontWeight: "bold"
+                        pointerEvents: "none"
                       }
                     },
                     rootName)
@@ -121,17 +165,21 @@ export default {
                   "data-name": file.name,
                   draggable: true,
                   style: {
-                    width: "9rem",
-                    padding: "0.8rem 0.4rem",
+                    width: `${getSize(24)}rem`,
+                    padding: `${getSize(2)}rem ${getSize(1)}rem`,
                     textAlign: "center",
                     cursor: "pointer",
-                    borderRadius: "0.8rem",
-                    color: getColor('gray_4').front,
-                    background: selected.has(file.name) ? getColor('main').back + '44' : "transparent",
-                    border: selected.has(file.name) ? `0.1rem solid ${getColor('main').front}` : "0.1rem solid transparent",
+                    borderRadius: `${getSize(8)}rem`,
+                    color: selected.has(file.name) ? getColor("main").front : getColor('gray_4').front,
+                    background: selected.has(file.name) ? getColor('main').back : "transparent",
+                    border: `${getSize(0.25)}rem solid ${selected.has(file.name) ? getColor('main').back : 'transparent'}`,
                     transition: "background 0.2s",
                     userSelect: "none",
-                    position: "relative"
+                    position: "relative",
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    gap: `${getSize(1)}rem`
                   },
                   ondragstart: (e) => {
                     return onFileDragStart(e, file);
@@ -142,25 +190,33 @@ export default {
                   m("",
                     {
                       style: {
-                        fontSize: "2.2rem",
-                        marginBottom: "0.6rem",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        height: `${getSize(10)}rem`,
+                        marginBottom: `${getSize(1)}rem`,
+                        flexShrink: 0,
                         pointerEvents: "none"
                       }
                     },
-                    file.name.endsWith('/') ? "📁" : (
-                      (ext) => {
-                        return {
-                          "js": "📜", "json": "⚙️", "md": "📝", "txt": "📄", "html": "🌐",
-                          "css": "🎨", "png": "🖼️", "jpg": "🖼️", "mp4": "🎬", "mp3": "🎵"
-                        }[ext] || "📃";
+                    m("img", {
+                      src: getFileIconSrc(file.name),
+                      style: {
+                        width: `${getSize(8)}rem`,
+                        height: `${getSize(8)}rem`,
+                        objectFit: "contain",
+                        display: "block",
+                        transform: file.name.endsWith("/") ? "scale(0.86)" : "none"
                       }
-                    )(file.name.split('.').pop().toLowerCase())),
+                    })),
                   m("",
                     {
                       style: {
+                        fontSize: `${getSize(3)}rem`,
+                        lineHeight: `${getSize(4)}rem`,
+                        height: `${getSize(8)}rem`,
                         opacity: 0.8,
                         overflow: "hidden",
-                        textOverflow: "ellipsis",
                         display: "-webkit-box",
                         "-webkit-line-clamp": "2",
                         "-webkit-box-orient": "vertical",

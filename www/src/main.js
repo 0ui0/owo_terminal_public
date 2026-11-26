@@ -1,8 +1,9 @@
 import mithril from "/@npm/mithril.js"
 window.m = mithril
 window.Mob = false
-
+import Css from "./view/css/Css.js"
 import Chat from "./view/chat/Chat.js"
+import Desktop from "./view/desktop/Desktop.js"
 import Layout from "./view/layout/Layout.js"
 import Browser from "./view/browser/Browser.js"
 import TitleBar from "./view/common/TitleBar.js"
@@ -89,28 +90,51 @@ window.Notice = Notice
 
 
     let Run = function () {
-      return {
-        oncreate({ attrs }) {
-          Notice.launch({
-            tip: "宅喵终端",
-            isWindow: true,
-            titleBar: TitleBar,
-            hideBtn: 2,
-            useMaximize: true,
-            content() {
-              return {
-                view() {
-                  return m(Layout, [
-                    m(attrs.content, attrs.noticeConfig?.contentAttrs)
-                  ])
-                }
+      let route = ""
+      let win = null
+
+      let launchWindow = async (attrs)=>{
+        if(win && win._winConfig){
+          win.isWindow = false
+          win.isMain = false
+          win._winConfig.activeSign = m.route.get()
+        }
+        win = await Notice.launch({
+          sign: m.route.get(),
+          group: "main_system_group",
+          tip: "喵",
+          isWindow: true,
+          titleBar: TitleBar,
+          hideBtn: 2,
+          useMaximize: true,
+          content() {
+            return {
+              view() {
+                return m(Layout, [
+                  m(attrs.content, attrs.noticeConfig?.contentAttrs)
+                ])
               }
-            },
-            ...attrs.noticeConfig,
-          })
-        },
+            }
+          },
+          ...attrs.noticeConfig,
+        })
+        console.log(1111,win)
+        if (!sessionStorage.getItem("owo_welcome_launched")) {
+          sessionStorage.setItem("owo_welcome_launched", "1")
+          settingData.fnCall("appLaunch", ["welcome", { data: { group: "" } }]).catch(err => console.error("[main] 启动欢迎页失败:", err))
+        }
+      }
+
+      return {
         view({ attrs, children }) {
+          if(route !== m.route.get()){
+            setTimeout(()=>{
+              launchWindow(attrs)
+            })
+            route = m.route.get()
+          }
           return [
+            m(Css),
             m(Notice),
             // 导航栏必须与 Notice 层「平级」渲染：
             // Notice 容器固定为 zIndex:999999，而主窗口 .window-box 是 position:fixed + zIndex:0（自成层叠上下文），
@@ -133,11 +157,14 @@ window.Notice = Notice
             return tab._winConfig.id === winId
           })
 
-          tabs.forEach(tab => {
-            if(!tab.__initChildWin){
-              tab.__initChildWin = true
+          tabs.forEach((tab,index) => {              
+            tab = JSON.parse(JSON.stringify(tab)) //克隆成普通扁平参数
+            tab.__initChildWin = true 
+            tab.useWebWindowOpen = false //已经是子窗口了，本次notice不要在判定了
+            delete tab.titleBar //清理原有标题栏对象
+            tabs[index] = tab
 
-              const saveContent = tab.content
+            /*  const saveContent = tab.content
               tab.content = function(){
                 return {
                   view() {
@@ -146,8 +173,8 @@ window.Notice = Notice
                     ])
                   }
                 }
-              }
-            }
+              } */
+            
             Notice.launch(tab)
           })
         },
@@ -155,6 +182,7 @@ window.Notice = Notice
           const isMini = tabs.some(t => t.isMini)
           const useFloatBall = tabs.some(t => t.useFloatBall)
           return [
+            m(Css),
             m(Notice),
             m(Nav, { isMini, useFloatBall })
             // 导航栏必须与 Notice 层「平级」渲染：
@@ -179,6 +207,21 @@ window.Notice = Notice
               showNav: true,
               noticeConfig: {
                 isMain: true,
+                tip:"喵终端",
+              }
+            })
+          ]
+        }
+      },
+      "/desktop": {
+        render(v) {
+          return [
+            m(Run, {
+              content: Desktop,
+              showNav: true,
+              noticeConfig: {
+                isMain: true,
+                tip:"桌面",
               }
             })
           ]

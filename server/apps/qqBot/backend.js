@@ -3,8 +3,6 @@
 import msgCenter from './lib/botMsgCenter.js'
 import onebot from './lib/qqBotServer.js'
 import official from './lib/qqBotOnline.js'
-import { qlog, getLogs, clearLogs } from './lib/logger.js'
-import { pulseMeta, pulseGroups } from './lib/pulseDefaults.js'
 import getToolsList from '../../crossFuncs/getToolsList.js'
 import comData from '../../comData/comData.js'
 import projectManager from "../../managers/projectManager.js"
@@ -13,6 +11,11 @@ import createAgent from "../../tools/aiAsk/sysCall/createAgent.js"
 import fs from "fs-extra"
 
 export default {
+  // [多实例注册表]：以 app.id 为 Key 独立管理每一个实例的运行时上下文与状态
+  instances: new Map(),
+  _seq: 0, // 日志自增序列号，供前端控制台增量拉取 (sinceId) 比对去重
+
+  // 兼容过渡指针（指向当前活跃实例）
   app: null,
   appManager: null,
 
@@ -20,16 +23,33 @@ export default {
    * 初始化：App 启动时执行
    */
   async init(app, appManager) {
-    // 先挂载实例引用，供 lib 模块（含日志中心）读取
     this.app = app;
     this.appManager = appManager;
+
+    // 注册到多实例池
+    this.instances.set(app.id, {
+      app,
+      appManager,
+      qrStop: null,
+      discoveredGroups: [],
+      createdAt: Date.now()
+    });
 
     // 初始化日志存储（随实例生命周期绑定，实例销毁即随 app.data 自动回收）
     if (!app.data.logs) {
       app.data.logs = [];
     }
 
-    qlog(`[qqBot] 初始化后端... AppId: ${app.id}`, "conn");
+    // 挂载消息中心实例与管理器
+    msgCenter.init(app, appManager);
+
+    this.dispatch({
+      app,
+      action: "log",
+      args: { text: `[qqBot] 初始化后端实例... AppId: ${app.id}`, level: "conn" },
+      appManager,
+      io: appManager?.io
+    });
 
     // 初始化 app.data（如果不存在）
     if (!app.data.config) {
@@ -55,7 +75,13 @@ export default {
       await this.startConnections(app, appManager);
       await this.initSubAgents(app, appManager);
     } catch (err) {
-      qlog(`[qqBot] 初始化失败: ${err.message}`, "error");
+      this.dispatch({
+        app,
+        action: "log",
+        args: { text: `[qqBot] 初始化失败: ${err.message}`, level: "error" },
+        appManager,
+        io: appManager?.io
+      });
     }
   },
 
@@ -65,20 +91,25 @@ export default {
   async startConnections(app, appManager) {
     const cfg = app.data.config;
 
-    // 只要配置了 wsUrl 就启动常驻连接，网络层始终在线保活，真正开关由消息处理层拦截
-    if (cfg["3rd_qqRobotLocal_wsUrl"]) {
+    const localSwitch = !!cfg["3rd_qqRobotLocal_switch"];
+    const officialSwitch = !!cfg["3rd_qqRobot_switch"];
+
+    // 本地 OneBot 连接（严格看开关，绝不自启）
+    if (localSwitch && cfg["3rd_qqRobotLocal_wsUrl"]) {
       await onebot.stop();
-      await onebot.start(cfg["3rd_qqRobotLocal_wsUrl"]);
+      await onebot.start(cfg["3rd_qqRobotLocal_wsUrl"], app, appManager);
+    } else {
+      await onebot.stop();
     }
 
-
-    // 启动官方机器人 API
-    if (cfg["3rd_qqRobot_switch"] && official?.init) {
-      official.init(
-        cfg["3rd_qqRobot_appid"],
-        cfg["3rd_qqRobot_secret"],
-        cfg["3rd_qqRobot_token"]
-      );
+    // 官方机器人 WebSocket 长连（严格看开关，绝不自启）
+    const appId = cfg["3rd_qqRobot_appid"];
+    const secret = cfg["3rd_qqRobot_secret"];
+    if (officialSwitch && appId && secret && official?.wsStart) {
+      await official.wsStop();
+      await official.wsStart(appId, secret, app, appManager);
+    } else {
+      if (official?.wsStop) await official.wsStop();
     }
   },
 
@@ -105,7 +136,7 @@ export default {
           if (group.listId) {
             if (seenIds.has(group.listId)) {
               const msg = `存档异常：发现重复的 listId (${group.listId})，位于 ${key}，请手动修复存档！`;
-              qlog(`[qqBot] ${msg}`, "error");
+              this.dispatch({ app, action: "log", args: { text: `[qqBot] ${msg}`, level: "error" }, appManager, io: appManager?.io });
               return { ok: false, msg };
             }
             seenIds.add(group.listId);
@@ -148,7 +179,7 @@ export default {
           你会同时收到来自不同用户的消息，当收到消息的时候，你需要伪装和模仿成一名${typeName}的普通QQ网友用户的聊天风格进行回复。
           ${typeName}消息通常简短而日常，忌讳长篇大论。且聊天应该完全口语化。你可以使用at功能来at群聊的用户。
           伪装群友的时候，需要观察群里其它人的语气风格，不要有太多出格的语言表达，像一个正常人。回复里不要谈及任何关于你的昵称和身份设定。
-          不要使用俏皮的语气说话，不要使用颜文字和字符表情
+          减少使用颜文字和字符表情（会被识别成ai），只在需要特别表达情绪的时候点缀使用
           `.trim();
           const agentPrompt = personality ? `${personality}\n\n${envInstruction}` : envInstruction;
           const result = await createAgent.fn.call(createAgent, {
@@ -168,9 +199,21 @@ export default {
             grantedToolIdListMap.set(group.listId, grantedToolIdList);
             configChanged = true;
             successCount++;
-            qlog(`[qqBot] 群 ${group.name}(${group.groupid}) 智能体已创建 (listId:${group.listId})`, "conn");
+            this.dispatch({
+              app,
+              action: "log",
+              args: { text: `[qqBot] 群 ${group.name}(${group.groupid}) 智能体已创建 (listId:${group.listId})`, level: "conn" },
+              appManager,
+              io: appManager?.io
+            });
           } else {
-            qlog(`[qqBot] 群 ${group.name} 创建失败: ${result.msg}`, "error");
+            this.dispatch({
+              app,
+              action: "log",
+              args: { text: `[qqBot] 群 ${group.name} 创建失败: ${result.msg}`, level: "error" },
+              appManager,
+              io: appManager?.io
+            });
             errorMsgs.push(`${group.name}: ${result.msg}`);
           }
         }
@@ -221,7 +264,13 @@ export default {
 
 
     } catch (err) {
-      qlog(`[qqBot] 子智能体初始化失败: ${err.message}`, "error");
+      this.dispatch({
+        app,
+        action: "log",
+        args: { text: `[qqBot] 子智能体初始化失败: ${err.message}`, level: "error" },
+        appManager,
+        io: appManager?.io
+      });
       return { ok: false, msg: "初始化异常: " + err.message };
     }
   },
@@ -236,13 +285,77 @@ export default {
        * 由于主系统（如 Socket.IO）不能直接静态 import 本模块下的 lib 文件，
        * 必须通过此 dispatch 接口作为“中转港口”，从而确保外部调用始终指向最新的 HMR 实例。
        */
+      if (action === "log") {
+        const text = String(args?.text || "");
+        const level = args?.level || "info";
+
+        const item = {
+          id: ++this._seq,
+          time: Date.now(),
+          level,
+          text
+        };
+
+        if (!app.data.logs) {
+          app.data.logs = [];
+        }
+        app.data.logs.push(item);
+        if (app.data.logs.length > 500) {
+          app.data.logs.shift();
+        }
+
+        if (io) {
+          io.emit("app:dispatch", { appId: app.id, action: "log", args: item });
+        }
+        return { ok: true, msg: "日志已记录" };
+      }
+
+      if (action === "discoverGroup") {
+        const groupOpenid = String(args?.groupOpenid || "").trim();
+        if (!groupOpenid) {
+          return { ok: false, msg: "缺少 groupOpenid" };
+        }
+        const inst = this.instances.get(app.id);
+        if (!inst) {
+          return { ok: false, msg: "实例未注册" };
+        }
+        if (!Array.isArray(inst.discoveredGroups)) {
+          inst.discoveredGroups = [];
+        }
+        const record = {
+          groupOpenid,
+          sender: String(args?.sender || "用户"),
+          lastMsg: String(args?.lastMsg || ""),
+          timestamp: Number(args?.timestamp) || Date.now()
+        };
+        inst.discoveredGroups = [
+          record,
+          ...inst.discoveredGroups.filter((item) => item.groupOpenid !== groupOpenid)
+        ].slice(0, 50);
+        if (io) {
+          io.emit("app:dispatch", {
+            appId: app.id,
+            action: "discoveredGroups",
+            args: inst.discoveredGroups
+          });
+        }
+        return { ok: true, msg: "已记录探测群", data: inst.discoveredGroups };
+      }
+
+      if (action === "getDiscoveredGroups") {
+        const inst = this.instances.get(app.id);
+        return {
+          ok: true,
+          msg: "获取已探测群列表成功",
+          data: Array.isArray(inst?.discoveredGroups) ? inst.discoveredGroups : []
+        };
+      }
+
       if (action === "getConfig") {
         return {
           ok: true,
           msg: "获取配置成功",
-          data: app.data.config,
-          pulseMeta,
-          pulseGroups
+          data: app.data.config
         };
       }
 
@@ -256,7 +369,8 @@ export default {
             localConnected: !!(onebot?.ws && onebot.ws.readyState === 1),
             localUrl: cfg["3rd_qqRobotLocal_wsUrl"] || "",
             officialSwitch: !!cfg["3rd_qqRobot_switch"],
-            officialConfigured: !!(cfg["3rd_qqRobot_appid"] && cfg["3rd_qqRobot_secret"] && cfg["3rd_qqRobot_token"]),
+            officialConnected: !!(official?.wsBot),
+            officialConfigured: !!(cfg["3rd_qqRobot_appid"] && cfg["3rd_qqRobot_secret"]),
             officialAppId: cfg["3rd_qqRobot_appid"] || ""
           }
         };
@@ -264,11 +378,15 @@ export default {
 
       if (action === "setPower") {
         const on = !!args?.on;
+        // 互斥开关：若配置了官方凭据，优先以官方为主通道；否则以本地为主通道
+        const preferOfficial = !!(app.data.config["3rd_qqRobot_appid"] && app.data.config["3rd_qqRobot_secret"]);
+
         app.data.config = {
           ...app.data.config,
-          "3rd_qqRobot_switch": on,
-          "3rd_qqRobotLocal_switch": on
+          "3rd_qqRobot_switch": preferOfficial ? on : false,
+          "3rd_qqRobotLocal_switch": preferOfficial ? false : on
         };
+
         io.emit("app:dispatch", {
           appId: app.id,
           action: "updateConfig",
@@ -277,21 +395,121 @@ export default {
 
         projectManager.markDirty();
 
+        await this.startConnections(app, appManager);
         if (on) {
-          await this.startConnections(app, appManager);
           await this.initSubAgents(app, appManager);
         }
 
-        qlog(`[qqBot] 机器人已${on ? "启动" : "停止"}`, "conn");
-        return { ok: true, msg: on ? "机器人已启动" : "机器人已停止" };
+        const modeName = preferOfficial ? "官方机器人" : "本地OneBot";
+        this.dispatch({ app, action: "log", args: { text: `[qqBot] ${modeName}已${on ? "启动" : "停止"}`, level: "conn" }, appManager, io });
+        return { ok: true, msg: on ? `${modeName}已启动` : `${modeName}已停止` };
+      }
+
+      if (action === "startQrBind") {
+        try {
+          const { startQrConnect } = await import("@tencent-connect/qqbot-connector");
+          const session = this.instances.get(app.id);
+          if (session?.qrStop) {
+            try { session.qrStop(); } catch (e) {}
+            session.qrStop = null;
+          }
+
+          this.dispatch({ app, action: "log", args: { text: "[qqBot] 正在生成手机 QQ 扫码连接凭证...", level: "conn" }, appManager, io });
+
+          const qrStopFn = startQrConnect({
+            onSuccess: async (credentials) => {
+              const cred = credentials?.[0];
+              if (cred?.appId && cred?.appSecret) {
+                this.dispatch({
+                  app,
+                  action: "log",
+                  args: { text: `[qqBot] 扫码绑定成功！已获取 AppID: ${cred.appId}，正在自动切换并启动官方长连接...`, level: "conn" },
+                  appManager,
+                  io
+                });
+                app.data.config["3rd_qqRobot_appid"] = cred.appId;
+                app.data.config["3rd_qqRobot_secret"] = cred.appSecret;
+                // 互斥切换：打开官方机器人，关闭本地 OneBot
+                app.data.config["3rd_qqRobot_switch"] = true;
+                app.data.config["3rd_qqRobotLocal_switch"] = false;
+                projectManager.markDirty();
+
+                // 立即拉起官方长连接，满足手机端的实时握手在线验证
+                this.startConnections(app, appManager);
+
+                io.emit("app:dispatch", {
+                  appId: app.id,
+                  action: "updateConfig",
+                  args: { config: app.data.config }
+                });
+
+                io.emit("app:dispatch", {
+                  appId: app.id,
+                  action: "qrBindSuccess",
+                  args: { appId: cred.appId, appSecret: cred.appSecret }
+                });
+              }
+              if (session) session.qrStop = null;
+            },
+            onFailure: (error) => {
+              const errText = `[qqBot] 扫码流程中止或失败: ${error?.message || error}`;
+              console.error(errText);
+              this.dispatch({ app, action: "log", args: { text: errText, level: "error" }, appManager, io });
+              io.emit("app:dispatch", {
+                appId: app.id,
+                action: "qrBindFailure",
+                args: { message: error?.message || String(error) }
+              });
+              if (session) session.qrStop = null;
+            },
+            onQrDisplayed: async (url) => {
+              let qrImg = "";
+              try {
+                const QRCode = (await import("qrcode")).default;
+                qrImg = await QRCode.toDataURL(url, { margin: 1, width: 220 });
+              } catch (qrErr) {
+                console.error(`[qqBot] 二维码生成图片失败: ${qrErr.message}`);
+                this.dispatch({ app, action: "log", args: { text: `[qqBot] 二维码生成图片失败: ${qrErr.message}`, level: "error" }, appManager, io });
+              }
+              this.dispatch({ app, action: "log", args: { text: `[qqBot] 二维码就绪，手机 QQ 授权链接: ${url}`, level: "conn" }, appManager, io });
+              io.emit("app:dispatch", {
+                appId: app.id,
+                action: "qrDisplayed",
+                args: { url, qrImg }
+              });
+            }
+          }, {
+            displayQrCodeToConsole: true
+          });
+
+          if (session) session.qrStop = qrStopFn;
+
+          return { ok: true, msg: "扫码任务已创建，请在终端查看二维码或在弹窗中扫码" };
+        } catch (err) {
+          console.error(`[qqBot] 调起扫码失败: ${err.message}`);
+          this.dispatch({ app, action: "log", args: { text: `[qqBot] 调起扫码失败: ${err.message}`, level: "error" }, appManager, io });
+          return { ok: false, msg: err.message };
+        }
+      }
+
+      if (action === "stopQrBind") {
+        const session = this.instances.get(app.id);
+        if (session?.qrStop) {
+          try { session.qrStop(); } catch (e) {}
+          session.qrStop = null;
+        }
+        return { ok: true, msg: "扫码流程已取消" };
       }
 
       if (action === "getLogs") {
-        return { ok: true, msg: "获取日志成功", data: getLogs(args?.sinceId) };
+        const logs = app.data.logs || [];
+        const sinceId = args?.sinceId ? Number(args.sinceId) : 0;
+        const data = sinceId > 0 ? logs.filter(item => item.id > sinceId) : logs;
+        return { ok: true, msg: "获取日志成功", data };
       }
 
       if (action === "clearLogs") {
-        clearLogs();
+        app.data.logs = [];
         return { ok: true, msg: "日志已清空" };
       }
 
@@ -305,7 +523,7 @@ export default {
           action: "updateConfig",
           args: { config: app.data.config }
         });
-        qlog("[qqBot] 社交脉冲参数已恢复默认", "conn");
+        this.dispatch({ app, action: "log", args: { text: "[qqBot] 社交脉冲参数已恢复默认", level: "conn" }, appManager, io });
         return { ok: true, msg: "已恢复默认参数" };
       }
 
@@ -318,12 +536,10 @@ export default {
           args: { config: app.data.config }
         });
 
-
         // 打通 owo 存档持久化：配置变更后标记项目为脏
-        
         projectManager.markDirty();
 
-        qlog("[qqBot] 配置已更新", "conn");
+        this.dispatch({ app, action: "log", args: { text: "[qqBot] 配置已更新", level: "conn" }, appManager, io });
 
         await this.startConnections(app, appManager); //启动websocket链接
         const result = await this.initSubAgents(app, appManager);
@@ -367,17 +583,44 @@ export default {
 
       return { ok: false, msg: `未知动作: ${action}` };
     } catch (err) {
-      qlog(`[qqBot] dispatch 错误: ${err.message}`, "error");
+      console.error(`[qqBot] dispatch 错误: ${err.message}`);
+      this.dispatch({ app, action: "log", args: { text: `[qqBot] dispatch 错误: ${err.message}`, level: "error" }, appManager, io });
       return { ok: false, msg: err.message };
     }
   },
 
   /**
-   * 销毁：App 关闭时执行
+   * 销毁：App 实例关闭时执行
    */
   async destroy(app, appManager) {
-    if (onebot?.stop) onebot.stop();
-    qlog("[qqBot] 后端已停机", "conn");
-    this.app = null;
+    const session = this.instances.get(app.id);
+    if (session?.qrStop) {
+      try { session.qrStop(); } catch (e) {}
+      session.qrStop = null;
+    }
+    this.dispatch({
+      app,
+      action: "log",
+      args: { text: `[qqBot] 实例已停机: ${app.id}`, level: "conn" },
+      appManager,
+      io: appManager?.io
+    });
+
+    // 从实例注册表中注销
+    this.instances.delete(app.id);
+
+    // 仅当所有实例全部关闭时，才停止底层全局网络连接，绝不伤及其他存活实例
+    if (this.instances.size === 0) {
+      if (onebot?.stop) onebot.stop();
+      if (official?.wsStop) await official.wsStop();
+      this.app = null;
+      this.appManager = null;
+      msgCenter.init(null, null);
+    } else {
+      const nextSession = this.instances.values().next().value;
+      this.app = nextSession.app;
+      this.appManager = nextSession.appManager;
+      msgCenter.init(nextSession.app, nextSession.appManager);
+    }
   }
 };

@@ -52,13 +52,13 @@ export default {
     // 拦截无工作区时的跨文件全局操作
     const globalOps = ['workspaceSymbol', 'findReferences', 'goToDefinition']
     if (!mainDir && globalOps.includes(op)) {
-      return `错误：未设置工作目录，LSP 引擎当前处于“单文件游离模式”，无法执行跨文件的 ${op} 操作。请先要求用户在界面配置工作目录，然后再重试。`
+      return `错误：未设置工作目录，LSP 引擎当前处于“单文件游离模式”，无法执行跨文件的 ${op} 操作。请先请求管理员在界面配置工作目录，然后再重试。`
     }
 
     // 处理 filePath
     let targetFilePath = params.filePath || ""
     if (!mainDir && targetFilePath && !pathLib.isAbsolute(targetFilePath)) {
-      return "错误：当前会话未设置工作目录。请先要求用户配置工作目录，或者在使用工具时提供绝对路径。"
+      return "错误：当前会话未设置工作目录。请先要求管理员配置工作目录，或者在使用工具时提供绝对路径。"
     }
 
     const resolvedPath = targetFilePath
@@ -81,8 +81,8 @@ export default {
             toolId: this.id
           }
         })
-        if (!userConfirm.ok) return `用户拒绝访问项目外文件：${resolvedPath}。原因：${userConfirm.comment || "未提供"}`
-        if (userConfirm.comment) commentSuffix = `用户备注：${userConfirm.comment}\n\n`
+        if (!userConfirm.ok) return `管理员拒绝访问项目外文件：${resolvedPath}。原因：${userConfirm.comment || "未提供"}`
+        if (userConfirm.comment) commentSuffix = `管理员备注：${userConfirm.comment}\n\n`
       }
     }
 
@@ -98,7 +98,7 @@ export default {
       const client = await lspManager.getClientForFile(resolvedPath, mainDir)
       if (!client) {
         const ext = pathLib.extname(targetFilePath || "")
-        return `未找到支持 ${ext || "当前项目"} 的 LSP 服务器。你可以提示用户是否需要你（AI）帮忙将其安装到隔离工具区 (~/.owo-terminal/ext)。如果用户同意安装，请重新调用 lspTool 并传入 { "installServer": { "ext": "${ext || '.ts'}" } }。`
+        return `未找到支持 ${ext || "当前项目"} 的 LSP 服务器。你可以提示管理员是否需要你（AI）帮忙将其安装到隔离工具区 (~/.owo-terminal/ext)。如果管理员同意安装，请重新调用 lspTool 并传入 { "installServer": { "ext": "${ext || '.ts'}" } }。`
       }
 
       // 同步文件内容

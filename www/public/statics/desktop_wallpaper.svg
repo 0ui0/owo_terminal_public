@@ -1,0 +1,117 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <!-- 柔和氛围光斑（自适应深浅三套底色） -->
+    <radialGradient id="orbWarm" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#ffdb66" stop-opacity="0.30"/>
+      <stop offset="55%" stop-color="#ff9f7a" stop-opacity="0.12"/>
+      <stop offset="100%" stop-color="#ff9f7a" stop-opacity="0"/>
+    </radialGradient>
+
+    <radialGradient id="orbCool" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#53a6ff" stop-opacity="0.28"/>
+      <stop offset="55%" stop-color="#8c7ae6" stop-opacity="0.12"/>
+      <stop offset="100%" stop-color="#8c7ae6" stop-opacity="0"/>
+    </radialGradient>
+
+    <radialGradient id="orbRose" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#ff7675" stop-opacity="0.22"/>
+      <stop offset="60%" stop-color="#fab1a0" stop-opacity="0.08"/>
+      <stop offset="100%" stop-color="#fab1a0" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- 丝绸极光飘带渐变 -->
+    <linearGradient id="ribbonA" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#53a6ff" stop-opacity="0.22"/>
+      <stop offset="50%" stop-color="#a29bfe" stop-opacity="0.16"/>
+      <stop offset="100%" stop-color="#ffdb66" stop-opacity="0.20"/>
+    </linearGradient>
+
+    <linearGradient id="ribbonB" x1="100%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#ff7675" stop-opacity="0.18"/>
+      <stop offset="50%" stop-color="#ffdb66" stop-opacity="0.14"/>
+      <stop offset="100%" stop-color="#74b9ff" stop-opacity="0.18"/>
+    </linearGradient>
+
+    <!-- 远山层叠渐变 -->
+    <linearGradient id="hillFar" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#74b9ff" stop-opacity="0.14"/>
+      <stop offset="100%" stop-color="#6c5ce7" stop-opacity="0.04"/>
+    </linearGradient>
+
+    <linearGradient id="hillMid" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#a29bfe" stop-opacity="0.15"/>
+      <stop offset="100%" stop-color="#2d3436" stop-opacity="0.10"/>
+    </linearGradient>
+
+    <linearGradient id="hillNear" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#ff9f7a" stop-opacity="0.14"/>
+      <stop offset="100%" stop-color="#2d3436" stop-opacity="0.16"/>
+    </linearGradient>
+
+    <!-- 微光高光描边 -->
+    <linearGradient id="crestGlow" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0"/>
+      <stop offset="50%" stop-color="#ffffff" stop-opacity="0.28"/>
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+
+  <!-- 1. 柔和弥散氛围光晕 -->
+  <ellipse cx="340" cy="240" rx="580" ry="420" fill="url(#orbCool)"/>
+  <ellipse cx="1560" cy="260" rx="620" ry="460" fill="url(#orbWarm)"/>
+  <ellipse cx="1020" cy="760" rx="640" ry="380" fill="url(#orbRose)"/>
+
+  <!-- 2. iOS / macOS 风格流动丝绸光带 -->
+  <path
+    d="M -120 420 C 260 220, 620 560, 1020 350 C 1380 160, 1660 360, 2040 210 L 2040 460 C 1680 610, 1340 380, 980 560 C 580 760, 240 440, -120 620 Z"
+    fill="url(#ribbonA)"
+  />
+  <path
+    d="M -120 580 C 320 410, 740 720, 1180 480 C 1540 290, 1780 520, 2040 400 L 2040 620 C 1720 740, 1460 520, 1120 680 C 700 880, 300 580, -120 760 Z"
+    fill="url(#ribbonB)"
+  />
+
+  <!-- 3. 层叠雾面远山 -->
+  <path
+    d="M -80 820 C 260 680, 540 720, 880 810 C 1220 900, 1520 670, 2000 780 L 2000 1120 L -80 1120 Z"
+    fill="url(#hillFar)"
+  />
+  <path
+    d="M -80 820 C 260 680, 540 720, 880 810 C 1220 900, 1520 670, 2000 780"
+    fill="none"
+    stroke="url(#crestGlow)"
+    stroke-width="2"
+  />
+
+  <path
+    d="M -80 900 C 340 770, 720 960, 1140 840 C 1480 745, 1740 830, 2000 890 L 2000 1120 L -80 1120 Z"
+    fill="url(#hillMid)"
+  />
+  <path
+    d="M -80 900 C 340 770, 720 960, 1140 840 C 1480 745, 1740 830, 2000 890"
+    fill="none"
+    stroke="url(#crestGlow)"
+    stroke-width="1.5"
+  />
+
+  <path
+    d="M -80 980 C 380 890, 780 1030, 1280 930 C 1600 865, 1820 925, 2000 965 L 2000 1120 L -80 1120 Z"
+    fill="url(#hillNear)"
+  />
+
+  <!-- 4. 右上角柔和星月与极简微尘点缀 -->
+  <g opacity="0.32">
+    <path
+      d="M 1640 165 A 42 42 0 1 0 1692 225 A 34 34 0 1 1 1640 165 Z"
+      fill="#ffdb66"
+    />
+    <circle cx="1520" cy="140" r="3" fill="#ffffff"/>
+    <circle cx="1745" cy="150" r="2.2" fill="#ffffff"/>
+    <circle cx="1430" cy="240" r="2" fill="#ffffff"/>
+    <circle cx="1805" cy="270" r="2.6" fill="#ffdb66"/>
+    <circle cx="460" cy="175" r="2.2" fill="#ffffff"/>
+    <circle cx="620" cy="255" r="1.8" fill="#ffffff"/>
+    <circle cx="960" cy="150" r="2.4" fill="#ffdb66"/>
+    <circle cx="1210" cy="210" r="1.8" fill="#ffffff"/>
+  </g>
+</svg>

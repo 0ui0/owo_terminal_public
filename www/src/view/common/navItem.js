@@ -1,4 +1,5 @@
 import getColor from "./getColor.js"
+import getSize from "./getSize.js"
 import commonData from "./commonData.js"
 import Notice from "./notice.js"
 import { trs } from "./i18n.js"
@@ -146,8 +147,8 @@ export default function () {
               "user-select": "none",
               "-webkit-user-select": "none",
               display: "relative",
-              margin: "0 0.5rem",
-              borderRadius: item.type === "program" ? "0.6rem" : "0",
+              margin: `0 ${getSize(1)}rem`,
+              borderRadius: item.type === "program" ? `${getSize(2)}rem` : "0",
               objectFit: item.type === "program" ? "cover" : "initial",
               width: `${(baseIconSize * item.sizeRate * barZoomRate).toFixed(2)}rem`,
               height: `${(baseIconSize * item.sizeRate * barZoomRate).toFixed(2)}rem`,
@@ -162,15 +163,15 @@ export default function () {
           tab ? m(".nav-indicator", {
             style: {
               position: "absolute",
-              bottom: "-0.25rem",
+              bottom: `-${getSize(0.5)}rem`,
               left: "50%",
               transform: "translateX(-50%)",
-              width: !tab._winConfig.minimized && Notice.data.activeWindowId === tab._winConfig.id ? "1.4rem" : "0.5rem",
-              height: !tab._winConfig.minimized && Notice.data.activeWindowId === tab._winConfig.id ? "0.3rem" : "0.5rem",
-              borderRadius: !tab._winConfig.minimized && Notice.data.activeWindowId === tab._winConfig.id ? "0.2rem" : "50%",
+              width: !tab._winConfig.minimized && Notice.data.activeWindowId === tab._winConfig.id ? `${getSize(3)}rem` : `${getSize(1)}rem`,
+              height: !tab._winConfig.minimized && Notice.data.activeWindowId === tab._winConfig.id ? `${getSize(1)}rem` : `${getSize(1)}rem`,
+              borderRadius: !tab._winConfig.minimized && Notice.data.activeWindowId === tab._winConfig.id ? `${getSize(0.5)}rem` : "50%",
               backgroundColor: tab._winConfig.minimized ? getColor('yellow_1').back : (Notice.data.activeWindowId === tab._winConfig.id ? getColor('green_1').back : getColor('gray_8').back),
-              boxShadow: !tab._winConfig.minimized && Notice.data.activeWindowId === tab._winConfig.id ? `0 0 6px ${getColor('green_1').back}` : (tab._winConfig.minimized ? `0 0 6px ${getColor('yellow_1').back}` : `0 0 3px ${getColor('gray_6').back}`),
-              border: tab._winConfig.minimized ? `1.5px solid ${getColor('gray_8').back}` : "none",
+              boxShadow: !tab._winConfig.minimized && Notice.data.activeWindowId === tab._winConfig.id ? `0 0 ${getSize(2)}rem ${getColor('green_1').back}` : (tab._winConfig.minimized ? `0 0 ${getSize(2)}rem ${getColor('yellow_1').back}` : `0 0 ${getSize(1)}rem ${getColor('gray_6').back}`),
+              border: tab._winConfig.minimized ? `${getSize(0.5)}rem solid ${getColor('gray_8').back}` : "none",
               pointerEvents: "none",
               transition: "all 0.3s ease"
             }
@@ -198,13 +199,13 @@ export default function () {
               "-webkit-user-select": "none",
               position: "absolute",
               minWidth: "max-content",
-              maxWidth: "8rem",
-              top: "-3.5rem",
-              height: item.type === "program" || m.route.get().match(item.url) ? "2rem" : "0",
-              width: item.type === "program" || m.route.get().match(item.url) ? (item.type === "program" ? "auto" : "4rem") : "0",
+              maxWidth: `${getSize(20)}rem`,
+              top: `-${getSize(9)}rem`,
+              height: item.type === "program" || m.route.get().match(item.url) ? `${getSize(5)}rem` : "0",
+              width: item.type === "program" || m.route.get().match(item.url) ? (item.type === "program" ? "auto" : `${getSize(10)}rem`) : "0",
               background: "rgba(0,0,0,0.5)",
-              borderRadius: "1rem",
-              padding: "0 0.4rem",
+              borderRadius: `${getSize(3)}rem`,
+              padding: `0 ${getSize(1)}rem`,
               boxSizing: "border-box",
               transition: "all 0.8s",
               textAlign: "center",
@@ -212,8 +213,8 @@ export default function () {
               justifyContent: "center",
               alignItems: "center",
               transform: "scale(0.8)",
-              "backdrop-filter": "blur(5px)",
-              "-webkit-backdrop-filter": "blur(5px)"
+              "backdrop-filter": `blur(${getSize(2)}rem)`,
+              "-webkit-backdrop-filter": `blur(${getSize(2)}rem)`
             }
           }, [
             item.type === "program" || m.route.get().match(item.url) ?
@@ -228,10 +229,10 @@ export default function () {
                   "-webkit-user-select": "none",
                   opacity: 0,
                   transition: "all 0.8s",
-                  fontSize: "1rem",
-                  lineHeight: "2rem",
+                  fontSize: `${getSize(3)}rem`,
+                  lineHeight: `${getSize(5)}rem`,
                   color: "#eee",
-                  margin: "0 0.2rem",
+                  margin: `0 ${getSize(0.5)}rem`,
                   whiteSpace: "nowrap",
                   overflow: "hidden",
                   textOverflow: "ellipsis"

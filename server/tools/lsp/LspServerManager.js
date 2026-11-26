@@ -30,29 +30,30 @@ class LspServerManager {
   }
 
   /**
-   * 智能寻址：找到最合适的可执行文件路径
+   * 智能寻址：100% 绑定软件随包内置的语言服务器物理入口，彻底切除外部环境与 PATH 依赖
    */
-  resolveCommandPath(command, mainDir) {
-    const userHome = os.homedir();
-    const searchPaths = [];
-    const commands = process.platform === 'win32' ? [`${command}.cmd`, command] : [command];
-
-    for (const cmd of commands) {
-      if (mainDir) {
-        searchPaths.push(path.join(mainDir, 'node_modules', '.bin', cmd));
-      }
-      searchPaths.push(path.join(userHome, '.owo-terminal', 'ext', 'node_modules', '.bin', cmd));
-      searchPaths.push(path.join(appRootDir, 'node_modules', '.bin', cmd));
-    }
-
-    for (const p of searchPaths) {
-      if (fsSync.existsSync(p)) {
-        return p;
+  resolveCommandPath(command) {
+    if (command === 'typescript-language-server') {
+      const builtinCliPath = path.join(appRootDir, 'node_modules', 'typescript-language-server', 'lib', 'cli.mjs');
+      if (fsSync.existsSync(builtinCliPath)) {
+        return {
+          isBuiltinNodeScript: true,
+          scriptPath: builtinCliPath,
+          command
+        };
       }
     }
 
-    // 默认回滚到 PATH
-    return command;
+    // 若未来随包内置其他 Node 脚本语言服务器，可在此直接映射真实入口文件
+    const builtinBin = path.join(appRootDir, 'node_modules', '.bin', process.platform === 'win32' ? `${command}.cmd` : command);
+    if (fsSync.existsSync(builtinBin)) {
+      return {
+        isBuiltinNodeScript: false,
+        command: builtinBin
+      };
+    }
+
+    return null;
   }
 
   /**
@@ -94,9 +95,18 @@ class LspServerManager {
       return serverMap.get(config.command);
     }
 
-    const resolvedCommand = this.resolveCommandPath(config.command, mainDir);
+    const resolved = this.resolveCommandPath(config.command);
+    if (!resolved) {
+      console.warn(`[LSP] 未找到随包内置的语言服务器: ${config.command}`);
+      return null;
+    }
+
     const clientCwd = mainDir && fsSync.existsSync(mainDir) ? mainDir : process.cwd();
-    const client = new LspClient(config.command, resolvedCommand, config.args, { cwd: clientCwd });
+    const client = new LspClient(config.command, resolved.command, config.args, {
+      cwd: clientCwd,
+      isBuiltinNodeScript: resolved.isBuiltinNodeScript,
+      scriptPath: resolved.scriptPath
+    });
 
     try {
       await client.start();
@@ -283,7 +293,7 @@ class LspServerManager {
 
   /**
    * 清除除了指定有效目录以外的所有残留工作区 LSP 实例
-   * @param {string[]} validDirs 当前用户选择的所有有效目录数组
+   * @param {string[]} validDirs 当前管理员选择的所有有效目录数组
    */
   async retainOnlyWorkspaces(validDirs = []) {
     const resolvedValid = new Set(validDirs.filter(Boolean).map(d => path.resolve(d)));
@@ -372,7 +382,7 @@ class LspServerManager {
             textDocument: { uri: pathToFileURL(foundFile).href }
           });
           const timeoutPromise = new Promise((_, reject) =>
-            setTimeout(() => reject(new Error("AST预热请求超时 (3000ms)")), 10000)
+            setTimeout(() => reject(new Error("AST预热请求超时 (8000ms)")), 8000)
           );
           await Promise.race([requestPromise, timeoutPromise]);
         } catch (e) {

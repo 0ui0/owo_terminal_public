@@ -8,6 +8,8 @@
 
 ## 1. 架构全景图
 
+> 所有app开发均允许系统级别的多实例运行，请勿开发成单例
+
 ### 1.1 系统与应用关系
 - **Server Core** (`server/apps/appManager.js`): 负责 App 的生命周期管理、热重载监听、后端逻辑执行。
 - **Client Core** (`ioSocket.js` + `commonData`): 负责 Socket 通信、应用注册表维护、依赖注入。
